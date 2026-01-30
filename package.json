@@ -1,0 +1,38 @@
+{
+  "name": "8p3p-control-layer",
+  "version": "1.0.0",
+  "description": "**A vendor-agnostic, contract-driven intelligence engine for adaptive learning systems**",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rhyanvargas/8p3p-control-layer.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/rhyanvargas/8p3p-control-layer/issues"
+  },
+  "homepage": "https://github.com/rhyanvargas/8p3p-control-layer#readme",
+  "dependencies": {
+    "better-sqlite3": "^12.6.2",
+    "fastify": "^5.7.2"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^25.1.0",
+    "@typescript-eslint/eslint-plugin": "^8.54.0",
+    "@typescript-eslint/parser": "^8.54.0",
+    "eslint": "^9.39.2",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18"
+  }
+}
