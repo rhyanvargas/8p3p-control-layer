@@ -23,7 +23,7 @@ Before starting any session, verify where you are:
 | Interface Contracts | ✅ Complete | `docs/foundation/...Component Interface Contracts.md` |
 | Contract Test Matrix | ✅ Complete | `docs/foundation/...Contract Test Matrix.md` |
 | Validation Ruleset | ✅ Complete | `docs/foundation/...Interface Validation Ruleset.md` |
-| Architecture Diagram | ⬜ Not started | Target: `docs/foundation/architecture.md` |
+| Architecture Diagram | ✅ Complete | Target: `docs/foundation/architecture.md` |
 | Repo Execution Plan | ⬜ Not started | Target: `docs/foundation/execution-plan.md` |
 | Project Scaffolding | ⬜ Not started | Target: `src/` |
 | Implementation | ⬜ Not started | — |
@@ -64,7 +64,7 @@ Document must include:
 ### Phase 0 Completion Criteria
 
 You are done with Phase 0 when:
-- [ ] Architecture diagram exists and matches the README lifecycle flow
+- [X] Architecture diagram exists and matches the README lifecycle flow
 - [ ] Execution plan is written and accurate
 - [ ] All foundation docs are in `docs/foundation/`
 - [ ] You can explain the system to a new developer in under 5 minutes using these docs
