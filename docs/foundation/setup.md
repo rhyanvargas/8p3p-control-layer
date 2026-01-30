@@ -1,5 +1,4 @@
-# Execution Plan
-
+# Setup Local Dev
 How to set up, scaffold, run, test, and validate the 8P3P Control Layer locally.
 
 ---
@@ -8,14 +7,17 @@ How to set up, scaffold, run, test, and validate the 8P3P Control Layer locally.
 
 | Item | Status |
 |------|--------|
-| `package.json` | ⬜ Not created |
-| `tsconfig.json` | ⬜ Not created |
-| `vitest.config.ts` | ⬜ Not created |
-| `src/` directory | ⬜ Not created |
-| Dependencies installed | ⬜ Not installed |
-| Database initialized | ⬜ Not created |
+| `package.json` | ✅ Created |
+| `tsconfig.json` | ✅ Created |
+| `vitest.config.ts` | ✅ Created |
+| `src/` directory | ✅ Created |
+| Dependencies installed | ✅ Installed |
+| `data/` in .gitignore | ✅ Added |
+| `.env.example` updated | ✅ Complete |
+| Lifecycle directories | ✅ Created |
+| Database initialized | ⬜ Deferred (created on first use) |
 
-**Starting point:** Empty repository with documentation only.
+**Status:** ✅ Phase 0 scaffolding complete — ready for Phase 1 implementation.
 
 ---
 
@@ -265,10 +267,12 @@ start();
 
 After completing the above steps, verify:
 
-- [ ] `npm install` completes without errors
-- [ ] `npm run typecheck` passes
-- [ ] `npm run dev` starts the server on port 3000
-- [ ] `curl http://localhost:3000/health` returns `{"status":"ok"}`
+- [x] `npm install` completes without errors
+- [x] `npm run typecheck` passes
+- [x] `npm run dev` starts the server on port 3000
+- [x] `curl http://localhost:3000/health` returns `{"status":"ok"}`
+
+**✅ Core scaffolding verified (2025-01-29)**
 
 ---
 
