@@ -23,10 +23,12 @@ Before starting any session, verify where you are:
 | Interface Contracts | ✅ Complete | `docs/foundation/...Component Interface Contracts.md` |
 | Contract Test Matrix | ✅ Complete | `docs/foundation/...Contract Test Matrix.md` |
 | Validation Ruleset | ✅ Complete | `docs/foundation/...Interface Validation Ruleset.md` |
-| Architecture Diagram | ✅ Complete | Target: `docs/foundation/architecture.md` |
-| Repo Execution Plan | ⬜ Not started | Target: `docs/foundation/execution-plan.md` |
-| Project Scaffolding | ⬜ Not started | Target: `src/` |
+| Architecture Diagram | ✅ Complete | `docs/foundation/architecture.md` |
+| Setup Guide | ✅ Complete | `docs/foundation/setup.md` |
+| Project Scaffolding | ✅ Complete | `src/`, `tests/`, `scripts/` |
 | Implementation | ⬜ Not started | — |
+
+**Last updated:** 2025-01-29 — Phase 0 complete, ready for Phase 1.
 
 ---
 
@@ -38,10 +40,10 @@ Before starting any session, verify where you are:
 
 ### Deliverables
 
-| Item | Purpose | Format |
-|------|---------|--------|
-| Architecture Diagram | Visual reference for agents and humans | Mermaid in `docs/foundation/architecture.md` |
-| Execution Plan | How to run, test, deploy locally | Markdown in `docs/foundation/execution-plan.md` |
+| Item | Purpose | Format | Status |
+|------|---------|--------|--------|
+| Architecture Diagram | Visual reference for agents and humans | Mermaid in `docs/foundation/architecture.md` | ✅ |
+| Setup Guide | How to run, test, deploy locally | Markdown in `docs/foundation/setup.md` | ✅ |
 
 ### Architecture Diagram Requirements
 
@@ -51,7 +53,7 @@ Create a Mermaid diagram that shows:
 - External boundaries (API in, API/Event out)
 - Storage touchpoints (Signal Log, STATE store)
 
-### Execution Plan Requirements
+### Setup Guide Requirements
 
 Document must include:
 - Prerequisites (Node.js version, npm/pnpm)
@@ -61,13 +63,18 @@ Document must include:
 - How to validate contracts
 - Environment variables (if any)
 
+✅ All requirements met in `docs/foundation/setup.md`
+
 ### Phase 0 Completion Criteria
 
 You are done with Phase 0 when:
-- [X] Architecture diagram exists and matches the README lifecycle flow
-- [ ] Execution plan is written and accurate
-- [ ] All foundation docs are in `docs/foundation/`
-- [ ] You can explain the system to a new developer in under 5 minutes using these docs
+- [x] Architecture diagram exists and matches the README lifecycle flow
+- [x] Setup guide is written and accurate (`docs/foundation/setup.md`)
+- [x] All foundation docs are in `docs/foundation/`
+- [x] Project scaffolding complete (directories, configs, dependencies)
+- [x] `npm run dev` starts server, `/health` returns 200
+
+**✅ Phase 0 Complete (2025-01-29)**
 
 ---
 
