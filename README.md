@@ -23,44 +23,43 @@ The 8P3P Control Layer is an enterprise-grade intelligence infrastructure that t
 
 ## Architecture
 
-### Lifecycle Flow
+> Full architecture details: [`docs/foundation/architecture.md`](docs/foundation/architecture.md)
 
+### System Overview
+
+```mermaid
+architecture-beta
+    group api_in(cloud)[API_IN]
+    group control_layer(server)[ControlLayer]
+    group api_out(cloud)[API_OUT]
+
+    service ext_systems(internet)[ExternalSystems] in api_in
+    service ingestion(server)[Ingestion] in control_layer
+    service signal_log(database)[SignalLog] in control_layer
+    service state_engine(server)[STATEEngine] in control_layer
+    service state_store(database)[STATEStore] in control_layer
+    service decision_engine(server)[DecisionEngine] in control_layer
+    service output(server)[Output] in control_layer
+    service downstream(internet)[Downstream] in api_out
+
+    ext_systems:R --> L:ingestion
+    ingestion:R --> L:signal_log
+    signal_log:R --> L:state_engine
+    state_engine:B <--> T:state_store
+    state_engine:R --> L:decision_engine
+    decision_engine:R --> L:output
+    output:R --> L:downstream
 ```
-┌─────────────────┐
-│  External       │
-│  Systems        │
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐     ┌─────────────────┐
-│  Signal         │────▶│  Signal Log     │
-│  Ingestion      │     │  (Immutable)    │
-└─────────────────┘     └────────┬────────┘
-                                 │
-                                 ▼
-                        ┌─────────────────┐
-                        │  STATE Engine   │
-                        │  (Authority)    │
-                        └────────┬────────┘
-                                 │
-                                 ▼
-                        ┌─────────────────┐
-                        │  Decision       │
-                        │  Engine         │
-                        └────────┬────────┘
-                                 │
-                                 ▼
-                        ┌─────────────────┐
-                        │  Output         │
-                        │  Interfaces     │
-                        └─────────────────┘
-                                 │
-                                 ▼
-                        ┌─────────────────┐
-                        │  Downstream     │
-                        │  Systems        │
-                        └─────────────────┘
-```
+
+### Lifecycle Stages
+
+| Stage | Component | Responsibility |
+|-------|-----------|----------------|
+| **1** | Signal Ingestion | Receive, validate, and accept signals from external systems |
+| **2** | Signal Log | Store signals immutably with full provenance |
+| **3** | STATE Engine | Apply signals to learner state; single source of truth |
+| **4** | Decision Engine | Evaluate state and generate deterministic decisions |
+| **5** | Output Interfaces | Expose decisions via API and/or events |
 
 ### Key Principles
 
@@ -93,43 +92,54 @@ The control layer supports seven decision types, forming a closed set:
 
 ## Interface Contracts
 
-### Signal Envelope
+| Contract | Schema | Validator |
+|----------|--------|-----------|
+| **Signal Envelope** | [`src/contracts/schemas/signal-envelope.json`](src/contracts/schemas/signal-envelope.json) | [`src/contracts/validators/signal-envelope.ts`](src/contracts/validators/signal-envelope.ts) |
+| **Decision Object** | See [Interface Contracts doc](docs/foundation/) | Planned |
 
-All inbound signals conform to the `SignalEnvelope` schema:
+For detailed contract specifications, see the [Component Interface Contracts](docs/foundation/) documentation.
 
-```json
-{
-  "org_id": "string",
-  "signal_id": "string",
-  "source_system": "string",
-  "learner_reference": "string",
-  "timestamp": "RFC3339 with timezone",
-  "schema_version": "v[0-9]+",
-  "payload": {},
-  "metadata": {
-    "correlation_id": "string",
-    "trace_id": "string"
-  }
-}
+---
+
+## Tech Stack
+
+| Technology | Purpose |
+|------------|---------|
+| **TypeScript** | Primary language |
+| **Fastify** | HTTP server framework |
+| **Ajv** | JSON Schema validation |
+| **better-sqlite3** | SQLite database driver |
+| **Vitest** | Test framework |
+| **ESLint** | Code quality |
+
+> See [`package.json`](package.json) for current versions and all dependencies.
+
+---
+
+## Project Structure
+
 ```
-
-### Decision Object
-
-All outbound decisions follow the `Decision` schema:
-
-```json
-{
-  "org_id": "string",
-  "decision_id": "string",
-  "learner_reference": "string",
-  "decision_type": "reinforce | advance | intervene | pause | escalate | recommend | reroute",
-  "decided_at": "RFC3339",
-  "decision_context": {},
-  "trace": {
-    "state_id": "string",
-    "state_version": "integer"
-  }
-}
+src/
+├── contracts/        # JSON schemas and validators
+│   ├── schemas/      # Signal envelope JSON schema
+│   └── validators/   # Ajv-based validation
+├── ingestion/        # Signal ingestion layer
+│   ├── handler.ts    # Request handling
+│   ├── routes.ts     # API routes
+│   ├── forbidden-keys.ts
+│   └── idempotency.ts
+├── signalLog/        # Immutable signal storage
+│   ├── store.ts      # SQLite-backed storage
+│   ├── handler.ts    # Request handling
+│   ├── routes.ts     # GET /signals routes
+│   └── validator.ts  # Query validation
+├── shared/           # Shared types and error codes
+│   ├── types.ts
+│   └── error-codes.ts
+├── decision/         # Decision engine (planned)
+├── state/            # STATE engine (planned)
+├── output/           # Output interfaces (planned)
+└── server.ts         # Application entry point
 ```
 
 ---
@@ -138,25 +148,44 @@ All outbound decisions follow the `Decision` schema:
 
 | Document | Description |
 |----------|-------------|
+| [Architecture](docs/foundation/architecture.md) | System architecture and data flow |
 | [Component Interface Contracts](docs/foundation/) | Complete API and event schemas |
 | [Contract Test Matrix](docs/foundation/) | Comprehensive test cases for validation |
 | [Interface Validation Ruleset](docs/foundation/) | Structural validation rules and error codes |
+
+### Specifications
+
+| Spec | Description |
+|------|-------------|
+| [Signal Ingestion](docs/specs/signal-ingestion.md) | Signal ingestion API specification |
+| [Signal Log](docs/specs/signal-log.md) | Immutable signal storage specification |
 
 ---
 
 ## Project Status
 
-This project is currently in the **design and specification phase**. The foundational contracts and validation rules have been defined.
+This project is in **active development**. The foundational contracts, validation rules, and initial components have been implemented.
 
 ### Completed
 - [x] Component interface contracts
 - [x] Contract test matrix
 - [x] Interface validation ruleset
+- [x] Technology stack selection (TypeScript, Fastify, Ajv, Vitest)
+- [x] Project scaffolding
+- [x] Signal Ingestion layer implementation
+- [x] Signal Envelope schema and validators
+- [x] Signal Log store and query API implementation
+- [x] Contract tests for Signal Ingestion
+- [x] Contract tests for Signal Log
+- [x] Unit tests for idempotency, forbidden-keys, signal-log-store
 
-### Next Steps
-- [ ] Technology stack selection
-- [ ] Project scaffolding
-- [ ] Reference implementation
+### In Progress
+- [ ] STATE Engine implementation
+- [ ] Decision Engine implementation
+
+### Planned
+- [ ] Output Interfaces
+- [ ] EventBridge integration (Phase 3)
 - [ ] SDK development
 
 ---
