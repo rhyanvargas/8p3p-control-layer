@@ -4,46 +4,46 @@ overview: Implement POST /signals endpoint as Stage 1 of the control layer lifec
 todos:
   - id: PREREQ-001
     content: Install Ajv dependency
-    status: pending
+    status: completed
   - id: TASK-001
     content: Create Shared Types
-    status: pending
+    status: completed
   - id: TASK-002
     content: Create Error Codes
-    status: pending
+    status: completed
   - id: TASK-003
     content: Create JSON Schema
-    status: pending
+    status: completed
   - id: TASK-004
     content: Create Ajv Validator
-    status: pending
+    status: completed
   - id: TASK-005
     content: Create Forbidden Keys Detector
-    status: pending
+    status: completed
   - id: TASK-006
     content: Create Forbidden Keys Unit Tests
-    status: pending
+    status: completed
   - id: TASK-007
     content: Create Idempotency Store
-    status: pending
+    status: completed
   - id: TASK-008
     content: Create Idempotency Unit Tests
-    status: pending
+    status: completed
   - id: TASK-009
     content: Create Ingestion Handler
-    status: pending
+    status: completed
   - id: TASK-010
     content: Create Fastify Routes
-    status: pending
+    status: completed
   - id: TASK-011
     content: Integrate Routes with Server
-    status: pending
+    status: completed
   - id: TASK-012
     content: Create Contract Tests
-    status: pending
+    status: completed
   - id: TASK-013
     content: Final Verification
-    status: pending
+    status: completed
 isProject: false
 ---
 
@@ -61,7 +61,7 @@ Before starting implementation:
 
 ### PREREQ-001: Install Ajv Dependency
 
-- **Status**: pending
+- **Status**: completed
 - **Files**: `package.json`
 - **Action**: Install
 - **Details**: Run `npm install ajv` to add JSON Schema validation library
@@ -72,7 +72,7 @@ Before starting implementation:
 
 ### TASK-001: Create Shared Types
 
-- **Status**: pending
+- **Status**: completed
 - **Files**: `src/shared/types.ts`
 - **Action**: Create
 - **Details**: Define TypeScript interfaces:
@@ -87,7 +87,7 @@ Before starting implementation:
 
 ### TASK-002: Create Error Codes
 
-- **Status**: pending
+- **Status**: completed
 - **Files**: `src/shared/error-codes.ts`
 - **Action**: Create
 - **Details**: Define canonical error codes as string constants:
@@ -110,7 +110,7 @@ Before starting implementation:
 
 ### TASK-003: Create JSON Schema
 
-- **Status**: pending
+- **Status**: completed
 - **Files**: `src/contracts/schemas/signal-envelope.json`
 - **Action**: Create
 - **Details**: Define JSON Schema for SignalEnvelope:
@@ -130,7 +130,7 @@ Before starting implementation:
 
 ### TASK-004: Create Ajv Validator
 
-- **Status**: pending
+- **Status**: completed
 - **Files**: `src/contracts/validators/signal-envelope.ts`
 - **Action**: Create
 - **Details**: 
@@ -146,7 +146,7 @@ Before starting implementation:
 
 ### TASK-005: Create Forbidden Keys Detector
 
-- **Status**: pending
+- **Status**: completed
 - **Files**: `src/ingestion/forbidden-keys.ts`
 - **Action**: Create
 - **Details**:
@@ -161,7 +161,7 @@ Before starting implementation:
 
 ### TASK-006: Create Forbidden Keys Unit Tests
 
-- **Status**: pending
+- **Status**: completed
 - **Files**: `tests/unit/forbidden-keys.test.ts`
 - **Action**: Create
 - **Details**:
@@ -177,7 +177,7 @@ Before starting implementation:
 
 ### TASK-007: Create Idempotency Store
 
-- **Status**: pending
+- **Status**: completed
 - **Files**: `src/ingestion/idempotency.ts`
 - **Action**: Create
 - **Details**:
@@ -194,7 +194,7 @@ Before starting implementation:
 
 ### TASK-008: Create Idempotency Unit Tests
 
-- **Status**: pending
+- **Status**: completed
 - **Files**: `tests/unit/idempotency.test.ts`
 - **Action**: Create
 - **Details**:
@@ -210,7 +210,7 @@ Before starting implementation:
 
 ### TASK-009: Create Ingestion Handler
 
-- **Status**: pending
+- **Status**: completed
 - **Files**: `src/ingestion/handler.ts`
 - **Action**: Create
 - **Details**:
@@ -229,7 +229,7 @@ Before starting implementation:
 
 ### TASK-010: Create Fastify Routes
 
-- **Status**: pending
+- **Status**: completed
 - **Files**: `src/ingestion/routes.ts`
 - **Action**: Create
 - **Details**:
@@ -244,7 +244,7 @@ Before starting implementation:
 
 ### TASK-011: Integrate Routes with Server
 
-- **Status**: pending
+- **Status**: completed
 - **Files**: `src/server.ts`
 - **Action**: Modify
 - **Details**:
@@ -259,7 +259,7 @@ Before starting implementation:
 
 ### TASK-012: Create Contract Tests
 
-- **Status**: pending
+- **Status**: completed
 - **Files**: `tests/contracts/signal-ingestion.test.ts`
 - **Action**: Create
 - **Details**: Implement all 11 contract tests:
@@ -281,7 +281,7 @@ Before starting implementation:
 
 ### TASK-013: Final Verification
 
-- **Status**: pending
+- **Status**: completed
 - **Files**: none
 - **Action**: Verify
 - **Details**:
