@@ -1,4 +1,20 @@
 import Fastify from 'fastify';
+import { registerIngestionRoutes } from './ingestion/routes.js';
+import { initIdempotencyStore } from './ingestion/idempotency.js';
+
+// Initialize idempotency store with SQLite
+const dbPath = process.env.IDEMPOTENCY_DB_PATH ?? './data/idempotency.db';
+
+// Ensure data directory exists for SQLite database
+import { mkdirSync } from 'fs';
+import { dirname } from 'path';
+try {
+  mkdirSync(dirname(dbPath), { recursive: true });
+} catch {
+  // Directory may already exist
+}
+
+initIdempotencyStore(dbPath);
 
 const server = Fastify({
   logger: {
@@ -17,6 +33,9 @@ server.get('/', async () => {
 server.get('/health', async () => {
   return { status: 'ok' };
 });
+
+// Register Signal Ingestion routes
+registerIngestionRoutes(server);
 
 const start = async () => {
   try {
