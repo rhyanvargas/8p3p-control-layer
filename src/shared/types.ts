@@ -74,3 +74,60 @@ export interface IdempotencyResult {
   isDuplicate: boolean;
   receivedAt?: string;
 }
+
+// =============================================================================
+// Signal Log Types (Stage 2)
+// =============================================================================
+
+/**
+ * Signal record stored in the Signal Log
+ * Extends SignalEnvelope with accepted_at timestamp
+ */
+export interface SignalRecord extends SignalEnvelope {
+  /** When the signal was accepted by ingestion (RFC3339) */
+  accepted_at: string;
+}
+
+/**
+ * Query parameters for GET /signals endpoint
+ */
+export interface SignalLogReadRequest {
+  /** Organization ID (required for tenant isolation) */
+  org_id: string;
+  /** Learner identifier to query signals for */
+  learner_reference: string;
+  /** Start of time window (RFC3339) */
+  from_time: string;
+  /** End of time window (RFC3339) */
+  to_time: string;
+  /** Opaque pagination token from previous response */
+  page_token?: string;
+  /** Number of results per page (1-1000, default 100) */
+  page_size?: number;
+}
+
+/**
+ * Response from GET /signals endpoint
+ */
+export interface SignalLogReadResponse {
+  /** Organization ID for the query */
+  org_id: string;
+  /** Learner identifier queried */
+  learner_reference: string;
+  /** Array of signal records matching the query */
+  signals: SignalRecord[];
+  /** Token for next page, or null if no more results */
+  next_page_token: string | null;
+}
+
+/**
+ * Internal query result from signal log store
+ */
+export interface SignalLogQueryResult {
+  /** Signal records for current page */
+  signals: SignalRecord[];
+  /** Whether there are more results after this page */
+  hasMore: boolean;
+  /** Cursor position for next page (internal use) */
+  nextCursor?: number;
+}

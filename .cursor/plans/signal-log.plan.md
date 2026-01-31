@@ -4,37 +4,37 @@ overview: Implement the Signal Log component (Stage 2 of the control layer lifec
 todos:
   - id: TASK-001
     content: Add Signal Log Types
-    status: pending
+    status: completed
   - id: TASK-002
     content: Add Signal Log Error Codes
-    status: pending
+    status: completed
   - id: TASK-003
     content: Create Signal Log Store
-    status: pending
+    status: completed
   - id: TASK-004
     content: Create Signal Log Store Unit Tests
-    status: pending
+    status: completed
   - id: TASK-005
     content: Create Signal Log Validator
-    status: pending
+    status: completed
   - id: TASK-006
     content: Create Signal Log Handler
-    status: pending
+    status: completed
   - id: TASK-007
     content: Create Signal Log Routes
-    status: pending
+    status: completed
   - id: TASK-008
     content: Integrate with Server
-    status: pending
+    status: completed
   - id: TASK-009
     content: Integrate Ingestion with Signal Log
-    status: pending
+    status: completed
   - id: TASK-010
     content: Create Contract Tests
-    status: pending
+    status: completed
   - id: TASK-011
     content: Final Verification
-    status: pending
+    status: completed
 isProject: false
 ---
 
@@ -52,7 +52,7 @@ Before starting implementation:
 
 ### TASK-001: Add Signal Log Types
 
-- **Status**: pending
+- **Status**: completed
 - **Files**: `src/shared/types.ts`
 - **Action**: Modify
 - **Details**: Add TypeScript interfaces for Signal Log:
@@ -67,7 +67,7 @@ Before starting implementation:
 
 ### TASK-002: Add Signal Log Error Codes
 
-- **Status**: pending
+- **Status**: completed
 - **Files**: `src/shared/error-codes.ts`
 - **Action**: Modify
 - **Details**: Add error codes for Signal Log validation:
@@ -82,7 +82,7 @@ Before starting implementation:
 
 ### TASK-003: Create Signal Log Store
 
-- **Status**: pending
+- **Status**: completed
 - **Files**: `src/signalLog/store.ts`
 - **Action**: Create
 - **Details**: SQLite-backed storage for signal records:
@@ -102,7 +102,7 @@ Before starting implementation:
 
 ### TASK-004: Create Signal Log Store Unit Tests
 
-- **Status**: pending
+- **Status**: completed
 - **Files**: `tests/unit/signal-log-store.test.ts`
 - **Action**: Create
 - **Details**: Unit tests for store functionality:
@@ -121,7 +121,7 @@ Before starting implementation:
 
 ### TASK-005: Create Signal Log Validator
 
-- **Status**: pending
+- **Status**: completed
 - **Files**: `src/signalLog/validator.ts`
 - **Action**: Create
 - **Details**: Validate query parameters:
@@ -141,7 +141,7 @@ Before starting implementation:
 
 ### TASK-006: Create Signal Log Handler
 
-- **Status**: pending
+- **Status**: completed
 - **Files**: `src/signalLog/handler.ts`
 - **Action**: Create
 - **Details**: Fastify route handler for `GET /signals`:
@@ -159,7 +159,7 @@ Before starting implementation:
 
 ### TASK-007: Create Signal Log Routes
 
-- **Status**: pending
+- **Status**: completed
 - **Files**: `src/signalLog/routes.ts`
 - **Action**: Create
 - **Details**: Register routes with Fastify:
@@ -173,7 +173,7 @@ Before starting implementation:
 
 ### TASK-008: Integrate with Server
 
-- **Status**: pending
+- **Status**: completed
 - **Files**: `src/server.ts`
 - **Action**: Modify
 - **Details**:
@@ -188,7 +188,7 @@ Before starting implementation:
 
 ### TASK-009: Integrate Ingestion with Signal Log
 
-- **Status**: pending
+- **Status**: completed
 - **Files**: `src/ingestion/handler.ts`
 - **Action**: Modify
 - **Details**:
@@ -203,7 +203,7 @@ Before starting implementation:
 
 ### TASK-010: Create Contract Tests
 
-- **Status**: pending
+- **Status**: completed
 - **Files**: `tests/contracts/signal-log.test.ts`
 - **Action**: Create
 - **Details**: Implement all contract tests:
@@ -224,7 +224,7 @@ Before starting implementation:
 
 ### TASK-011: Final Verification
 
-- **Status**: pending
+- **Status**: completed
 - **Files**: none
 - **Action**: Verify
 - **Details**:

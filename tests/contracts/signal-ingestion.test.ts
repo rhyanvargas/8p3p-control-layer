@@ -11,6 +11,11 @@ import {
   closeIdempotencyStore,
   clearIdempotencyStore,
 } from '../../src/ingestion/idempotency.js';
+import {
+  initSignalLogStore,
+  closeSignalLogStore,
+  clearSignalLogStore,
+} from '../../src/signalLog/store.js';
 
 describe('Signal Ingestion Contract Tests', () => {
   let app: FastifyInstance;
@@ -34,6 +39,7 @@ describe('Signal Ingestion Contract Tests', () => {
   beforeAll(async () => {
     // Initialize in-memory SQLite for test isolation
     initIdempotencyStore(':memory:');
+    initSignalLogStore(':memory:');
     
     // Create Fastify app for testing
     app = Fastify({ logger: false });
@@ -44,11 +50,13 @@ describe('Signal Ingestion Contract Tests', () => {
   afterAll(async () => {
     await app.close();
     closeIdempotencyStore();
+    closeSignalLogStore();
   });
 
   beforeEach(() => {
-    // Clear idempotency store between tests
+    // Clear stores between tests
     clearIdempotencyStore();
+    clearSignalLogStore();
   });
 
   describe('SIG-API-001: Accept valid signal', () => {

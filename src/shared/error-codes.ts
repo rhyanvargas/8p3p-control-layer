@@ -39,6 +39,22 @@ export const ErrorCodes = {
   
   /** Request body exceeds size limit */
   REQUEST_TOO_LARGE: 'request_too_large',
+  
+  // ==========================================================================
+  // Signal Log Error Codes (Stage 2)
+  // ==========================================================================
+  
+  /** from_time is after to_time */
+  INVALID_TIME_RANGE: 'invalid_time_range',
+  
+  /** page_token is malformed or invalid */
+  INVALID_PAGE_TOKEN: 'invalid_page_token',
+  
+  /** page_size is 0, negative, or > 1000 */
+  PAGE_SIZE_OUT_OF_RANGE: 'page_size_out_of_range',
+  
+  /** No signals found for the learner in time range (informational) */
+  LEARNER_NOT_FOUND: 'learner_not_found',
 } as const;
 
 export type ErrorCode = typeof ErrorCodes[keyof typeof ErrorCodes];

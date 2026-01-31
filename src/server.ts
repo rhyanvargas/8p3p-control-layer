@@ -1,9 +1,14 @@
 import Fastify from 'fastify';
 import { registerIngestionRoutes } from './ingestion/routes.js';
 import { initIdempotencyStore } from './ingestion/idempotency.js';
+import { registerSignalLogRoutes } from './signalLog/routes.js';
+import { initSignalLogStore } from './signalLog/store.js';
 
 // Initialize idempotency store with SQLite
 const dbPath = process.env.IDEMPOTENCY_DB_PATH ?? './data/idempotency.db';
+
+// Initialize signal log store with SQLite (can use same or separate DB)
+const signalLogDbPath = process.env.SIGNAL_LOG_DB_PATH ?? './data/signal-log.db';
 
 // Ensure data directory exists for SQLite database
 import { mkdirSync } from 'fs';
@@ -15,6 +20,15 @@ try {
 }
 
 initIdempotencyStore(dbPath);
+
+// Ensure signal log data directory exists
+try {
+  mkdirSync(dirname(signalLogDbPath), { recursive: true });
+} catch {
+  // Directory may already exist
+}
+
+initSignalLogStore(signalLogDbPath);
 
 const server = Fastify({
   logger: {
@@ -36,6 +50,9 @@ server.get('/health', async () => {
 
 // Register Signal Ingestion routes
 registerIngestionRoutes(server);
+
+// Register Signal Log routes (GET /signals)
+registerSignalLogRoutes(server);
 
 const start = async () => {
   try {

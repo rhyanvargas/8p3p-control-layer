@@ -1,0 +1,356 @@
+/**
+ * Unit tests for Signal Log Store
+ * Tests the SQLite-backed signal storage layer
+ */
+
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import {
+  initSignalLogStore,
+  closeSignalLogStore,
+  appendSignal,
+  querySignals,
+  clearSignalLogStore,
+  encodePageToken,
+  decodePageToken,
+} from '../../src/signalLog/store.js';
+import type { SignalEnvelope, SignalLogReadRequest } from '../../src/shared/types.js';
+
+/**
+ * Create a valid signal envelope for testing
+ */
+function createSignal(overrides: Partial<SignalEnvelope> = {}): SignalEnvelope {
+  return {
+    org_id: 'test-org',
+    signal_id: `signal-${Date.now()}-${Math.random().toString(36).substring(7)}`,
+    source_system: 'test-system',
+    learner_reference: 'learner-123',
+    timestamp: '2026-01-30T10:00:00Z',
+    schema_version: 'v1',
+    payload: { skill: 'math', level: 5 },
+    ...overrides,
+  };
+}
+
+describe('Signal Log Store', () => {
+  beforeEach(() => {
+    // Use in-memory SQLite for test isolation
+    initSignalLogStore(':memory:');
+  });
+
+  afterEach(() => {
+    closeSignalLogStore();
+  });
+
+  describe('STORE-001: appendSignal stores correctly', () => {
+    it('should store and return a SignalRecord with accepted_at', () => {
+      const signal = createSignal({ signal_id: 'store-test-001' });
+      const acceptedAt = '2026-01-30T10:05:00Z';
+      
+      const record = appendSignal(signal, acceptedAt);
+      
+      expect(record.org_id).toBe(signal.org_id);
+      expect(record.signal_id).toBe(signal.signal_id);
+      expect(record.source_system).toBe(signal.source_system);
+      expect(record.learner_reference).toBe(signal.learner_reference);
+      expect(record.timestamp).toBe(signal.timestamp);
+      expect(record.schema_version).toBe(signal.schema_version);
+      expect(record.payload).toEqual(signal.payload);
+      expect(record.accepted_at).toBe(acceptedAt);
+    });
+
+    it('should store signal with metadata', () => {
+      const signal = createSignal({
+        signal_id: 'store-test-002',
+        metadata: { correlation_id: 'corr-123', trace_id: 'trace-456' },
+      });
+      const acceptedAt = '2026-01-30T10:05:00Z';
+      
+      const record = appendSignal(signal, acceptedAt);
+      
+      expect(record.metadata).toEqual(signal.metadata);
+    });
+
+    it('should store signal without metadata', () => {
+      const signal = createSignal({ signal_id: 'store-test-003' });
+      delete signal.metadata;
+      const acceptedAt = '2026-01-30T10:05:00Z';
+      
+      const record = appendSignal(signal, acceptedAt);
+      
+      expect(record.metadata).toBeUndefined();
+    });
+
+    it('should preserve complex payload structure', () => {
+      const complexPayload = {
+        nested: { deeply: { value: 42 } },
+        array: [1, 2, 3],
+        string: 'hello',
+        number: 3.14,
+        boolean: true,
+        null_value: null,
+      };
+      const signal = createSignal({ signal_id: 'store-test-004', payload: complexPayload });
+      const acceptedAt = '2026-01-30T10:05:00Z';
+      
+      const record = appendSignal(signal, acceptedAt);
+      
+      expect(record.payload).toEqual(complexPayload);
+    });
+  });
+
+  describe('STORE-002: querySignals returns correct range', () => {
+    it('should return signals within time range', () => {
+      // Insert signals with different accepted_at times
+      appendSignal(createSignal({ signal_id: 'range-1', learner_reference: 'learner-A' }), '2026-01-30T09:00:00Z');
+      appendSignal(createSignal({ signal_id: 'range-2', learner_reference: 'learner-A' }), '2026-01-30T10:00:00Z');
+      appendSignal(createSignal({ signal_id: 'range-3', learner_reference: 'learner-A' }), '2026-01-30T11:00:00Z');
+      appendSignal(createSignal({ signal_id: 'range-4', learner_reference: 'learner-A' }), '2026-01-30T12:00:00Z');
+      
+      const request: SignalLogReadRequest = {
+        org_id: 'test-org',
+        learner_reference: 'learner-A',
+        from_time: '2026-01-30T09:30:00Z',
+        to_time: '2026-01-30T11:30:00Z',
+      };
+      
+      const result = querySignals(request);
+      
+      // Should include range-2 and range-3 (10:00 and 11:00)
+      expect(result.signals.length).toBe(2);
+      expect(result.signals[0].signal_id).toBe('range-2');
+      expect(result.signals[1].signal_id).toBe('range-3');
+    });
+
+    it('should include signals at exact boundary times', () => {
+      appendSignal(createSignal({ signal_id: 'boundary-1', learner_reference: 'learner-B' }), '2026-01-30T10:00:00Z');
+      appendSignal(createSignal({ signal_id: 'boundary-2', learner_reference: 'learner-B' }), '2026-01-30T12:00:00Z');
+      
+      const request: SignalLogReadRequest = {
+        org_id: 'test-org',
+        learner_reference: 'learner-B',
+        from_time: '2026-01-30T10:00:00Z',
+        to_time: '2026-01-30T12:00:00Z',
+      };
+      
+      const result = querySignals(request);
+      
+      // Both signals should be included (boundary inclusive)
+      expect(result.signals.length).toBe(2);
+    });
+
+    it('should return empty array when no signals match', () => {
+      appendSignal(createSignal({ signal_id: 'other-1', learner_reference: 'learner-C' }), '2026-01-30T10:00:00Z');
+      
+      const request: SignalLogReadRequest = {
+        org_id: 'test-org',
+        learner_reference: 'learner-C',
+        from_time: '2026-02-01T00:00:00Z',
+        to_time: '2026-02-01T23:59:59Z',
+      };
+      
+      const result = querySignals(request);
+      
+      expect(result.signals).toEqual([]);
+      expect(result.hasMore).toBe(false);
+    });
+  });
+
+  describe('STORE-003: Pagination token encoding', () => {
+    it('should encode and decode page token correctly', () => {
+      const cursorId = 42;
+      const token = encodePageToken(cursorId);
+      const decoded = decodePageToken(token);
+      
+      expect(decoded).toBe(cursorId);
+    });
+
+    it('should return 0 for invalid token', () => {
+      expect(decodePageToken('invalid-token')).toBe(0);
+      expect(decodePageToken('')).toBe(0);
+    });
+
+    it('should return 0 for wrong version token', () => {
+      // Encode a token with wrong version
+      const wrongVersion = Buffer.from('v2:42').toString('base64');
+      expect(decodePageToken(wrongVersion)).toBe(0);
+    });
+
+    it('should handle pagination correctly', () => {
+      // Insert 5 signals
+      for (let i = 1; i <= 5; i++) {
+        appendSignal(
+          createSignal({ signal_id: `page-${i}`, learner_reference: 'learner-D' }),
+          `2026-01-30T10:0${i}:00Z`
+        );
+      }
+      
+      // First page (2 items)
+      const request: SignalLogReadRequest = {
+        org_id: 'test-org',
+        learner_reference: 'learner-D',
+        from_time: '2026-01-30T00:00:00Z',
+        to_time: '2026-01-31T00:00:00Z',
+        page_size: 2,
+      };
+      
+      const page1 = querySignals(request);
+      expect(page1.signals.length).toBe(2);
+      expect(page1.hasMore).toBe(true);
+      expect(page1.nextCursor).toBeDefined();
+      
+      // Second page using token
+      const page2 = querySignals({
+        ...request,
+        page_token: encodePageToken(page1.nextCursor!),
+      });
+      expect(page2.signals.length).toBe(2);
+      expect(page2.hasMore).toBe(true);
+      
+      // Third page (last item)
+      const page3 = querySignals({
+        ...request,
+        page_token: encodePageToken(page2.nextCursor!),
+      });
+      expect(page3.signals.length).toBe(1);
+      expect(page3.hasMore).toBe(false);
+    });
+  });
+
+  describe('STORE-004: Ordering by accepted_at', () => {
+    it('should return signals ordered by accepted_at ascending', () => {
+      // Insert in random order
+      appendSignal(createSignal({ signal_id: 'order-3', learner_reference: 'learner-E' }), '2026-01-30T12:00:00Z');
+      appendSignal(createSignal({ signal_id: 'order-1', learner_reference: 'learner-E' }), '2026-01-30T10:00:00Z');
+      appendSignal(createSignal({ signal_id: 'order-2', learner_reference: 'learner-E' }), '2026-01-30T11:00:00Z');
+      
+      const request: SignalLogReadRequest = {
+        org_id: 'test-org',
+        learner_reference: 'learner-E',
+        from_time: '2026-01-30T00:00:00Z',
+        to_time: '2026-01-31T00:00:00Z',
+      };
+      
+      const result = querySignals(request);
+      
+      expect(result.signals[0].signal_id).toBe('order-1');
+      expect(result.signals[1].signal_id).toBe('order-2');
+      expect(result.signals[2].signal_id).toBe('order-3');
+    });
+  });
+
+  describe('Org isolation', () => {
+    it('should not return signals from different org', () => {
+      appendSignal(createSignal({ org_id: 'org-1', signal_id: 'iso-1', learner_reference: 'learner-shared' }), '2026-01-30T10:00:00Z');
+      appendSignal(createSignal({ org_id: 'org-2', signal_id: 'iso-2', learner_reference: 'learner-shared' }), '2026-01-30T10:00:00Z');
+      
+      const request: SignalLogReadRequest = {
+        org_id: 'org-1',
+        learner_reference: 'learner-shared',
+        from_time: '2026-01-30T00:00:00Z',
+        to_time: '2026-01-31T00:00:00Z',
+      };
+      
+      const result = querySignals(request);
+      
+      expect(result.signals.length).toBe(1);
+      expect(result.signals[0].org_id).toBe('org-1');
+      expect(result.signals[0].signal_id).toBe('iso-1');
+    });
+  });
+
+  describe('Learner isolation', () => {
+    it('should not return signals from different learner', () => {
+      appendSignal(createSignal({ signal_id: 'learner-iso-1', learner_reference: 'learner-A' }), '2026-01-30T10:00:00Z');
+      appendSignal(createSignal({ signal_id: 'learner-iso-2', learner_reference: 'learner-B' }), '2026-01-30T10:00:00Z');
+      
+      const request: SignalLogReadRequest = {
+        org_id: 'test-org',
+        learner_reference: 'learner-A',
+        from_time: '2026-01-30T00:00:00Z',
+        to_time: '2026-01-31T00:00:00Z',
+      };
+      
+      const result = querySignals(request);
+      
+      expect(result.signals.length).toBe(1);
+      expect(result.signals[0].learner_reference).toBe('learner-A');
+    });
+  });
+
+  describe('Default page_size', () => {
+    it('should default to 100 when page_size not provided', () => {
+      // Insert 105 signals
+      for (let i = 1; i <= 105; i++) {
+        appendSignal(
+          createSignal({ signal_id: `default-page-${i}`, learner_reference: 'learner-F' }),
+          `2026-01-30T10:00:${i.toString().padStart(2, '0')}Z`
+        );
+      }
+      
+      const request: SignalLogReadRequest = {
+        org_id: 'test-org',
+        learner_reference: 'learner-F',
+        from_time: '2026-01-30T00:00:00Z',
+        to_time: '2026-01-31T00:00:00Z',
+        // page_size not provided
+      };
+      
+      const result = querySignals(request);
+      
+      expect(result.signals.length).toBe(100);
+      expect(result.hasMore).toBe(true);
+    });
+  });
+
+  describe('Error handling', () => {
+    it('should throw if store not initialized', () => {
+      closeSignalLogStore();
+      
+      expect(() => appendSignal(createSignal(), '2026-01-30T10:00:00Z')).toThrow(
+        'Signal Log store not initialized'
+      );
+    });
+
+    it('should throw on query if not initialized', () => {
+      closeSignalLogStore();
+      
+      const request: SignalLogReadRequest = {
+        org_id: 'test-org',
+        learner_reference: 'learner-123',
+        from_time: '2026-01-30T00:00:00Z',
+        to_time: '2026-01-31T00:00:00Z',
+      };
+      
+      expect(() => querySignals(request)).toThrow(
+        'Signal Log store not initialized'
+      );
+    });
+
+    it('should throw on clear if not initialized', () => {
+      closeSignalLogStore();
+      
+      expect(() => clearSignalLogStore()).toThrow(
+        'Signal Log store not initialized'
+      );
+    });
+  });
+
+  describe('clearSignalLogStore', () => {
+    it('should clear all entries', () => {
+      appendSignal(createSignal({ signal_id: 'clear-1', learner_reference: 'learner-G' }), '2026-01-30T10:00:00Z');
+      appendSignal(createSignal({ signal_id: 'clear-2', learner_reference: 'learner-G' }), '2026-01-30T10:00:00Z');
+      
+      clearSignalLogStore();
+      
+      const request: SignalLogReadRequest = {
+        org_id: 'test-org',
+        learner_reference: 'learner-G',
+        from_time: '2026-01-30T00:00:00Z',
+        to_time: '2026-01-31T00:00:00Z',
+      };
+      
+      const result = querySignals(request);
+      expect(result.signals).toEqual([]);
+    });
+  });
+});

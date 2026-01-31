@@ -9,6 +9,7 @@ import { ErrorCodes } from '../shared/error-codes.js';
 import { validateSignalEnvelope } from '../contracts/validators/signal-envelope.js';
 import { detectForbiddenKeys } from './forbidden-keys.js';
 import { checkAndStore } from './idempotency.js';
+import { appendSignal } from '../signalLog/store.js';
 
 /**
  * Handle POST /signals request
@@ -88,13 +89,17 @@ export async function handleSignalIngestion(
     return result;
   }
   
-  // Step 4: Success - signal accepted
-  // Note: At this point we would forward to Signal Log (future implementation)
+  // Step 4: Forward to Signal Log
+  // The signal is accepted, so we persist it in the immutable Signal Log
+  const acceptedAt = idempotencyResult.receivedAt ?? receivedAt;
+  appendSignal(signal, acceptedAt);
+  
+  // Step 5: Success - signal accepted
   const result: SignalIngestResult = {
     org_id: signal.org_id,
     signal_id: signal.signal_id,
     status: 'accepted',
-    received_at: idempotencyResult.receivedAt ?? receivedAt,
+    received_at: acceptedAt,
   };
   
   reply.status(201);
