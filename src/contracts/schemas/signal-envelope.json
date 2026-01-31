@@ -1,0 +1,71 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "signal-envelope",
+  "title": "SignalEnvelope",
+  "description": "Input signal structure for the 8P3P Control Layer ingestion endpoint",
+  "type": "object",
+  "required": [
+    "org_id",
+    "signal_id",
+    "source_system",
+    "learner_reference",
+    "timestamp",
+    "schema_version",
+    "payload"
+  ],
+  "properties": {
+    "org_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "Organization identifier"
+    },
+    "signal_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^[A-Za-z0-9._:-]+$",
+      "description": "Unique signal identifier within the organization"
+    },
+    "source_system": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "description": "Origin system that generated the signal"
+    },
+    "learner_reference": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "description": "Reference to the learner this signal relates to"
+    },
+    "timestamp": {
+      "type": "string",
+      "description": "RFC3339 formatted timestamp with required timezone"
+    },
+    "schema_version": {
+      "type": "string",
+      "pattern": "^v[0-9]+$",
+      "description": "Version of the signal schema (e.g., v1, v2)"
+    },
+    "payload": {
+      "type": "object",
+      "description": "Opaque payload content (validated for forbidden keys only)"
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "correlation_id": {
+          "type": "string",
+          "description": "Optional correlation ID for request tracing"
+        },
+        "trace_id": {
+          "type": "string",
+          "description": "Optional trace ID for distributed tracing"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

@@ -6,7 +6,6 @@
   "directories": {
     "doc": "docs"
   },
-  
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
@@ -37,6 +36,7 @@
   },
   "homepage": "https://github.com/rhyanvargas/8p3p-control-layer#readme",
   "dependencies": {
+    "ajv": "^8.17.1",
     "better-sqlite3": "^12.6.2",
     "fastify": "^5.7.2"
   },
