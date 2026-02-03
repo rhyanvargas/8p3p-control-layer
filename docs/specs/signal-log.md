@@ -130,6 +130,8 @@ The SignalRecord contains all fields from SignalEnvelope plus the `accepted_at` 
 
 ## Error Codes
 
+### Query Errors (GET /signals)
+
 | Code | Description | Example Trigger |
 |------|-------------|-----------------|
 | `invalid_time_range` | from_time is after to_time | `from_time=2026-02-01, to_time=2026-01-01` |
@@ -138,6 +140,13 @@ The SignalRecord contains all fields from SignalEnvelope plus the `accepted_at` 
 | `page_size_out_of_range` | page_size is 0, negative, or > 1000 | `page_size=0` |
 | `org_scope_required` | Missing or blank org_id | `org_id=""` |
 | `learner_not_found` | No signals for learner in time range | Query returns empty |
+
+### Internal Function Errors (getSignalsByIds)
+
+| Code | Description | Example Trigger |
+|------|-------------|-----------------|
+| `unknown_signal_id` | Signal ID not found in log | `signalIds=["nonexistent"]` |
+| `signals_not_in_org_scope` | Signal belongs to different org | Request org A, signal belongs to org B |
 
 ## Implementation Components
 
@@ -167,7 +176,33 @@ CREATE INDEX idx_signal_log_query
 **Functions:**
 - `initSignalLogStore(dbPath: string): void` - Initialize database
 - `appendSignal(signal: SignalEnvelope, acceptedAt: string): SignalRecord` - Store accepted signal
-- `querySignals(request: SignalLogReadRequest): SignalLogReadResponse` - Query signals
+- `querySignals(request: SignalLogReadRequest): SignalLogReadResponse` - Query signals by time range
+- `getSignalsByIds(orgId: string, signalIds: string[]): SignalRecord[]` - Retrieve specific signals by ID
+
+### getSignalsByIds (Internal Function)
+
+Retrieve specific signals by their IDs for downstream processing (used by STATE Engine).
+
+**Signature:**
+```typescript
+getSignalsByIds(orgId: string, signalIds: string[]): SignalRecord[]
+```
+
+**Behavior:**
+- Returns signals matching the provided IDs
+- All signals must belong to the specified `org_id` (enforces org isolation)
+- Returns signals ordered by `accepted_at` ascending
+- Throws error if any `signal_id` is not found
+- Throws error if any signal belongs to a different org
+
+**Error Conditions:**
+
+| Condition | Error Code |
+|-----------|------------|
+| Signal ID not found | `unknown_signal_id` |
+| Signal belongs to different org | `signals_not_in_org_scope` |
+
+**Usage:** This function is called by the STATE Engine to fetch signal payloads when applying signals to learner state.
 
 ### 2. Signal Log Types (`src/shared/types.ts`)
 

@@ -54,6 +54,12 @@ Review against a spec:
 - [ ] Appropriate data structures
 - [ ] No unnecessary computations
 
+### Document Traceability (for spec reviews)
+- [ ] All dependencies reference correct source documents
+- [ ] No inline definitions that belong in other specs
+- [ ] Error codes listed but implementation deferred to plan
+- [ ] Cross-document references use explicit paths
+
 ## Instructions
 
 When the user invokes `/review`:
@@ -66,9 +72,51 @@ When the user invokes `/review`:
    - Check against the review checklist
    - Identify issues with severity (error, warning, info)
    - Suggest specific improvements
-3. Generate a review report
-4. If requested, apply fixes automatically
-5. **Suggest next step**: If issues found, suggest fixing and re-running `/review`. If all checks pass, tell the user the implementation is ready to commit or open a PR
+3. **For each issue found, perform root cause analysis:**
+   - Identify which document is responsible (spec, plan, implementation, test)
+   - Determine if the issue originated in this document or was inherited from a dependency
+   - Assign remediation to the correct document
+4. Generate a review report with Issue Registry
+5. If requested, apply fixes automatically (only to appropriate documents)
+6. **Suggest next step**: If issues found, suggest fixing and re-running `/review`. If all checks pass, tell the user the implementation is ready to commit or open a PR
+
+## Issue Traceability Protocol
+
+When issues are discovered during review, follow this protocol:
+
+### Step 1: Enumerate Issues
+Create an Issue Registry table:
+
+| ID | Issue | Root Cause | Responsible Document | Status |
+|----|-------|-----------|---------------------|--------|
+| ISS-001 | {description} | {why this happened} | {doc path} | Needs remediation |
+
+### Step 2: Root Cause Analysis
+For each issue, determine:
+- **Origin**: Where did this requirement/definition first appear?
+- **Scope**: Is this issue local to one document or cross-cutting?
+- **Responsible Document**: Which document should be modified?
+
+### Step 3: Remediation Assignment
+Apply the **Single Source of Truth** principle:
+- **Specs** define requirements and interfaces
+- **Plans** define implementation tasks
+- **Implementation** realizes the plan
+- **Tests** verify the implementation
+
+| Issue Type | Remediation Location |
+|------------|---------------------|
+| Missing function in dependency | Dependency's spec (e.g., `signal-log.md`) |
+| Missing error code | Implementation task in plan |
+| Unclear requirement | Source spec |
+| Cross-document dependency | Add to Dependencies section, define in source |
+| Implementation bug | Source code |
+| Missing test | Test file |
+
+### Step 4: Apply Corrections Deliberately
+- **Never** define a function/type in a dependent spec that belongs in the source spec
+- **Always** update the source document first, then reference it
+- **Verify** changes stay within document scope
 
 ## Report Format
 
@@ -78,8 +126,17 @@ When the user invokes `/review`:
 **Files Reviewed**: 3
 **Issues Found**: 2 errors, 1 warning
 
+### Issue Registry
+
+| ID | Issue | Root Cause | Responsible Document | Status |
+|----|-------|-----------|---------------------|--------|
+| ISS-001 | Missing function X | Spec incomplete | `docs/specs/source.md` | Needs remediation |
+| ISS-002 | Error code not defined | Implementation task | Plan (deferred) | Deferred to impl |
+
 ### Errors
 - `file.ts:42` - Missing error handling for API call
+  - **Root Cause**: Error handling requirement not in spec
+  - **Remediation**: Update `docs/specs/feature.md` to add error handling requirement
 
 ### Warnings  
 - `file.ts:15` - Function could be simplified
@@ -90,6 +147,10 @@ When the user invokes `/review`:
 ### Spec Compliance (if --spec provided)
 - [x] Requirement 1: Implemented
 - [ ] Requirement 2: Partially implemented - missing edge case
+
+### Cross-Document Dependencies
+- [x] Dependency A: Defined in source spec, correctly referenced
+- [ ] Dependency B: **Incorrectly defined inline** - should be in `source.md`
 ```
 
 ## Next Steps

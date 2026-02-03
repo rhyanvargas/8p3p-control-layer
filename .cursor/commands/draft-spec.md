@@ -23,7 +23,8 @@ The generated spec includes:
 - **Requirements**: Functional requirements with acceptance criteria
 - **Constraints**: Technical or business constraints
 - **Out of Scope**: What this spec does NOT cover
-- **Dependencies**: Related systems or features
+- **Dependencies**: Related systems or features (with explicit document references)
+- **Error Codes**: Codes used by this component (existing vs new)
 
 ## Instructions
 
@@ -35,9 +36,24 @@ When the user invokes `/draft-spec`:
    - Who is the user?
    - Are there existing patterns to follow?
 3. Search the codebase for related code, patterns, or existing specs
-4. Generate a spec file at `docs/specs/{feature-name}.md`
-5. Use the template below
-6. **Suggest next step**: Tell the user to run `/plan-impl .cursor/docs/specs/{feature-name}.md` to create an implementation plan
+4. **Identify dependencies on other specs:**
+   - Check if required functions/types exist in other specs
+   - If a dependency is missing from the source spec, note it as a gap
+   - Do NOT define functions that belong in another spec
+5. Generate a spec file at `docs/specs/{feature-name}.md`
+6. Use the template below
+7. **Suggest next step**: Tell the user to run `/plan-impl docs/specs/{feature-name}.md` to create an implementation plan
+
+## Dependency Handling Rules
+
+When a spec depends on functionality from another component:
+
+1. **Check if the function exists** in the source spec (e.g., `signal-log.md`)
+2. **If it exists**: Reference it with explicit path: `Requires getSignalsByIds() (see docs/specs/signal-log.md)`
+3. **If it does NOT exist**: Flag this as a gap that must be resolved:
+   - Option A: Update the source spec first, then reference it
+   - Option B: Note the gap and require resolution before implementation
+4. **Never define a function inline** that belongs in another component's spec
 
 ## Spec Template
 
@@ -63,7 +79,28 @@ When the user invokes `/draft-spec`:
 - {What this does NOT include}
 
 ## Dependencies
-- {Related features or systems}
+
+### Required from Other Specs
+| Dependency | Source Document | Status |
+|------------|-----------------|--------|
+| `functionName()` | `docs/specs/source.md` | Defined ✓ / **GAP** |
+
+### Provides to Other Specs
+| Function | Used By |
+|----------|---------|
+| `myFunction()` | Decision Engine (Stage 4) |
+
+## Error Codes
+
+### Existing (reuse)
+| Code | Source |
+|------|--------|
+| `error_code` | Signal Ingestion |
+
+### New (add during implementation)
+| Code | Description |
+|------|-------------|
+| `new_error_code` | {description} |
 
 ## Notes
 - {Any additional context}
