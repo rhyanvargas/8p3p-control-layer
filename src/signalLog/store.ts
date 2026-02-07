@@ -196,11 +196,11 @@ export function getSignalsByIds(orgId: string, signalIds: string[]): SignalRecor
     SELECT id, org_id, signal_id, source_system, learner_reference,
            timestamp, schema_version, payload, metadata, accepted_at
     FROM signal_log
-    WHERE org_id = ? AND signal_id IN (${placeholders})
+    WHERE signal_id IN (${placeholders})
     ORDER BY accepted_at ASC, id ASC
   `);
 
-  const rows = stmt.all(orgId, ...signalIds) as SignalLogRow[];
+  const rows = stmt.all(...signalIds) as SignalLogRow[];
 
   const foundIds = new Set(rows.map((r) => r.signal_id));
   const missingIds = signalIds.filter((id) => !foundIds.has(id));

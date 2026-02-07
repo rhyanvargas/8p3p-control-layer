@@ -415,12 +415,12 @@ describe('Signal Log Store', () => {
       expect(result.length).toBe(1);
       expect(result[0].org_id).toBe('org-A');
       expect(result[0].signal_id).toBe('iso-sig-1');
-      // Requesting same signal_id with different org yields unknown_signal_id (no cross-org leak)
+      // Requesting same signal_id with different org yields signals_not_in_org_scope (no cross-org leak)
       expect(() => getSignalsByIds('org-B', ['iso-sig-1'])).toThrow();
       try {
         getSignalsByIds('org-B', ['iso-sig-1']);
       } catch (err) {
-        expect((err as Error & { code: string }).code).toBe('unknown_signal_id');
+        expect((err as Error & { code: string }).code).toBe('signals_not_in_org_scope');
       }
     });
 

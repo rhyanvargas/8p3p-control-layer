@@ -22,7 +22,7 @@ todos:
     status: completed
   - id: TASK-007
     content: Contract tests STATE-001 through STATE-008
-    status: pending
+    status: completed
   - id: TASK-008
     content: Unit tests for state store and engine
     status: pending
