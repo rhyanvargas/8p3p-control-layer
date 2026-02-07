@@ -13,7 +13,7 @@ todos:
     status: completed
   - id: TASK-004
     content: Implement STATE validator
-    status: pending
+    status: completed
   - id: TASK-005
     content: Implement STATE engine (computeNewState + applySignals)
     status: pending
