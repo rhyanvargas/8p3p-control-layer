@@ -131,3 +131,51 @@ export interface SignalLogQueryResult {
   /** Cursor position for next page (internal use) */
   nextCursor?: number;
 }
+
+// =============================================================================
+// STATE Engine Types (Stage 3)
+// =============================================================================
+
+/**
+ * Provenance for a learner state snapshot (last applied signal)
+ */
+export interface StateProvenance {
+  last_signal_id: string;
+  last_signal_timestamp: string;
+}
+
+/**
+ * Learner state snapshot stored by the STATE Engine
+ */
+export interface LearnerState {
+  org_id: string;
+  learner_reference: string;
+  state_id: string;
+  state_version: number;
+  updated_at: string;
+  state: Record<string, unknown>;
+  provenance: StateProvenance;
+}
+
+/**
+ * Internal request to apply signals to learner state
+ */
+export interface ApplySignalsRequest {
+  org_id: string;
+  learner_reference: string;
+  signal_ids: string[];
+  requested_at: string;
+}
+
+/**
+ * Result of applying signals to learner state
+ */
+export interface ApplySignalsResult {
+  org_id: string;
+  learner_reference: string;
+  prior_state_version: number;
+  new_state_version: number;
+  state_id: string;
+  applied_signal_ids: string[];
+  updated_at: string;
+}

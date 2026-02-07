@@ -7,7 +7,7 @@ todos:
     status: completed
   - id: TASK-002
     content: Add STATE types and error codes to shared
-    status: pending
+    status: completed
   - id: TASK-003
     content: Implement STATE store (SQLite + applied_signals)
     status: pending

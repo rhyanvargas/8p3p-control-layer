@@ -55,6 +55,22 @@ export const ErrorCodes = {
   
   /** No signals found for the learner in time range (informational) */
   LEARNER_NOT_FOUND: 'learner_not_found',
+
+  // ==========================================================================
+  // STATE Engine Error Codes (Stage 3)
+  // ==========================================================================
+
+  /** Signal ID not found in Signal Log */
+  UNKNOWN_SIGNAL_ID: 'unknown_signal_id',
+
+  /** Signal belongs to a different org than request */
+  SIGNALS_NOT_IN_ORG_SCOPE: 'signals_not_in_org_scope',
+
+  /** State payload is not a JSON object */
+  STATE_PAYLOAD_NOT_OBJECT: 'state_payload_not_object',
+
+  /** Optimistic lock failed (state_version conflict on save) */
+  STATE_VERSION_CONFLICT: 'state_version_conflict',
 } as const;
 
 export type ErrorCode = typeof ErrorCodes[keyof typeof ErrorCodes];
