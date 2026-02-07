@@ -25,7 +25,7 @@ todos:
     status: completed
   - id: TASK-008
     content: Unit tests for state store and engine
-    status: pending
+    status: completed
 isProject: false
 ---
 
