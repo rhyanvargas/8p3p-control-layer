@@ -40,7 +40,7 @@ server.get('/', async () => {
   return { 
     name: '8P3P Control Layer',
     version: '0.1.0',
-    endpoints: ['/health', '/signals', '/decisions']
+    endpoints: ['/health', '/v1/signals', '/v1/decisions']
   };
 });
 
@@ -48,11 +48,12 @@ server.get('/health', async () => {
   return { status: 'ok' };
 });
 
-// Register Signal Ingestion routes
-registerIngestionRoutes(server);
-
-// Register Signal Log routes (GET /signals)
-registerSignalLogRoutes(server);
+// Register v1 API routes
+server.register(async (v1) => {
+  registerIngestionRoutes(v1);
+  registerSignalLogRoutes(v1);
+  // registerDecisionRoutes(v1);  // future
+}, { prefix: '/v1' });
 
 const start = async () => {
   try {

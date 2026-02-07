@@ -7,10 +7,10 @@ todos:
     status: completed
   - id: api-versioning
     content: Add /v1 prefix to all routes in server.ts
-    status: pending
+    status: completed
   - id: swagger-integration
     content: Install @fastify/swagger and @fastify/swagger-ui, configure in server.ts
-    status: pending
+    status: in_progress
   - id: asyncapi-spec
     content: Create docs/api/asyncapi.yaml with signal.ingested and decision.emitted events
     status: pending
