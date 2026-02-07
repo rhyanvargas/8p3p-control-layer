@@ -73,6 +73,50 @@ The PRD mandates **STATE authority**: the control layer owns learner state exclu
 }
 ```
 
+### 3.4 ApplySignalsOutcome (Discriminated Result)
+
+`applySignals` returns a discriminated outcome rather than throwing on rejection. Internal consumers **must** inspect the `ok` field before accessing results.
+
+**Success:**
+
+```json
+{
+  "ok": true,
+  "result": "ApplySignalsResult (see 3.3)"
+}
+```
+
+**Rejection:**
+
+```json
+{
+  "ok": false,
+  "errors": [
+    {
+      "code": "string (canonical error code)",
+      "message": "string (human-readable description)",
+      "field_path": "string | undefined (dot-delimited path to offending field)"
+    }
+  ]
+}
+```
+
+Each entry in the `errors` array is a `RejectionReason` (defined in `src/shared/types.ts`).
+
+**Determinism requirement (per foundation G4):** Identical invalid input must always produce the same error code and field_path, excluding timestamps. Callers should not rely on error message text for branching; use `code` exclusively.
+
+**Error codes returned in rejection outcomes:**
+
+| Code | Trigger |
+|------|---------|
+| `org_scope_required` | `org_id` missing or blank |
+| `missing_required_field` | `learner_reference` or `signal_ids` missing/empty |
+| `unknown_signal_id` | Signal ID not found in Signal Log |
+| `signals_not_in_org_scope` | Signal belongs to a different org |
+| `state_payload_not_object` | Computed state is not a plain object |
+| `forbidden_semantic_key_detected` | Computed state contains a forbidden key |
+| `state_version_conflict` | Optimistic lock failed after retry |
+
 ## Core Constraints
 
 ### State Authority (No External Override)
@@ -243,7 +287,7 @@ interface ApplySignalsResult {
 Core state computation logic:
 
 **Functions:**
-- `applySignals(request: ApplySignalsRequest): ApplySignalsResult` - Apply signals to state
+- `applySignals(request: ApplySignalsRequest): ApplySignalsOutcome` - Apply signals to state (see 3.4 for outcome shape)
 - `computeNewState(currentState: LearnerState | null, signals: SignalRecord[]): Record<string, unknown>` - Compute state from signals (reducer pattern)
 - `validateStateObject(state: Record<string, unknown>): ValidationResult` - Check for forbidden keys
 
@@ -318,11 +362,11 @@ ApplySignalsRequest
          ▼
 ┌──────────────────┐
 │ Save New State   │ ← Increment version
-│ Version          │ ← Update provenance
+│ Version          │ ← Update provenance (retry once on conflict)
 └────────┬─────────┘
          │
          ▼
-  ApplySignalsResult
+  ApplySignalsOutcome (ok: true → result | ok: false → errors)
 ```
 
 ## Contract Tests

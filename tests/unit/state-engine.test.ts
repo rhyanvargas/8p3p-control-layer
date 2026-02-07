@@ -3,20 +3,22 @@
  * computeNewState, applySignals validation and rejection paths, monotonic version, provenance
  */
 
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import {
   initSignalLogStore,
   closeSignalLogStore,
   clearSignalLogStore,
   appendSignal,
 } from '../../src/signalLog/store.js';
+import * as stateStoreModule from '../../src/state/store.js';
 import {
   initStateStore,
   closeStateStore,
   clearStateStore,
   getState,
+  getStateStoreDatabase,
 } from '../../src/state/store.js';
-import { computeNewState, deepMerge, applySignals } from '../../src/state/engine.js';
+import { computeNewState, deepMerge, applySignals, isSqliteConstraintError } from '../../src/state/engine.js';
 import type { LearnerState, SignalRecord } from '../../src/shared/types.js';
 import type { SignalEnvelope } from '../../src/shared/types.js';
 import { ErrorCodes } from '../../src/shared/error-codes.js';
@@ -318,6 +320,133 @@ describe('STATE Engine', () => {
       expect(state).not.toBeNull();
       expect(state!.provenance.last_signal_id).toBe(s2.signal_id);
       expect(state!.provenance.last_signal_timestamp).toBe(s2.accepted_at);
+    });
+  });
+
+  describe('isSqliteConstraintError helper', () => {
+    it('should return true for error with code SQLITE_CONSTRAINT', () => {
+      const err = new Error('constraint failed') as Error & { code?: string };
+      err.code = 'SQLITE_CONSTRAINT';
+      expect(isSqliteConstraintError(err)).toBe(true);
+    });
+
+    it('should return true for error with code SQLITE_CONSTRAINT_UNIQUE', () => {
+      const err = new Error('unique') as Error & { code?: string };
+      err.code = 'SQLITE_CONSTRAINT_UNIQUE';
+      expect(isSqliteConstraintError(err)).toBe(true);
+    });
+
+    it('should return true for error with UNIQUE constraint failed in message', () => {
+      const err = new Error('UNIQUE constraint failed: learner_state.org_id, learner_state.learner_reference, learner_state.state_version');
+      expect(isSqliteConstraintError(err)).toBe(true);
+    });
+
+    it('should return true for error with SQLITE_CONSTRAINT in message only', () => {
+      const err = new Error('SqliteError: SQLITE_CONSTRAINT');
+      expect(isSqliteConstraintError(err)).toBe(true);
+    });
+
+    it('should return false for non-Error values', () => {
+      expect(isSqliteConstraintError('string')).toBe(false);
+      expect(isSqliteConstraintError(null)).toBe(false);
+      expect(isSqliteConstraintError(42)).toBe(false);
+    });
+
+    it('should return false for unrelated errors', () => {
+      expect(isSqliteConstraintError(new Error('disk full'))).toBe(false);
+    });
+  });
+
+  describe('optimistic-lock retry on version conflict', () => {
+    it('should retry and succeed when first save hits a version conflict', () => {
+      const { signal_id, accepted_at } = appendTestSignal({ payload: { x: 1 } });
+
+      // Spy on saveState: on the first call, insert a conflicting row THEN delegate
+      const originalSaveState = stateStoreModule.saveState;
+      let callCount = 0;
+      const spy = vi.spyOn(stateStoreModule, 'saveState').mockImplementation((state) => {
+        callCount++;
+        if (callCount === 1) {
+          // Insert a conflicting row directly via db (same org, learner, version but different state_id)
+          const database = getStateStoreDatabase()!;
+          database.prepare(`
+            INSERT INTO learner_state (org_id, learner_reference, state_id, state_version, updated_at, state, last_signal_id, last_signal_timestamp)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          `).run(
+            state.org_id,
+            state.learner_reference,
+            'conflict-state-id',
+            state.state_version,
+            state.updated_at,
+            JSON.stringify({ conflict: true }),
+            'conflict-sig',
+            state.updated_at
+          );
+        }
+        // Now delegate to the real implementation
+        return originalSaveState(state);
+      });
+
+      const outcome = applySignals({
+        org_id: 'org-A',
+        learner_reference: 'learner-1',
+        signal_ids: [signal_id],
+        requested_at: accepted_at,
+      });
+
+      spy.mockRestore();
+
+      // First attempt hit conflict (version 1 taken by conflicting row), retry re-reads
+      // current state (which now includes the conflicting row) and recomputes over it.
+      expect(outcome.ok).toBe(true);
+      if (outcome.ok) {
+        expect(outcome.result.new_state_version).toBe(2);
+      }
+
+      const finalState = getState('org-A', 'learner-1');
+      expect(finalState).not.toBeNull();
+      expect(finalState!.state_version).toBe(2);
+      // Retry merges signal payload { x: 1 } over the conflicting row's state { conflict: true }
+      expect(finalState!.state).toEqual({ conflict: true, x: 1 });
+    });
+
+    it('should return state_version_conflict when all retry attempts fail', () => {
+      const { signal_id, accepted_at } = appendTestSignal({ payload: { y: 2 } });
+
+      // Spy on saveState: always insert a conflicting row before delegating
+      const originalSaveState = stateStoreModule.saveState;
+      const spy = vi.spyOn(stateStoreModule, 'saveState').mockImplementation((state) => {
+        const database = getStateStoreDatabase()!;
+        database.prepare(`
+          INSERT OR IGNORE INTO learner_state (org_id, learner_reference, state_id, state_version, updated_at, state, last_signal_id, last_signal_timestamp)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(
+          state.org_id,
+          state.learner_reference,
+          `conflict-${state.state_version}`,
+          state.state_version,
+          state.updated_at,
+          JSON.stringify({ conflict: true }),
+          'conflict-sig',
+          state.updated_at
+        );
+        return originalSaveState(state);
+      });
+
+      const outcome = applySignals({
+        org_id: 'org-A',
+        learner_reference: 'learner-1',
+        signal_ids: [signal_id],
+        requested_at: accepted_at,
+      });
+
+      spy.mockRestore();
+
+      expect(outcome.ok).toBe(false);
+      if (!outcome.ok) {
+        expect(outcome.errors).toHaveLength(1);
+        expect(outcome.errors[0].code).toBe(ErrorCodes.STATE_VERSION_CONFLICT);
+      }
     });
   });
 });
