@@ -19,7 +19,7 @@ todos:
     status: completed
   - id: TASK-006
     content: Wire ingestion to applySignals and init STATE store in server
-    status: pending
+    status: completed
   - id: TASK-007
     content: Contract tests STATE-001 through STATE-008
     status: pending

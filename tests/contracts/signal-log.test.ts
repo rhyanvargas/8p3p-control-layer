@@ -17,6 +17,11 @@ import {
   closeSignalLogStore,
   clearSignalLogStore,
 } from '../../src/signalLog/store.js';
+import {
+  initStateStore,
+  closeStateStore,
+  clearStateStore,
+} from '../../src/state/store.js';
 
 describe('Signal Log Contract Tests', () => {
   let app: FastifyInstance;
@@ -67,7 +72,8 @@ describe('Signal Log Contract Tests', () => {
     // Initialize in-memory SQLite for test isolation
     initIdempotencyStore(':memory:');
     initSignalLogStore(':memory:');
-    
+    initStateStore(':memory:');
+
     // Create Fastify app for testing
     app = Fastify({ logger: false });
     registerIngestionRoutes(app);
@@ -79,12 +85,14 @@ describe('Signal Log Contract Tests', () => {
     await app.close();
     closeIdempotencyStore();
     closeSignalLogStore();
+    closeStateStore();
   });
 
   beforeEach(() => {
     // Clear stores between tests
     clearIdempotencyStore();
     clearSignalLogStore();
+    clearStateStore();
   });
 
   describe('SIGLOG-001: Query valid time window', () => {
@@ -92,7 +100,7 @@ describe('Signal Log Contract Tests', () => {
       // Post a signal through ingestion
       const signal = validSignal({ signal_id: 'siglog-001-test' });
       const postResponse = await postSignal(signal);
-      expect(postResponse.statusCode).toBe(201);
+      expect(postResponse.statusCode).toBe(200);
       
       // Query for the signal
       const response = await querySignals({
@@ -441,7 +449,7 @@ describe('Signal Log Contract Tests', () => {
       
       // Post through ingestion
       const postResponse = await postSignal(signal);
-      expect(postResponse.statusCode).toBe(201);
+      expect(postResponse.statusCode).toBe(200);
       expect(postResponse.json().status).toBe('accepted');
       
       const receivedAt = postResponse.json().received_at;
@@ -499,7 +507,7 @@ describe('Signal Log Contract Tests', () => {
       
       // Post first time (accepted)
       const first = await postSignal(signal);
-      expect(first.statusCode).toBe(201);
+      expect(first.statusCode).toBe(200);
       expect(first.json().status).toBe('accepted');
       
       // Post second time (duplicate)

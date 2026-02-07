@@ -7,6 +7,7 @@ import { registerIngestionRoutes } from './ingestion/routes.js';
 import { initIdempotencyStore } from './ingestion/idempotency.js';
 import { registerSignalLogRoutes } from './signalLog/routes.js';
 import { initSignalLogStore } from './signalLog/store.js';
+import { initStateStore } from './state/store.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -15,6 +16,9 @@ const dbPath = process.env.IDEMPOTENCY_DB_PATH ?? './data/idempotency.db';
 
 // Initialize signal log store with SQLite (can use same or separate DB)
 const signalLogDbPath = process.env.SIGNAL_LOG_DB_PATH ?? './data/signal-log.db';
+
+// Initialize STATE store (learner state + applied_signals)
+const stateStoreDbPath = process.env.STATE_STORE_DB_PATH ?? './data/state.db';
 
 // Ensure data directory exists for SQLite database
 import { mkdirSync } from 'fs';
@@ -34,6 +38,15 @@ try {
 }
 
 initSignalLogStore(signalLogDbPath);
+
+// Ensure STATE store data directory exists
+try {
+  mkdirSync(dirname(stateStoreDbPath), { recursive: true });
+} catch {
+  // Directory may already exist
+}
+
+initStateStore(stateStoreDbPath);
 
 const server = Fastify({
   logger: {

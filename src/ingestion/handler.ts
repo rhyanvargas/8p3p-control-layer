@@ -10,6 +10,7 @@ import { validateSignalEnvelope } from '../contracts/validators/signal-envelope.
 import { detectForbiddenKeys } from './forbidden-keys.js';
 import { checkAndStore } from './idempotency.js';
 import { appendSignal } from '../signalLog/store.js';
+import { applySignals } from '../state/engine.js';
 
 /**
  * Handle POST /signals request
@@ -93,7 +94,30 @@ export async function handleSignalIngestion(
   // The signal is accepted, so we persist it in the immutable Signal Log
   const acceptedAt = idempotencyResult.receivedAt ?? receivedAt;
   appendSignal(signal, acceptedAt);
-  
+
+  // Step 4b: Apply signal to learner state (STATE engine).
+  // On rejection or throw we log and continue so ingestion stays resilient: the signal is already
+  // in the log and STATE can be retried later (e.g. on next read or a batch job).
+  try {
+    const applyOutcome = applySignals({
+      org_id: signal.org_id,
+      learner_reference: signal.learner_reference,
+      signal_ids: [signal.signal_id],
+      requested_at: acceptedAt,
+    });
+    if (!applyOutcome.ok) {
+      request.log?.warn?.(
+        { err: applyOutcome.errors, org_id: signal.org_id, signal_id: signal.signal_id },
+        'applySignals rejected after appendSignal; signal remains in log'
+      );
+    }
+  } catch (err) {
+    request.log?.warn?.(
+      { err, org_id: signal.org_id, signal_id: signal.signal_id },
+      'applySignals threw after appendSignal; signal remains in log'
+    );
+  }
+
   // Step 5: Success - signal accepted (200 per OpenAPI: "Signal accepted or duplicate")
   const result: SignalIngestResult = {
     org_id: signal.org_id,

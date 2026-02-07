@@ -16,6 +16,11 @@ import {
   closeSignalLogStore,
   clearSignalLogStore,
 } from '../../src/signalLog/store.js';
+import {
+  initStateStore,
+  closeStateStore,
+  clearStateStore,
+} from '../../src/state/store.js';
 
 describe('Signal Ingestion Contract Tests', () => {
   let app: FastifyInstance;
@@ -40,7 +45,8 @@ describe('Signal Ingestion Contract Tests', () => {
     // Initialize in-memory SQLite for test isolation
     initIdempotencyStore(':memory:');
     initSignalLogStore(':memory:');
-    
+    initStateStore(':memory:');
+
     // Create Fastify app for testing
     app = Fastify({ logger: false });
     registerIngestionRoutes(app);
@@ -51,12 +57,14 @@ describe('Signal Ingestion Contract Tests', () => {
     await app.close();
     closeIdempotencyStore();
     closeSignalLogStore();
+    closeStateStore();
   });
 
   beforeEach(() => {
     // Clear stores between tests
     clearIdempotencyStore();
     clearSignalLogStore();
+    clearStateStore();
   });
 
   describe('SIG-API-001: Accept valid signal', () => {
@@ -69,7 +77,7 @@ describe('Signal Ingestion Contract Tests', () => {
         payload: signal,
       });
       
-      expect(response.statusCode).toBe(201);
+      expect(response.statusCode).toBe(200);
       
       const body = response.json();
       expect(body.status).toBe('accepted');
@@ -93,7 +101,7 @@ describe('Signal Ingestion Contract Tests', () => {
         payload: signal,
       });
       
-      expect(response.statusCode).toBe(201);
+      expect(response.statusCode).toBe(200);
       expect(response.json().status).toBe('accepted');
     });
 
@@ -108,7 +116,7 @@ describe('Signal Ingestion Contract Tests', () => {
         payload: signal,
       });
       
-      expect(response.statusCode).toBe(201);
+      expect(response.statusCode).toBe(200);
       expect(response.json().status).toBe('accepted');
     });
   });
@@ -283,7 +291,7 @@ describe('Signal Ingestion Contract Tests', () => {
           payload: signal,
         });
         
-        expect(response.statusCode).toBe(201);
+        expect(response.statusCode).toBe(200);
         expect(response.json().status).toBe('accepted');
       }
     });
@@ -409,7 +417,7 @@ describe('Signal Ingestion Contract Tests', () => {
         payload: signal,
       });
       
-      expect(response.statusCode).toBe(201);
+      expect(response.statusCode).toBe(200);
       expect(response.json().status).toBe('accepted');
     });
   });
@@ -425,7 +433,7 @@ describe('Signal Ingestion Contract Tests', () => {
         payload: signal,
       });
       
-      expect(first.statusCode).toBe(201);
+      expect(first.statusCode).toBe(200);
       expect(first.json().status).toBe('accepted');
       
       // Second submission (same org_id + signal_id)
@@ -473,9 +481,9 @@ describe('Signal Ingestion Contract Tests', () => {
         payload: signalOrg2,
       });
       
-      expect(first.statusCode).toBe(201);
+      expect(first.statusCode).toBe(200);
       expect(first.json().status).toBe('accepted');
-      expect(second.statusCode).toBe(201);
+      expect(second.statusCode).toBe(200);
       expect(second.json().status).toBe('accepted');
     });
   });
