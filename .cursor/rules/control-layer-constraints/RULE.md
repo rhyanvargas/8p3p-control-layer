@@ -17,6 +17,7 @@ These constraints are non-negotiable. Violating them breaks the system's design.
 
 ## Contract Enforcement
 
+- **Machine-readable contracts first**: REST API MUST align with `docs/api/openapi.yaml` (OpenAPI 3.1). Event contracts MUST align with `docs/api/asyncapi.yaml` when present. Validate with `npm run validate:api`.
 - All inputs and outputs MUST conform to JSON Schemas in `docs/foundation/[POC Playbook] 8P3P Learning Intelligence Control Layer-Component Interface Contracts.md`
 - Enforce the validation ruleset from `docs/foundation/[POC Playbook] 8P3P Learning Intelligence Control Layer-Interface Validation Ruleset.md`, including forbidden semantic key blocking at any depth for `payload`, `state`, `decision_context`
 - Implement contract tests from `docs/foundation/[POC Playbook] 8P3P Learning Intelligence Control Layer-Contract Test Matrix.md` **before** adding features

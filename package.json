@@ -18,6 +18,7 @@
     "test:unit": "vitest run tests/unit",
     "validate:schemas": "tsx scripts/validate-schemas.ts",
     "validate:fixtures": "tsx scripts/validate-fixtures.ts",
+    "validate:api": "redocly lint docs/api/openapi.yaml",
     "db:init": "tsx scripts/init-db.ts",
     "db:reset": "tsx scripts/reset-db.ts",
     "lint": "eslint src tests",
@@ -41,6 +42,7 @@
     "fastify": "^5.7.2"
   },
   "devDependencies": {
+    "@redocly/cli": "^1.31.0",
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^25.1.0",
     "@typescript-eslint/eslint-plugin": "^8.54.0",
@@ -48,6 +50,7 @@
     "eslint": "^9.39.2",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
-    "vitest": "^4.0.18"
+    "vitest": "^4.0.18",
+    "yaml": "^2.8.2"
   }
 }

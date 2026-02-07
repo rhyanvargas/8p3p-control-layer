@@ -381,6 +381,12 @@ npm run validate:schemas
 npm run validate:fixtures
 ```
 
+### Validate OpenAPI Spec
+
+```bash
+npm run validate:api
+```
+
 ---
 
 ## Environment Variables
@@ -406,6 +412,9 @@ npm run validate:fixtures
 | `test:coverage` | `vitest run --coverage` | Run tests with coverage |
 | `typecheck` | `tsc --noEmit` | Type-check without emitting |
 | `lint` | `eslint src tests` | Run linter |
+| `validate:api` | `redocly lint docs/api/openapi.yaml` | Lint OpenAPI spec |
+| `validate:schemas` | `tsx scripts/validate-schemas.ts` | Validate JSON schemas |
+| `validate:fixtures` | `tsx scripts/validate-fixtures.ts` | Validate test fixtures |
 
 ---
 
@@ -457,6 +466,26 @@ PORT=3001 npm run dev
 npm install
 npm test
 ```
+
+### "Unknown env config 'devdir'" (npm warning)
+
+This warning appears when `NPM_CONFIG_DEVDIR` is set (e.g. by Cursor’s sandbox or a custom env). npm does not support this key, so it warns and will drop support in a future major version.
+
+- **Impact:** None. Commands still run; you can ignore the warning.
+- **To suppress it** when running in your own terminal (if you have it set in your profile or env), unset it before running npm:
+
+  ```bash
+  unset NPM_CONFIG_DEVDIR
+  npm run validate:api
+  ```
+
+  Or run the validator without npm (same result, may still show the warning if the tool invokes npm internally):
+
+  ```bash
+  ./scripts/validate-api.sh
+  ```
+
+  In Cursor’s integrated terminal/sandbox, the variable is set by the environment; the warning is harmless and can be ignored.
 
 ---
 

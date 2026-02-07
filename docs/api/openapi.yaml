@@ -1,0 +1,400 @@
+openapi: 3.1.0
+info:
+  title: 8P3P Control Layer API
+  description: |
+    REST API for the 8P3P Learning Intelligence Control Layer.
+    Lifecycle: Ingestion → Signal Log → STATE Engine → Decision Engine → Output.
+  version: 1.0.0
+  license:
+    name: ISC
+    identifier: ISC
+
+# No authentication required for current operations (tenant isolation via org_id/learner_reference).
+security: []
+
+servers:
+  - url: /
+    description: Base path (version prefix applied per route)
+
+paths:
+  /v1/signals:
+    post:
+      operationId: ingestSignal
+      summary: Ingest a signal
+      description: |
+        Accept externally emitted signals. Validates structure (never semantics),
+        enforces idempotency by (org_id, signal_id), and forwards accepted signals
+        to the Signal Log. See docs/specs/signal-ingestion.md.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignalEnvelope'
+      responses:
+        '200':
+          description: Signal accepted or duplicate (idempotent)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignalIngestResult'
+        '400':
+          description: Validation failed (structural or semantic)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignalIngestResult'
+              example:
+                org_id: ''
+                signal_id: ''
+                status: rejected
+                received_at: '2026-02-07T12:00:00Z'
+                rejection_reason:
+                  code: missing_required_field
+                  message: "Required field 'learner_reference' is missing"
+                  field_path: /learner_reference
+    get:
+      operationId: querySignals
+      summary: Query the signal log
+      description: |
+        Read-only query for a learner's signals within a time range. Immutable,
+        append-only evidence stream. See docs/specs/signal-log.md.
+      parameters:
+        - name: org_id
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 128
+          description: Organization identifier (required for tenant isolation)
+        - name: learner_reference
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 256
+          description: Learner identifier
+        - name: from_time
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date-time
+          description: Start of time window (RFC3339, timezone required)
+        - name: to_time
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date-time
+          description: End of time window (RFC3339, must be >= from_time)
+        - name: page_token
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Opaque pagination token from previous response
+        - name: page_size
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 100
+          description: Results per page (1-1000)
+      responses:
+        '200':
+          description: Signal log query result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignalLogReadResponse'
+        '400':
+          description: Invalid query (time range, page_size, org_id, etc.)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignalLogError'
+
+  /v1/decisions:
+    get:
+      operationId: getDecisions
+      summary: Get decisions for a learner
+      description: |
+        Decision output API. Returns decisions for a learner within a time range.
+        From Component Interface Contracts (Output Interfaces). Same STATE (id+version)
+        yields same decision outcome.
+      parameters:
+        - name: org_id
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 128
+          description: Organization identifier
+        - name: learner_reference
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 256
+          description: Learner identifier
+        - name: from_time
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date-time
+          description: Start of time window (RFC3339)
+        - name: to_time
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date-time
+          description: End of time window (RFC3339)
+        - name: page_token
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Opaque pagination token
+        - name: page_size
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 100
+          description: Results per page (1-1000)
+      responses:
+        '200':
+          description: Decisions in time range
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetDecisionsResponse'
+        '400':
+          description: Invalid query parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignalLogError'
+
+components:
+  schemas:
+    # ---------------------------------------------------------------------------
+    # Signal Ingestion (POST /v1/signals)
+    # Aligned with src/contracts/schemas/signal-envelope.json
+    # ---------------------------------------------------------------------------
+    SignalEnvelope:
+      type: object
+      required:
+        - org_id
+        - signal_id
+        - source_system
+        - learner_reference
+        - timestamp
+        - schema_version
+        - payload
+      additionalProperties: false
+      properties:
+        org_id:
+          type: string
+          minLength: 1
+          maxLength: 128
+          description: Organization identifier
+        signal_id:
+          type: string
+          minLength: 1
+          maxLength: 256
+          pattern: '^[A-Za-z0-9._:-]+$'
+          description: Unique signal identifier within the organization
+        source_system:
+          type: string
+          minLength: 1
+          maxLength: 256
+          description: Origin system that generated the signal
+        learner_reference:
+          type: string
+          minLength: 1
+          maxLength: 256
+          description: Reference to the learner this signal relates to
+        timestamp:
+          type: string
+          description: RFC3339 formatted timestamp with required timezone
+        schema_version:
+          type: string
+          pattern: '^v[0-9]+$'
+          description: Version of the signal schema (e.g., v1, v2)
+        payload:
+          type: object
+          description: Opaque payload content (validated for forbidden keys only)
+        metadata:
+          type: object
+          additionalProperties: false
+          properties:
+            correlation_id:
+              type: string
+              description: Optional correlation ID for request tracing
+            trace_id:
+              type: string
+              description: Optional trace ID for distributed tracing
+
+    RejectionReason:
+      type: object
+      properties:
+        code:
+          type: string
+          description: Error code (e.g. missing_required_field, invalid_timestamp)
+        message:
+          type: string
+          description: Human-readable message
+        field_path:
+          type: string
+          description: JSON path to the field (e.g. payload.ui)
+
+    SignalIngestResult:
+      type: object
+      required:
+        - org_id
+        - signal_id
+        - status
+        - received_at
+      properties:
+        org_id:
+          type: string
+        signal_id:
+          type: string
+        status:
+          type: string
+          enum:
+            - accepted
+            - rejected
+            - duplicate
+        received_at:
+          type: string
+          description: RFC3339 when the request was received
+        rejection_reason:
+          $ref: '#/components/schemas/RejectionReason'
+
+    # ---------------------------------------------------------------------------
+    # Signal Log (GET /v1/signals)
+    # ---------------------------------------------------------------------------
+    SignalRecord:
+      allOf:
+        - $ref: '#/components/schemas/SignalEnvelope'
+        - type: object
+          required:
+            - accepted_at
+          properties:
+            accepted_at:
+              type: string
+              description: When the signal was accepted by ingestion (RFC3339)
+
+    SignalLogReadResponse:
+      type: object
+      required:
+        - org_id
+        - learner_reference
+        - signals
+        - next_page_token
+      properties:
+        org_id:
+          type: string
+        learner_reference:
+          type: string
+        signals:
+          type: array
+          items:
+            $ref: '#/components/schemas/SignalRecord'
+        next_page_token:
+          type: ['string', 'null']
+          description: Token for next page, or null if no more results
+
+    SignalLogError:
+      type: object
+      properties:
+        error:
+          type: string
+        code:
+          type: string
+        field_path:
+          type: string
+        details:
+          type: array
+          items:
+            $ref: '#/components/schemas/RejectionReason'
+
+    # ---------------------------------------------------------------------------
+    # Decision Output (GET /v1/decisions)
+    # From Component Interface Contracts §5
+    # ---------------------------------------------------------------------------
+    Decision:
+      type: object
+      required:
+        - org_id
+        - decision_id
+        - learner_reference
+        - decision_type
+        - decided_at
+        - decision_context
+        - trace
+      properties:
+        org_id:
+          type: string
+        decision_id:
+          type: string
+        learner_reference:
+          type: string
+        decision_type:
+          type: string
+          enum:
+            - reinforce
+            - advance
+            - intervene
+            - pause
+            - escalate
+            - recommend
+            - reroute
+        decided_at:
+          type: string
+          description: RFC3339
+        decision_context:
+          type: object
+          description: Opaque, downstream-neutral context
+        trace:
+          type: object
+          required:
+            - state_id
+            - state_version
+          properties:
+            state_id:
+              type: string
+            state_version:
+              type: integer
+
+    GetDecisionsResponse:
+      type: object
+      required:
+        - org_id
+        - learner_reference
+        - decisions
+        - next_page_token
+      properties:
+        org_id:
+          type: string
+        learner_reference:
+          type: string
+        decisions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Decision'
+        next_page_token:
+          type: ['string', 'null']

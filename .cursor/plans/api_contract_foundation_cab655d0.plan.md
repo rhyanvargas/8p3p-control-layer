@@ -4,7 +4,7 @@ overview: Add machine-readable API contracts (OpenAPI 3.1, AsyncAPI 2.6) with AP
 todos:
   - id: openapi-spec
     content: Create docs/api/openapi.yaml with all REST endpoints (POST /v1/signals, GET /v1/signals, GET /v1/decisions)
-    status: pending
+    status: completed
   - id: api-versioning
     content: Add /v1 prefix to all routes in server.ts
     status: pending
@@ -16,7 +16,7 @@ todos:
     status: pending
   - id: validate-script
     content: Add validate:api npm script and update project rules to reference specs
-    status: pending
+    status: completed
   - id: review-consistency
     content: Run /review to verify spec-driven development flow is accurate and consistent
     status: pending
@@ -150,7 +150,7 @@ Create `docs/api/asyncapi.yaml` for event contracts.
 Add validation command to [package.json](package.json):
 
 ```json
-"validate:api": "swagger-cli validate docs/api/openapi.yaml"
+"validate:api": "redocly lint docs/api/openapi.yaml"
 ```
 
 Update [control-layer-constraints/RULE.md](.cursor/rules/control-layer-constraints/RULE.md) to reference the new spec locations.
