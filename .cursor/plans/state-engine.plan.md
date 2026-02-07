@@ -10,7 +10,7 @@ todos:
     status: completed
   - id: TASK-003
     content: Implement STATE store (SQLite + applied_signals)
-    status: pending
+    status: completed
   - id: TASK-004
     content: Implement STATE validator
     status: pending
