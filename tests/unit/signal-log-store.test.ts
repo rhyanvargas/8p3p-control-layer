@@ -9,6 +9,7 @@ import {
   closeSignalLogStore,
   appendSignal,
   querySignals,
+  getSignalsByIds,
   clearSignalLogStore,
   encodePageToken,
   decodePageToken,
@@ -339,18 +340,95 @@ describe('Signal Log Store', () => {
     it('should clear all entries', () => {
       appendSignal(createSignal({ signal_id: 'clear-1', learner_reference: 'learner-G' }), '2026-01-30T10:00:00Z');
       appendSignal(createSignal({ signal_id: 'clear-2', learner_reference: 'learner-G' }), '2026-01-30T10:00:00Z');
-      
+
       clearSignalLogStore();
-      
+
       const request: SignalLogReadRequest = {
         org_id: 'test-org',
         learner_reference: 'learner-G',
         from_time: '2026-01-30T00:00:00Z',
         to_time: '2026-01-31T00:00:00Z',
       };
-      
+
       const result = querySignals(request);
       expect(result.signals).toEqual([]);
+    });
+  });
+
+  describe('getSignalsByIds', () => {
+    it('should return signals in accepted_at order', () => {
+      appendSignal(createSignal({ signal_id: 'ids-a', learner_reference: 'learner-H' }), '2026-01-30T12:00:00Z');
+      appendSignal(createSignal({ signal_id: 'ids-b', learner_reference: 'learner-H' }), '2026-01-30T10:00:00Z');
+      appendSignal(createSignal({ signal_id: 'ids-c', learner_reference: 'learner-H' }), '2026-01-30T11:00:00Z');
+
+      const result = getSignalsByIds('test-org', ['ids-a', 'ids-b', 'ids-c']);
+
+      expect(result.length).toBe(3);
+      expect(result[0].signal_id).toBe('ids-b');
+      expect(result[1].signal_id).toBe('ids-c');
+      expect(result[2].signal_id).toBe('ids-a');
+    });
+
+    it('should return only requested signals in accepted_at order when request order differs', () => {
+      appendSignal(createSignal({ signal_id: 'req-1', learner_reference: 'learner-I' }), '2026-01-30T10:00:00Z');
+      appendSignal(createSignal({ signal_id: 'req-2', learner_reference: 'learner-I' }), '2026-01-30T11:00:00Z');
+
+      const result = getSignalsByIds('test-org', ['req-2', 'req-1']);
+
+      expect(result.length).toBe(2);
+      expect(result[0].signal_id).toBe('req-1');
+      expect(result[1].signal_id).toBe('req-2');
+    });
+
+    it('should return empty array for empty signal_ids', () => {
+      const result = getSignalsByIds('test-org', []);
+      expect(result).toEqual([]);
+    });
+
+    it('should throw unknown_signal_id when a signal ID is not found', () => {
+      appendSignal(createSignal({ signal_id: 'known-1', learner_reference: 'learner-J' }), '2026-01-30T10:00:00Z');
+
+      expect(() => getSignalsByIds('test-org', ['known-1', 'nonexistent-id'])).toThrow();
+      try {
+        getSignalsByIds('test-org', ['known-1', 'nonexistent-id']);
+      } catch (err) {
+        expect((err as Error & { code: string }).code).toBe('unknown_signal_id');
+        expect((err as Error & { field_path?: string }).field_path).toBe('signal_ids');
+      }
+    });
+
+    it('should throw unknown_signal_id when all signal IDs are unknown', () => {
+      expect(() => getSignalsByIds('test-org', ['missing-1', 'missing-2'])).toThrow();
+      try {
+        getSignalsByIds('test-org', ['missing-1']);
+      } catch (err) {
+        expect((err as Error & { code: string }).code).toBe('unknown_signal_id');
+      }
+    });
+
+    it('should return signals only for the requested org (org isolation)', () => {
+      appendSignal(
+        createSignal({ org_id: 'org-A', signal_id: 'iso-sig-1', learner_reference: 'learner-K' }),
+        '2026-01-30T10:00:00Z'
+      );
+      const result = getSignalsByIds('org-A', ['iso-sig-1']);
+      expect(result.length).toBe(1);
+      expect(result[0].org_id).toBe('org-A');
+      expect(result[0].signal_id).toBe('iso-sig-1');
+      // Requesting same signal_id with different org yields unknown_signal_id (no cross-org leak)
+      expect(() => getSignalsByIds('org-B', ['iso-sig-1'])).toThrow();
+      try {
+        getSignalsByIds('org-B', ['iso-sig-1']);
+      } catch (err) {
+        expect((err as Error & { code: string }).code).toBe('unknown_signal_id');
+      }
+    });
+
+    it('should throw if store not initialized', () => {
+      closeSignalLogStore();
+      expect(() => getSignalsByIds('test-org', ['any-id'])).toThrow(
+        'Signal Log store not initialized'
+      );
     });
   });
 });

@@ -4,7 +4,7 @@ overview: Implement Stage 3 of the control layer lifecycle—STATE store, applyS
 todos:
   - id: TASK-001
     content: Add getSignalsByIds to Signal Log store
-    status: pending
+    status: completed
   - id: TASK-002
     content: Add STATE types and error codes to shared
     status: pending

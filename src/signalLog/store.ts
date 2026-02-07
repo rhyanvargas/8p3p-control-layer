@@ -173,6 +173,62 @@ export function querySignals(request: SignalLogReadRequest): SignalLogQueryResul
 }
 
 /**
+ * Retrieve specific signals by their IDs for downstream processing (e.g. STATE Engine).
+ * All signals must belong to the specified org_id. Results are ordered by accepted_at ASC, then id ASC.
+ *
+ * @param orgId - Tenant identifier (enforces org isolation)
+ * @param signalIds - Signal IDs to fetch
+ * @returns Array of SignalRecord in accepted_at order
+ * @throws Error with code 'unknown_signal_id' if any signal_id is not found
+ * @throws Error with code 'signals_not_in_org_scope' if any returned signal belongs to a different org
+ */
+export function getSignalsByIds(orgId: string, signalIds: string[]): SignalRecord[] {
+  if (!db) {
+    throw new Error('Signal Log store not initialized. Call initSignalLogStore first.');
+  }
+
+  if (signalIds.length === 0) {
+    return [];
+  }
+
+  const placeholders = signalIds.map(() => '?').join(', ');
+  const stmt = db.prepare(`
+    SELECT id, org_id, signal_id, source_system, learner_reference,
+           timestamp, schema_version, payload, metadata, accepted_at
+    FROM signal_log
+    WHERE org_id = ? AND signal_id IN (${placeholders})
+    ORDER BY accepted_at ASC, id ASC
+  `);
+
+  const rows = stmt.all(orgId, ...signalIds) as SignalLogRow[];
+
+  const foundIds = new Set(rows.map((r) => r.signal_id));
+  const missingIds = signalIds.filter((id) => !foundIds.has(id));
+  if (missingIds.length > 0) {
+    const err = new Error(`Unknown signal id(s): ${missingIds.join(', ')}`) as Error & {
+      code: string;
+      field_path?: string;
+    };
+    err.code = 'unknown_signal_id';
+    err.field_path = 'signal_ids';
+    throw err;
+  }
+
+  for (const row of rows) {
+    if (row.org_id !== orgId) {
+      const err = new Error(
+        `Signal ${row.signal_id} belongs to org ${row.org_id}, not ${orgId}`
+      ) as Error & { code: string; field_path?: string };
+      err.code = 'signals_not_in_org_scope';
+      err.field_path = 'signal_ids';
+      throw err;
+    }
+  }
+
+  return rows.map(rowToSignalRecord);
+}
+
+/**
  * Clear all entries (for testing only)
  */
 export function clearSignalLogStore(): void {
