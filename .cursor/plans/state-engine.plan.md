@@ -16,7 +16,7 @@ todos:
     status: completed
   - id: TASK-005
     content: Implement STATE engine (computeNewState + applySignals)
-    status: pending
+    status: completed
   - id: TASK-006
     content: Wire ingestion to applySignals and init STATE store in server
     status: pending
