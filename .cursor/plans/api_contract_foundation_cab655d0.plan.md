@@ -10,16 +10,19 @@ todos:
     status: completed
   - id: swagger-integration
     content: Install @fastify/swagger and @fastify/swagger-ui, configure in server.ts
-    status: in_progress
+    status: completed
   - id: asyncapi-spec
     content: Create docs/api/asyncapi.yaml with signal.ingested and decision.emitted events
-    status: pending
+    status: completed
   - id: validate-script
     content: Add validate:api npm script and update project rules to reference specs
     status: completed
   - id: review-consistency
     content: Run /review to verify spec-driven development flow is accurate and consistent
-    status: pending
+    status: completed
+  - id: todo-1770491382175-38jj43hjy
+    content: Run `/update-readme all relavant documentation `
+    status: completed
 isProject: false
 ---
 

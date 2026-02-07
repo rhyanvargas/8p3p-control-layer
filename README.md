@@ -94,10 +94,12 @@ The control layer supports seven decision types, forming a closed set:
 
 | Contract | Schema | Validator |
 |----------|--------|-----------|
+| **REST API** | [`docs/api/openapi.yaml`](docs/api/openapi.yaml) | Served at `/docs` (Swagger UI) |
+| **Events** | [`docs/api/asyncapi.yaml`](docs/api/asyncapi.yaml) | — |
 | **Signal Envelope** | [`src/contracts/schemas/signal-envelope.json`](src/contracts/schemas/signal-envelope.json) | [`src/contracts/validators/signal-envelope.ts`](src/contracts/validators/signal-envelope.ts) |
-| **Decision Object** | See [Interface Contracts doc](docs/foundation/) | Planned |
+| **Decision Object** | See [Component Interface Contracts](<docs/foundation/[POC Playbook] 8P3P Learning Intelligence Control Layer-Component Interface Contracts.md>) | Planned |
 
-For detailed contract specifications, see the [Component Interface Contracts](docs/foundation/) documentation.
+For detailed contract specifications, see the [Component Interface Contracts](<docs/foundation/[POC Playbook] 8P3P Learning Intelligence Control Layer-Component Interface Contracts.md>) and API specs in [`docs/api/`](docs/api/).
 
 ---
 
@@ -107,6 +109,8 @@ For detailed contract specifications, see the [Component Interface Contracts](do
 |------------|---------|
 | **TypeScript** | Primary language |
 | **Fastify** | HTTP server framework |
+| **@fastify/swagger** | OpenAPI spec serving |
+| **@fastify/swagger-ui** | Interactive API docs at `/docs` |
 | **Ajv** | JSON Schema validation |
 | **better-sqlite3** | SQLite database driver |
 | **Vitest** | Test framework |
@@ -140,6 +144,8 @@ src/
 ├── state/            # STATE engine (planned)
 ├── output/           # Output interfaces (planned)
 └── server.ts         # Application entry point
+scripts/
+└── validate-api.sh   # OpenAPI lint (redocly)
 ```
 
 ---
@@ -149,16 +155,25 @@ src/
 | Document | Description |
 |----------|-------------|
 | [Architecture](docs/foundation/architecture.md) | System architecture and data flow |
-| [Component Interface Contracts](docs/foundation/) | Complete API and event schemas |
-| [Contract Test Matrix](docs/foundation/) | Comprehensive test cases for validation |
-| [Interface Validation Ruleset](docs/foundation/) | Structural validation rules and error codes |
+| [Setup](docs/foundation/setup.md) | Environment and runbook |
+| [Component Interface Contracts](<docs/foundation/[POC Playbook] 8P3P Learning Intelligence Control Layer-Component Interface Contracts.md>) | Complete API and event schemas |
+| [Contract Test Matrix](<docs/foundation/[POC Playbook] 8P3P Learning Intelligence Control Layer-Contract Test Matrix.md>) | Comprehensive test cases for validation |
+| [Interface Validation Ruleset](<docs/foundation/[POC Playbook] 8P3P Learning Intelligence Control Layer-Interface Validation Ruleset.md>) | Structural validation rules and error codes |
 
-### Specifications
+### API specifications (machine-readable)
+
+| Spec | Description |
+|------|-------------|
+| [OpenAPI](docs/api/openapi.yaml) | REST API contract (v1); interactive docs at `/docs` |
+| [AsyncAPI](docs/api/asyncapi.yaml) | Event contracts (e.g. `signal.ingested`, `decision.emitted`) |
+
+### Specifications (prose)
 
 | Spec | Description |
 |------|-------------|
 | [Signal Ingestion](docs/specs/signal-ingestion.md) | Signal ingestion API specification |
 | [Signal Log](docs/specs/signal-log.md) | Immutable signal storage specification |
+| [State Engine](docs/specs/state-engine.md) | STATE engine design (planned) |
 
 ---
 
@@ -178,6 +193,10 @@ This project is in **active development**. The foundational contracts, validatio
 - [x] Contract tests for Signal Ingestion
 - [x] Contract tests for Signal Log
 - [x] Unit tests for idempotency, forbidden-keys, signal-log-store
+- [x] API versioning (`/v1` prefix for signals and decisions)
+- [x] OpenAPI spec ([`docs/api/openapi.yaml`](docs/api/openapi.yaml)) and Swagger UI at `/docs`
+- [x] AsyncAPI spec ([`docs/api/asyncapi.yaml`](docs/api/asyncapi.yaml)) for event contracts
+- [x] `validate:api` script (Redocly lint for OpenAPI)
 
 ### In Progress
 - [ ] STATE Engine implementation

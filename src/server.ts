@@ -1,8 +1,14 @@
 import Fastify from 'fastify';
+import swagger from '@fastify/swagger';
+import swaggerUi from '@fastify/swagger-ui';
+import { fileURLToPath } from 'url';
+import { dirname, join, resolve } from 'path';
 import { registerIngestionRoutes } from './ingestion/routes.js';
 import { initIdempotencyStore } from './ingestion/idempotency.js';
 import { registerSignalLogRoutes } from './signalLog/routes.js';
 import { initSignalLogStore } from './signalLog/store.js';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 // Initialize idempotency store with SQLite
 const dbPath = process.env.IDEMPOTENCY_DB_PATH ?? './data/idempotency.db';
@@ -12,7 +18,6 @@ const signalLogDbPath = process.env.SIGNAL_LOG_DB_PATH ?? './data/signal-log.db'
 
 // Ensure data directory exists for SQLite database
 import { mkdirSync } from 'fs';
-import { dirname } from 'path';
 try {
   mkdirSync(dirname(dbPath), { recursive: true });
 } catch {
@@ -36,11 +41,24 @@ const server = Fastify({
   }
 });
 
+const apiSpecDir = resolve(__dirname, '..', 'docs', 'api');
+await server.register(swagger, {
+  mode: 'static',
+  specification: {
+    path: join(apiSpecDir, 'openapi.yaml'),
+    baseDir: apiSpecDir
+  }
+});
+
+await server.register(swaggerUi, {
+  routePrefix: '/docs'
+});
+
 server.get('/', async () => {
-  return { 
+  return {
     name: '8P3P Control Layer',
     version: '0.1.0',
-    endpoints: ['/health', '/v1/signals', '/v1/decisions']
+    endpoints: ['/health', '/v1/signals', '/v1/decisions', '/docs']
   };
 });
 

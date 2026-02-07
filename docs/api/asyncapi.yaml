@@ -1,0 +1,207 @@
+asyncapi: 2.6.0
+info:
+  title: 8P3P Control Layer Events
+  description: |
+    Event contracts for the 8P3P Learning Intelligence Control Layer.
+    Lifecycle: Ingestion → Signal Log → STATE Engine → Decision Engine → Output.
+    From Component Interface Contracts (docs/foundation).
+  version: 1.0.0
+  license:
+    name: ISC
+    url: https://opensource.org/licenses/ISC
+
+# No authentication required for current operations (tenant isolation via org_id/learner_reference).
+# Bindings (e.g. Kafka, SQS) can be added when a transport is chosen.
+defaultContentType: application/json
+
+channels:
+  signal.ingested:
+    description: Emitted when a signal has been accepted by ingestion and forwarded to the Signal Log.
+    subscribe:
+      operationId: onSignalIngested
+      summary: Signal ingested event
+      message:
+        $ref: '#/components/messages/SignalIngestedEvent'
+
+  decision.emitted:
+    description: Emitted when the Decision Engine produces a decision for a learner. Downstream is responsible for execution.
+    subscribe:
+      operationId: onDecisionEmitted
+      summary: Decision emitted event
+      message:
+        $ref: '#/components/messages/DecisionEmittedEvent'
+
+components:
+  messages:
+    SignalIngestedEvent:
+      name: SignalIngestedEvent
+      title: Signal Ingested Event
+      summary: Payload when a signal has been ingested.
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/SignalIngestedEvent'
+
+    DecisionEmittedEvent:
+      name: DecisionEmittedEvent
+      title: Decision Emitted Event
+      summary: Payload when a decision has been emitted.
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/DecisionEmittedEvent'
+
+  schemas:
+    # ---------------------------------------------------------------------------
+    # Shared: signal payload (embedded in SignalIngestedEvent)
+    # Aligned with OpenAPI SignalEnvelope
+    # ---------------------------------------------------------------------------
+    Signal:
+      type: object
+      required:
+        - org_id
+        - signal_id
+        - source_system
+        - learner_reference
+        - timestamp
+        - schema_version
+        - payload
+      additionalProperties: false
+      properties:
+        org_id:
+          type: string
+          minLength: 1
+          maxLength: 128
+          description: Organization identifier
+        signal_id:
+          type: string
+          minLength: 1
+          maxLength: 256
+          pattern: '^[A-Za-z0-9._:-]+$'
+          description: Unique signal identifier within the organization
+        source_system:
+          type: string
+          minLength: 1
+          maxLength: 256
+          description: Origin system that generated the signal
+        learner_reference:
+          type: string
+          minLength: 1
+          maxLength: 256
+          description: Reference to the learner this signal relates to
+        timestamp:
+          type: string
+          description: RFC3339 formatted timestamp with required timezone
+        schema_version:
+          type: string
+          pattern: '^v[0-9]+$'
+          description: Version of the signal schema (e.g., v1, v2)
+        payload:
+          type: object
+          description: Opaque payload content (validated for forbidden keys only)
+        metadata:
+          type: object
+          additionalProperties: false
+          properties:
+            correlation_id:
+              type: string
+              description: Optional correlation ID for request tracing
+            trace_id:
+              type: string
+              description: Optional trace ID for distributed tracing
+
+    SignalIngestedEvent:
+      type: object
+      required:
+        - event_type
+        - org_id
+        - signal
+        - ingested_at
+      additionalProperties: false
+      properties:
+        event_type:
+          type: string
+          const: signal.ingested
+          description: Event type discriminator
+        org_id:
+          type: string
+          minLength: 1
+          maxLength: 128
+          description: Organization identifier
+        signal:
+          $ref: '#/components/schemas/Signal'
+        ingested_at:
+          type: string
+          format: date-time
+          description: When the signal was ingested (RFC3339)
+
+    # ---------------------------------------------------------------------------
+    # Shared: decision payload (embedded in DecisionEmittedEvent)
+    # Aligned with OpenAPI Decision schema
+    # ---------------------------------------------------------------------------
+    Decision:
+      type: object
+      required:
+        - org_id
+        - decision_id
+        - learner_reference
+        - decision_type
+        - decided_at
+        - decision_context
+        - trace
+      properties:
+        org_id:
+          type: string
+        decision_id:
+          type: string
+        learner_reference:
+          type: string
+        decision_type:
+          type: string
+          enum:
+            - reinforce
+            - advance
+            - intervene
+            - pause
+            - escalate
+            - recommend
+            - reroute
+        decided_at:
+          type: string
+          description: RFC3339
+        decision_context:
+          type: object
+          description: Opaque, downstream-neutral context
+        trace:
+          type: object
+          required:
+            - state_id
+            - state_version
+          properties:
+            state_id:
+              type: string
+            state_version:
+              type: integer
+
+    DecisionEmittedEvent:
+      type: object
+      required:
+        - event_type
+        - org_id
+        - decision
+        - emitted_at
+      additionalProperties: false
+      properties:
+        event_type:
+          type: string
+          const: decision.emitted
+          description: Event type discriminator
+        org_id:
+          type: string
+          minLength: 1
+          maxLength: 128
+          description: Organization identifier
+        decision:
+          $ref: '#/components/schemas/Decision'
+        emitted_at:
+          type: string
+          format: date-time
+          description: When the decision was emitted (RFC3339)

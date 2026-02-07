@@ -94,7 +94,7 @@ export async function handleSignalIngestion(
   const acceptedAt = idempotencyResult.receivedAt ?? receivedAt;
   appendSignal(signal, acceptedAt);
   
-  // Step 5: Success - signal accepted
+  // Step 5: Success - signal accepted (200 per OpenAPI: "Signal accepted or duplicate")
   const result: SignalIngestResult = {
     org_id: signal.org_id,
     signal_id: signal.signal_id,
@@ -102,6 +102,6 @@ export async function handleSignalIngestion(
     received_at: acceptedAt,
   };
   
-  reply.status(201);
+  reply.status(200);
   return result;
 }
