@@ -397,7 +397,7 @@ Implementation is complete when:
 
 ### Receives From
 
-- **Signal Log** (`querySignals`) - Retrieves signal payloads by ID
+- **Signal Log** (`getSignalsByIds`) - Retrieves signal payloads by ID for application (internal; see `docs/specs/signal-log.md`)
 
 ### Feeds Into
 
