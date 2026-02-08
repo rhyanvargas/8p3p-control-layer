@@ -4,10 +4,10 @@ import swaggerUi from '@fastify/swagger-ui';
 import { fileURLToPath } from 'url';
 import { dirname, join, resolve } from 'path';
 import { registerIngestionRoutes } from './ingestion/routes.js';
-import { initIdempotencyStore } from './ingestion/idempotency.js';
+import { initIdempotencyStore, closeIdempotencyStore } from './ingestion/idempotency.js';
 import { registerSignalLogRoutes } from './signalLog/routes.js';
-import { initSignalLogStore } from './signalLog/store.js';
-import { initStateStore } from './state/store.js';
+import { initSignalLogStore, closeSignalLogStore } from './signalLog/store.js';
+import { initStateStore, closeStateStore } from './state/store.js';
 import { initDecisionStore, closeDecisionStore } from './decision/store.js';
 import { loadPolicy } from './decision/policy-loader.js';
 import { registerDecisionRoutes } from './decision/routes.js';
@@ -101,9 +101,12 @@ server.register(async (v1) => {
   registerDecisionRoutes(v1);
 }, { prefix: '/v1' });
 
-// Graceful shutdown: close stores
+// Graceful shutdown: close stores (reverse of init order)
 server.addHook('onClose', () => {
   closeDecisionStore();
+  closeStateStore();
+  closeSignalLogStore();
+  closeIdempotencyStore();
 });
 
 const start = async () => {
