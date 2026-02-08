@@ -430,5 +430,48 @@ describe('Signal Log Store', () => {
         'Signal Log store not initialized'
       );
     });
+
+    it('should throw signals_not_in_org_scope for mixed batch with valid + cross-org signal', () => {
+      // signal-A belongs to org-A, signal-B belongs to org-B
+      appendSignal(
+        createSignal({ org_id: 'org-A', signal_id: 'mix-a', learner_reference: 'learner-mix' }),
+        '2026-01-30T10:00:00Z'
+      );
+      appendSignal(
+        createSignal({ org_id: 'org-B', signal_id: 'mix-b', learner_reference: 'learner-mix' }),
+        '2026-01-30T10:01:00Z'
+      );
+
+      // Request both as org-A — mix-b is cross-org
+      expect(() => getSignalsByIds('org-A', ['mix-a', 'mix-b'])).toThrow();
+      try {
+        getSignalsByIds('org-A', ['mix-a', 'mix-b']);
+      } catch (err) {
+        expect((err as Error & { code: string }).code).toBe('signals_not_in_org_scope');
+        expect((err as Error & { field_path?: string }).field_path).toBe('signal_ids');
+      }
+    });
+
+    it('should throw unknown_signal_id when batch has both missing and cross-org signals (unknown takes precedence)', () => {
+      // signal-A belongs to org-A, signal-B belongs to org-B
+      appendSignal(
+        createSignal({ org_id: 'org-A', signal_id: 'prio-a', learner_reference: 'learner-prio' }),
+        '2026-01-30T10:00:00Z'
+      );
+      appendSignal(
+        createSignal({ org_id: 'org-B', signal_id: 'prio-b', learner_reference: 'learner-prio' }),
+        '2026-01-30T10:01:00Z'
+      );
+
+      // Request org-A with: valid (prio-a), cross-org (prio-b), truly missing (totally-missing)
+      expect(() => getSignalsByIds('org-A', ['prio-a', 'prio-b', 'totally-missing'])).toThrow();
+      try {
+        getSignalsByIds('org-A', ['prio-a', 'prio-b', 'totally-missing']);
+      } catch (err) {
+        // unknown_signal_id takes precedence over signals_not_in_org_scope
+        expect((err as Error & { code: string }).code).toBe('unknown_signal_id');
+        expect((err as Error & { field_path?: string }).field_path).toBe('signal_ids');
+      }
+    });
   });
 });

@@ -4,13 +4,13 @@ overview: "Address findings from the third /review cycle. Priority 1: harden get
 todos:
   - id: TASK-001
     content: "Harden getSignalsByIds: add org_id to SQL WHERE clause while preserving unknown_signal_id vs signals_not_in_org_scope error distinction"
-    status: pending
+    status: completed
   - id: TASK-002
     content: Update signal-log unit tests for SQL-level org scoping behavior
-    status: pending
+    status: completed
   - id: TASK-003
     content: "Add contract test STATE-014: mixed-org batch (some valid, one cross-org)"
-    status: pending
+    status: completed
   - id: TASK-004
     content: "Update state-engine.md: fix computeNewState signature, add ApplySignalsOutcome consumer guidance, check success criteria"
     status: pending
@@ -148,7 +148,7 @@ Add a new `describe('STATE-014: Cross-org signal in mixed batch')` block:
 - **Action**: Modify
 - **Details**:
 Update the "DynamoDB Table Design" section (around line 246):
-  **Current** (broken for version history):
+**Current** (broken for version history):
   ```
   State Table:
   - Partition Key: org_id

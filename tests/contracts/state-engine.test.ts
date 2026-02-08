@@ -371,6 +371,61 @@ describe('STATE Engine Contract Tests', () => {
     });
   });
 
+  describe('STATE-014: Cross-org signal in mixed batch', () => {
+    it('should reject with signals_not_in_org_scope when batch includes a cross-org signal', () => {
+      // signal-A belongs to org-A, signal-B belongs to org-B (both for learner-1)
+      const sigA = appendTestSignal({
+        org_id: 'org-A',
+        learner_reference: 'learner-1',
+        payload: { skill: 'math', level: 1 },
+      });
+      const sigB = appendTestSignal({
+        org_id: 'org-B',
+        learner_reference: 'learner-1',
+        payload: { skill: 'reading', level: 2 },
+      });
+
+      // Apply both signals under org-A — sigB is cross-org
+      const outcome = applySignals({
+        org_id: 'org-A',
+        learner_reference: 'learner-1',
+        signal_ids: [sigA.signal_id, sigB.signal_id],
+        requested_at: sigA.accepted_at,
+      });
+
+      expect(outcome.ok).toBe(false);
+      if (outcome.ok) return;
+      expect(outcome.errors.length).toBeGreaterThanOrEqual(1);
+      expect(outcome.errors[0].code).toBe(ErrorCodes.SIGNALS_NOT_IN_ORG_SCOPE);
+    });
+
+    it('should not persist any state when the batch is rejected (no partial apply)', () => {
+      const sigA = appendTestSignal({
+        org_id: 'org-A',
+        learner_reference: 'learner-1',
+        payload: { skill: 'science', level: 3 },
+      });
+      const sigB = appendTestSignal({
+        org_id: 'org-B',
+        learner_reference: 'learner-1',
+        payload: { skill: 'art', level: 1 },
+      });
+
+      const outcome = applySignals({
+        org_id: 'org-A',
+        learner_reference: 'learner-1',
+        signal_ids: [sigA.signal_id, sigB.signal_id],
+        requested_at: sigA.accepted_at,
+      });
+
+      expect(outcome.ok).toBe(false);
+
+      // No state should have been persisted for learner-1
+      const state = getState('org-A', 'learner-1');
+      expect(state).toBeNull();
+    });
+  });
+
   describe('STATE-013: State isolation by learner', () => {
     it('should keep learner-1 and learner-2 state independent (same org); versions start at v1 each', () => {
       const org = 'org-A';

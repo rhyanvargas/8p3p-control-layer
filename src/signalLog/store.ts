@@ -191,33 +191,48 @@ export function getSignalsByIds(orgId: string, signalIds: string[]): SignalRecor
     return [];
   }
 
+  // Step 1: Primary query — org isolation enforced at the SQL level
   const placeholders = signalIds.map(() => '?').join(', ');
   const stmt = db.prepare(`
     SELECT id, org_id, signal_id, source_system, learner_reference,
            timestamp, schema_version, payload, metadata, accepted_at
     FROM signal_log
-    WHERE signal_id IN (${placeholders})
+    WHERE signal_id IN (${placeholders}) AND org_id = ?
     ORDER BY accepted_at ASC, id ASC
   `);
 
-  const rows = stmt.all(...signalIds) as SignalLogRow[];
+  const rows = stmt.all(...signalIds, orgId) as SignalLogRow[];
 
+  // Step 2: If some IDs weren't returned, determine why (truly missing vs cross-org)
   const foundIds = new Set(rows.map((r) => r.signal_id));
   const missingIds = signalIds.filter((id) => !foundIds.has(id));
-  if (missingIds.length > 0) {
-    const err = new Error(`Unknown signal id(s): ${missingIds.join(', ')}`) as Error & {
-      code: string;
-      field_path?: string;
-    };
-    err.code = 'unknown_signal_id';
-    err.field_path = 'signal_ids';
-    throw err;
-  }
 
-  for (const row of rows) {
-    if (row.org_id !== orgId) {
+  if (missingIds.length > 0) {
+    // Secondary existence check — do the missing IDs exist in other orgs?
+    const missingPlaceholders = missingIds.map(() => '?').join(', ');
+    const existStmt = db.prepare(
+      `SELECT signal_id FROM signal_log WHERE signal_id IN (${missingPlaceholders})`
+    );
+    const existRows = existStmt.all(...missingIds) as { signal_id: string }[];
+    const existingInOtherOrgs = new Set(existRows.map((r) => r.signal_id));
+
+    const trulyMissing = missingIds.filter((id) => !existingInOtherOrgs.has(id));
+    const crossOrgIds = missingIds.filter((id) => existingInOtherOrgs.has(id));
+
+    // unknown_signal_id takes precedence over signals_not_in_org_scope
+    if (trulyMissing.length > 0) {
+      const err = new Error(`Unknown signal id(s): ${trulyMissing.join(', ')}`) as Error & {
+        code: string;
+        field_path?: string;
+      };
+      err.code = 'unknown_signal_id';
+      err.field_path = 'signal_ids';
+      throw err;
+    }
+
+    if (crossOrgIds.length > 0) {
       const err = new Error(
-        `Signal ${row.signal_id} belongs to org ${row.org_id}, not ${orgId}`
+        `Signal ${crossOrgIds[0]} belongs to a different org, not ${orgId}`
       ) as Error & { code: string; field_path?: string };
       err.code = 'signals_not_in_org_scope';
       err.field_path = 'signal_ids';
