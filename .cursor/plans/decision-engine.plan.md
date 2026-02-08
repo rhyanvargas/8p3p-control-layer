@@ -28,10 +28,10 @@ todos:
     status: completed
   - id: TASK-009
     content: Server integration — wire stores, policy, routes
-    status: pending
+    status: completed
   - id: TASK-010
     content: Sync trigger — wire evaluateState into signal ingestion
-    status: pending
+    status: completed
   - id: TASK-011
     content: Unit tests — policy loader
     status: pending

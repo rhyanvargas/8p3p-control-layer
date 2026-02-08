@@ -8,6 +8,9 @@ import { initIdempotencyStore } from './ingestion/idempotency.js';
 import { registerSignalLogRoutes } from './signalLog/routes.js';
 import { initSignalLogStore } from './signalLog/store.js';
 import { initStateStore } from './state/store.js';
+import { initDecisionStore, closeDecisionStore } from './decision/store.js';
+import { loadPolicy } from './decision/policy-loader.js';
+import { registerDecisionRoutes } from './decision/routes.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -48,6 +51,18 @@ try {
 
 initStateStore(stateStoreDbPath);
 
+// Initialize Decision store (Stage 4)
+const decisionDbPath = process.env.DECISION_DB_PATH ?? './data/decisions.db';
+try {
+  mkdirSync(dirname(decisionDbPath), { recursive: true });
+} catch {
+  // Directory may already exist
+}
+initDecisionStore(decisionDbPath);
+
+// Load decision policy (must happen after store init, before route registration)
+loadPolicy();
+
 const server = Fastify({
   logger: {
     level: process.env.LOG_LEVEL || 'info'
@@ -83,8 +98,13 @@ server.get('/health', async () => {
 server.register(async (v1) => {
   registerIngestionRoutes(v1);
   registerSignalLogRoutes(v1);
-  // registerDecisionRoutes(v1);  // future
+  registerDecisionRoutes(v1);
 }, { prefix: '/v1' });
+
+// Graceful shutdown: close stores
+server.addHook('onClose', () => {
+  closeDecisionStore();
+});
 
 const start = async () => {
   try {

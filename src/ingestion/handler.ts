@@ -4,13 +4,14 @@
  */
 
 import type { FastifyRequest, FastifyReply } from 'fastify';
-import type { SignalEnvelope, SignalIngestResult } from '../shared/types.js';
+import type { SignalEnvelope, SignalIngestResult, EvaluateStateForDecisionRequest } from '../shared/types.js';
 import { ErrorCodes } from '../shared/error-codes.js';
 import { validateSignalEnvelope } from '../contracts/validators/signal-envelope.js';
 import { detectForbiddenKeys } from './forbidden-keys.js';
 import { checkAndStore } from './idempotency.js';
 import { appendSignal } from '../signalLog/store.js';
-import { applySignals } from '../state/engine.js';
+import { applySignals, type ApplySignalsOutcome } from '../state/engine.js';
+import { evaluateState } from '../decision/engine.js';
 
 /**
  * Handle POST /signals request
@@ -98,8 +99,9 @@ export async function handleSignalIngestion(
   // Step 4b: Apply signal to learner state (STATE engine).
   // On rejection or throw we log and continue so ingestion stays resilient: the signal is already
   // in the log and STATE can be retried later (e.g. on next read or a batch job).
+  let applyOutcome: ApplySignalsOutcome | null = null;
   try {
-    const applyOutcome = applySignals({
+    applyOutcome = applySignals({
       org_id: signal.org_id,
       learner_reference: signal.learner_reference,
       signal_ids: [signal.signal_id],
@@ -116,6 +118,32 @@ export async function handleSignalIngestion(
       { err, org_id: signal.org_id, signal_id: signal.signal_id },
       'applySignals threw after appendSignal; signal remains in log'
     );
+  }
+
+  // Step 4c: Evaluate state for decision (Decision Engine).
+  // On rejection or throw we log and continue — ingestion must not fail due to decision evaluation.
+  if (applyOutcome?.ok) {
+    try {
+      const evalRequest: EvaluateStateForDecisionRequest = {
+        org_id: signal.org_id,
+        learner_reference: signal.learner_reference,
+        state_id: applyOutcome.result.state_id,
+        state_version: applyOutcome.result.new_state_version,
+        requested_at: new Date().toISOString(),
+      };
+      const decisionOutcome = evaluateState(evalRequest);
+      if (!decisionOutcome.ok) {
+        request.log?.warn?.(
+          { err: decisionOutcome.errors, org_id: signal.org_id, signal_id: signal.signal_id },
+          'evaluateState rejected after applySignals; signal and state remain intact'
+        );
+      }
+    } catch (err) {
+      request.log?.warn?.(
+        { err, org_id: signal.org_id, signal_id: signal.signal_id },
+        'evaluateState threw after applySignals; signal and state remain intact'
+      );
+    }
   }
 
   // Step 5: Success - signal accepted (200 per OpenAPI: "Signal accepted or duplicate")
