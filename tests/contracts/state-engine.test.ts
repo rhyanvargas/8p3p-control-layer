@@ -1,5 +1,5 @@
 /**
- * Contract Tests for STATE Engine (STATE-001 through STATE-008)
+ * Contract Tests for STATE Engine (STATE-001 through STATE-013)
  * Tests applySignals behavior against the state-engine spec contract.
  */
 
@@ -263,6 +263,55 @@ describe('STATE Engine Contract Tests', () => {
       const finalState = getState('org-A', 'learner-1');
       expect(finalState).not.toBeNull();
       expect(JSON.stringify(finalState!.state)).toBe(stateSnapshotSingle);
+    });
+  });
+
+  describe('STATE-013: State isolation by learner', () => {
+    it('should keep learner-1 and learner-2 state independent (same org); versions start at v1 each', () => {
+      const org = 'org-A';
+      const sig1 = appendTestSignal({
+        learner_reference: 'learner-1',
+        payload: { learner: 'one', skill: 'math' },
+      });
+      const sig2 = appendTestSignal({
+        learner_reference: 'learner-2',
+        payload: { learner: 'two', skill: 'reading' },
+      });
+
+      const outcome1 = applySignals({
+        org_id: org,
+        learner_reference: 'learner-1',
+        signal_ids: [sig1.signal_id],
+        requested_at: sig1.accepted_at,
+      });
+      expect(outcome1.ok).toBe(true);
+      if (outcome1.ok) {
+        expect(outcome1.result.new_state_version).toBe(1);
+        expect(outcome1.result.prior_state_version).toBe(0);
+      }
+
+      const outcome2 = applySignals({
+        org_id: org,
+        learner_reference: 'learner-2',
+        signal_ids: [sig2.signal_id],
+        requested_at: sig2.accepted_at,
+      });
+      expect(outcome2.ok).toBe(true);
+      if (outcome2.ok) {
+        expect(outcome2.result.new_state_version).toBe(1);
+        expect(outcome2.result.prior_state_version).toBe(0);
+      }
+
+      const state1 = getState(org, 'learner-1');
+      const state2 = getState(org, 'learner-2');
+
+      expect(state1).not.toBeNull();
+      expect(state1!.state).toEqual({ learner: 'one', skill: 'math' });
+      expect(state1!.state_version).toBe(1);
+
+      expect(state2).not.toBeNull();
+      expect(state2!.state).toEqual({ learner: 'two', skill: 'reading' });
+      expect(state2!.state_version).toBe(1);
     });
   });
 });

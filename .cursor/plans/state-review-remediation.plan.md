@@ -10,7 +10,7 @@ todos:
     status: completed
   - id: TASK-003
     content: Add STATE-013 learner isolation contract test
-    status: pending
+    status: completed
   - id: TASK-004
     content: Document Phase 2 storage abstraction prep in playbook Phase 2
     status: pending
