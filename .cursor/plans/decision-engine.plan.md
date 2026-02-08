@@ -16,10 +16,10 @@ todos:
     status: completed
   - id: TASK-005
     content: Create Decision Validator
-    status: pending
+    status: completed
   - id: TASK-006
     content: Create Decision JSON Schema + Ajv validator
-    status: pending
+    status: completed
   - id: TASK-007
     content: Create Decision Engine (evaluateState)
     status: pending

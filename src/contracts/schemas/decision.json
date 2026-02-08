@@ -1,0 +1,62 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "decision",
+  "title": "Decision",
+  "description": "Canonical Decision object from the Decision Engine",
+  "type": "object",
+  "required": ["org_id", "decision_id", "learner_reference", "decision_type", "decided_at", "decision_context", "trace"],
+  "properties": {
+    "org_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Organization identifier"
+    },
+    "decision_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Unique decision identifier"
+    },
+    "learner_reference": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Reference to the learner this decision relates to"
+    },
+    "decision_type": {
+      "type": "string",
+      "enum": ["reinforce", "advance", "intervene", "pause", "escalate", "recommend", "reroute"],
+      "description": "Closed set of 7 decision types"
+    },
+    "decided_at": {
+      "type": "string",
+      "description": "RFC3339 timestamp when the decision was made"
+    },
+    "decision_context": {
+      "type": "object",
+      "description": "Opaque context object (validated for forbidden keys separately)"
+    },
+    "trace": {
+      "type": "object",
+      "required": ["state_id", "state_version", "policy_version", "matched_rule_id"],
+      "additionalProperties": false,
+      "properties": {
+        "state_id": {
+          "type": "string",
+          "description": "State snapshot ID used for evaluation"
+        },
+        "state_version": {
+          "type": "integer",
+          "description": "State version used for evaluation"
+        },
+        "policy_version": {
+          "type": "string",
+          "description": "Policy version that produced this decision"
+        },
+        "matched_rule_id": {
+          "type": ["string", "null"],
+          "description": "Rule ID that matched, or null if default decision"
+        }
+      }
+    }
+  },
+  "additionalProperties": false
+}

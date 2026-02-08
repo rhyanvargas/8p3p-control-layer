@@ -22,7 +22,8 @@
     "db:init": "tsx scripts/init-db.ts",
     "db:reset": "tsx scripts/reset-db.ts",
     "lint": "eslint src tests",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "check": "npm run build && npm run validate:schemas && npm run lint && npm test"
   },
   "repository": {
     "type": "git",

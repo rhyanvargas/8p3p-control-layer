@@ -13,7 +13,6 @@ import type {
   ConditionNode,
   PolicyDefinition,
   PolicyEvaluationResult,
-  PolicyRule,
 } from '../shared/types.js';
 import { DECISION_TYPES } from '../shared/types.js';
 import { ErrorCodes } from '../shared/error-codes.js';
@@ -229,7 +228,7 @@ export function loadPolicy(policyPath?: string): PolicyDefinition {
   try {
     content = fs.readFileSync(pathToLoad, 'utf-8');
   } catch (err) {
-    const nodeErr = err as NodeJS.ErrnoException;
+    const nodeErr = err as { code?: string };
     if (nodeErr?.code === 'ENOENT') {
       const e = new Error(`Policy file not found: ${pathToLoad}`) as Error & { code: string };
       e.code = ErrorCodes.POLICY_NOT_FOUND;
