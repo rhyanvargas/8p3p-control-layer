@@ -33,7 +33,7 @@ describe('Decision Validator', () => {
     });
 
     it('should fail with org_scope_required when org_id is missing', () => {
-      const { org_id, ...rest } = validRequest;
+      const { org_id: _org_id, ...rest } = validRequest;
       const result = validateEvaluateRequest(rest);
       expect(result.valid).toBe(false);
       expect(result.errors).toContainEqual(
@@ -56,7 +56,7 @@ describe('Decision Validator', () => {
     });
 
     it('should fail with missing_required_field when learner_reference is missing', () => {
-      const { learner_reference, ...rest } = validRequest;
+      const { learner_reference: _learner_reference, ...rest } = validRequest;
       const result = validateEvaluateRequest(rest);
       expect(result.valid).toBe(false);
       expect(result.errors).toContainEqual(
@@ -79,7 +79,7 @@ describe('Decision Validator', () => {
     });
 
     it('should fail with missing_required_field when state_id is missing', () => {
-      const { state_id, ...rest } = validRequest;
+      const { state_id: _state_id, ...rest } = validRequest;
       const result = validateEvaluateRequest(rest);
       expect(result.valid).toBe(false);
       expect(result.errors).toContainEqual(
@@ -91,7 +91,7 @@ describe('Decision Validator', () => {
     });
 
     it('should fail with missing_required_field when state_version is missing', () => {
-      const { state_version, ...rest } = validRequest;
+      const { state_version: _state_version, ...rest } = validRequest;
       const result = validateEvaluateRequest(rest);
       expect(result.valid).toBe(false);
       expect(result.errors).toContainEqual(
@@ -240,7 +240,7 @@ describe('Decision Validator', () => {
     });
 
     it('should fail with org_scope_required when org_id is missing', () => {
-      const { org_id, ...rest } = validParams;
+      const { org_id: _org_id, ...rest } = validParams;
       const result = validateGetDecisionsRequest(rest);
       expect(result.valid).toBe(false);
       expect(result.errors).toContainEqual(
@@ -251,7 +251,7 @@ describe('Decision Validator', () => {
     });
 
     it('should fail with missing_required_field when learner_reference is missing', () => {
-      const { learner_reference, ...rest } = validParams;
+      const { learner_reference: _learner_reference, ...rest } = validParams;
       const result = validateGetDecisionsRequest(rest);
       expect(result.valid).toBe(false);
       expect(result.errors).toContainEqual(
@@ -263,7 +263,7 @@ describe('Decision Validator', () => {
     });
 
     it('should fail when from_time is missing', () => {
-      const { from_time, ...rest } = validParams;
+      const { from_time: _from_time, ...rest } = validParams;
       const result = validateGetDecisionsRequest(rest);
       expect(result.valid).toBe(false);
       expect(result.errors).toContainEqual(
@@ -275,7 +275,7 @@ describe('Decision Validator', () => {
     });
 
     it('should fail when to_time is missing', () => {
-      const { to_time, ...rest } = validParams;
+      const { to_time: _to_time, ...rest } = validParams;
       const result = validateGetDecisionsRequest(rest);
       expect(result.valid).toBe(false);
       expect(result.errors).toContainEqual(

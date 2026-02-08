@@ -3,7 +3,7 @@
  * Condition evaluation, policy loading, validation, and caching
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -32,7 +32,7 @@ function writeTempPolicy(content: unknown): string {
   return filePath;
 }
 
-function validPolicy(overrides: Partial<PolicyDefinition> = {}): PolicyDefinition {
+function _validPolicy(overrides: Partial<PolicyDefinition> = {}): PolicyDefinition {
   return {
     policy_id: 'test',
     policy_version: '1',

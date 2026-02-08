@@ -14,7 +14,7 @@ import {
   clearDecisionStore,
   encodePageToken,
 } from '../../src/decision/store.js';
-import type { Decision, GetDecisionsRequest } from '../../src/shared/types.js';
+import type { Decision } from '../../src/shared/types.js';
 
 // ---------------------------------------------------------------------------
 // Helpers

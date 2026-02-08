@@ -46,13 +46,13 @@ todos:
     status: completed
   - id: TASK-015
     content: Contract tests — DEC-001 through DEC-008
-    status: pending
+    status: completed
   - id: TASK-016
     content: Contract tests — OUT-API-001 through OUT-API-003
-    status: pending
+    status: completed
   - id: TASK-017
     content: Regression check — existing tests still pass
-    status: pending
+    status: completed
   - id: TASK-018
     content: Cleanup — delete docs/analyze/ directory
     status: pending
