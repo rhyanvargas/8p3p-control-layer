@@ -13,7 +13,7 @@ todos:
     status: completed
   - id: TASK-004
     content: Create Decision Store (SQLite)
-    status: pending
+    status: completed
   - id: TASK-005
     content: Create Decision Validator
     status: pending
