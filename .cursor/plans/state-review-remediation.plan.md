@@ -13,7 +13,7 @@ todos:
     status: completed
   - id: TASK-004
     content: Document Phase 2 storage abstraction prep in playbook Phase 2
-    status: pending
+    status: completed
 isProject: false
 ---
 

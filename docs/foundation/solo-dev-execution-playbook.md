@@ -193,6 +193,10 @@ You are done with Phase 1 when:
 
 **Time estimate:** 2-4 focused sessions
 
+### Before migrating storage (Phase 2 prep)
+
+Before converting any store (Signal Log, STATE, Decision) to DynamoDB, extract a repository/interface from the current SQLite module so the engine or handlers depend on that interface; then implement one adapter for SQLite and one for DynamoDB. That keeps business logic unchanged and preserves all contract tests as the migration guard. Apply the same approach for STATE Store (StateRepository), Signal Log, and Decision Store when each is migrated.
+
 ### AWS Architecture
 
 | Component | AWS Service | Pricing Model |
