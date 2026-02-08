@@ -137,15 +137,29 @@ src/
 │   ├── handler.ts    # Request handling
 │   ├── routes.ts     # GET /signals routes
 │   └── validator.ts  # Query validation
+├── state/            # STATE engine
+│   ├── engine.ts     # Signal application logic (applySignals, computeNewState)
+│   ├── store.ts      # SQLite-backed learner state storage
+│   └── validator.ts  # Request and state validation
 ├── shared/           # Shared types and error codes
 │   ├── types.ts
 │   └── error-codes.ts
 ├── decision/         # Decision engine (planned)
-├── state/            # STATE engine (planned)
 ├── output/           # Output interfaces (planned)
 └── server.ts         # Application entry point
-scripts/
-└── validate-api.sh   # OpenAPI lint (redocly)
+
+tests/
+├── contracts/        # Contract tests (spec-driven)
+│   ├── signal-ingestion.test.ts
+│   ├── signal-log.test.ts
+│   └── state-engine.test.ts
+└── unit/             # Unit tests
+    ├── forbidden-keys.test.ts
+    ├── idempotency.test.ts
+    ├── signal-log-store.test.ts
+    ├── state-engine.test.ts
+    ├── state-store.test.ts
+    └── state-validator.test.ts
 ```
 
 ---
@@ -159,6 +173,7 @@ scripts/
 | [Component Interface Contracts](<docs/foundation/[POC Playbook] 8P3P Learning Intelligence Control Layer-Component Interface Contracts.md>) | Complete API and event schemas |
 | [Contract Test Matrix](<docs/foundation/[POC Playbook] 8P3P Learning Intelligence Control Layer-Contract Test Matrix.md>) | Comprehensive test cases for validation |
 | [Interface Validation Ruleset](<docs/foundation/[POC Playbook] 8P3P Learning Intelligence Control Layer-Interface Validation Ruleset.md>) | Structural validation rules and error codes |
+| [Solo Dev Execution Playbook](docs/foundation/solo-dev-execution-playbook.md) | Milestone-driven build plan, Phase 1–3 roadmap, DynamoDB migration checklist |
 
 ### API specifications (machine-readable)
 
@@ -173,13 +188,13 @@ scripts/
 |------|-------------|
 | [Signal Ingestion](docs/specs/signal-ingestion.md) | Signal ingestion API specification |
 | [Signal Log](docs/specs/signal-log.md) | Immutable signal storage specification |
-| [State Engine](docs/specs/state-engine.md) | STATE engine design (planned) |
+| [State Engine](docs/specs/state-engine.md) | STATE engine specification (schemas, contracts, Phase 2 storage abstraction) |
 
 ---
 
 ## Project Status
 
-This project is in **active development**. The foundational contracts, validation rules, and initial components have been implemented.
+This project is in **active development** (Phase 1). Three of five lifecycle stages are implemented and hardened through multiple review cycles. **186 tests passing** across 9 test files.
 
 ### Completed
 - [x] Component interface contracts
@@ -187,25 +202,30 @@ This project is in **active development**. The foundational contracts, validatio
 - [x] Interface validation ruleset
 - [x] Technology stack selection (TypeScript, Fastify, Ajv, Vitest)
 - [x] Project scaffolding
-- [x] Signal Ingestion layer implementation
-- [x] Signal Envelope schema and validators
-- [x] Signal Log store and query API implementation
-- [x] Contract tests for Signal Ingestion
-- [x] Contract tests for Signal Log
-- [x] Unit tests for idempotency, forbidden-keys, signal-log-store
+- [x] **Signal Ingestion** — POST /signals, validation, forbidden key detection, idempotency
+- [x] Signal Envelope schema and Ajv validators
+- [x] **Signal Log** — append-only storage, time-range queries, pagination, org isolation
+- [x] **STATE Engine** — signal application, deep merge, optimistic locking, provenance tracking
+- [x] STATE Engine org-scoped queries (SQL-level isolation, DynamoDB-ready)
+- [x] Atomic `saveStateWithAppliedSignals` (state + applied_signals in single transaction)
+- [x] Contract tests for Signal Ingestion (SIG-API-001 through SIG-API-011)
+- [x] Contract tests for Signal Log (SIGLOG-001 through SIGLOG-010)
+- [x] Contract tests for STATE Engine (STATE-001 through STATE-014)
+- [x] Unit tests for all implemented components (state-engine, state-store, state-validator, signal-log-store, forbidden-keys, idempotency)
 - [x] API versioning (`/v1` prefix for signals and decisions)
 - [x] OpenAPI spec ([`docs/api/openapi.yaml`](docs/api/openapi.yaml)) and Swagger UI at `/docs`
 - [x] AsyncAPI spec ([`docs/api/asyncapi.yaml`](docs/api/asyncapi.yaml)) for event contracts
 - [x] `validate:api` script (Redocly lint for OpenAPI)
+- [x] Phase 2 storage abstraction documented (StateRepository interface, DynamoDB table designs, migration checklist)
 
-### In Progress
-- [ ] STATE Engine implementation
-- [ ] Decision Engine implementation
+### Next Up
+- [ ] Decision Engine implementation (Stage 4)
+- [ ] Output Interfaces (Stage 5)
 
-### Planned
-- [ ] Output Interfaces
+### Planned (Phase 2+)
+- [ ] Storage migration: SQLite → DynamoDB (StateRepository / SignalLogRepository adapter pattern)
+- [ ] AWS deployment (API Gateway + Lambda + DynamoDB)
 - [ ] EventBridge integration (Phase 3)
-- [ ] SDK development
 
 ---
 
