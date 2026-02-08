@@ -34,16 +34,16 @@ todos:
     status: completed
   - id: TASK-011
     content: Unit tests — policy loader
-    status: pending
+    status: completed
   - id: TASK-012
     content: Unit tests — decision store
-    status: pending
+    status: completed
   - id: TASK-013
     content: Unit tests — decision validator
-    status: pending
+    status: completed
   - id: TASK-014
     content: Unit tests — decision engine
-    status: pending
+    status: completed
   - id: TASK-015
     content: Contract tests — DEC-001 through DEC-008
     status: pending
