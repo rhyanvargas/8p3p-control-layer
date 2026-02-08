@@ -22,10 +22,10 @@ todos:
     status: completed
   - id: TASK-007
     content: Create Decision Engine (evaluateState)
-    status: pending
+    status: completed
   - id: TASK-008
     content: Create Decision Handler + Routes (GET /v1/decisions)
-    status: pending
+    status: completed
   - id: TASK-009
     content: Server integration — wire stores, policy, routes
     status: pending
