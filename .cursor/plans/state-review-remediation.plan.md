@@ -4,7 +4,7 @@ overview: "Address three review findings from the State Engine quality review: (
 todos:
   - id: TASK-001
     content: Atomic saveState + recordAppliedSignals transaction in store
-    status: pending
+    status: completed
   - id: TASK-002
     content: Use atomic save in engine applySignals path
     status: pending

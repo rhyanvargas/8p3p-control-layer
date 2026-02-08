@@ -214,6 +214,56 @@ export function recordAppliedSignals(
 }
 
 /**
+ * Persist a new state version and record applied signals in a single transaction.
+ * Ensures that a crash cannot leave state without corresponding applied_signals rows.
+ * Fails if (org_id, learner_reference, state_version) already exists (optimistic lock).
+ *
+ * @param state - The LearnerState to save
+ * @param appliedEntries - Array of { signal_id, state_version, applied_at } to record
+ */
+export function saveStateWithAppliedSignals(
+  state: LearnerState,
+  appliedEntries: Array<{ signal_id: string; state_version: number; applied_at: string }>
+): void {
+  if (!db) {
+    throw new Error('STATE store not initialized. Call initStateStore first.');
+  }
+
+  const insertState = db.prepare(`
+    INSERT INTO learner_state (
+      org_id, learner_reference, state_id, state_version, updated_at,
+      state, last_signal_id, last_signal_timestamp
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+
+  const insertApplied = db.prepare(`
+    INSERT OR IGNORE INTO applied_signals (org_id, learner_reference, signal_id, state_version, applied_at)
+    VALUES (?, ?, ?, ?, ?)
+  `);
+
+  const runBoth = db.transaction(
+    (s: LearnerState, entries: Array<{ signal_id: string; state_version: number; applied_at: string }>) => {
+      insertState.run(
+        s.org_id,
+        s.learner_reference,
+        s.state_id,
+        s.state_version,
+        s.updated_at,
+        JSON.stringify(s.state),
+        s.provenance.last_signal_id,
+        s.provenance.last_signal_timestamp
+      );
+      for (const e of entries) {
+        insertApplied.run(s.org_id, s.learner_reference, e.signal_id, e.state_version, e.applied_at);
+      }
+    }
+  );
+
+  runBoth(state, appliedEntries);
+}
+
+/**
  * Clear all learner_state and applied_signals (for testing only).
  */
 export function clearStateStore(): void {
