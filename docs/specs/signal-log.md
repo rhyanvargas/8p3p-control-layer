@@ -190,6 +190,7 @@ getSignalsByIds(orgId: string, signalIds: string[]): SignalRecord[]
 
 **Behavior:**
 - Returns signals matching the provided IDs
+- Enforces org isolation at the query level (`WHERE org_id = ?`), not just application logic. This ensures DynamoDB-readiness where partition key must be included in queries.
 - All signals must belong to the specified `org_id` (enforces org isolation)
 - Returns signals ordered by `accepted_at` ascending
 - Throws error if any `signal_id` is not found
@@ -201,6 +202,8 @@ getSignalsByIds(orgId: string, signalIds: string[]): SignalRecord[]
 |-----------|------------|
 | Signal ID not found | `unknown_signal_id` |
 | Signal belongs to different org | `signals_not_in_org_scope` |
+
+**Implementation note:** When a requested `signal_id` is missing from results, the function distinguishes between truly missing signals (`unknown_signal_id`) and signals that exist in another org (`signals_not_in_org_scope`) via a secondary existence check.
 
 **Usage:** This function is called by the STATE Engine to fetch signal payloads when applying signals to learner state.
 
@@ -336,3 +339,9 @@ Implementation is complete when:
 - **Payload is stored as-is** - No transformation or semantic interpretation
 - **Ordering** - Results ordered by `accepted_at` ascending (oldest first)
 - **Pagination token** - Opaque string encoding position (e.g., base64 of `id`)
+
+## Deferred Items
+
+| ID | Item | Origin | Deferred To |
+|----|------|--------|-------------|
+| DEF-SIGLOG-001 | Extract `SignalLogRepository` interface for DI (mirrors StateRepository pattern) | Playbook Phase 2 | Phase 2 |

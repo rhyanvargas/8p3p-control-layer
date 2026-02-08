@@ -13,16 +13,16 @@ todos:
     status: completed
   - id: TASK-004
     content: "Update state-engine.md: fix computeNewState signature, add ApplySignalsOutcome consumer guidance, check success criteria"
-    status: pending
+    status: completed
   - id: TASK-005
     content: "Update signal-log.md: document org-scoped query pattern and DynamoDB readiness note"
-    status: pending
+    status: completed
   - id: TASK-006
     content: Fix DynamoDB State Table design in playbook — add state_version to sort key
-    status: pending
+    status: completed
   - id: TASK-007
     content: Add Deferred Items sections to state-engine.md and signal-log.md for clean future-work tracking
-    status: pending
+    status: completed
 isProject: false
 ---
 

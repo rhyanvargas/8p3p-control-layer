@@ -244,8 +244,11 @@ interface StateRepository {
 - GSI1: `org_id` + `learner_reference` + `timestamp` (for time-range queries)
 
 **State Table:**
-- Partition Key: `org_id`
-- Sort Key: `learner_reference`
+- Partition Key: `org_id#learner_reference` (composite)
+- Sort Key: `state_version` (number)
+- GSI1 PK: `org_id`, GSI1 SK: `learner_reference` (for cross-learner queries if needed)
+
+> Each state version is a separate item (append-only). `getState()` queries with `ScanIndexForward=false, Limit=1` to get the latest version. `getStateByVersion()` queries with exact sort key.
 
 **Decisions Table:**
 - Partition Key: `org_id`

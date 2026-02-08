@@ -117,6 +117,15 @@ Each entry in the `errors` array is a `RejectionReason` (defined in `src/shared/
 | `forbidden_semantic_key_detected` | Computed state contains a forbidden key |
 | `state_version_conflict` | Optimistic lock failed after retry |
 
+### Consumer Contract
+
+Internal consumers (Decision Engine, future pipeline stages) **must** follow these rules when handling `ApplySignalsOutcome`:
+
+- **Pattern-match on `ok`** before accessing `result` or `errors`. Never assume success.
+- **Branch on `code`, not `message`** — error message text is informational and may change; use `code` exclusively for control flow.
+- **Log full `errors` array** when `ok === false`, and propagate the first error's `code` for upstream reporting.
+- **`state_version_conflict` retry** — the engine already retries once internally. If callers receive this error, they may choose to retry at a higher level, but should not retry indefinitely.
+
 ## Core Constraints
 
 ### State Authority (No External Override)
@@ -398,6 +407,7 @@ Implement all tests from the Contract Test Matrix:
 | STATE-011 | Provenance tracking | `last_signal_id` matches last applied signal |
 | STATE-012 | Get state by version | Historical versions retrievable |
 | STATE-013 | State isolation by learner | Learner A state independent of learner B |
+| STATE-014 | Cross-org signal in mixed batch | rejected, `signals_not_in_org_scope`, no partial state |
 
 ## File Structure
 
@@ -425,17 +435,17 @@ tests/
 
 Implementation is complete when:
 
-- [ ] `applySignals()` applies signals and returns ApplySignalsResult
-- [ ] Signal IDs verified against Signal Log
-- [ ] Cross-org signal application blocked
-- [ ] State object validated for forbidden semantic keys
-- [ ] `state_version` monotonically increases
-- [ ] Provenance tracks last applied signal
-- [ ] Idempotent: same signals + same prior state = same result
-- [ ] Deterministic: order-independent for concurrent applies
-- [ ] Historical state versions preserved and queryable
-- [ ] All STATE-001 through STATE-013 contract tests pass
-- [ ] No external setState endpoint exists (STATE authority maintained)
+- [x] `applySignals()` applies signals and returns ApplySignalsResult
+- [x] Signal IDs verified against Signal Log
+- [x] Cross-org signal application blocked
+- [x] State object validated for forbidden semantic keys
+- [x] `state_version` monotonically increases
+- [x] Provenance tracks last applied signal
+- [x] Idempotent: same signals + same prior state = same result
+- [x] Deterministic: order-independent for concurrent applies
+- [x] Historical state versions preserved and queryable
+- [x] All STATE-001 through STATE-013 contract tests pass
+- [x] No external setState endpoint exists (STATE authority maintained)
 
 ## Dependencies
 
@@ -474,10 +484,10 @@ The initial state computation uses **payload merge**:
 
 ```typescript
 function computeNewState(
-  currentState: Record<string, unknown> | null,
+  currentState: LearnerState | null,
   signals: SignalRecord[]
 ): Record<string, unknown> {
-  let state = currentState ?? {};
+  let state = currentState?.state ?? {};
   
   for (const signal of signals) {
     // Deep merge signal payload into state
@@ -551,3 +561,12 @@ The current module-level singleton database pattern (`let db`) prevents dependen
 - Domain-specific state reducers (future enhancement)
 - State snapshots/checkpoints for performance (future optimization)
 - Event emission for state changes (future: StateUpdatedEvent)
+
+### Deferred Items
+
+| ID | Item | Origin | Deferred To |
+|----|------|--------|-------------|
+| DEF-STATE-001 | Validate `requested_at` as RFC3339 | ISS-R3-005 | Next tightening pass |
+| DEF-STATE-002 | Remove redundant `sourceVal !== null` check in `deepMerge` | ISS-R3-003 | Next cleanup pass |
+| DEF-STATE-003 | Remove `saveState()` usage from test helpers once Phase 2 DI is in place | ISS-R3-002 | Phase 2 |
+| DEF-STATE-004 | Refactor module singleton to DI (`StateRepository`) | ISS-007 (R2) | Phase 2 |
