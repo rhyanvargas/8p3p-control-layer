@@ -173,6 +173,8 @@ Each entry in the `errors` array is a `RejectionReason` (defined in `src/shared/
 | Signal ID not found in Signal Log | `rejected`, `unknown_signal_id` |
 | Signal belongs to different org | `rejected`, `signals_not_in_org_scope` |
 
+**Note (future tightening):** `requested_at` is currently treated as an opaque string in `ApplySignalsRequest` and is not validated as RFC3339. A future pass should validate it to avoid drift in internal consumers.
+
 ### State Object Validation
 
 | Condition | Result |
@@ -242,7 +244,10 @@ CREATE INDEX idx_learner_state_current
 - `initStateStore(dbPath: string): void` - Initialize database with schema
 - `getState(orgId: string, learnerReference: string): LearnerState | null` - Get current state
 - `getStateByVersion(orgId: string, learnerReference: string, version: number): LearnerState | null` - Get specific version
-- `saveState(state: LearnerState): void` - Persist new state version
+- `saveStateWithAppliedSignals(state: LearnerState, appliedEntries: Array<{ signal_id: string; state_version: number; applied_at: string }>): void` - **Primary** write path; persist new state version and record applied signals atomically
+- `saveState(state: LearnerState): void` - Persist new state version (**deprecated**; use `saveStateWithAppliedSignals`)
+- `isSignalApplied(orgId: string, learnerReference: string, signalId: string): boolean` - Check whether a signal has already been applied (idempotency)
+- `recordAppliedSignals(orgId: string, learnerReference: string, entries: Array<{ signal_id: string; state_version: number; applied_at: string }>): void` - Record applied signals (legacy helper; atomic path preferred)
 - `closeStateStore(): void` - Close database connection
 - `clearStateStore(): void` - Clear for testing
 
@@ -429,7 +434,7 @@ Implementation is complete when:
 - [ ] Idempotent: same signals + same prior state = same result
 - [ ] Deterministic: order-independent for concurrent applies
 - [ ] Historical state versions preserved and queryable
-- [ ] All STATE-001 through STATE-008 contract tests pass
+- [ ] All STATE-001 through STATE-013 contract tests pass
 - [ ] No external setState endpoint exists (STATE authority maintained)
 
 ## Dependencies
@@ -502,6 +507,42 @@ This is intentionally simple and domain-agnostic. Future enhancements:
 - **Version history** - All versions preserved, not just current
 - **Audit friendly** - Full provenance from state back to signals
 - **Replay capability** - State reconstructable from Signal Log
+
+## Phase 2: Storage Abstraction (Vendor-Agnostic Preparation)
+
+Phase 2 (AWS deployment) will migrate persistence away from SQLite (e.g., to DynamoDB). To keep business logic stable and contract tests usable as migration guardrails, the STATE Engine should depend on a **storage interface** rather than SQLite-specific modules.
+
+### StateRepository interface (contract)
+
+Define a repository interface (names are illustrative; exact placement TBD):
+
+```typescript
+interface StateRepository {
+  getState(orgId: string, learnerReference: string): LearnerState | null;
+  getStateByVersion(orgId: string, learnerReference: string, version: number): LearnerState | null;
+  saveStateWithAppliedSignals(
+    state: LearnerState,
+    appliedEntries: Array<{ signal_id: string; state_version: number; applied_at: string }>
+  ): void;
+  isSignalApplied(orgId: string, learnerReference: string, signalId: string): boolean;
+  close(): void;
+}
+```
+
+### Adapter approach
+
+- **SqliteStateRepository**: extracted from the current `src/state/store.ts` implementation
+- **DynamoDbStateRepository**: Phase 2 implementation using DynamoDB transactional semantics (e.g., `TransactWriteItems`) while preserving the same repository contract
+
+### Conflict abstraction (ISS-001)
+
+Store implementations must surface optimistic-lock conflicts as a vendor-neutral `state_version_conflict` (e.g., via `StateVersionConflictError`) so `applySignals()` does not depend on SQLite error codes/messages.
+
+### Phase 2 prerequisite (ISS-007)
+
+The current module-level singleton database pattern (`let db`) prevents dependency injection. Phase 2 should refactor STATE Engine construction to accept a `StateRepository` instance (or factory) to make backend swaps mechanical.
+
+**Tracking**: The operational migration checklist and storage preparation steps live in `docs/foundation/solo-dev-execution-playbook.md` under Phase 2.
 
 ## Out of Scope
 

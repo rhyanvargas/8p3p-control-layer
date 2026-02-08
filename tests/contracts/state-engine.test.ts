@@ -15,6 +15,7 @@ import {
   closeStateStore,
   clearStateStore,
   getState,
+  getStateByVersion,
 } from '../../src/state/store.js';
 import { applySignals } from '../../src/state/engine.js';
 import { validateStateObject } from '../../src/state/validator.js';
@@ -263,6 +264,110 @@ describe('STATE Engine Contract Tests', () => {
       const finalState = getState('org-A', 'learner-1');
       expect(finalState).not.toBeNull();
       expect(JSON.stringify(finalState!.state)).toBe(stateSnapshotSingle);
+    });
+  });
+
+  describe('STATE-009: New learner state', () => {
+    it('should create version 1 for first signal application and persist state', () => {
+      const learner = 'learner-9';
+      const { signal_id, accepted_at } = appendTestSignal({
+        learner_reference: learner,
+        payload: { skill: 'science', level: 1 },
+      });
+
+      const outcome = applySignals({
+        org_id: 'org-A',
+        learner_reference: learner,
+        signal_ids: [signal_id],
+        requested_at: accepted_at,
+      });
+
+      expect(outcome.ok).toBe(true);
+      if (!outcome.ok) return;
+      expect(outcome.result.prior_state_version).toBe(0);
+      expect(outcome.result.new_state_version).toBe(1);
+      expect(outcome.result.state_id).toBe('org-A:learner-9:v1');
+
+      const state = getState('org-A', learner);
+      expect(state).not.toBeNull();
+      expect(state!.state_version).toBe(1);
+      expect(state!.state).toEqual({ skill: 'science', level: 1 });
+    });
+  });
+
+  describe('STATE-010: Empty state object allowed', () => {
+    it('should accept and persist empty object state when payload is {}', () => {
+      const learner = 'learner-empty';
+      const { signal_id, accepted_at } = appendTestSignal({
+        learner_reference: learner,
+        payload: {},
+      });
+
+      const outcome = applySignals({
+        org_id: 'org-A',
+        learner_reference: learner,
+        signal_ids: [signal_id],
+        requested_at: accepted_at,
+      });
+
+      expect(outcome.ok).toBe(true);
+      const state = getState('org-A', learner);
+      expect(state).not.toBeNull();
+      expect(state!.state).toEqual({});
+    });
+  });
+
+  describe('STATE-011: Provenance tracking', () => {
+    it('should persist provenance fields for the last applied signal', () => {
+      const learner = 'learner-prov';
+      const s1 = appendTestSignal({ learner_reference: learner, payload: { a: 1 } });
+      const s2 = appendTestSignal({ learner_reference: learner, payload: { b: 2 } });
+
+      const outcome = applySignals({
+        org_id: 'org-A',
+        learner_reference: learner,
+        signal_ids: [s1.signal_id, s2.signal_id],
+        requested_at: s1.accepted_at,
+      });
+
+      expect(outcome.ok).toBe(true);
+      const state = getState('org-A', learner);
+      expect(state).not.toBeNull();
+      expect(state!.provenance.last_signal_id).toBe(s2.signal_id);
+      expect(state!.provenance.last_signal_timestamp).toBe(s2.accepted_at);
+    });
+  });
+
+  describe('STATE-012: Get state by version', () => {
+    it('should retrieve historical versions after sequential applies', () => {
+      const learner = 'learner-hist';
+      const s1 = appendTestSignal({ learner_reference: learner, payload: { v: 1 } });
+      const s2 = appendTestSignal({ learner_reference: learner, payload: { v: 2 } });
+
+      const o1 = applySignals({
+        org_id: 'org-A',
+        learner_reference: learner,
+        signal_ids: [s1.signal_id],
+        requested_at: s1.accepted_at,
+      });
+      expect(o1.ok).toBe(true);
+
+      const o2 = applySignals({
+        org_id: 'org-A',
+        learner_reference: learner,
+        signal_ids: [s2.signal_id],
+        requested_at: s2.accepted_at,
+      });
+      expect(o2.ok).toBe(true);
+
+      const v1 = getStateByVersion('org-A', learner, 1);
+      const v2 = getStateByVersion('org-A', learner, 2);
+      expect(v1).not.toBeNull();
+      expect(v1!.state_version).toBe(1);
+      expect(v1!.state).toEqual({ v: 1 });
+      expect(v2).not.toBeNull();
+      expect(v2!.state_version).toBe(2);
+      expect(v2!.state).toEqual({ v: 2 });
     });
   });
 

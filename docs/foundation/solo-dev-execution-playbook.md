@@ -197,6 +197,35 @@ You are done with Phase 1 when:
 
 Before converting any store (Signal Log, STATE, Decision) to DynamoDB, extract a repository/interface from the current SQLite module so the engine or handlers depend on that interface; then implement one adapter for SQLite and one for DynamoDB. That keeps business logic unchanged and preserves all contract tests as the migration guard. Apply the same approach for STATE Store (StateRepository), Signal Log, and Decision Store when each is migrated.
 
+#### StateRepository interface (reference)
+
+```typescript
+interface StateRepository {
+  getState(orgId: string, learnerRef: string): LearnerState | null;
+  getStateByVersion(orgId: string, learnerRef: string, version: number): LearnerState | null;
+  saveStateWithAppliedSignals(state: LearnerState, entries: AppliedSignalEntry[]): void;
+  isSignalApplied(orgId: string, learnerRef: string, signalId: string): boolean;
+  close(): void;
+}
+```
+
+#### Migration checklist (STATE Store → DynamoDB)
+
+- [ ] Define `StateRepository` interface (recommended: `src/state/types.ts`)
+- [ ] Implement `SqliteStateRepository` by extracting logic from `src/state/store.ts`
+- [ ] Refactor STATE Engine construction to accept a `StateRepository` (constructor/factory), removing reliance on module-level singletons
+- [ ] Ensure all contract + unit tests pass using `SqliteStateRepository`
+- [ ] Implement `DynamoDbStateRepository`
+- [ ] Ensure all contract + unit tests pass using `DynamoDbStateRepository`
+- [ ] Repeat the same pattern for Signal Log (`SignalLogRepository`) and Decision persistence
+
+#### Key design notes
+
+- `StateVersionConflictError` is already vendor-neutral (STATE engine should not depend on SQLite error codes/messages)
+- DynamoDB uses transactional writes (e.g., `TransactWriteItems`) rather than `db.transaction()`
+- DynamoDB stores JSON-like structures as native Maps instead of `JSON.stringify(...)` to TEXT columns
+- Connection management should move from module singletons to injected instances (DI) to make backend swaps mechanical
+
 ### AWS Architecture
 
 | Component | AWS Service | Pricing Model |

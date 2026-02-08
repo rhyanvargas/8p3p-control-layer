@@ -18,7 +18,7 @@ import {
   getState,
   getStateStoreDatabase,
 } from '../../src/state/store.js';
-import { computeNewState, deepMerge, applySignals, isSqliteConstraintError } from '../../src/state/engine.js';
+import { computeNewState, deepMerge, applySignals } from '../../src/state/engine.js';
 import type { LearnerState, SignalRecord } from '../../src/shared/types.js';
 import type { SignalEnvelope } from '../../src/shared/types.js';
 import { ErrorCodes } from '../../src/shared/error-codes.js';
@@ -320,40 +320,6 @@ describe('STATE Engine', () => {
       expect(state).not.toBeNull();
       expect(state!.provenance.last_signal_id).toBe(s2.signal_id);
       expect(state!.provenance.last_signal_timestamp).toBe(s2.accepted_at);
-    });
-  });
-
-  describe('isSqliteConstraintError helper', () => {
-    it('should return true for error with code SQLITE_CONSTRAINT', () => {
-      const err = new Error('constraint failed') as Error & { code?: string };
-      err.code = 'SQLITE_CONSTRAINT';
-      expect(isSqliteConstraintError(err)).toBe(true);
-    });
-
-    it('should return true for error with code SQLITE_CONSTRAINT_UNIQUE', () => {
-      const err = new Error('unique') as Error & { code?: string };
-      err.code = 'SQLITE_CONSTRAINT_UNIQUE';
-      expect(isSqliteConstraintError(err)).toBe(true);
-    });
-
-    it('should return true for error with UNIQUE constraint failed in message', () => {
-      const err = new Error('UNIQUE constraint failed: learner_state.org_id, learner_state.learner_reference, learner_state.state_version');
-      expect(isSqliteConstraintError(err)).toBe(true);
-    });
-
-    it('should return true for error with SQLITE_CONSTRAINT in message only', () => {
-      const err = new Error('SqliteError: SQLITE_CONSTRAINT');
-      expect(isSqliteConstraintError(err)).toBe(true);
-    });
-
-    it('should return false for non-Error values', () => {
-      expect(isSqliteConstraintError('string')).toBe(false);
-      expect(isSqliteConstraintError(null)).toBe(false);
-      expect(isSqliteConstraintError(42)).toBe(false);
-    });
-
-    it('should return false for unrelated errors', () => {
-      expect(isSqliteConstraintError(new Error('disk full'))).toBe(false);
     });
   });
 

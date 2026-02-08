@@ -10,10 +10,12 @@ import {
   getState,
   getStateByVersion,
   saveState,
+  saveStateWithAppliedSignals,
   clearStateStore,
   isSignalApplied,
   recordAppliedSignals,
   getStateStoreDatabase,
+  StateVersionConflictError,
 } from '../../src/state/store.js';
 import type { LearnerState } from '../../src/shared/types.js';
 
@@ -134,6 +136,99 @@ describe('STATE Store', () => {
       expect(v2).not.toBeNull();
       expect(v2!.state_version).toBe(2);
       expect(v2!.state).toEqual({ v: 2 });
+    });
+  });
+
+  describe('saveStateWithAppliedSignals', () => {
+    it('should persist state and applied_signals in one call', () => {
+      const state = createState({
+        state_id: 'test-org:learner-123:v1',
+        state_version: 1,
+        state: { v: 1 },
+      });
+
+      saveStateWithAppliedSignals(state, [
+        { signal_id: 'sig-a', state_version: 1, applied_at: '2026-02-07T10:00:00Z' },
+        { signal_id: 'sig-b', state_version: 1, applied_at: '2026-02-07T10:00:00Z' },
+      ]);
+
+      const retrieved = getState('test-org', 'learner-123');
+      expect(retrieved).not.toBeNull();
+      expect(retrieved!.state_version).toBe(1);
+      expect(retrieved!.state).toEqual({ v: 1 });
+
+      expect(isSignalApplied('test-org', 'learner-123', 'sig-a')).toBe(true);
+      expect(isSignalApplied('test-org', 'learner-123', 'sig-b')).toBe(true);
+    });
+
+    it('should rollback applied_signals when state insert conflicts (atomicity)', () => {
+      // Seed a conflicting learner_state row for version 1
+      saveState(
+        createState({
+          state_id: 'test-org:learner-123:v1',
+          state_version: 1,
+          state: { conflict: true },
+        })
+      );
+
+      const state = createState({
+        state_id: 'test-org:learner-123:v1-duplicate',
+        state_version: 1,
+        state: { v: 1 },
+      });
+
+      expect(() =>
+        saveStateWithAppliedSignals(state, [
+          { signal_id: 'sig-conflict', state_version: 1, applied_at: '2026-02-07T10:00:00Z' },
+        ])
+      ).toThrow(StateVersionConflictError);
+
+      // If the transaction is atomic, applied_signals should not have been inserted.
+      expect(isSignalApplied('test-org', 'learner-123', 'sig-conflict')).toBe(false);
+    });
+
+    it('should tolerate existing applied_signals rows (INSERT OR IGNORE idempotency)', () => {
+      recordAppliedSignals('test-org', 'learner-123', [
+        { signal_id: 'sig-existing', state_version: 1, applied_at: '2026-02-07T10:00:00Z' },
+      ]);
+
+      const state = createState({
+        state_id: 'test-org:learner-123:v2',
+        state_version: 2,
+        state: { v: 2 },
+      });
+
+      expect(() =>
+        saveStateWithAppliedSignals(state, [
+          { signal_id: 'sig-existing', state_version: 2, applied_at: '2026-02-07T10:01:00Z' },
+          { signal_id: 'sig-new', state_version: 2, applied_at: '2026-02-07T10:01:00Z' },
+        ])
+      ).not.toThrow();
+
+      const retrieved = getState('test-org', 'learner-123');
+      expect(retrieved).not.toBeNull();
+      expect(retrieved!.state_version).toBe(2);
+      expect(retrieved!.state).toEqual({ v: 2 });
+
+      expect(isSignalApplied('test-org', 'learner-123', 'sig-existing')).toBe(true);
+      expect(isSignalApplied('test-org', 'learner-123', 'sig-new')).toBe(true);
+    });
+
+    it('should persist state when appliedEntries is empty', () => {
+      const state = createState({
+        state_id: 'test-org:learner-123:v1',
+        state_version: 1,
+        state: { v: 1 },
+      });
+
+      expect(() => saveStateWithAppliedSignals(state, [])).not.toThrow();
+
+      const retrieved = getState('test-org', 'learner-123');
+      expect(retrieved).not.toBeNull();
+      expect(retrieved!.state_version).toBe(1);
+      expect(retrieved!.state).toEqual({ v: 1 });
+
+      expect(isSignalApplied('test-org', 'learner-123', 'sig-any')).toBe(false);
     });
   });
 

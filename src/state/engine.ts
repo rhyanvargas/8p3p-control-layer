@@ -32,21 +32,6 @@ function isSignalLogError(err: unknown): err is SignalLogError {
 }
 
 /**
- * Detect SQLite UNIQUE/PRIMARY KEY constraint errors.
- * better-sqlite3 may or may not set `error.code`; we fall back to message matching
- * so version-conflict detection is resilient across driver variants.
- */
-export function isSqliteConstraintError(err: unknown): boolean {
-  if (!(err instanceof Error)) return false;
-  const errWithCode = err as Error & { code?: string };
-  if (errWithCode.code === 'SQLITE_CONSTRAINT' || errWithCode.code === 'SQLITE_CONSTRAINT_UNIQUE') {
-    return true;
-  }
-  const msg = err.message;
-  return msg.includes('UNIQUE constraint failed') || msg.includes('SQLITE_CONSTRAINT');
-}
-
-/**
  * Deep merge: merge source into target.
  * - Objects merge recursively (nested objects combined).
  * - Arrays replace entirely (not concatenated).
@@ -242,7 +227,7 @@ export function applySignals(request: ApplySignalsRequest): ApplySignalsOutcome 
         },
       };
     } catch (saveErr: unknown) {
-      const isVersionConflict = isSqliteConstraintError(saveErr);
+      const isVersionConflict = saveErr instanceof stateStore.StateVersionConflictError;
       if (isVersionConflict && attempt < maxRetries - 1) {
         const refreshed = stateStore.getState(orgId, learnerReference);
         const recomputed = computeNewState(refreshed, signals);

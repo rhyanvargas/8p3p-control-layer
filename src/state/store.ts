@@ -10,8 +10,38 @@
 
 import Database from 'better-sqlite3';
 import type { LearnerState } from '../shared/types.js';
+import { ErrorCodes } from '../shared/error-codes.js';
 
 let db: Database.Database | null = null;
+
+/**
+ * Vendor-neutral optimistic-lock conflict error.
+ * Thrown when persisting a new state version fails due to a unique/constraint violation.
+ */
+export class StateVersionConflictError extends Error {
+  code: string;
+
+  constructor(message = 'State version conflict') {
+    super(message);
+    this.name = 'StateVersionConflictError';
+    this.code = ErrorCodes.STATE_VERSION_CONFLICT;
+  }
+}
+
+/**
+ * Detect SQLite UNIQUE/PRIMARY KEY constraint errors.
+ * better-sqlite3 may or may not set `error.code`; we fall back to message matching
+ * so version-conflict detection is resilient across driver variants.
+ */
+function isSqliteConstraintError(err: unknown): boolean {
+  if (!(err instanceof Error)) return false;
+  const errWithCode = err as Error & { code?: string };
+  if (errWithCode.code === 'SQLITE_CONSTRAINT' || errWithCode.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+    return true;
+  }
+  const msg = err.message;
+  return msg.includes('UNIQUE constraint failed') || msg.includes('SQLITE_CONSTRAINT');
+}
 
 /**
  * Initialize the STATE store with SQLite.
@@ -130,6 +160,7 @@ export function getStateByVersion(
  * Fails if (org_id, learner_reference, state_version) already exists (optimistic lock).
  *
  * @param state - The LearnerState to save
+ * @deprecated Prefer `saveStateWithAppliedSignals` to keep state + applied_signals atomic.
  */
 export function saveState(state: LearnerState): void {
   if (!db) {
@@ -260,7 +291,14 @@ export function saveStateWithAppliedSignals(
     }
   );
 
-  runBoth(state, appliedEntries);
+  try {
+    runBoth(state, appliedEntries);
+  } catch (err) {
+    if (isSqliteConstraintError(err)) {
+      throw new StateVersionConflictError();
+    }
+    throw err;
+  }
 }
 
 /**
