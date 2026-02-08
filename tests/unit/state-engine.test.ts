@@ -361,10 +361,10 @@ describe('STATE Engine', () => {
     it('should retry and succeed when first save hits a version conflict', () => {
       const { signal_id, accepted_at } = appendTestSignal({ payload: { x: 1 } });
 
-      // Spy on saveState: on the first call, insert a conflicting row THEN delegate
-      const originalSaveState = stateStoreModule.saveState;
+      // Spy on saveStateWithAppliedSignals: on the first call, insert a conflicting row THEN delegate
+      const originalSaveStateWithAppliedSignals = stateStoreModule.saveStateWithAppliedSignals;
       let callCount = 0;
-      const spy = vi.spyOn(stateStoreModule, 'saveState').mockImplementation((state) => {
+      const spy = vi.spyOn(stateStoreModule, 'saveStateWithAppliedSignals').mockImplementation((state, appliedEntries) => {
         callCount++;
         if (callCount === 1) {
           // Insert a conflicting row directly via db (same org, learner, version but different state_id)
@@ -384,7 +384,7 @@ describe('STATE Engine', () => {
           );
         }
         // Now delegate to the real implementation
-        return originalSaveState(state);
+        return originalSaveStateWithAppliedSignals(state, appliedEntries);
       });
 
       const outcome = applySignals({
@@ -413,9 +413,9 @@ describe('STATE Engine', () => {
     it('should return state_version_conflict when all retry attempts fail', () => {
       const { signal_id, accepted_at } = appendTestSignal({ payload: { y: 2 } });
 
-      // Spy on saveState: always insert a conflicting row before delegating
-      const originalSaveState = stateStoreModule.saveState;
-      const spy = vi.spyOn(stateStoreModule, 'saveState').mockImplementation((state) => {
+      // Spy on saveStateWithAppliedSignals: always insert a conflicting row before delegating
+      const originalSaveStateWithAppliedSignals = stateStoreModule.saveStateWithAppliedSignals;
+      const spy = vi.spyOn(stateStoreModule, 'saveStateWithAppliedSignals').mockImplementation((state, appliedEntries) => {
         const database = getStateStoreDatabase()!;
         database.prepare(`
           INSERT OR IGNORE INTO learner_state (org_id, learner_reference, state_id, state_version, updated_at, state, last_signal_id, last_signal_timestamp)
@@ -430,7 +430,7 @@ describe('STATE Engine', () => {
           'conflict-sig',
           state.updated_at
         );
-        return originalSaveState(state);
+        return originalSaveStateWithAppliedSignals(state, appliedEntries);
       });
 
       const outcome = applySignals({

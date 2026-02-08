@@ -7,7 +7,7 @@ todos:
     status: completed
   - id: TASK-002
     content: Use atomic save in engine applySignals path
-    status: pending
+    status: completed
   - id: TASK-003
     content: Add STATE-013 learner isolation contract test
     status: pending

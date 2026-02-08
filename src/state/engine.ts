@@ -221,10 +221,8 @@ export function applySignals(request: ApplySignalsRequest): ApplySignalsOutcome 
     };
 
     try {
-      stateStore.saveState(learnerState);
-      stateStore.recordAppliedSignals(
-        orgId,
-        learnerReference,
+      stateStore.saveStateWithAppliedSignals(
+        learnerState,
         signals.map((s) => ({
           signal_id: s.signal_id,
           state_version: versionForSave,
