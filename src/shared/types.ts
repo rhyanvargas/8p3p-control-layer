@@ -179,3 +179,104 @@ export interface ApplySignalsResult {
   applied_signal_ids: string[];
   updated_at: string;
 }
+
+// ==========================================================================
+// Decision Engine Types (Stage 4)
+// ==========================================================================
+
+/** Leaf condition: compares a state field against a value */
+export interface ConditionLeaf {
+  field: string;
+  operator: 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte';
+  value: string | number | boolean;
+}
+
+/** Compound AND condition */
+export interface ConditionAll {
+  all: ConditionNode[];
+}
+
+/** Compound OR condition */
+export interface ConditionAny {
+  any: ConditionNode[];
+}
+
+/** Recursive condition node (leaf | all | any) */
+export type ConditionNode = ConditionLeaf | ConditionAll | ConditionAny;
+
+/** Single policy rule */
+export interface PolicyRule {
+  rule_id: string;
+  condition: ConditionNode;
+  decision_type: DecisionType;
+}
+
+/** Policy definition loaded from JSON */
+export interface PolicyDefinition {
+  policy_id: string;
+  policy_version: string;
+  description: string;
+  rules: PolicyRule[];
+  default_decision_type: DecisionType;
+}
+
+/** Closed set of 7 decision types */
+export type DecisionType = 'reinforce' | 'advance' | 'intervene' | 'pause' | 'escalate' | 'recommend' | 'reroute';
+
+/** Runtime constant for decision type validation */
+export const DECISION_TYPES: readonly DecisionType[] = ['reinforce', 'advance', 'intervene', 'pause', 'escalate', 'recommend', 'reroute'] as const;
+
+/** Policy evaluation result */
+export interface PolicyEvaluationResult {
+  decision_type: DecisionType;
+  matched_rule_id: string | null;
+}
+
+/** Canonical Decision object */
+export interface Decision {
+  org_id: string;
+  decision_id: string;
+  learner_reference: string;
+  decision_type: DecisionType;
+  decided_at: string;
+  decision_context: Record<string, unknown>;
+  trace: {
+    state_id: string;
+    state_version: number;
+    policy_version: string;
+    matched_rule_id: string | null;
+  };
+}
+
+/** Request to evaluate state for a decision */
+export interface EvaluateStateForDecisionRequest {
+  org_id: string;
+  learner_reference: string;
+  state_id: string;
+  state_version: number;
+  requested_at: string;
+  evaluation_context?: Record<string, unknown>;
+}
+
+/** Discriminated outcome for evaluateState */
+export type EvaluateDecisionOutcome =
+  | { ok: true; result: Decision }
+  | { ok: false; errors: RejectionReason[] };
+
+/** Request for GET /v1/decisions */
+export interface GetDecisionsRequest {
+  org_id: string;
+  learner_reference: string;
+  from_time: string;
+  to_time: string;
+  page_token?: string;
+  page_size?: number;
+}
+
+/** Response for GET /v1/decisions */
+export interface GetDecisionsResponse {
+  org_id: string;
+  learner_reference: string;
+  decisions: Decision[];
+  next_page_token: string | null;
+}

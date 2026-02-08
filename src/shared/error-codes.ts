@@ -71,6 +71,28 @@ export const ErrorCodes = {
 
   /** Optimistic lock failed (state_version conflict on save) */
   STATE_VERSION_CONFLICT: 'state_version_conflict',
+
+  // ==========================================================================
+  // Decision Engine Error Codes (Stage 4)
+  // ==========================================================================
+
+  /** Decision type not in closed set */
+  INVALID_DECISION_TYPE: 'invalid_decision_type',
+
+  /** decision_context is not a JSON object */
+  DECISION_CONTEXT_NOT_OBJECT: 'decision_context_not_object',
+
+  /** Trace field absent from decision */
+  MISSING_TRACE: 'missing_trace',
+
+  /** Trace references state that doesn't match evaluation input */
+  TRACE_STATE_MISMATCH: 'trace_state_mismatch',
+
+  /** No state exists for learner — cannot evaluate */
+  STATE_NOT_FOUND: 'state_not_found',
+
+  /** No policy loaded or available */
+  POLICY_NOT_FOUND: 'policy_not_found',
 } as const;
 
 export type ErrorCode = typeof ErrorCodes[keyof typeof ErrorCodes];
