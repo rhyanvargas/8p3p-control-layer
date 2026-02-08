@@ -55,7 +55,7 @@ todos:
     status: completed
   - id: TASK-018
     content: Cleanup — delete docs/analyze/ directory
-    status: pending
+    status: completed
 isProject: false
 ---
 
