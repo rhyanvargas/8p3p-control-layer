@@ -10,7 +10,7 @@ todos:
     status: completed
   - id: TASK-003
     content: Create policy loader with recursive condition evaluator
-    status: in_progress
+    status: completed
   - id: TASK-004
     content: Create Decision Store (SQLite)
     status: pending
