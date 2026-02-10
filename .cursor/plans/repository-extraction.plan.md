@@ -247,6 +247,7 @@ Contract tests serve as migration guardrails — if all DEC-* and OUT-API-* test
 **Context**: Currently, policy is loaded once at startup via `loadPolicy()` in `server.ts`. Changing the policy requires a server restart. For multi-tenant production, policy changes should take effect without deploy or restart.
 
 **Industry best practice — Hot-reload pattern**:
+
 ```typescript
 // File watcher or API-triggered reload
 function reloadPolicy(): void {
@@ -258,6 +259,7 @@ function reloadPolicy(): void {
 ```
 
 This is how AWS Config Rules, OPA (Open Policy Agent), and LaunchDarkly handle policy updates. Key requirements:
+
 - Validate new policy fully before swapping (reject invalid policies, keep old one active)
 - Atomic swap of the cached policy reference (no partial state)
 - Log version transition for audit trail
