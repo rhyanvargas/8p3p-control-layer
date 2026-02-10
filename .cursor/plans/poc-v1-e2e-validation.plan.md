@@ -4,13 +4,13 @@ overview: "Prove the unbroken signal → state → decision chain at the HTTP le
 todos:
   - id: TASK-001
     content: "Create E2E integration test: signal-to-decision with 3 sample learner payloads"
-    status: pending
+    status: completed
   - id: TASK-002
     content: Document spec↔code alignment status and execution sequencing
-    status: pending
+    status: completed
   - id: TASK-003
     content: Regression check — all tests pass including new E2E
-    status: pending
+    status: completed
 isProject: false
 ---
 
@@ -44,7 +44,7 @@ isProject: false
 
 ### TASK-001: Create E2E integration test with 3 sample learner payloads
 
-- **Status**: pending
+- **Status**: completed
 - **Files**: `tests/integration/e2e-signal-to-decision.test.ts`
 - **Action**: Create
 - **Depends on**: none
@@ -108,7 +108,7 @@ HTTP-level integration test using Fastify `app.inject()`. Full server setup (all
 
 ### TASK-002: Document spec↔code alignment status and execution sequencing
 
-- **Status**: pending
+- **Status**: completed
 - **Files**: This plan file (update inline)
 - **Action**: Verify and document
 - **Depends on**: TASK-001
@@ -130,7 +130,7 @@ Confirm and record the following alignment items (all verified in review):
 
 ### TASK-003: Regression check
 
-- **Status**: pending
+- **Status**: completed
 - **Files**: none (verification only)
 - **Action**: Verify
 - **Depends on**: TASK-001, TASK-002
