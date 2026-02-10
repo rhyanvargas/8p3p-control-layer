@@ -193,8 +193,25 @@ None. All source code is stable.
    ↓
    Repository Extraction (DEF-DEC-002) — DEFERRED, execute after policy expansion
    ↓
+   Engine Decoupling (operator registry, hot-reload) — DEFERRED, execute during Phase 2 prep
+   ↓
    Phase 2: AWS deployment
 ```
+
+### Future: Engine Decoupling Improvements
+
+These items were identified during the POC v1 review (policy↔code coupling analysis). They address the three coupling points where policy capabilities are currently hardcoded. **None are blockers for POC v1 or policy expansion.** Actionize when the trigger condition is met.
+
+
+| Item                          | What                                                                                         | Trigger                                                           | Priority     | Plan                                    |
+| ----------------------------- | -------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- | ------------ | --------------------------------------- |
+| Operator Registry             | Replace hardcoded `switch` in `evaluateCondition` with pluggable operator map                | When a new operator is needed (e.g., `between`, `in`, `contains`) | Low          | `policy-expansion.plan.md` §Future      |
+| Policy Hot-Reload             | File watcher or API-triggered policy reload without server restart                           | Before multi-tenant production (Phase 2)                          | Medium       | `repository-extraction.plan.md` §Future |
+| Self-Describing Policy Schema | Policy header declares required operators/combinators; engine validates support at load time | When supporting third-party policy authoring                      | Defer        | Not yet planned                         |
+| Decision Types Closed Set     | Keep as-is (intentional contract guarantee)                                                  | N/A — adding an 8th type should require spec revision             | Don't change | N/A                                     |
+
+
+**Reference**: `docs/foundation/ip-defensibility-and-value-proposition.md` §Canonical Fields: Ownership Boundary explains why 8P3P evaluates policy but does not compute canonical field values.
 
 ### When to execute `repository-extraction.plan.md`:
 

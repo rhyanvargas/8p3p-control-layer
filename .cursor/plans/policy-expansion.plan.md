@@ -251,3 +251,33 @@ TASK-001 (policy) → TASK-002 (tests) → TASK-003 (spec) → TASK-004 (regress
 ```
 
 Linear sequence — each task depends on the previous.
+
+## Future: Operator Registry (Deferred)
+
+**Trigger**: When a policy requires an operator not in the current closed set (`eq`, `neq`, `gt`, `gte`, `lt`, `lte`).
+
+**Context**: The v2 policy uses only the existing 6 operators. However, future policies may need `between` (range checks), `in` (set membership), or `contains` (substring/array). Currently, adding an operator requires changes to 2 files (`policy-loader.ts` switch statement + `types.ts` union type).
+
+**Industry best practice — Operator Registry pattern**:
+Replace the hardcoded `switch` in `evaluateCondition` with a pluggable operator map:
+
+```typescript
+// Current (hardcoded):
+switch (operator) {
+  case 'eq': return raw === value;
+  case 'gt': return numState > numValue;
+  // adding "between" requires code change
+}
+
+// Registry pattern (future):
+const operators: Record<string, (state: unknown, value: unknown) => boolean> = {
+  eq:  (s, v) => s === v,
+  neq: (s, v) => s !== v,
+  gt:  (s, v) => Number(s) > Number(v),
+  // adding "between" = adding to registry, no evaluator change
+};
+```
+
+**When to actionize**: Create a dedicated plan when the first policy requires an operator beyond the current 6. Until then, the current implementation is correct and sufficient — don't over-engineer ahead of a real requirement.
+
+**Tracked in**: `poc-v1-e2e-validation.plan.md` §Engine Decoupling Improvements

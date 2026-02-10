@@ -239,3 +239,30 @@ setDecisionRepository(new DynamoDbDecisionRepository(dynamoConfig));
 ```
 
 Contract tests serve as migration guardrails — if all DEC-* and OUT-API-* tests pass with the new adapter, the migration is correct.
+
+## Future: Policy Hot-Reload (Deferred)
+
+**Trigger**: Before multi-tenant production deployment (Phase 2).
+
+**Context**: Currently, policy is loaded once at startup via `loadPolicy()` in `server.ts`. Changing the policy requires a server restart. For multi-tenant production, policy changes should take effect without deploy or restart.
+
+**Industry best practice — Hot-reload pattern**:
+```typescript
+// File watcher or API-triggered reload
+function reloadPolicy(): void {
+  const newPolicy = loadAndValidatePolicy(policyPath);
+  const oldVersion = cachedPolicy?.policy_version;
+  cachedPolicy = newPolicy;  // atomic swap
+  log.info({ from: oldVersion, to: newPolicy.policy_version }, 'Policy reloaded');
+}
+```
+
+This is how AWS Config Rules, OPA (Open Policy Agent), and LaunchDarkly handle policy updates. Key requirements:
+- Validate new policy fully before swapping (reject invalid policies, keep old one active)
+- Atomic swap of the cached policy reference (no partial state)
+- Log version transition for audit trail
+- Consider per-tenant policy files when multi-tenancy is added
+
+**When to actionize**: Create a dedicated plan during Phase 2 preparation, after repository extraction is complete. Hot-reload and the DynamoDB adapter are both Phase 2 operational concerns and can be planned together.
+
+**Tracked in**: `poc-v1-e2e-validation.plan.md` §Engine Decoupling Improvements
