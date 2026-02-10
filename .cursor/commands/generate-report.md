@@ -1,223 +1,275 @@
 # /generate-report
 
-Generate an executive summary report for stakeholders with live API evidence, browser screenshots, and test results.
+Generate an executive-level changelog report. Adapts to what actually changed — API routes, policy rules, schema updates, bug fixes, or infrastructure. Not every report needs screenshots; not every report needs curl output. The report reflects reality.
 
 ## Usage
 
-Generate a full report:
 ```
-/generate-report
-```
-
-Generate with a specific focus:
-```
-/generate-report focus on the decision engine provenance tracing
-```
-
-Generate for a specific milestone:
-```
-/generate-report POC v2 — policy expansion
+/generate-report                              # auto-detect changes since last report or tag
+/generate-report since v1.0.0                 # changes since a specific tag/commit
+/generate-report policy update — added escalate rule
+/generate-report milestone: POC v1 complete   # full milestone summary (includes API evidence)
 ```
 
 ## Behavior
 
-1. **Discover** — Scan the project to understand current state
-2. **Verify** — Run the test suite and hit live API endpoints
-3. **Capture** — Take browser screenshots of each API route via Swagger UI
-4. **Compose** — Write a structured markdown report with embedded evidence
-5. **Deliver** — Save to `docs/reports/` with screenshots
+1. **Detect** — Determine what changed and classify change types
+2. **Assess** — Decide which report sections are relevant
+3. **Verify** — Run tests; gather live evidence only if warranted
+4. **Compose** — Write an adaptive report scoped to the changes
+5. **Deliver** — Save to `docs/reports/` with date-stamped filename
+
+---
 
 ## Instructions
 
-When the user invokes `/generate-report`:
+### Step 1: Detect What Changed
 
-### Step 1: Gather Project Context
+Determine the diff baseline. Use the **first match**:
 
-Read these files to understand the current state:
+1. If the user provides a ref (tag, commit, branch): `git diff {ref}...HEAD`
+2. If previous reports exist in `docs/reports/`: use the date of the most recent report to find commits since then via `git log --since`
+3. Fallback: `git diff HEAD~10` (last 10 commits)
+
+Run these commands to build a change inventory:
+
+```bash
+git log {baseline}..HEAD --oneline                    # commit summary
+git diff {baseline}..HEAD --stat                      # files changed
+git diff {baseline}..HEAD --name-status               # added/modified/deleted
+```
+
+### Step 2: Classify Changes
+
+Categorize every changed file into one or more change types:
+
+| Change Type | File Patterns | Report Impact |
+|-------------|---------------|---------------|
+| **API** | `src/ingestion/`, `src/output/`, `docs/api/openapi.yaml`, route files | Include endpoint table, live curl responses, Swagger screenshots |
+| **Policy** | `src/decision/policy*.json`, `src/decision/engine*` | Include before/after rule comparison, decision trace example |
+| **Schema** | `src/contracts/schemas/`, `docs/api/asyncapi.yaml` | Include schema diff summary, contract alignment status |
+| **State Engine** | `src/state/` | Include state versioning impact, migration notes if any |
+| **Data Layer** | `src/signalLog/`, `src/shared/db*`, `scripts/` | Include storage/migration notes |
+| **Tests** | `tests/` | Include test count delta (before → after), new coverage areas |
+| **Docs** | `docs/` (excluding `docs/reports/`) | Mention updated documentation |
+| **Config / Infra** | `package.json`, `tsconfig.json`, `.cursor/`, CI files | Include dependency or tooling changes |
+| **Bug Fix** | Any — inferred from commit messages containing "fix", "bug", "patch" | Include what was broken, what's fixed, how verified |
+
+If **no API files changed**, skip Swagger screenshots and curl responses.
+If **no policy files changed**, skip policy comparison.
+Only gather live evidence for the change types that are present.
+
+### Step 3: Read Project Context
+
+Read these files for background (always):
 
 | File | Purpose |
 |------|---------|
-| `.cursor/rules/project-context/RULE.md` | Tech stack, architecture, key commands |
-| `package.json` | Version, dependencies, scripts |
-| `docs/foundation/architecture.md` | System architecture and data flow |
-| `docs/foundation/ip-defensibility-and-value-proposition.md` | Value proposition and IP thesis |
-| `docs/api/openapi.yaml` | OpenAPI spec for endpoint discovery |
+| `.cursor/rules/project-context/RULE.md` | Tech stack, architecture, commands |
+| `package.json` | Version number |
 
-Also scan for any existing reports in `docs/reports/` to avoid duplication and to maintain version continuity.
+Read these files **only if relevant** to the change types detected:
 
-### Step 2: Run the Test Suite
+| Condition | File |
+|-----------|------|
+| API changes | `docs/api/openapi.yaml` |
+| Policy changes | The policy JSON file(s) that changed |
+| Architecture context needed | `docs/foundation/architecture.md` |
+| Milestone report | `docs/foundation/ip-defensibility-and-value-proposition.md` |
+| Test changes | The specific test files that changed |
+
+### Step 4: Gather Evidence (Adaptive)
+
+#### Always
 
 ```bash
-npm test
+npm test    # capture pass/fail count, file breakdown, duration
 ```
 
-Capture:
-- Total test count and pass/fail status
-- Test file breakdown by category (unit, contract, integration)
-- Duration
+#### Only if API changes detected
 
-### Step 3: Hit Each API Endpoint
+1. Ensure dev server is running (`npm run dev`)
+2. `curl` each **changed or new** endpoint — not all endpoints, just the affected ones
+3. Open Swagger UI (`http://localhost:3000/docs`) in the browser
+4. Screenshot only the **changed or new** endpoints (expand in Swagger, capture)
+5. Save screenshots to `docs/reports/screenshots/` with descriptive names
 
-Ensure the dev server is running (`npm run dev`). Then call each endpoint using `curl` and capture the JSON responses.
+#### Only if policy changes detected
 
-**Required endpoints:**
+1. Show the before/after policy diff (rule added, threshold changed, priority reordered)
+2. If the server is running, demonstrate one decision trace that exercises the changed rule
 
-| Method | Path | Test Payload / Parameters |
-|--------|------|--------------------------|
-| `GET` | `/health` | No params |
-| `POST` | `/v1/signals` | Use a representative SignalEnvelope from `docs/testing/qa-test-pocv1.md` (QA-001 body) |
-| `GET` | `/v1/signals` | `org_id`, `learner_reference`, `from_time`, `to_time` matching the ingested signal |
-| `GET` | `/v1/decisions` | Same query params as signals |
+#### Only if schema changes detected
 
-For test data, reference the QA test cases in `docs/testing/qa-test-pocv1.md`.
-
-### Step 4: Capture Browser Screenshots
-
-Navigate to the Swagger UI at `http://localhost:3000/docs` using the browser tools.
-
-For each API route:
-1. Expand the endpoint in Swagger UI
-2. Take a screenshot showing: endpoint description, parameters, request body schema (if POST), and response codes
-3. Save screenshots with descriptive filenames to `docs/reports/screenshots/`
-
-**Required screenshots:**
-
-| Filename | Content |
-|----------|---------|
-| `swagger-overview.png` | Full Swagger UI showing all endpoints |
-| `01-post-signals-endpoint.png` | POST /v1/signals expanded — description and request body |
-| `02-post-signals-body-schema.png` | Request body schema detail |
-| `03-post-signals-responses.png` | 200 and 400 response schemas |
-| `04-get-signals-endpoint.png` | GET /v1/signals expanded — description and parameters |
-| `05-get-signals-params-responses.png` | Full parameter list with pagination |
-| `06-get-decisions-endpoint.png` | GET /v1/decisions expanded — description and parameters |
-| `07-get-decisions-params-responses.png` | Full parameter list |
-| `08-get-decisions-response-schema.png` | 200 response with trace object visible |
+```bash
+npm run validate:contracts    # confirm alignment
+```
 
 ### Step 5: Compose the Report
 
-Write the report to `docs/reports/{name}-summary-report.md` using this structure:
+Save to `docs/reports/{YYYY-MM-DD}-{slug}.md` (e.g., `2026-02-10-poc-v1-complete.md`).
+
+The report uses a **modular template**. Include only the sections that apply.
 
 ```markdown
-# {Project Name} — {Milestone} Summary Report
+# {Project Name} — {Title}
 
-**Date:** {today's date}
-**Version:** {version from package.json}
-**Status:** {Complete/In Progress} — {brief status line}
-
----
-
-## Executive Summary
-
-{2-3 sentences: What is this project? What does this milestone prove?}
+**Date:** {today}
+**Version:** {from package.json}
+**Baseline:** {what this is compared against — tag, commit, or date}
 
 ---
 
-## System Architecture
+## Summary
 
-{Architecture diagram or pipeline description from docs/foundation/architecture.md}
-
-| Stage | Component | What It Does |
-|-------|-----------|-------------|
-{Table of pipeline stages}
-
-### Key Properties
-
-{Bullet list of architectural properties: determinism, immutability, multi-tenant, etc.}
+{2-4 sentences: What changed and why it matters. Written for a non-technical
+partner or investor. No jargon. Focus on capability and business value.}
 
 ---
 
-## Tech Stack
+## What Changed
 
-| Category | Technology |
-|----------|-----------|
-{From package.json and project context}
+{Brief categorized list of changes. One section per change type detected.}
 
----
+### {Change Type Icon} {Change Type Label}
 
-## API Endpoints
+{Description of what changed, why, and what it enables.}
 
-{Swagger UI overview screenshot}
+{Evidence block — adapts per type:}
+{- API: endpoint table + curl response + screenshot}
+{- Policy: before/after rule diff + decision trace}
+{- Schema: alignment status table}
+{- Tests: count delta + new coverage areas}
+{- Bug fix: what broke, root cause, fix, verification}
+{- Infra: dependency or config change summary}
+```
 
-| Method | Path | Purpose |
-|--------|------|---------|
-{Endpoint table}
+#### Change Type Formatting
 
-### Route N: `METHOD /path` — Title
+Use these labels and structure per type:
 
-**Purpose:** {description from OpenAPI spec}
+**API Changes:**
+```markdown
+### API Changes
 
-{Screenshot(s) from Swagger UI}
+{Description of new/modified endpoints.}
 
-**Live Response ({status code}):**
+| Method | Path | Change |
+|--------|------|--------|
+| `POST` | `/v1/signals` | Added metadata field support |
 
+**Live Response:**
 ```json
-{actual JSON response from curl}
+{curl output}
 ```
 
-**Key behaviors:**
-{Bullet list of notable behaviors for this endpoint}
+![Endpoint screenshot](screenshots/{filename}.png)
+```
+
+**Policy Changes:**
+```markdown
+### Policy Changes
+
+{What rule was added/modified/removed and its business meaning.}
+
+**Before:** {old rule or "N/A" if new}
+**After:**
+```json
+{new rule JSON}
+```
+
+**Decision Trace (demonstrating the change):**
+```json
+{trace output showing the rule firing}
+```
+```
+
+**Schema Changes:**
+```markdown
+### Schema Changes
+
+{What fields were added/modified/removed.}
+
+| Schema | Field | Change |
+|--------|-------|--------|
+| `SignalEnvelope` | `metadata.trace_id` | Added (optional) |
+
+Contract alignment: `npm run validate:contracts` — PASS
+```
+
+**Test Changes:**
+```markdown
+### Test Coverage
+
+| Metric | Before | After | Delta |
+|--------|--------|-------|-------|
+| Total tests | 312 | 337 | +25 |
+| Test files | 15 | 17 | +2 |
+
+New coverage: {brief description of what's now tested}
+```
+
+**Bug Fixes:**
+```markdown
+### Bug Fixes
+
+**{Bug title}**
+- **Symptom:** {what was broken}
+- **Root cause:** {why}
+- **Fix:** {what changed}
+- **Verified by:** {test name or manual verification}
+```
+
+#### Closing Sections (always include)
+
+```markdown
+---
+
+## Verification
+
+**Tests:** {N} passing across {M} files ({duration})
+**Contract alignment:** {PASS/FAIL or N/A}
+**Linting:** {PASS/FAIL or N/A}
 
 ---
 
-{Repeat for each route}
+## Impact
 
----
-
-## Test Results
-
-**{N} tests passing across {M} test files.** {Pass/fail status.}
-
-```
-{Vitest output}
-```
-
-### Test Coverage by Category
-
-| Category | Files | Tests | What's Verified |
-|----------|-------|-------|----------------|
-{Breakdown by unit/contract/integration}
-
----
-
-## What This Proves
-
-### 1. {Capability}
-{1-2 sentences with concrete evidence}
-
-{Repeat for each key capability demonstrated}
+{1-3 bullet points: What does this change enable for the product,
+the business, or the next development phase?}
 
 ---
 
 ## What's Next
 
-| Feature | Description |
-|---------|-------------|
-{Roadmap items from docs/foundation/ or .cursor/plans/}
+{Reference open plans in `.cursor/plans/` or state next priorities.
+Skip this section if the user didn't ask for it and there's nothing obvious.}
 
 ---
 
-*Report generated: {date} | Source: Live API responses from `http://localhost:3000`*
+*Generated: {date} | Commits: {baseline}..HEAD ({N} commits)*
 ```
 
-### Step 6: Verify and Deliver
+### Step 6: Deliver
 
-1. Ensure all screenshot paths in the markdown are relative and resolve correctly from `docs/reports/`
-2. Verify the report renders properly
-3. Tell the user the report location and summarize what's included
+1. Save the report to `docs/reports/`
+2. Save any screenshots to `docs/reports/screenshots/`
+3. Tell the user the file path and give a 2-sentence summary of what the report covers
 
-## Report Quality Checklist
+---
 
-- [ ] Executive summary is concise (2-3 sentences) and non-technical enough for a business stakeholder
-- [ ] Architecture section references `docs/foundation/architecture.md`
-- [ ] Every API route has at least one Swagger UI screenshot
-- [ ] Every API route has a live JSON response (not a mock)
-- [ ] Test results are from an actual `npm test` run (not copy-pasted from memory)
-- [ ] "What This Proves" ties capabilities back to business value, not just technical facts
-- [ ] Roadmap section references existing plans in `.cursor/plans/` if available
-- [ ] All screenshots saved to `docs/reports/screenshots/`
-- [ ] No hardcoded dates — use today's date
-- [ ] Version pulled from `package.json`
+## Decision Logic Cheat Sheet
+
+| Question | Answer |
+|----------|--------|
+| Should I take Swagger screenshots? | Only if files in `src/ingestion/`, `src/output/`, or `docs/api/` changed |
+| Should I curl endpoints? | Only if route handlers or OpenAPI spec changed |
+| Should I show policy diffs? | Only if policy JSON or decision engine files changed |
+| Should I run `validate:contracts`? | Only if schema or API spec files changed |
+| Should I include architecture section? | Only for milestone reports or if architecture files changed |
+| Should I include tech stack? | Only for milestone reports or if `package.json` deps changed |
+| Should I include "What's Next"? | Only for milestone reports or if the user asked |
+| What's the filename format? | `{YYYY-MM-DD}-{slug}.md` — slug from title, lowercase, hyphens |
 
 ## File References
 
@@ -226,8 +278,10 @@ Write the report to `docs/reports/{name}-summary-report.md` using this structure
 | Project context | `.cursor/rules/project-context/RULE.md` |
 | Architecture | `docs/foundation/architecture.md` |
 | Value proposition | `docs/foundation/ip-defensibility-and-value-proposition.md` |
-| QA test cases | `docs/testing/qa-test-pocv1.md` |
 | OpenAPI spec | `docs/api/openapi.yaml` |
+| QA test cases | `docs/testing/qa-test-pocv1.md` |
+| Policy files | `src/decision/policy*.json` |
+| Schema files | `src/contracts/schemas/` |
 | Existing reports | `docs/reports/` |
 | Implementation plans | `.cursor/plans/` |
 | Screenshots output | `docs/reports/screenshots/` |
