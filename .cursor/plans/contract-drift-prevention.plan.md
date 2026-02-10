@@ -29,7 +29,7 @@ todos:
     status: completed
   - id: TASK-008
     content: E2E contract drift detection test
-    status: pending
+    status: completed
 isProject: false
 ---
 
