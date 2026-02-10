@@ -1,6 +1,6 @@
 {
   "policy_id": "default",
-  "policy_version": "1",
+  "policy_version": "1.0.0",
   "description": "POC v1 policy: single REINFORCE rule proving authority. Only references canonical state fields (stabilityScore 0.0–1.0, timeSinceReinforcement). Other decision types return default_decision_type.",
   "rules": [
     {

@@ -154,7 +154,7 @@ describe('Decision Engine', () => {
       if (outcome.ok) {
         expect(outcome.result.trace.state_id).toBe(state_id);
         expect(outcome.result.trace.state_version).toBe(state_version);
-        expect(outcome.result.trace.policy_version).toBe('1');
+        expect(outcome.result.trace.policy_version).toBe('1.0.0');
         // Default policy: stabilityScore<0.7 AND timeSinceReinforcement>86400 → rule-reinforce
         expect(outcome.result.trace.matched_rule_id).toBe('rule-reinforce');
       }

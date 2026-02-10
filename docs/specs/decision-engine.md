@@ -492,6 +492,7 @@ Load and evaluate JSON policy files:
 
 **Validation (at load time):**
 - Policy file must parse as valid JSON
+- `policy_version` must be valid semver (`MAJOR.MINOR.PATCH`, optional prerelease/build metadata). Enforced at load time; rejects with `invalid_policy_version` error code.
 - All `decision_type` values must be in the closed set
 - All leaf `condition.operator` values must be in the allowed set (`eq`, `neq`, `gt`, `gte`, `lt`, `lte`)
 - All `rule_id` values must be unique within the policy
@@ -501,6 +502,7 @@ Load and evaluate JSON policy files:
 
 **Error handling:**
 - Missing policy file → throw with `policy_not_found` error code
+- Non-semver `policy_version` → throw with `invalid_policy_version` error code
 - Invalid policy structure → throw with descriptive error
 
 ### 5. Decision JSON Schema (`src/contracts/schemas/decision.json`)
@@ -644,7 +646,7 @@ JSON files stored at `src/decision/policies/`. Loaded at startup, versioned via 
 ```json
 {
   "policy_id": "default",
-  "policy_version": "1",
+  "policy_version": "1.0.0",
   "description": "POC v1 policy: single REINFORCE rule proving authority. Only references canonical state fields (stabilityScore 0.0–1.0, timeSinceReinforcement). Other decision types return default_decision_type.",
   "rules": [
     {

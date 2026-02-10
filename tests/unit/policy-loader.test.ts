@@ -35,7 +35,7 @@ function writeTempPolicy(content: unknown): string {
 function _validPolicy(overrides: Partial<PolicyDefinition> = {}): PolicyDefinition {
   return {
     policy_id: 'test',
-    policy_version: '1',
+    policy_version: '1.0.0',
     description: 'Test policy',
     rules: [],
     default_decision_type: 'reinforce',
@@ -57,7 +57,7 @@ describe('Policy Loader', () => {
       const policy = loadPolicy(defaultPath);
       expect(policy).toBeDefined();
       expect(policy.policy_id).toBe('default');
-      expect(policy.policy_version).toBe('1');
+      expect(policy.policy_version).toBe('1.0.0');
       expect(policy.rules).toBeInstanceOf(Array);
       expect(policy.rules.length).toBeGreaterThan(0);
       expect(policy.default_decision_type).toBe('reinforce');
@@ -84,7 +84,7 @@ describe('Policy Loader', () => {
     it('should throw with invalid_decision_type when a rule has invalid decision_type', () => {
       const policyPath = writeTempPolicy({
         policy_id: 'test',
-        policy_version: '1',
+        policy_version: '1.0.0',
         description: 'bad rule',
         rules: [
           {
@@ -108,7 +108,7 @@ describe('Policy Loader', () => {
     it('should throw with invalid_decision_type when default_decision_type is invalid', () => {
       const policyPath = writeTempPolicy({
         policy_id: 'test',
-        policy_version: '1',
+        policy_version: '1.0.0',
         description: 'bad default',
         rules: [],
         default_decision_type: 'nope',
@@ -123,10 +123,42 @@ describe('Policy Loader', () => {
       }
     });
 
-    it('should throw when rule_ids are duplicated', () => {
+    it('should throw with invalid_policy_version when policy_version is not semver', () => {
       const policyPath = writeTempPolicy({
         policy_id: 'test',
         policy_version: '1',
+        description: 'bad version',
+        rules: [],
+        default_decision_type: 'reinforce',
+      });
+
+      try {
+        loadPolicy(policyPath);
+        expect.unreachable('should have thrown');
+      } catch (err) {
+        const e = err as Error & { code: string };
+        expect(e.code).toBe(ErrorCodes.INVALID_POLICY_VERSION);
+        expect(e.message).toContain('semver');
+      }
+    });
+
+    it('should accept valid semver with prerelease and build metadata', () => {
+      const policyPath = writeTempPolicy({
+        policy_id: 'test',
+        policy_version: '2.1.0-beta.1+build.42',
+        description: 'prerelease policy',
+        rules: [],
+        default_decision_type: 'reinforce',
+      });
+
+      const policy = loadPolicy(policyPath);
+      expect(policy.policy_version).toBe('2.1.0-beta.1+build.42');
+    });
+
+    it('should throw when rule_ids are duplicated', () => {
+      const policyPath = writeTempPolicy({
+        policy_id: 'test',
+        policy_version: '1.0.0',
         description: 'dupe rules',
         rules: [
           {
@@ -162,7 +194,7 @@ describe('Policy Loader', () => {
     it('should return cached version after loadPolicy', () => {
       const defaultPath = path.join(process.cwd(), 'src/decision/policies/default.json');
       loadPolicy(defaultPath);
-      expect(getLoadedPolicyVersion()).toBe('1');
+      expect(getLoadedPolicyVersion()).toBe('1.0.0');
     });
   });
 
@@ -412,7 +444,7 @@ describe('Policy Loader', () => {
     it('first matching rule wins (ordering matters)', () => {
       const policy: PolicyDefinition = {
         policy_id: 'p',
-        policy_version: '1',
+        policy_version: '1.0.0',
         description: 'test',
         rules: [
           {
@@ -438,7 +470,7 @@ describe('Policy Loader', () => {
     it('returns default_decision_type with null matched_rule_id when no rule matches', () => {
       const policy: PolicyDefinition = {
         policy_id: 'p',
-        policy_version: '1',
+        policy_version: '1.0.0',
         description: 'test',
         rules: [
           {
@@ -458,7 +490,7 @@ describe('Policy Loader', () => {
     it('returns correct matched_rule_id on match', () => {
       const policy: PolicyDefinition = {
         policy_id: 'p',
-        policy_version: '1',
+        policy_version: '1.0.0',
         description: 'test',
         rules: [
           {

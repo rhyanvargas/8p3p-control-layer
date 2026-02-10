@@ -42,11 +42,11 @@ isProject: false
 - **Action**: Modify
 - **Depends on**: none
 - **Details**:
-Replace the single-rule POC v1 policy with a full 7-rule policy. Increment `policy_version` from `"1"` to `"2"`. Rules evaluated in priority order (first match wins). All rules use only the 5 canonical state fields from §4.7.
+Replace the single-rule POC v1 policy with a full 7-rule policy. Increment `policy_version` from `"1.0.0"` to `"2.0.0"`. Rules evaluated in priority order (first match wins). All rules use only the 5 canonical state fields from §4.7.
   ```json
   {
     "policy_id": "default",
-    "policy_version": "2",
+    "policy_version": "2.0.0",
     "description": "POC v2 policy: 7 rules covering all decision types. Uses canonical state fields (stabilityScore, masteryScore, timeSinceReinforcement, confidenceInterval, riskSignal). Priority-ordered; first match wins.",
     "rules": [
       {
@@ -148,7 +148,7 @@ Replace the single-rule POC v1 policy with a full 7-rule policy. Increment `poli
 - **Depends on**: TASK-001
 - **Details**:
 Replace the existing DEC-008 test cases (3 cases for POC v1) with 9 parameterized cases covering all 7 decision types plus 2 default-path cases. Each case: apply signal with specific canonical fields → evaluateState → assert `decision_type` and `trace.matched_rule_id`.
-  **DEC-008 test vectors (v2 policy):**
+**DEC-008 test vectors (v2 policy):**
 
   | Case | State Fields                                                                       | Expected `decision_type` | Expected `matched_rule_id` |
   | ---- | ---------------------------------------------------------------------------------- | ------------------------ | -------------------------- |
@@ -162,7 +162,7 @@ Replace the existing DEC-008 test cases (3 cases for POC v1) with 9 parameterize
   | 8h   | `stabilityScore: 0.9, timeSinceReinforcement: 1000`                                | `reinforce`              | `null` (default)           |
   | 8i   | `stabilityScore: 0.6, timeSinceReinforcement: 1000, confidenceInterval: 0.8`       | `reinforce`              | `null` (default)           |
 
-  Also update DEC-001 and DEC-006 setup signals to include all 5 canonical fields so the happy path triggers a real rule under v2 policy. Update `policy_version` assertions from `"1"` to `"2"` throughout.
+  Also update DEC-001 and DEC-006 setup signals to include all 5 canonical fields so the happy path triggers a real rule under v2.0.0 policy. Update `policy_version` assertions from `"1.0.0"` to `"2.0.0"` throughout.
 - **Verification**: `npm run test:contracts -- decision-engine` passes all cases.
 
 ### TASK-003: Update decision-engine spec
@@ -225,11 +225,11 @@ Full verification suite:
 ## Risks
 
 
-| Risk                                                 | Impact | Mitigation                                                                                           |
-| ---------------------------------------------------- | ------ | ---------------------------------------------------------------------------------------------------- |
-| Policy expansion changes DEC-001/DEC-006 behavior    | Medium | Update signal payloads in those tests to include all 5 canonical fields so they trigger a known rule |
-| `escalate` nested `any` inside `all` edge cases      | Low    | Already covered by policy-loader unit tests; contract test 8a exercises it end-to-end                |
-| `policy_version` change from "1" to "2" breaks tests | Medium | Systematically update all `policy_version` assertions in TASK-002                                    |
+| Risk                                                         | Impact | Mitigation                                                                                           |
+| ------------------------------------------------------------ | ------ | ---------------------------------------------------------------------------------------------------- |
+| Policy expansion changes DEC-001/DEC-006 behavior            | Medium | Update signal payloads in those tests to include all 5 canonical fields so they trigger a known rule |
+| `escalate` nested `any` inside `all` edge cases              | Low    | Already covered by policy-loader unit tests; contract test 8a exercises it end-to-end                |
+| `policy_version` change from "1.0.0" to "2.0.0" breaks tests | Medium | Systematically update all `policy_version` assertions in TASK-002                                    |
 
 
 ## Verification Checklist
@@ -241,7 +241,7 @@ Full verification suite:
 - All 9 DEC-008 contract tests pass
 - All OUT-API-001–OUT-API-003 still pass
 - Existing signal/state tests still pass (no regression)
-- `default.json` policy version is `"2"` with 7 rules
+- `default.json` policy version is `"2.0.0"` with 7 rules
 - Spec updated to match implementation
 
 ## Implementation Order

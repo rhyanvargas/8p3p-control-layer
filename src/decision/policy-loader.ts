@@ -17,6 +17,12 @@ import type {
 import { DECISION_TYPES } from '../shared/types.js';
 import { ErrorCodes } from '../shared/error-codes.js';
 
+/**
+ * Semver regex — matches MAJOR.MINOR.PATCH with optional prerelease/build metadata.
+ * Examples: 1.0.0, 2.1.0-beta.1, 3.0.0+build.42
+ */
+const SEMVER_REGEX = /^\d+\.\d+\.\d+(-[a-zA-Z0-9]+(\.[a-zA-Z0-9]+)*)?(\+[a-zA-Z0-9]+(\.[a-zA-Z0-9]+)*)?$/;
+
 const VALID_OPERATORS: readonly ConditionLeaf['operator'][] = [
   'eq',
   'neq',
@@ -125,6 +131,12 @@ function validatePolicyStructure(raw: unknown): asserts raw is PolicyDefinition 
     throwPolicyError(
       ErrorCodes.INVALID_TYPE,
       'Policy must have policy_id, policy_version, description (strings), rules (array), default_decision_type (string)'
+    );
+  }
+  if (!SEMVER_REGEX.test(policy.policy_version as string)) {
+    throwPolicyError(
+      ErrorCodes.INVALID_POLICY_VERSION,
+      `policy_version must be valid semver (e.g. 1.0.0), got: "${policy.policy_version}"`
     );
   }
   if (!DECISION_TYPES.includes(policy.default_decision_type as Parameters<typeof DECISION_TYPES.includes>[0])) {

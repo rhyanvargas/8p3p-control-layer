@@ -484,7 +484,7 @@ describe('Decision Engine Contract Tests', () => {
         expect(outcome.result.trace.matched_rule_id).toBe(vector.expected_matched_rule_id);
 
         // policy_version matches default.json
-        expect(outcome.result.trace.policy_version).toBe('1');
+        expect(outcome.result.trace.policy_version).toBe('1.0.0');
 
         // trace references the correct state
         expect(outcome.result.trace.state_id).toBe(state_id);

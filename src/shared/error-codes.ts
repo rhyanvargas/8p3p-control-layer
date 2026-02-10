@@ -93,6 +93,9 @@ export const ErrorCodes = {
 
   /** No policy loaded or available */
   POLICY_NOT_FOUND: 'policy_not_found',
+
+  /** policy_version is not valid semver (e.g. 1.0.0) */
+  INVALID_POLICY_VERSION: 'invalid_policy_version',
 } as const;
 
 export type ErrorCode = typeof ErrorCodes[keyof typeof ErrorCodes];
