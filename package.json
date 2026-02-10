@@ -18,12 +18,13 @@
     "test:unit": "vitest run tests/unit",
     "validate:schemas": "tsx scripts/validate-schemas.ts",
     "validate:fixtures": "tsx scripts/validate-fixtures.ts",
+    "validate:contracts": "tsx scripts/validate-contracts.ts",
     "validate:api": "redocly lint docs/api/openapi.yaml",
     "db:init": "tsx scripts/init-db.ts",
     "db:reset": "tsx scripts/reset-db.ts",
     "lint": "eslint src tests",
     "typecheck": "tsc --noEmit",
-    "check": "npm run build && npm run validate:schemas && npm run lint && npm test"
+    "check": "npm run build && npm run validate:schemas && npm run validate:contracts && npm run validate:api && npm run lint && npm test"
   },
   "repository": {
     "type": "git",
