@@ -49,6 +49,7 @@
         },
         "policy_version": {
           "type": "string",
+          "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9]+(\\.[a-zA-Z0-9]+)*)?(\\+[a-zA-Z0-9]+(\\.[a-zA-Z0-9]+)*)?$",
           "description": "Policy version that produced this decision"
         },
         "matched_rule_id": {

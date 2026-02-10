@@ -175,11 +175,21 @@ components:
           required:
             - state_id
             - state_version
+            - policy_version
+            - matched_rule_id
+          additionalProperties: false
           properties:
             state_id:
               type: string
             state_version:
               type: integer
+            policy_version:
+              type: string
+              pattern: '^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+(\.[a-zA-Z0-9]+)*)?(\+[a-zA-Z0-9]+(\.[a-zA-Z0-9]+)*)?$'
+              description: Policy version that produced this decision (semver)
+            matched_rule_id:
+              type: ['string', 'null']
+              description: Rule ID that matched, or null if default decision
 
     DecisionEmittedEvent:
       type: object
