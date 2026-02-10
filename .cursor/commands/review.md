@@ -60,6 +60,13 @@ Review against a spec:
 - [ ] Error codes listed but implementation deferred to plan
 - [ ] Cross-document references use explicit paths
 
+### API Contract Alignment
+- [ ] JSON Schemas (`src/contracts/schemas/`) match OpenAPI (`docs/api/openapi.yaml`)
+- [ ] JSON Schemas match AsyncAPI (`docs/api/asyncapi.yaml`)
+- [ ] Decision type enum consistent across all contract files
+- [ ] New schema fields propagated to all relevant contract files
+- [ ] `npm run validate:contracts` passes
+
 ## Instructions
 
 When the user invokes `/review`:
@@ -72,6 +79,7 @@ When the user invokes `/review`:
    - Check against the review checklist
    - Identify issues with severity (error, warning, info)
    - Suggest specific improvements
+   - If file is in `src/contracts/` or `docs/api/`, run `npm run validate:contracts` and include results in report
 3. **For each issue found, perform root cause analysis:**
    - Identify which document is responsible (spec, plan, implementation, test)
    - Determine if the issue originated in this document or was inherited from a dependency

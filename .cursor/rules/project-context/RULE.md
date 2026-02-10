@@ -47,8 +47,13 @@ npm run db:init      # Initialize database
 npm run db:reset     # Reset database
 
 # Validation
-npm run validate:schemas  # Validate JSON schemas
-npm run validate:fixtures # Validate test fixtures
+npm run validate:schemas    # Validate JSON schemas
+npm run validate:fixtures   # Validate test fixtures
+npm run validate:contracts  # Validate contract alignment (JSON Schema ↔ OpenAPI ↔ AsyncAPI)
+npm run validate:api        # Lint OpenAPI spec (Redocly)
+
+# Full pipeline
+npm run check              # build → validate:schemas → validate:contracts → validate:api → lint → test
 ```
 
 ## Architecture
@@ -117,7 +122,8 @@ Use the spec-driven workflow:
 1. `/draft-spec` - Generate spec from idea
 2. `/plan-impl` - Create implementation plan
 3. `/implement-spec` - Generate code from spec
-4. `/review` - Post-implementation quality check
+4. `/sync-contracts` - Detect and resolve contract drift
+5. `/review` - Post-implementation quality check
 
 For exploring existing code, use `/extract-spec`.
 

@@ -27,7 +27,7 @@ Scans for:
 
 ### 2. Rules Configuration
 
-Updates `.cursor/rules/project.mdc` with:
+Updates `.cursor/rules/project-context/RULE.md` with:
 - Detected tech stack
 - Build/test/run commands
 - Coding conventions from existing config files
@@ -53,7 +53,7 @@ When the user invokes `/quick-start`:
    Linter: {detected}
    ```
 3. Read existing configs for conventions
-4. Update `.cursor/rules/project.mdc` with:
+4. Update `.cursor/rules/project-context/RULE.md` with:
    - Project overview
    - Tech stack summary
    - Key commands (build, test, run)
@@ -80,7 +80,7 @@ When the user invokes `/quick-start`:
 - **Lint**: `npm run lint`
 
 ### Rules Updated
-Updated `.cursor/rules/project.mdc` with project context.
+Updated `.cursor/rules/project-context/RULE.md` with project context.
 
 ### Next Steps
 

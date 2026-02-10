@@ -14,19 +14,19 @@ todos:
     status: completed
   - id: TASK-003
     content: Create contract-enforcement Cursor rule
-    status: pending
+    status: completed
   - id: TASK-004
     content: Create /sync-contracts Cursor command
-    status: pending
+    status: completed
   - id: TASK-005
     content: Update /review checklist with API contract alignment
-    status: pending
+    status: completed
   - id: TASK-006
     content: Update /implement-spec checklist with contract propagation step
-    status: pending
+    status: completed
   - id: TASK-007
     content: Fix quick-start.md legacy .mdc reference
-    status: pending
+    status: completed
   - id: TASK-008
     content: E2E contract drift detection test
     status: pending

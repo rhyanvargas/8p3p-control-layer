@@ -53,6 +53,11 @@ When the user invokes `/implement-spec`:
 - Cover happy path and edge cases
 - Use existing test patterns
 
+### Contract Propagation
+- If JSON Schemas in `src/contracts/schemas/` are modified, propagate changes to OpenAPI and AsyncAPI docs
+- Run `npm run validate:contracts` to confirm alignment
+- See `.cursor/rules/contract-enforcement/RULE.md` for the propagation protocol
+
 ### Iteration
 - If tests fail, analyze and fix
 - If linter fails, correct style issues
@@ -65,6 +70,8 @@ Before reporting completion:
 - [ ] Tests written and passing
 - [ ] Linter passing
 - [ ] No regressions in existing tests
+- [ ] API contract files updated if schemas changed (`docs/api/openapi.yaml`, `docs/api/asyncapi.yaml`)
+- [ ] Contract alignment verified (`npm run validate:contracts`)
 - [ ] Plan file todos updated to `completed` status (if using a plan)
 
 ## Next Steps

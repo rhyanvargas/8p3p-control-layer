@@ -97,7 +97,7 @@ The control layer supports seven decision types, forming a closed set:
 | **REST API** | [`docs/api/openapi.yaml`](docs/api/openapi.yaml) | Served at `/docs` (Swagger UI) |
 | **Events** | [`docs/api/asyncapi.yaml`](docs/api/asyncapi.yaml) | — |
 | **Signal Envelope** | [`src/contracts/schemas/signal-envelope.json`](src/contracts/schemas/signal-envelope.json) | [`src/contracts/validators/signal-envelope.ts`](src/contracts/validators/signal-envelope.ts) |
-| **Decision Object** | See [Component Interface Contracts](<docs/foundation/[POC Playbook] 8P3P Learning Intelligence Control Layer-Component Interface Contracts.md>) | Planned |
+| **Decision Object** | [`src/contracts/schemas/decision.json`](src/contracts/schemas/decision.json) | [`src/contracts/validators/decision.ts`](src/contracts/validators/decision.ts) |
 
 For detailed contract specifications, see the [Component Interface Contracts](<docs/foundation/[POC Playbook] 8P3P Learning Intelligence Control Layer-Component Interface Contracts.md>) and API specs in [`docs/api/`](docs/api/).
 
@@ -125,8 +125,8 @@ For detailed contract specifications, see the [Component Interface Contracts](<d
 ```
 src/
 ├── contracts/        # JSON schemas and validators
-│   ├── schemas/      # Signal envelope JSON schema
-│   └── validators/   # Ajv-based validation
+│   ├── schemas/      # signal-envelope.json, decision.json
+│   └── validators/   # Ajv-based validation (signal-envelope.ts, decision.ts)
 ├── ingestion/        # Signal ingestion layer
 │   ├── handler.ts    # Request handling
 │   ├── routes.ts     # API routes
@@ -141,25 +141,45 @@ src/
 │   ├── engine.ts     # Signal application logic (applySignals, computeNewState)
 │   ├── store.ts      # SQLite-backed learner state storage
 │   └── validator.ts  # Request and state validation
+├── decision/         # Decision engine
+│   ├── engine.ts     # evaluateState() — policy evaluation, decision construction
+│   ├── handler.ts    # Request handling
+│   ├── routes.ts     # GET /v1/decisions routes
+│   ├── store.ts      # SQLite-backed decision storage
+│   ├── validator.ts  # Request validation
+│   └── policies/     # Policy definitions
+│       └── default.json
 ├── shared/           # Shared types and error codes
 │   ├── types.ts
 │   └── error-codes.ts
-├── decision/         # Decision engine (planned)
 ├── output/           # Output interfaces (planned)
 └── server.ts         # Application entry point
+
+scripts/
+├── validate-schemas.ts    # JSON Schema compilation check
+├── validate-contracts.ts  # Contract alignment (JSON Schema ↔ OpenAPI ↔ AsyncAPI)
+└── validate-api.sh        # OpenAPI linting (Redocly)
 
 tests/
 ├── contracts/        # Contract tests (spec-driven)
 │   ├── signal-ingestion.test.ts
 │   ├── signal-log.test.ts
-│   └── state-engine.test.ts
+│   ├── state-engine.test.ts
+│   ├── decision-engine.test.ts
+│   └── output-api.test.ts
+├── integration/      # End-to-end integration tests
+│   └── e2e-signal-to-decision.test.ts
 └── unit/             # Unit tests
     ├── forbidden-keys.test.ts
     ├── idempotency.test.ts
     ├── signal-log-store.test.ts
     ├── state-engine.test.ts
     ├── state-store.test.ts
-    └── state-validator.test.ts
+    ├── state-validator.test.ts
+    ├── decision-engine.test.ts
+    ├── decision-store.test.ts
+    ├── decision-validator.test.ts
+    └── policy-loader.test.ts
 ```
 
 ---
@@ -174,6 +194,7 @@ tests/
 | [Contract Test Matrix](<docs/foundation/[POC Playbook] 8P3P Learning Intelligence Control Layer-Contract Test Matrix.md>) | Comprehensive test cases for validation |
 | [Interface Validation Ruleset](<docs/foundation/[POC Playbook] 8P3P Learning Intelligence Control Layer-Interface Validation Ruleset.md>) | Structural validation rules and error codes |
 | [Solo Dev Execution Playbook](docs/foundation/solo-dev-execution-playbook.md) | Milestone-driven build plan, Phase 1–3 roadmap, DynamoDB migration checklist |
+| [IP Defensibility & Value Proposition](docs/foundation/ip-defensibility-and-value-proposition.md) | Competitive moat analysis and value differentiation |
 
 ### API specifications (machine-readable)
 
@@ -189,12 +210,13 @@ tests/
 | [Signal Ingestion](docs/specs/signal-ingestion.md) | Signal ingestion API specification |
 | [Signal Log](docs/specs/signal-log.md) | Immutable signal storage specification |
 | [State Engine](docs/specs/state-engine.md) | STATE engine specification (schemas, contracts, Phase 2 storage abstraction) |
+| [Decision Engine](docs/specs/decision-engine.md) | Decision engine specification (policy evaluation, deterministic decisions) |
 
 ---
 
 ## Project Status
 
-This project is in **active development** (Phase 1). Three of five lifecycle stages are implemented and hardened through multiple review cycles. **186 tests passing** across 9 test files.
+This project is in **active development** (Phase 1). Four of five lifecycle stages are implemented and hardened through multiple review cycles. **329 tests passing** across 16 test files.
 
 ### Completed
 - [x] Component interface contracts
@@ -217,9 +239,15 @@ This project is in **active development** (Phase 1). Three of five lifecycle sta
 - [x] AsyncAPI spec ([`docs/api/asyncapi.yaml`](docs/api/asyncapi.yaml)) for event contracts
 - [x] `validate:api` script (Redocly lint for OpenAPI)
 - [x] Phase 2 storage abstraction documented (StateRepository interface, DynamoDB table designs, migration checklist)
+- [x] **Decision Engine** — Policy-driven evaluation, deterministic decisions, full trace provenance
+- [x] Decision JSON Schema and Ajv validator (`src/contracts/schemas/decision.json`)
+- [x] Contract tests for Decision Engine (DEC-001 through DEC-010+)
+- [x] Unit tests for decision engine, store, validator, and policy loader
+- [x] E2E integration tests (signal ingestion → state → decision pipeline)
+- [x] `validate:contracts` script (JSON Schema ↔ OpenAPI ↔ AsyncAPI alignment)
+- [x] Contract drift prevention (automated detection in `npm run check`)
 
 ### Next Up
-- [ ] Decision Engine implementation (Stage 4)
 - [ ] Output Interfaces (Stage 5)
 
 ### Planned (Phase 2+)
