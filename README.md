@@ -253,6 +253,8 @@ This project is in **active development** (Phase 1). Four of five lifecycle stag
 - [x] Contract drift prevention (automated detection in `npm run check`)
 
 ### Next Up
+- [ ] Policy Expansion — promote single-rule POC v1 policy to 7-rule v2 covering all decision types (`policy-expansion.plan.md`)
+- [ ] Repository Extraction — extract DecisionRepository interface for vendor-agnostic persistence (`repository-extraction.plan.md`)
 - [ ] Output Interfaces (Stage 5)
 
 ### Planned (Phase 2+)

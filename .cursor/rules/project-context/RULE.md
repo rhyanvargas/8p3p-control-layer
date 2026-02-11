@@ -141,4 +141,3 @@ For exploring existing code, use `/extract-spec`.
 | `docs/foundation/[POC Playbook]...Validation Ruleset.md` | Validation rules and forbidden keys |
 | `docs/foundation/solo-dev-execution-playbook.md` | Development workflow guide |
 | `docs/specs/` | Generated specification files |
-| `docs/cursor agent/` | Cursor workflow documentation |
