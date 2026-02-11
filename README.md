@@ -166,7 +166,8 @@ tests/
 │   ├── signal-log.test.ts
 │   ├── state-engine.test.ts
 │   ├── decision-engine.test.ts
-│   └── output-api.test.ts
+│   ├── output-api.test.ts
+│   └── contract-drift.test.ts  # JSON Schema ↔ OpenAPI ↔ AsyncAPI drift detection
 ├── integration/      # End-to-end integration tests
 │   └── e2e-signal-to-decision.test.ts
 └── unit/             # Unit tests
@@ -195,6 +196,10 @@ tests/
 | [Interface Validation Ruleset](<docs/foundation/[POC Playbook] 8P3P Learning Intelligence Control Layer-Interface Validation Ruleset.md>) | Structural validation rules and error codes |
 | [Solo Dev Execution Playbook](docs/foundation/solo-dev-execution-playbook.md) | Milestone-driven build plan, Phase 1–3 roadmap, DynamoDB migration checklist |
 | [IP Defensibility & Value Proposition](docs/foundation/ip-defensibility-and-value-proposition.md) | Competitive moat analysis and value differentiation |
+| [QA Testing POC v1](docs/testing/qa-test-pocv1.md) | Manual QA test cases via Swagger UI |
+| [POC v1 Summary Report](docs/reports/poc-v1-summary-report.md) | POC v1 completion summary and evidence |
+| [API Specs Index](docs/api/README.md) | Index for OpenAPI/AsyncAPI specs in `docs/api/` |
+| [Archived Reviews](docs/archive/reviews/) | Historical `/review` snapshots (may be stale vs current implementation) |
 
 ### API specifications (machine-readable)
 
@@ -216,7 +221,7 @@ tests/
 
 ## Project Status
 
-This project is in **active development** (Phase 1). Four of five lifecycle stages are implemented and hardened through multiple review cycles. **329 tests passing** across 16 test files.
+This project is in **active development** (Phase 1). Four of five lifecycle stages are implemented and hardened through multiple review cycles. **337 tests passing** across 17 test files.
 
 ### Completed
 - [x] Component interface contracts

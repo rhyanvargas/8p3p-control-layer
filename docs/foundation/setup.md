@@ -196,9 +196,7 @@ Add to `package.json`:
     "test:integration": "vitest run tests/integration",
     "test:unit": "vitest run tests/unit",
     "validate:schemas": "tsx scripts/validate-schemas.ts",
-    "validate:fixtures": "tsx scripts/validate-fixtures.ts",
-    "db:init": "tsx scripts/init-db.ts",
-    "db:reset": "tsx scripts/reset-db.ts",
+    "validate:contracts": "tsx scripts/validate-contracts.ts",
     "lint": "eslint src tests",
     "typecheck": "tsc --noEmit"
   }
@@ -219,8 +217,14 @@ Add the missing variables:
 ```env
 PORT=3000
 NODE_ENV=development
-DB_PATH=data/control-layer.db
 LOG_LEVEL=info
+SIGNAL_BODY_LIMIT=1048576
+IDEMPOTENCY_DB_PATH=./data/idempotency.db
+SIGNAL_LOG_DB_PATH=./data/signal-log.db
+STATE_STORE_DB_PATH=./data/state.db
+DECISION_DB_PATH=./data/decisions.db
+# Optional (defaults to src/decision/policies/default.json)
+DECISION_POLICY_PATH=./src/decision/policies/default.json
 ```
 
 ### Step 8: Add data/ to .gitignore
@@ -375,10 +379,10 @@ Contract validation ensures all inputs/outputs match the schemas defined in `doc
 npm run validate:schemas
 ```
 
-### Validate Against Test Data
+### Validate Contract Alignment (JSON Schema ↔ OpenAPI ↔ AsyncAPI)
 
 ```bash
-npm run validate:fixtures
+npm run validate:contracts
 ```
 
 ### Validate OpenAPI Spec
@@ -394,9 +398,13 @@ npm run validate:api
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `PORT` | `3000` | HTTP server port |
-| `NODE_ENV` | `development` | Environment mode |
-| `DB_PATH` | `data/control-layer.db` | SQLite database path |
 | `LOG_LEVEL` | `info` | Logging verbosity (debug, info, warn, error) |
+| `SIGNAL_BODY_LIMIT` | `1048576` | Max request size (bytes) for `POST /v1/signals` |
+| `IDEMPOTENCY_DB_PATH` | `./data/idempotency.db` | SQLite path for ingestion idempotency store |
+| `SIGNAL_LOG_DB_PATH` | `./data/signal-log.db` | SQLite path for Signal Log store |
+| `STATE_STORE_DB_PATH` | `./data/state.db` | SQLite path for STATE store |
+| `DECISION_DB_PATH` | `./data/decisions.db` | SQLite path for Decision store |
+| `DECISION_POLICY_PATH` | `./src/decision/policies/default.json` | Policy JSON path loaded at startup |
 
 ---
 
@@ -414,7 +422,8 @@ npm run validate:api
 | `lint` | `eslint src tests` | Run linter |
 | `validate:api` | `redocly lint docs/api/openapi.yaml` | Lint OpenAPI spec |
 | `validate:schemas` | `tsx scripts/validate-schemas.ts` | Validate JSON schemas |
-| `validate:fixtures` | `tsx scripts/validate-fixtures.ts` | Validate test fixtures |
+| `validate:contracts` | `tsx scripts/validate-contracts.ts` | Align JSON Schema with OpenAPI/AsyncAPI |
+| `check` | `npm run check` | Full pre-commit gate (build, validate, lint, test) |
 
 ---
 

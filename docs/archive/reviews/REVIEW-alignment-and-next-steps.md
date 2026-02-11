@@ -1,3 +1,11 @@
+# Archived Review: Alignment and Next Steps
+
+**Archived from:** `docs/api/REVIEW-alignment-and-next-steps.md`  
+**Archived on:** 2026-02-11  
+**Note:** This is a historical snapshot and may be stale vs current implementation.  
+
+---
+
 # Review: Alignment and Next Steps
 
 **Scope:** Post–API Contract Foundation; alignment of implementation, specs, and completed plans.  

@@ -1,3 +1,11 @@
+# Archived Review: API Contract Foundation (pre–next plan task)
+
+**Archived from:** `docs/api/REVIEW-api-contract-foundation.md`  
+**Archived on:** 2026-02-11  
+**Note:** This is a historical snapshot and may be stale vs current implementation.  
+
+---
+
 # Review: API Contract Foundation (pre–next plan task)
 
 **Scope:** Work done so far for the API Contract Foundation plan (OpenAPI spec, validation, docs, rule update).  

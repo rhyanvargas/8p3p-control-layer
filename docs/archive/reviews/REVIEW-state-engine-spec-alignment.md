@@ -1,3 +1,11 @@
+# Archived Review: State Engine Spec vs API Contracts and Overall Direction
+
+**Archived from:** `docs/api/REVIEW-state-engine-spec-alignment.md`  
+**Archived on:** 2026-02-11  
+**Note:** This is a historical snapshot and may be stale vs current implementation.  
+
+---
+
 # Review: State Engine Spec vs API Contracts and Overall Direction
 
 **Scope:** `/review @docs/specs/state-engine.md` — ensure the spec aligns with API contracts and project direction.  

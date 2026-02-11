@@ -1,3 +1,11 @@
+# Archived Review: Spec-Driven Development Flow (OpenAPI)
+
+**Archived from:** `docs/api/REVIEW-spec-consistency.md`  
+**Archived on:** 2026-02-11  
+**Note:** This is a historical snapshot and may be stale vs current implementation.  
+
+---
+
 # Review: Spec-Driven Development Flow (OpenAPI)
 
 **Scope:** `/review --spec docs/api/openapi.yaml`  

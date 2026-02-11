@@ -42,13 +42,8 @@ npm run test:unit    # Run unit tests only
 npm run lint         # Run ESLint on src/ and tests/
 npm run typecheck    # Type check without emitting
 
-# Database
-npm run db:init      # Initialize database
-npm run db:reset     # Reset database
-
 # Validation
 npm run validate:schemas    # Validate JSON schemas
-npm run validate:fixtures   # Validate test fixtures
 npm run validate:contracts  # Validate contract alignment (JSON Schema ↔ OpenAPI ↔ AsyncAPI)
 npm run validate:api        # Lint OpenAPI spec (Redocly)
 
@@ -110,10 +105,18 @@ External System → POST /signals → Ingestion → Signal Log → STATE Engine 
 ## Environment Variables
 
 ```
-PORT=3000           # Server port
-NODE_ENV=development
-DB_PATH=data/control-layer.db
-LOG_LEVEL=info
+PORT=3000                    # Server port
+LOG_LEVEL=info               # Logging verbosity (debug, info, warn, error)
+SIGNAL_BODY_LIMIT=1048576    # Max request size for POST /v1/signals (bytes)
+
+# SQLite database paths (created on first use)
+IDEMPOTENCY_DB_PATH=./data/idempotency.db
+SIGNAL_LOG_DB_PATH=./data/signal-log.db
+STATE_STORE_DB_PATH=./data/state.db
+DECISION_DB_PATH=./data/decisions.db
+
+# Optional (defaults to src/decision/policies/default.json)
+DECISION_POLICY_PATH=./src/decision/policies/default.json
 ```
 
 ## Workflow
