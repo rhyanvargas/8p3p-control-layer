@@ -229,7 +229,7 @@ Full verification suite:
 | `tests/unit/policy-loader.test.ts`                 | TASK-005 | Update any v1-pinned policy_version expectations                       |
 | `tests/unit/decision-engine.test.ts`               | TASK-005 | Update any v1-pinned policy_version expectations                       |
 | `tests/unit/decision-store.test.ts`                | TASK-005 | Update any v1-pinned policy_version expectations                       |
-| `tests/contracts/output-api.test.ts`              | TASK-005 | Update policy_version in fixture helper (line 42)                     |
+| `tests/contracts/output-api.test.ts`               | TASK-005 | Update policy_version in fixture helper (line 42)                      |
 | `docs/testing/qa-test-pocv1.md`                    | TASK-005 | Update policy_version expectation (or fork/mark as v1-only)            |
 | `docs/specs/decision-engine.md`                    | TASK-003 | Update policy section, DEC-008 vectors, DEF-DEC-005 status             |
 
@@ -253,10 +253,10 @@ Full verification suite:
 ## Risks
 
 
-| Risk                                                         | Impact | Mitigation                                                                                           |
-| ------------------------------------------------------------ | ------ | ---------------------------------------------------------------------------------------------------- |
-| Policy expansion changes DEC-001/DEC-006 behavior            | Medium | Update signal payloads in those tests to include all 5 canonical fields so they trigger a known rule |
-| `escalate` nested `any` inside `all` edge cases              | Low    | Already covered by policy-loader unit tests; contract test 8a exercises it end-to-end                |
+| Risk                                                         | Impact | Mitigation                                                                                                     |
+| ------------------------------------------------------------ | ------ | -------------------------------------------------------------------------------------------------------------- |
+| Policy expansion changes DEC-001/DEC-006 behavior            | Medium | Update signal payloads in those tests to include all 5 canonical fields so they trigger a known rule           |
+| `escalate` nested `any` inside `all` edge cases              | Low    | Already covered by policy-loader unit tests; contract test 8a exercises it end-to-end                          |
 | `policy_version` change from "1.0.0" to "2.0.0" breaks tests | Medium | Systematically update all `policy_version` assertions in TASK-002 and TASK-005 (including output-api fixtures) |
 
 
