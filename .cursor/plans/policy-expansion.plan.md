@@ -8,6 +8,9 @@ todos:
   - id: TASK-002
     content: Expand DEC-008 contract tests — 9 parameterized vectors for all 7 types
     status: pending
+  - id: TASK-005
+    content: Update integration/unit tests + QA doc for policy v2 (policy_version bump)
+    status: pending
   - id: TASK-003
     content: Update decision-engine spec — expanded policy, DEC-008 vectors, DEF-DEC-005 resolved
     status: pending
@@ -23,14 +26,15 @@ isProject: false
 
 ## Prerequisites
 
-- E2E Cycle Completion plan executed (commit clean, graceful shutdown fixed, all 320 tests passing)
+- E2E Cycle Completion plan executed (commit clean, graceful shutdown fixed, `npm run check` passing; currently 337 tests passing)
 - The existing engine, store, handler, and validator already support all 7 types and arbitrary condition trees — no code changes needed, only policy and tests
 
 ## Clarification Notes
 
 - **Policy expansion is additive**: The existing `rule-reinforce` keeps its `rule_id` and condition unchanged. 6 new rules are inserted above and below it in priority order.
 - **Compound condition nesting**: The `escalate` rule uses a nested `any` inside `all`. This exercises the recursive evaluator with real production data (not just unit tests), proving ISS-DGE-002.
-- **No source code changes**: This plan touches only `default.json`, contract tests, and the spec. The engine is already correct for all 7 types.
+- **No `src/` code changes**: This plan changes policy + tests + docs/specs only. The engine is already correct for all 7 types.
+- **Policy version bump has blast radius**: Changing `policy_version` from `"1.0.0"` → `"2.0.0"` requires updating any tests/docs that assert the default policy version (integration tests, unit tests, and manual QA docs), not just DEC-* contract tests.
 - **Existing DEC-008 cases are replaced, not appended**: The 3-case POC v1 set (8a–8c) is replaced by a 9-case v2 set covering all 7 types + 2 default-path cases. The old case numbering is superseded.
 
 ## Tasks
@@ -165,6 +169,24 @@ Replace the existing DEC-008 test cases (3 cases for POC v1) with 9 parameterize
   Also update DEC-001 and DEC-006 setup signals to include all 5 canonical fields so the happy path triggers a real rule under v2.0.0 policy. Update `policy_version` assertions from `"1.0.0"` to `"2.0.0"` throughout.
 - **Verification**: `npm run test:contracts -- decision-engine` passes all cases.
 
+### TASK-005: Update integration/unit tests + QA doc for policy v2 (policy_version bump)
+
+- **Status**: pending
+- **Files**:
+  - `tests/integration/e2e-signal-to-decision.test.ts`
+  - `tests/unit/decision-engine.test.ts`
+  - `tests/unit/decision-store.test.ts`
+  - `tests/unit/policy-loader.test.ts`
+  - `tests/contracts/output-api.test.ts` — Update policy_version in fixture helper (line 42)
+  - `docs/testing/qa-test-pocv1.md` (or add a new v2 QA doc and clearly mark this as v1-only)
+- **Action**: Modify
+- **Depends on**: TASK-001
+- **Details**:
+  - Update any assertions that the **default policy version** is `"1.0.0"` to `"2.0.0"`.
+  - **Integration test note**: The existing E2E learner payloads only include `stabilityScore` and `timeSinceReinforcement`. Under the v2 policy proposed in TASK-001, those payloads should still result in `reinforce` decisions (rule-reinforce or default) because the other rules depend on fields that will be absent and therefore evaluate to false. The only required E2E expectation changes should be `trace.policy_version`.
+  - Update the manual QA doc expectations for `trace.policy_version` to match the running policy version (or fork the doc into v1 vs v2 explicitly).
+- **Verification**: `npm test` passes without test expectations pinned to v1.
+
 ### TASK-003: Update decision-engine spec
 
 - **Status**: pending
@@ -199,11 +221,17 @@ Full verification suite:
 ### To Modify
 
 
-| File                                      | Task     | Changes                                                    |
-| ----------------------------------------- | -------- | ---------------------------------------------------------- |
-| `src/decision/policies/default.json`      | TASK-001 | Expand from 1-rule v1 to 7-rule v2 policy                  |
-| `tests/contracts/decision-engine.test.ts` | TASK-002 | Expand DEC-008 from 3 to 9 parameterized test vectors      |
-| `docs/specs/decision-engine.md`           | TASK-003 | Update policy section, DEC-008 vectors, DEF-DEC-005 status |
+| File                                               | Task     | Changes                                                                |
+| -------------------------------------------------- | -------- | ---------------------------------------------------------------------- |
+| `src/decision/policies/default.json`               | TASK-001 | Expand from 1-rule v1 to 7-rule v2 policy                              |
+| `tests/contracts/decision-engine.test.ts`          | TASK-002 | Expand DEC-008 from 3 to 9 parameterized test vectors                  |
+| `tests/integration/e2e-signal-to-decision.test.ts` | TASK-005 | Update policy_version expectation (and any other v1-pinned assertions) |
+| `tests/unit/policy-loader.test.ts`                 | TASK-005 | Update any v1-pinned policy_version expectations                       |
+| `tests/unit/decision-engine.test.ts`               | TASK-005 | Update any v1-pinned policy_version expectations                       |
+| `tests/unit/decision-store.test.ts`                | TASK-005 | Update any v1-pinned policy_version expectations                       |
+| `tests/contracts/output-api.test.ts`              | TASK-005 | Update policy_version in fixture helper (line 42)                     |
+| `docs/testing/qa-test-pocv1.md`                    | TASK-005 | Update policy_version expectation (or fork/mark as v1-only)            |
+| `docs/specs/decision-engine.md`                    | TASK-003 | Update policy section, DEC-008 vectors, DEF-DEC-005 status             |
 
 
 ## Test Plan
@@ -229,7 +257,7 @@ Full verification suite:
 | ------------------------------------------------------------ | ------ | ---------------------------------------------------------------------------------------------------- |
 | Policy expansion changes DEC-001/DEC-006 behavior            | Medium | Update signal payloads in those tests to include all 5 canonical fields so they trigger a known rule |
 | `escalate` nested `any` inside `all` edge cases              | Low    | Already covered by policy-loader unit tests; contract test 8a exercises it end-to-end                |
-| `policy_version` change from "1.0.0" to "2.0.0" breaks tests | Medium | Systematically update all `policy_version` assertions in TASK-002                                    |
+| `policy_version` change from "1.0.0" to "2.0.0" breaks tests | Medium | Systematically update all `policy_version` assertions in TASK-002 and TASK-005 (including output-api fixtures) |
 
 
 ## Verification Checklist
@@ -247,7 +275,7 @@ Full verification suite:
 ## Implementation Order
 
 ```
-TASK-001 (policy) → TASK-002 (tests) → TASK-003 (spec) → TASK-004 (regression)
+TASK-001 (policy) → TASK-002 (contract tests) → TASK-005 (integration/unit tests + QA doc) → TASK-003 (spec) → TASK-004 (regression)
 ```
 
 Linear sequence — each task depends on the previous.
@@ -280,4 +308,4 @@ const operators: Record<string, (state: unknown, value: unknown) => boolean> = {
 
 **When to actionize**: Create a dedicated plan when the first policy requires an operator beyond the current 6. Until then, the current implementation is correct and sufficient — don't over-engineer ahead of a real requirement.
 
-**Tracked in**: `poc-v1-e2e-validation.plan.md` §Engine Decoupling Improvements
+**Tracked in**: `docs/specs/decision-engine.md` (see “Out of Scope” and “Deferred Items”)
