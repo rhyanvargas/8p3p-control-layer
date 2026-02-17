@@ -47,7 +47,13 @@ function appendTestSignal(
     learner_reference: 'learner-1',
     timestamp: accepted_at,
     schema_version: 'v1',
-    payload: { stabilityScore: 0.5, timeSinceReinforcement: 100000 },
+    payload: {
+      stabilityScore: 0.5,
+      masteryScore: 0.5,
+      timeSinceReinforcement: 100000,
+      confidenceInterval: 0.8,
+      riskSignal: 0.2,
+    },
     ...overrides,
   };
   if (overrides.payload !== undefined) {
@@ -64,7 +70,13 @@ function appendTestSignal(
 function setupLearnerState(
   orgId = 'org-A',
   learnerRef = 'learner-1',
-  payload: Record<string, unknown> = { stabilityScore: 0.5, timeSinceReinforcement: 100000 }
+  payload: Record<string, unknown> = {
+    stabilityScore: 0.5,
+    masteryScore: 0.5,
+    timeSinceReinforcement: 100000,
+    confidenceInterval: 0.8,
+    riskSignal: 0.2,
+  }
 ): { state_id: string; state_version: number; signal_id: string } {
   const { signal_id, accepted_at } = appendTestSignal({
     org_id: orgId,
@@ -154,7 +166,7 @@ describe('Decision Engine', () => {
       if (outcome.ok) {
         expect(outcome.result.trace.state_id).toBe(state_id);
         expect(outcome.result.trace.state_version).toBe(state_version);
-        expect(outcome.result.trace.policy_version).toBe('1.0.0');
+        expect(outcome.result.trace.policy_version).toBe('2.0.0');
         // Default policy: stabilityScore<0.7 AND timeSinceReinforcement>86400 → rule-reinforce
         expect(outcome.result.trace.matched_rule_id).toBe('rule-reinforce');
       }

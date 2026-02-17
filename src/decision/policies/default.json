@@ -1,8 +1,54 @@
 {
   "policy_id": "default",
-  "policy_version": "1.0.0",
-  "description": "POC v1 policy: single REINFORCE rule proving authority. Only references canonical state fields (stabilityScore 0.0–1.0, timeSinceReinforcement). Other decision types return default_decision_type.",
+  "policy_version": "2.0.0",
+  "description": "POC v2 policy: 7 rules covering all decision types. Uses canonical state fields (stabilityScore, masteryScore, timeSinceReinforcement, confidenceInterval, riskSignal). Priority-ordered; first match wins.",
   "rules": [
+    {
+      "rule_id": "rule-escalate",
+      "condition": {
+        "all": [
+          { "field": "confidenceInterval", "operator": "lt", "value": 0.3 },
+          {
+            "any": [
+              { "field": "stabilityScore", "operator": "lt", "value": 0.3 },
+              { "field": "riskSignal", "operator": "gt", "value": 0.8 }
+            ]
+          }
+        ]
+      },
+      "decision_type": "escalate"
+    },
+    {
+      "rule_id": "rule-pause",
+      "condition": {
+        "all": [
+          { "field": "confidenceInterval", "operator": "lt", "value": 0.3 },
+          { "field": "stabilityScore", "operator": "lt", "value": 0.5 }
+        ]
+      },
+      "decision_type": "pause"
+    },
+    {
+      "rule_id": "rule-reroute",
+      "condition": {
+        "all": [
+          { "field": "riskSignal", "operator": "gt", "value": 0.7 },
+          { "field": "stabilityScore", "operator": "lt", "value": 0.5 },
+          { "field": "confidenceInterval", "operator": "gte", "value": 0.3 }
+        ]
+      },
+      "decision_type": "reroute"
+    },
+    {
+      "rule_id": "rule-intervene",
+      "condition": {
+        "all": [
+          { "field": "stabilityScore", "operator": "lt", "value": 0.4 },
+          { "field": "confidenceInterval", "operator": "gte", "value": 0.3 }
+        ]
+      },
+      "decision_type": "intervene"
+    },
     {
       "rule_id": "rule-reinforce",
       "condition": {
@@ -12,6 +58,28 @@
         ]
       },
       "decision_type": "reinforce"
+    },
+    {
+      "rule_id": "rule-advance",
+      "condition": {
+        "all": [
+          { "field": "stabilityScore", "operator": "gte", "value": 0.8 },
+          { "field": "masteryScore", "operator": "gte", "value": 0.8 },
+          { "field": "riskSignal", "operator": "lt", "value": 0.3 },
+          { "field": "confidenceInterval", "operator": "gte", "value": 0.7 }
+        ]
+      },
+      "decision_type": "advance"
+    },
+    {
+      "rule_id": "rule-recommend",
+      "condition": {
+        "all": [
+          { "field": "riskSignal", "operator": "gte", "value": 0.5 },
+          { "field": "stabilityScore", "operator": "gte", "value": 0.7 }
+        ]
+      },
+      "decision_type": "recommend"
     }
   ],
   "default_decision_type": "reinforce"

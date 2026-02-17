@@ -57,7 +57,7 @@ describe('Policy Loader', () => {
       const policy = loadPolicy(defaultPath);
       expect(policy).toBeDefined();
       expect(policy.policy_id).toBe('default');
-      expect(policy.policy_version).toBe('1.0.0');
+      expect(policy.policy_version).toBe('2.0.0');
       expect(policy.rules).toBeInstanceOf(Array);
       expect(policy.rules.length).toBeGreaterThan(0);
       expect(policy.default_decision_type).toBe('reinforce');
@@ -194,7 +194,7 @@ describe('Policy Loader', () => {
     it('should return cached version after loadPolicy', () => {
       const defaultPath = path.join(process.cwd(), 'src/decision/policies/default.json');
       loadPolicy(defaultPath);
-      expect(getLoadedPolicyVersion()).toBe('1.0.0');
+      expect(getLoadedPolicyVersion()).toBe('2.0.0');
     });
   });
 

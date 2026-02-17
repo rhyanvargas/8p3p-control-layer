@@ -3,6 +3,9 @@
 Manual QA test cases for the 8P3P Control Layer POC v1.
 All tests are performed via Swagger UI at **http://localhost:3000/docs**.
 
+> **Note**: This document targets the historical **POC v1** default policy (`policy_version: "1.0.0"`).  
+> The current repo default policy is **POC v2** (`policy_version: "2.0.0"`). Use `docs/testing/qa-test-pocv2.md` for current expectations.
+
 ## Prerequisites
 
 ```bash

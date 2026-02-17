@@ -5,7 +5,7 @@
  * automatic decision evaluation → GET /v1/decisions chain at the HTTP level
  * with 3 realistic learner payloads (Maya K, Jordan 3rd, Aisha 5th).
  *
- * Validates the POC v1 single-rule policy end-to-end.
+ * Validates the default policy end-to-end (POC v2, policy_version 2.0.0).
  *
  * Plan: .cursor/plans/poc-v1-e2e-validation.plan.md (TASK-001)
  */
@@ -71,7 +71,7 @@ const MAYA_PAYLOAD = {
     targetScale: 1.2,
     forgiveness: 1.5,
   },
-  // Canonical fields for POC v1 policy evaluation
+  // Canonical fields for default policy evaluation
   stabilityScore: 0.28,
   timeSinceReinforcement: 90000,
 };
@@ -186,7 +186,7 @@ function buildSignal(
 // Test suite
 // =============================================================================
 
-describe('E2E: Signal → State → Decision (POC v1)', () => {
+describe('E2E: Signal → State → Decision (POC v2)', () => {
   let app: FastifyInstance;
 
   // ---------------------------------------------------------------------------
@@ -200,7 +200,7 @@ describe('E2E: Signal → State → Decision (POC v1)', () => {
     initStateStore(':memory:');
     initDecisionStore(':memory:');
 
-    // Load POC v1 policy (default.json)
+    // Load default policy (default.json)
     loadPolicy();
 
     // Create Fastify app with all routes under /v1 prefix
@@ -289,8 +289,8 @@ describe('E2E: Signal → State → Decision (POC v1)', () => {
         // 4. Assert trace.matched_rule_id
         expect(decision.trace.matched_rule_id).toBe(expectedMatchedRuleId);
 
-        // 5. Assert trace.policy_version = 1.0.0
-        expect(decision.trace.policy_version).toBe('1.0.0');
+        // 5. Assert trace.policy_version = 2.0.0
+        expect(decision.trace.policy_version).toBe('2.0.0');
 
         // 6. Assert trace.state_id and trace.state_version present
         expect(decision.trace.state_id).toBeDefined();

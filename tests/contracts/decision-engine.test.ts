@@ -39,7 +39,7 @@ describe('Decision Engine Contract Tests', () => {
     initSignalLogStore(':memory:');
     initStateStore(':memory:');
     initDecisionStore(':memory:');
-    loadPolicy(); // loads default.json (POC v1 policy)
+    loadPolicy(); // loads default.json (POC v2 policy)
   });
 
   afterAll(() => {
@@ -110,7 +110,10 @@ describe('Decision Engine Contract Tests', () => {
     it('should return valid Decision with trace for valid request', () => {
       const { state_id, state_version, org_id, learner_reference } = createStateViaSignal({
         stabilityScore: 0.5,
+        masteryScore: 0.5,
         timeSinceReinforcement: 100000,
+        confidenceInterval: 0.8,
+        riskSignal: 0.2,
       });
 
       const outcome = evaluateState({
@@ -151,7 +154,10 @@ describe('Decision Engine Contract Tests', () => {
     it('should persist decision (retrievable via getDecisionById)', () => {
       const { state_id, state_version, org_id, learner_reference } = createStateViaSignal({
         stabilityScore: 0.5,
+        masteryScore: 0.5,
         timeSinceReinforcement: 100000,
+        confidenceInterval: 0.8,
+        riskSignal: 0.2,
       });
 
       const outcome = evaluateState({
@@ -176,7 +182,10 @@ describe('Decision Engine Contract Tests', () => {
     it('should pass Ajv schema validation on the produced Decision', () => {
       const { state_id, state_version, org_id, learner_reference } = createStateViaSignal({
         stabilityScore: 0.5,
+        masteryScore: 0.5,
         timeSinceReinforcement: 100000,
+        confidenceInterval: 0.8,
+        riskSignal: 0.2,
       });
 
       const outcome = evaluateState({
@@ -315,7 +324,10 @@ describe('Decision Engine Contract Tests', () => {
     it('should produce identical decision_type and matched_rule_id for same state evaluated twice', () => {
       const { state_id, state_version, org_id, learner_reference } = createStateViaSignal({
         stabilityScore: 0.5,
+        masteryScore: 0.5,
         timeSinceReinforcement: 100000,
+        confidenceInterval: 0.8,
+        riskSignal: 0.2,
       });
 
       const outcome1 = evaluateState({
@@ -354,7 +366,10 @@ describe('Decision Engine Contract Tests', () => {
       // State that falls to default (stabilityScore above threshold)
       const { state_id, state_version, org_id, learner_reference } = createStateViaSignal({
         stabilityScore: 0.9,
+        masteryScore: 0.6,
         timeSinceReinforcement: 100000,
+        confidenceInterval: 0.8,
+        riskSignal: 0.1,
       });
 
       const outcome1 = evaluateState({
@@ -432,29 +447,76 @@ describe('Decision Engine Contract Tests', () => {
   });
 
   // ---------------------------------------------------------------------------
-  // DEC-008: Traceability per decision type (POC v1 — 3 parameterized cases)
+  // DEC-008: Traceability per decision type (POC v2 — 9 parameterized cases)
   // ---------------------------------------------------------------------------
 
-  describe('DEC-008: Traceability per decision type (POC v1 — 3 cases)', () => {
+  describe('DEC-008: Traceability per decision type (POC v2 — 9 cases)', () => {
     const testVectors = [
       {
         case_id: '8a',
-        description: 'Both conditions met — rule fires',
+        description: 'escalate: low confidence + extreme risk',
+        state: { stabilityScore: 0.2, confidenceInterval: 0.2, riskSignal: 0.9 },
+        expected_decision_type: 'escalate',
+        expected_matched_rule_id: 'rule-escalate',
+      },
+      {
+        case_id: '8b',
+        description: 'pause: low confidence + unstable',
+        state: { stabilityScore: 0.4, confidenceInterval: 0.2 },
+        expected_decision_type: 'pause',
+        expected_matched_rule_id: 'rule-pause',
+      },
+      {
+        case_id: '8c',
+        description: 'reroute: high risk + low stability + sufficient confidence',
+        state: { stabilityScore: 0.4, confidenceInterval: 0.5, riskSignal: 0.8 },
+        expected_decision_type: 'reroute',
+        expected_matched_rule_id: 'rule-reroute',
+      },
+      {
+        case_id: '8d',
+        description: 'intervene: unstable + sufficient confidence',
+        state: { stabilityScore: 0.3, confidenceInterval: 0.5 },
+        expected_decision_type: 'intervene',
+        expected_matched_rule_id: 'rule-intervene',
+      },
+      {
+        case_id: '8e',
+        description: 'reinforce: moderate stability + not recently reinforced',
         state: { stabilityScore: 0.5, timeSinceReinforcement: 100000 },
         expected_decision_type: 'reinforce',
         expected_matched_rule_id: 'rule-reinforce',
       },
       {
-        case_id: '8b',
-        description: 'stabilityScore above threshold — default path',
-        state: { stabilityScore: 0.9, timeSinceReinforcement: 100000 },
+        case_id: '8f',
+        description: 'advance: high stability + mastery + confidence, low risk',
+        state: {
+          stabilityScore: 0.9,
+          masteryScore: 0.9,
+          riskSignal: 0.1,
+          confidenceInterval: 0.8,
+        },
+        expected_decision_type: 'advance',
+        expected_matched_rule_id: 'rule-advance',
+      },
+      {
+        case_id: '8g',
+        description: 'recommend: stable but regression risk',
+        state: { stabilityScore: 0.8, riskSignal: 0.6 },
+        expected_decision_type: 'recommend',
+        expected_matched_rule_id: 'rule-recommend',
+      },
+      {
+        case_id: '8h',
+        description: 'default path: high stability, recently reinforced',
+        state: { stabilityScore: 0.9, timeSinceReinforcement: 1000 },
         expected_decision_type: 'reinforce',
         expected_matched_rule_id: null,
       },
       {
-        case_id: '8c',
-        description: 'timeSinceReinforcement below window — default path',
-        state: { stabilityScore: 0.5, timeSinceReinforcement: 1000 },
+        case_id: '8i',
+        description: 'default path: moderate stability, recently reinforced',
+        state: { stabilityScore: 0.6, timeSinceReinforcement: 1000, confidenceInterval: 0.8 },
         expected_decision_type: 'reinforce',
         expected_matched_rule_id: null,
       },
@@ -484,7 +546,7 @@ describe('Decision Engine Contract Tests', () => {
         expect(outcome.result.trace.matched_rule_id).toBe(vector.expected_matched_rule_id);
 
         // policy_version matches default.json
-        expect(outcome.result.trace.policy_version).toBe('1.0.0');
+        expect(outcome.result.trace.policy_version).toBe('2.0.0');
 
         // trace references the correct state
         expect(outcome.result.trace.state_id).toBe(state_id);

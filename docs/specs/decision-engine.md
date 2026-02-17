@@ -271,11 +271,11 @@ A `ConditionNode` is either a **leaf comparison** or a **compound combinator**. 
 - Compound nodes must contain at least 2 children.
 - Nesting depth is unlimited but should be kept shallow for readability (recommended max: 3 levels).
 
-### 4.7 Canonical State Fields (POC v1)
+### 4.7 Canonical State Fields (POC v2)
 
 The default policy evaluates against these canonical state fields. All numeric scores use **0.0–1.0 scale** to match `masteryScore` and avoid cross-system confusion. Phase 1 assumes signals produce these fields directly; Phase 2 introduces a normalization layer to map vendor-specific payloads to this canonical schema (see DEF-DEC-006).
 
-**POC v1 scope:** Only `stabilityScore` and `timeSinceReinforcement` are actively evaluated by the default policy. The remaining fields are defined for forward compatibility but have no active rules in v1.
+**POC v2 scope:** The default policy actively evaluates all 5 canonical fields below across its priority-ordered rule set. Missing fields evaluate to `false` at the leaf level, so callers can still send partial payloads without breaking evaluation (but may fall through to defaults).
 
 | Field | Type | Range / Values | Description |
 |-------|------|---------------|-------------|
@@ -285,7 +285,7 @@ The default policy evaluates against these canonical state fields. All numeric s
 | `confidenceInterval` | number | 0.0–1.0 | System confidence in the learner assessment (derived) |
 | `riskSignal` | number | 0.0–1.0 | Risk of knowledge/skill regression (derived) |
 
-> **Signal payload contract (POC v1):** For Phase 1, signal payloads must include these fields directly (e.g., `{ "stabilityScore": 0.65, "masteryScore": 0.72, "timeSinceReinforcement": 90000, "confidenceInterval": 0.8, "riskSignal": 0.2 }`). The STATE Engine deep-merges payloads into state, making these fields available for policy evaluation. Phase 2 will introduce tenant-scoped field mappings so source systems can use their own terminology (see DEF-DEC-006).
+> **Signal payload contract (Phase 1 / POC v2):** For Phase 1, signal payloads should include these fields directly when possible (e.g., `{ "stabilityScore": 0.65, "masteryScore": 0.72, "timeSinceReinforcement": 90000, "confidenceInterval": 0.8, "riskSignal": 0.2 }`). The STATE Engine deep-merges payloads into state, making these fields available for policy evaluation. Phase 2 will introduce tenant-scoped field mappings so source systems can use their own terminology (see DEF-DEC-006).
 
 ## Core Constraints
 
@@ -641,14 +641,58 @@ JSON files stored at `src/decision/policies/`. Loaded at startup, versioned via 
 
 **Default policy (`src/decision/policies/default.json`):**
 
-> **POC v1 policy: one real rule to prove authority.** Implements a single REINFORCE rule: `stabilityScore < 0.7 AND timeSinceReinforcement > 86400` (24 hours). All other decision types are placeholder — they fall through to `default_decision_type` (reinforce). This proves the end-to-end cycle (signal → state → decision) with one real rule before expanding to additional types. Directive: "one decision rule first, to prove authority."
+> **POC v2 policy: full 7-rule policy (priority-ordered, first match wins).** Expands from the single REINFORCE rule to an explicit rule for every decision type in the closed set. Rules use only the canonical state fields (§4.7). The highest-risk decisions are evaluated first; safe fallbacks remain `reinforce`.
 
 ```json
 {
   "policy_id": "default",
-  "policy_version": "1.0.0",
-  "description": "POC v1 policy: single REINFORCE rule proving authority. Only references canonical state fields (stabilityScore 0.0–1.0, timeSinceReinforcement). Other decision types return default_decision_type.",
+  "policy_version": "2.0.0",
+  "description": "POC v2 policy: 7 rules covering all decision types. Uses canonical state fields (stabilityScore, masteryScore, timeSinceReinforcement, confidenceInterval, riskSignal). Priority-ordered; first match wins.",
   "rules": [
+    {
+      "rule_id": "rule-escalate",
+      "condition": {
+        "all": [
+          { "field": "confidenceInterval", "operator": "lt", "value": 0.3 },
+          { "any": [
+            { "field": "stabilityScore", "operator": "lt", "value": 0.3 },
+            { "field": "riskSignal", "operator": "gt", "value": 0.8 }
+          ]}
+        ]
+      },
+      "decision_type": "escalate"
+    },
+    {
+      "rule_id": "rule-pause",
+      "condition": {
+        "all": [
+          { "field": "confidenceInterval", "operator": "lt", "value": 0.3 },
+          { "field": "stabilityScore", "operator": "lt", "value": 0.5 }
+        ]
+      },
+      "decision_type": "pause"
+    },
+    {
+      "rule_id": "rule-reroute",
+      "condition": {
+        "all": [
+          { "field": "riskSignal", "operator": "gt", "value": 0.7 },
+          { "field": "stabilityScore", "operator": "lt", "value": 0.5 },
+          { "field": "confidenceInterval", "operator": "gte", "value": 0.3 }
+        ]
+      },
+      "decision_type": "reroute"
+    },
+    {
+      "rule_id": "rule-intervene",
+      "condition": {
+        "all": [
+          { "field": "stabilityScore", "operator": "lt", "value": 0.4 },
+          { "field": "confidenceInterval", "operator": "gte", "value": 0.3 }
+        ]
+      },
+      "decision_type": "intervene"
+    },
     {
       "rule_id": "rule-reinforce",
       "condition": {
@@ -658,13 +702,35 @@ JSON files stored at `src/decision/policies/`. Loaded at startup, versioned via 
         ]
       },
       "decision_type": "reinforce"
+    },
+    {
+      "rule_id": "rule-advance",
+      "condition": {
+        "all": [
+          { "field": "stabilityScore", "operator": "gte", "value": 0.8 },
+          { "field": "masteryScore", "operator": "gte", "value": 0.8 },
+          { "field": "riskSignal", "operator": "lt", "value": 0.3 },
+          { "field": "confidenceInterval", "operator": "gte", "value": 0.7 }
+        ]
+      },
+      "decision_type": "advance"
+    },
+    {
+      "rule_id": "rule-recommend",
+      "condition": {
+        "all": [
+          { "field": "riskSignal", "operator": "gte", "value": 0.5 },
+          { "field": "stabilityScore", "operator": "gte", "value": 0.7 }
+        ]
+      },
+      "decision_type": "recommend"
     }
   ],
   "default_decision_type": "reinforce"
 }
 ```
 
-> **Rule rationale:** A learner whose stability is below 0.7 and who hasn't been reinforced in over 24 hours (86400 seconds) needs reinforcement. If either condition isn't met (stability is adequate, or reinforcement was recent), the default decision applies — also reinforce as a safe fallback. Future policy versions will add active rules for `intervene`, `advance`, etc. as the POC proves out. The 7-type closed set remains structurally intact; only the active rule set is scoped down for v1.
+> **Rule priority rationale (highest → lowest danger):** `escalate` → `pause` → `reroute` → `intervene` → `reinforce` → `advance` → `recommend` → default (`reinforce`). This ordering ensures that low-confidence / high-risk situations are handled before “growth” or “suggestion” decisions. The `escalate` rule intentionally nests `any` inside `all` to exercise compound condition evaluation (ISS-DGE-002).
 
 ### Policy Evaluation Semantics
 
@@ -708,17 +774,23 @@ Implement all tests from the Contract Test Matrix §5 (Decision Engine) and §6 
 | DEC-005 | Trace Required | Omit trace | rejected, `missing_trace` |
 | DEC-006 | Deterministic Decision Output | Evaluate same `(state_id, state_version)` twice | Identical `decision_type` and equivalent `decision_context` |
 | DEC-007 | Trace-State Mismatch | Trace references different `state_version` than request | rejected, `trace_state_mismatch` |
-| DEC-008 | Traceability per decision type (parameterized, 3 cases — POC v1) | State with canonical fields tuned to trigger active rule and default path (see table below) | Decision with correct `decision_type`, `trace.matched_rule_id` matching the expected rule, and correct `trace.policy_version` |
+| DEC-008 | Traceability per decision type (parameterized, 9 cases — POC v2) | State with canonical fields tuned to trigger each decision type plus default paths (see table below) | Decision with correct `decision_type`, `trace.matched_rule_id` matching the expected rule (or `null` for default), and correct `trace.policy_version` |
 
-**DEC-008 test vectors (POC v1 — single rule + default):**
+**DEC-008 test vectors (POC v2 — all 7 types + default paths):**
 
-| Case | State Input | Expected `decision_type` | Expected `matched_rule_id` |
-|------|-------------|-------------------------|---------------------------|
-| 8a | `stabilityScore: 0.5, timeSinceReinforcement: 100000` | `reinforce` | `rule-reinforce` |
-| 8b | `stabilityScore: 0.9, timeSinceReinforcement: 100000` | `reinforce` | `null` (default — stabilityScore above threshold) |
-| 8c | `stabilityScore: 0.5, timeSinceReinforcement: 1000` | `reinforce` | `null` (default — timeSinceReinforcement below window) |
+| Case | State Fields | Expected `decision_type` | Expected `matched_rule_id` |
+|------|--------------|-------------------------|---------------------------|
+| 8a | `stabilityScore: 0.2, confidenceInterval: 0.2, riskSignal: 0.9` | `escalate` | `rule-escalate` |
+| 8b | `stabilityScore: 0.4, confidenceInterval: 0.2` | `pause` | `rule-pause` |
+| 8c | `stabilityScore: 0.4, confidenceInterval: 0.5, riskSignal: 0.8` | `reroute` | `rule-reroute` |
+| 8d | `stabilityScore: 0.3, confidenceInterval: 0.5` | `intervene` | `rule-intervene` |
+| 8e | `stabilityScore: 0.5, timeSinceReinforcement: 100000` | `reinforce` | `rule-reinforce` |
+| 8f | `stabilityScore: 0.9, masteryScore: 0.9, riskSignal: 0.1, confidenceInterval: 0.8` | `advance` | `rule-advance` |
+| 8g | `stabilityScore: 0.8, riskSignal: 0.6` | `recommend` | `rule-recommend` |
+| 8h | `stabilityScore: 0.9, timeSinceReinforcement: 1000` | `reinforce` | `null` (default) |
+| 8i | `stabilityScore: 0.6, timeSinceReinforcement: 1000, confidenceInterval: 0.8` | `reinforce` | `null` (default) |
 
-> **DEC-008 rationale:** DEC-001 validates a single happy path. DEC-008 is a parameterized sweep proving that traceability is accurate for the active rule and default fallback paths. Case 8a validates the rule fires when both conditions are met. Cases 8b and 8c validate the default path when one condition is not met (`matched_rule_id: null`). Future policy versions will expand DEC-008 to cover additional decision types as rules are added.
+> **DEC-008 rationale:** DEC-001 validates a single happy path. DEC-008 is a parameterized sweep proving traceability for every decision type in the closed set, including nested compound conditions (`rule-escalate`) and explicit default fall-through (`matched_rule_id: null`).
 
 > **Testing strategy note:** DEC-001, DEC-006, DEC-007, and DEC-008 test the full `evaluateState()` flow end-to-end. DEC-002–DEC-005 test the validator functions directly (e.g., `validateDecisionType`, `validateDecisionContext`, Ajv schema validator), since the engine produces valid decisions by construction — these edge cases cannot be triggered through normal `evaluateState()` execution. This ensures the safety-net validators are exercised even though the engine won't produce invalid output.
 
@@ -812,7 +884,7 @@ Implementation is complete when:
 - [ ] `GET /v1/decisions` returns valid `GetDecisionsResponse`
 - [ ] Time-range and pagination validation on GetDecisions
 - [ ] All DEC-001 through DEC-008 contract tests pass
-- [ ] Traceability validated for active rule + default path (DEC-008, 3 cases — POC v1)
+- [ ] Traceability validated for all 7 decision types + default paths (DEC-008, 9 cases — POC v2)
 - [ ] All OUT-API-001 through OUT-API-003 output API tests pass
 - [ ] Existing STATE Engine and Signal Log tests still pass (no regression)
 
@@ -880,5 +952,5 @@ The current module-level singleton database pattern (`let db`) prevents dependen
 | DEF-DEC-002 | Extract `DecisionRepository` interface for DI | ISS-DGE-002, Playbook Phase 2 | Phase 2 |
 | DEF-DEC-003 | Separate decision trace store (if auditing needs grow) | ISS-DGE-003 | Future |
 | DEF-DEC-004 | Data-driven policy engine (replace simple JSON rules) | ISS-DGE-002 | **Resolved** — compound condition schema (`all`/`any` combinators) provides data-driven evaluation in Phase 1 |
-| DEF-DEC-005 | Policy rules for all 7 decision types | ISS-DGE-001 | POC v1 implements REINFORCE only. Additional type rules deferred until authority is proven. |
+| DEF-DEC-005 | Policy rules for all 7 decision types | ISS-DGE-001 | **Resolved** — default policy expanded to 7 rules (POC v2, `policy_version: "2.0.0"`), with DEC-008 vectors covering all types. |
 | DEF-DEC-006 | Signal normalization layer: tenant-scoped field mappings from vendor payloads to canonical state fields. Phase 1 assumes identity mapping (signals produce canonical fields directly). | Policy-suggestion analysis, architectural decision | Phase 2 |

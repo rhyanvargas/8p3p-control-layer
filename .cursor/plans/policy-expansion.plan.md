@@ -4,19 +4,19 @@ overview: Promote the single-rule POC v1 policy to a full 7-rule policy covering
 todos:
   - id: TASK-001
     content: Expand default.json policy — rules for all 7 decision types (v2)
-    status: pending
+    status: completed
   - id: TASK-002
     content: Expand DEC-008 contract tests — 9 parameterized vectors for all 7 types
-    status: pending
+    status: completed
   - id: TASK-005
     content: Update integration/unit tests + QA doc for policy v2 (policy_version bump)
-    status: pending
+    status: completed
   - id: TASK-003
     content: Update decision-engine spec — expanded policy, DEC-008 vectors, DEF-DEC-005 resolved
-    status: pending
+    status: completed
   - id: TASK-004
     content: Regression check — all tests pass, build clean, lint clean
-    status: pending
+    status: completed
 isProject: false
 ---
 
@@ -41,7 +41,7 @@ isProject: false
 
 ### TASK-001: Expand default.json policy — rules for all 7 decision types
 
-- **Status**: pending
+- **Status**: completed
 - **Files**: `src/decision/policies/default.json`
 - **Action**: Modify
 - **Depends on**: none
@@ -146,7 +146,7 @@ Replace the single-rule POC v1 policy with a full 7-rule policy. Increment `poli
 
 ### TASK-002: Expand DEC-008 contract tests — all 7 types
 
-- **Status**: pending
+- **Status**: completed
 - **Files**: `tests/contracts/decision-engine.test.ts`
 - **Action**: Modify
 - **Depends on**: TASK-001
@@ -171,7 +171,7 @@ Replace the existing DEC-008 test cases (3 cases for POC v1) with 9 parameterize
 
 ### TASK-005: Update integration/unit tests + QA doc for policy v2 (policy_version bump)
 
-- **Status**: pending
+- **Status**: completed
 - **Files**:
   - `tests/integration/e2e-signal-to-decision.test.ts`
   - `tests/unit/decision-engine.test.ts`
@@ -189,7 +189,7 @@ Replace the existing DEC-008 test cases (3 cases for POC v1) with 9 parameterize
 
 ### TASK-003: Update decision-engine spec
 
-- **Status**: pending
+- **Status**: completed
 - **Files**: `docs/specs/decision-engine.md`
 - **Action**: Modify
 - **Depends on**: TASK-002
@@ -202,7 +202,7 @@ Update the spec to reflect policy expansion:
 
 ### TASK-004: Regression check
 
-- **Status**: pending
+- **Status**: completed
 - **Files**: none (verification only)
 - **Action**: Verify
 - **Depends on**: TASK-003
