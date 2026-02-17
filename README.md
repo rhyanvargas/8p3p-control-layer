@@ -135,7 +135,7 @@ src/
 ├── signalLog/        # Immutable signal storage
 │   ├── store.ts      # SQLite-backed storage
 │   ├── handler.ts    # Request handling
-│   ├── routes.ts     # GET /signals routes
+│   ├── routes.ts     # GET /v1/signals routes
 │   └── validator.ts  # Query validation
 ├── state/            # STATE engine
 │   ├── engine.ts     # Signal application logic (applySignals, computeNewState)
@@ -152,7 +152,6 @@ src/
 ├── shared/           # Shared types and error codes
 │   ├── types.ts
 │   └── error-codes.ts
-├── output/           # Output interfaces (planned)
 └── server.ts         # Application entry point
 
 scripts/
@@ -229,7 +228,7 @@ This project is in **active development** (Phase 1). Four of five lifecycle stag
 - [x] Interface validation ruleset
 - [x] Technology stack selection (TypeScript, Fastify, Ajv, Vitest)
 - [x] Project scaffolding
-- [x] **Signal Ingestion** — POST /signals, validation, forbidden key detection, idempotency
+- [x] **Signal Ingestion** — POST `/v1/signals`, validation, forbidden key detection, idempotency
 - [x] Signal Envelope schema and Ajv validators
 - [x] **Signal Log** — append-only storage, time-range queries, pagination, org isolation
 - [x] **STATE Engine** — signal application, deep merge, optimistic locking, provenance tracking
@@ -246,7 +245,7 @@ This project is in **active development** (Phase 1). Four of five lifecycle stag
 - [x] Phase 2 storage abstraction documented (StateRepository interface, DynamoDB table designs, migration checklist)
 - [x] **Decision Engine** — Policy-driven evaluation, deterministic decisions, full trace provenance
 - [x] Decision JSON Schema and Ajv validator (`src/contracts/schemas/decision.json`)
-- [x] Contract tests for Decision Engine (DEC-001 through DEC-010+)
+- [x] Contract tests for Decision Engine (DEC-001 through DEC-008)
 - [x] Unit tests for decision engine, store, validator, and policy loader
 - [x] E2E integration tests (signal ingestion → state → decision pipeline)
 - [x] `validate:contracts` script (JSON Schema ↔ OpenAPI ↔ AsyncAPI alignment)

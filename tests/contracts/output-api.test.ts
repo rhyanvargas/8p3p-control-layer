@@ -59,7 +59,7 @@ describe('Output API Contract Tests', () => {
 
     return app.inject({
       method: 'GET',
-      url: `/decisions?${queryString}`,
+      url: `/v1/decisions?${queryString}`,
     });
   }
 
@@ -71,7 +71,13 @@ describe('Output API Contract Tests', () => {
     initDecisionStore(':memory:');
 
     app = Fastify({ logger: false });
-    registerDecisionRoutes(app);
+    // Match production routing: routes are served under /v1 prefix (see src/server.ts)
+    app.register(
+      async (v1) => {
+        registerDecisionRoutes(v1);
+      },
+      { prefix: '/v1' }
+    );
     await app.ready();
   });
 

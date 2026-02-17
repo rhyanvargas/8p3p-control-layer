@@ -22,8 +22,9 @@ paths:
       operationId: ingestSignal
       summary: Ingest a signal
       description: |
-        Accept externally emitted signals. Validates structure (never semantics),
-        enforces idempotency by (org_id, signal_id), and forwards accepted signals
+        Accept externally emitted signals. Validates structure and enforces a minimal semantic ruleset
+        (timestamp format/timezone, schema_version pattern, forbidden semantic keys), enforces idempotency
+        by (org_id, signal_id), and forwards accepted signals
         to the Signal Log. See docs/specs/signal-ingestion.md.
       requestBody:
         required: true
@@ -39,7 +40,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/SignalIngestResult'
         '400':
-          description: Validation failed (structural or semantic)
+          description: Validation failed (structural or enforced semantic constraints)
           content:
             application/json:
               schema:

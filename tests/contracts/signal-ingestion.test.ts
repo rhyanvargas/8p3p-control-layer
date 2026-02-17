@@ -49,7 +49,13 @@ describe('Signal Ingestion Contract Tests', () => {
 
     // Create Fastify app for testing
     app = Fastify({ logger: false });
-    registerIngestionRoutes(app);
+    // Match production routing: routes are served under /v1 prefix (see src/server.ts)
+    app.register(
+      async (v1) => {
+        registerIngestionRoutes(v1);
+      },
+      { prefix: '/v1' }
+    );
     await app.ready();
   });
 
@@ -73,7 +79,7 @@ describe('Signal Ingestion Contract Tests', () => {
       
       const response = await app.inject({
         method: 'POST',
-        url: '/signals',
+        url: '/v1/signals',
         payload: signal,
       });
       
@@ -97,7 +103,7 @@ describe('Signal Ingestion Contract Tests', () => {
       
       const response = await app.inject({
         method: 'POST',
-        url: '/signals',
+        url: '/v1/signals',
         payload: signal,
       });
       
@@ -112,7 +118,7 @@ describe('Signal Ingestion Contract Tests', () => {
       
       const response = await app.inject({
         method: 'POST',
-        url: '/signals',
+        url: '/v1/signals',
         payload: signal,
       });
       
@@ -139,7 +145,7 @@ describe('Signal Ingestion Contract Tests', () => {
         
         const response = await app.inject({
           method: 'POST',
-          url: '/signals',
+          url: '/v1/signals',
           payload: signal,
         });
         
@@ -159,7 +165,7 @@ describe('Signal Ingestion Contract Tests', () => {
       
       const response = await app.inject({
         method: 'POST',
-        url: '/signals',
+        url: '/v1/signals',
         payload: signal,
       });
       
@@ -175,7 +181,7 @@ describe('Signal Ingestion Contract Tests', () => {
       
       const response = await app.inject({
         method: 'POST',
-        url: '/signals',
+        url: '/v1/signals',
         payload: signal,
       });
       
@@ -190,7 +196,7 @@ describe('Signal Ingestion Contract Tests', () => {
       
       const response = await app.inject({
         method: 'POST',
-        url: '/signals',
+        url: '/v1/signals',
         payload: signal,
       });
       
@@ -209,7 +215,7 @@ describe('Signal Ingestion Contract Tests', () => {
       
       const response = await app.inject({
         method: 'POST',
-        url: '/signals',
+        url: '/v1/signals',
         payload: signal,
       });
       
@@ -227,7 +233,7 @@ describe('Signal Ingestion Contract Tests', () => {
       
       const response = await app.inject({
         method: 'POST',
-        url: '/signals',
+        url: '/v1/signals',
         payload: signal,
       });
       
@@ -247,7 +253,7 @@ describe('Signal Ingestion Contract Tests', () => {
       
       const response = await app.inject({
         method: 'POST',
-        url: '/signals',
+        url: '/v1/signals',
         payload: signal,
       });
       
@@ -269,7 +275,7 @@ describe('Signal Ingestion Contract Tests', () => {
         
         const response = await app.inject({
           method: 'POST',
-          url: '/signals',
+          url: '/v1/signals',
           payload: signal,
         });
         
@@ -287,7 +293,7 @@ describe('Signal Ingestion Contract Tests', () => {
         
         const response = await app.inject({
           method: 'POST',
-          url: '/signals',
+          url: '/v1/signals',
           payload: signal,
         });
         
@@ -305,7 +311,7 @@ describe('Signal Ingestion Contract Tests', () => {
       
       const response = await app.inject({
         method: 'POST',
-        url: '/signals',
+        url: '/v1/signals',
         payload: signal,
       });
       
@@ -324,7 +330,7 @@ describe('Signal Ingestion Contract Tests', () => {
       
       const response = await app.inject({
         method: 'POST',
-        url: '/signals',
+        url: '/v1/signals',
         payload: signal,
       });
       
@@ -344,7 +350,7 @@ describe('Signal Ingestion Contract Tests', () => {
       
       const response = await app.inject({
         method: 'POST',
-        url: '/signals',
+        url: '/v1/signals',
         payload: signal,
       });
       
@@ -363,7 +369,7 @@ describe('Signal Ingestion Contract Tests', () => {
       
       const response = await app.inject({
         method: 'POST',
-        url: '/signals',
+        url: '/v1/signals',
         payload: signal,
       });
       
@@ -381,7 +387,7 @@ describe('Signal Ingestion Contract Tests', () => {
       
       const response = await app.inject({
         method: 'POST',
-        url: '/signals',
+        url: '/v1/signals',
         payload: signal,
       });
       
@@ -397,7 +403,7 @@ describe('Signal Ingestion Contract Tests', () => {
       
       const response = await app.inject({
         method: 'POST',
-        url: '/signals',
+        url: '/v1/signals',
         payload: signal,
       });
       
@@ -413,7 +419,7 @@ describe('Signal Ingestion Contract Tests', () => {
       
       const response = await app.inject({
         method: 'POST',
-        url: '/signals',
+        url: '/v1/signals',
         payload: signal,
       });
       
@@ -429,7 +435,7 @@ describe('Signal Ingestion Contract Tests', () => {
       // First submission
       const first = await app.inject({
         method: 'POST',
-        url: '/signals',
+        url: '/v1/signals',
         payload: signal,
       });
       
@@ -439,7 +445,7 @@ describe('Signal Ingestion Contract Tests', () => {
       // Second submission (same org_id + signal_id)
       const second = await app.inject({
         method: 'POST',
-        url: '/signals',
+        url: '/v1/signals',
         payload: signal,
       });
       
@@ -452,13 +458,13 @@ describe('Signal Ingestion Contract Tests', () => {
       
       const first = await app.inject({
         method: 'POST',
-        url: '/signals',
+        url: '/v1/signals',
         payload: signal,
       });
       
       const second = await app.inject({
         method: 'POST',
-        url: '/signals',
+        url: '/v1/signals',
         payload: signal,
       });
       
@@ -471,13 +477,13 @@ describe('Signal Ingestion Contract Tests', () => {
       
       const first = await app.inject({
         method: 'POST',
-        url: '/signals',
+        url: '/v1/signals',
         payload: signalOrg1,
       });
       
       const second = await app.inject({
         method: 'POST',
-        url: '/signals',
+        url: '/v1/signals',
         payload: signalOrg2,
       });
       
@@ -497,14 +503,14 @@ describe('Signal Ingestion Contract Tests', () => {
       // First rejection
       const first = await app.inject({
         method: 'POST',
-        url: '/signals',
+        url: '/v1/signals',
         payload: invalidSignal,
       });
       
       // Second rejection (same input)
       const second = await app.inject({
         method: 'POST',
-        url: '/signals',
+        url: '/v1/signals',
         payload: invalidSignal,
       });
       
@@ -518,13 +524,13 @@ describe('Signal Ingestion Contract Tests', () => {
       
       const first = await app.inject({
         method: 'POST',
-        url: '/signals',
+        url: '/v1/signals',
         payload: invalidSignal,
       });
       
       const second = await app.inject({
         method: 'POST',
-        url: '/signals',
+        url: '/v1/signals',
         payload: invalidSignal,
       });
       
@@ -539,13 +545,13 @@ describe('Signal Ingestion Contract Tests', () => {
       
       const first = await app.inject({
         method: 'POST',
-        url: '/signals',
+        url: '/v1/signals',
         payload: invalidSignal,
       });
       
       const second = await app.inject({
         method: 'POST',
-        url: '/signals',
+        url: '/v1/signals',
         payload: invalidSignal,
       });
       

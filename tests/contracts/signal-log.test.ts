@@ -48,7 +48,7 @@ describe('Signal Log Contract Tests', () => {
   async function postSignal(signal: Record<string, unknown>) {
     return app.inject({
       method: 'POST',
-      url: '/signals',
+      url: '/v1/signals',
       payload: signal,
     });
   }
@@ -64,7 +64,7 @@ describe('Signal Log Contract Tests', () => {
     
     return app.inject({
       method: 'GET',
-      url: `/signals?${queryString}`,
+      url: `/v1/signals?${queryString}`,
     });
   }
 
@@ -76,8 +76,14 @@ describe('Signal Log Contract Tests', () => {
 
     // Create Fastify app for testing
     app = Fastify({ logger: false });
-    registerIngestionRoutes(app);
-    registerSignalLogRoutes(app);
+    // Match production routing: routes are served under /v1 prefix (see src/server.ts)
+    app.register(
+      async (v1) => {
+        registerIngestionRoutes(v1);
+        registerSignalLogRoutes(v1);
+      },
+      { prefix: '/v1' }
+    );
     await app.ready();
   });
 
