@@ -47,7 +47,8 @@ isProject: false
 - **Depends on**: none
 - **Details**:
 Replace the single-rule POC v1 policy with a full 7-rule policy. Increment `policy_version` from `"1.0.0"` to `"2.0.0"`. Rules evaluated in priority order (first match wins). All rules use only the 5 canonical state fields from §4.7.
-  ```json
+
+```json
   {
     "policy_id": "default",
     "policy_version": "2.0.0",
@@ -132,16 +133,21 @@ Replace the single-rule POC v1 policy with a full 7-rule policy. Increment `poli
     ],
     "default_decision_type": "reinforce"
   }
-  ```
+  
+
+```
+
   **Rule priority rationale** (highest → lowest danger):
-  1. **escalate** — low confidence + extreme risk (stabilityScore < 0.3 or riskSignal > 0.8). Needs human review.
-  2. **pause** — low confidence + unstable. System can't reliably act.
-  3. **reroute** — high risk + low stability but sufficient confidence. Current path is wrong.
-  4. **intervene** — unstable with sufficient confidence. Learner needs help.
-  5. **reinforce** — moderate stability, hasn't been reinforced recently. Continue support.
-  6. **advance** — high stability + mastery + confidence, low risk. All-clear to progress.
-  7. **recommend** — stable but regression risk. Suggest targeted content.
-  8. **default** — `reinforce` as safe fallback.
+
+1. **escalate** — low confidence + extreme risk (stabilityScore < 0.3 or riskSignal > 0.8). Needs human review.
+2. **pause** — low confidence + unstable. System can't reliably act.
+3. **reroute** — high risk + low stability but sufficient confidence. Current path is wrong.
+4. **intervene** — unstable with sufficient confidence. Learner needs help.
+5. **reinforce** — moderate stability, hasn't been reinforced recently. Continue support.
+6. **advance** — high stability + mastery + confidence, low risk. All-clear to progress.
+7. **recommend** — stable but regression risk. Suggest targeted content.
+8. **default** — `reinforce` as safe fallback.
+
 - **Verification**: `npm run build` succeeds. `loadPolicy()` loads the new policy without errors.
 
 ### TASK-002: Expand DEC-008 contract tests — all 7 types
@@ -197,7 +203,7 @@ Replace the existing DEC-008 test cases (3 cases for POC v1) with 9 parameterize
 Update the spec to reflect policy expansion:
   1. **§Policy Model → Default policy**: Replace the v1 single-rule JSON with the v2 7-rule JSON. Update description paragraph and rule rationale.
   2. **§Contract Tests → DEC-008 test vectors table**: Replace the 3-case POC v1 table with the 9-case v2 table. Update rationale paragraph.
-  3. **§Deferred Items**: Update DEF-DEC-005 status to `**Resolved**`.
+  3. **§Deferred Items**: Update DEF-DEC-005 status to `**Resolved`**.
 - **Verification**: Spec is internally consistent. All described artifacts exist in codebase.
 
 ### TASK-004: Regression check
