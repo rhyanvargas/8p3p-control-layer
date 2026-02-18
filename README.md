@@ -144,6 +144,7 @@ src/
 ├── decision/         # Decision engine
 │   ├── engine.ts     # evaluateState() — policy evaluation, decision construction
 │   ├── handler.ts    # Request handling
+│   ├── policy-loader.ts  # Policy loading, hot-reload, semver validation
 │   ├── routes.ts     # GET /v1/decisions routes
 │   ├── store.ts      # SQLite-backed decision storage
 │   ├── validator.ts  # Request validation
@@ -195,7 +196,8 @@ tests/
 | [Interface Validation Ruleset](<docs/foundation/[POC Playbook] 8P3P Learning Intelligence Control Layer-Interface Validation Ruleset.md>) | Structural validation rules and error codes |
 | [Solo Dev Execution Playbook](docs/foundation/solo-dev-execution-playbook.md) | Milestone-driven build plan, Phase 1–3 roadmap, DynamoDB migration checklist |
 | [IP Defensibility & Value Proposition](docs/foundation/ip-defensibility-and-value-proposition.md) | Competitive moat analysis and value differentiation |
-| [QA Testing POC v1](docs/testing/qa-test-pocv1.md) | Manual QA test cases via Swagger UI |
+| [QA Testing POC v1](docs/testing/qa-test-pocv1.md) | Manual QA test cases (historical POC v1 policy) |
+| [QA Testing POC v2](docs/testing/qa-test-pocv2.md) | Manual QA test cases for current POC v2 policy |
 | [POC v1 Summary Report](docs/reports/poc-v1-summary-report.md) | POC v1 completion summary and evidence |
 | [API Specs Index](docs/api/README.md) | Index for OpenAPI/AsyncAPI specs in `docs/api/` |
 | [Archived Reviews](docs/archive/reviews/) | Historical `/review` snapshots (may be stale vs current implementation) |
@@ -220,7 +222,7 @@ tests/
 
 ## Project Status
 
-This project is in **active development** (Phase 1). Four of five lifecycle stages are implemented and hardened through multiple review cycles. **337 tests passing** across 17 test files.
+This project is in **active development** (Phase 1). Four of five lifecycle stages are implemented and hardened through multiple review cycles. **343 tests passing** across 17 test files.
 
 ### Completed
 - [x] Component interface contracts
@@ -250,11 +252,11 @@ This project is in **active development** (Phase 1). Four of five lifecycle stag
 - [x] E2E integration tests (signal ingestion → state → decision pipeline)
 - [x] `validate:contracts` script (JSON Schema ↔ OpenAPI ↔ AsyncAPI alignment)
 - [x] Contract drift prevention (automated detection in `npm run check`)
+- [x] **Policy Expansion** — POC v2 policy with 7 rules covering all decision types (`policy_version: "2.0.0"`)
+- [x] Output API — GET `/v1/decisions` exposes decisions (contract tests OUT-API-001 through OUT-API-003)
 
 ### Next Up
-- [ ] Policy Expansion — promote single-rule POC v1 policy to 7-rule v2 covering all decision types (`policy-expansion.plan.md`)
-- [ ] Repository Extraction — extract DecisionRepository interface for vendor-agnostic persistence (`repository-extraction.plan.md`)
-- [ ] Output Interfaces (Stage 5)
+- [ ] Repository Extraction — extract DecisionRepository interface for vendor-agnostic persistence ([`repository-extraction.plan.md`](.cursor/plans/repository-extraction.plan.md))
 
 ### Planned (Phase 2+)
 - [ ] Storage migration: SQLite → DynamoDB (StateRepository / SignalLogRepository adapter pattern)
