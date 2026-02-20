@@ -50,7 +50,8 @@ isProject: false
 - **Depends on**: none
 - **Details**:
 Create the `DecisionRepository` interface as specified in `docs/specs/decision-engine.md` §Phase 2:
-  ```typescript
+
+```typescript
   import type { Decision, GetDecisionsRequest } from '../shared/types.js';
 
   /**
@@ -71,7 +72,10 @@ Create the `DecisionRepository` interface as specified in `docs/specs/decision-e
     getDecisionById(orgId: string, decisionId: string): Decision | null;
     close(): void;
   }
-  ```
+  
+
+```
+
 - **Verification**: `npm run build` succeeds (no consumers yet, just the interface).
 
 ### TASK-002: Implement SqliteDecisionRepository class
@@ -91,7 +95,8 @@ Add a `SqliteDecisionRepository` class to `store.ts` that implements `DecisionRe
   - `getDatabase(): Database.Database` — test accessor (matches existing `getDecisionStoreDatabase()` pattern)
   Export the class alongside existing functions. Do **not** change existing module-level functions yet (TASK-003 handles delegation).
   Reuse internal helpers (`rowToDecision`, `decodePageToken`) — they stay as module-level functions shared between the class and the legacy wrappers.
-  ```typescript
+
+```typescript
   import type { DecisionRepository } from './repository.js';
 
   export class SqliteDecisionRepository implements DecisionRepository {
@@ -104,7 +109,10 @@ Add a `SqliteDecisionRepository` class to `store.ts` that implements `DecisionRe
     clear(): void { this.db.exec('DELETE FROM decisions'); }
     getDatabase(): Database.Database { return this.db; }
   }
-  ```
+  
+
+```
+
 - **Verification**: `npm run build` succeeds. Class is exported but not yet wired.
 
 ### TASK-003: Add repository injection support to decision store module
@@ -120,10 +128,10 @@ Refactor the module-level singleton to delegate to an injected `DecisionReposito
   3. `saveDecision(decision)` → delegates to `repository!.saveDecision(decision)` (throws if null)
   4. `getDecisions(request)` → delegates to `repository!.getDecisions(request)`
   5. `getDecisionById(orgId, decisionId)` → delegates to `repository!.getDecisionById(orgId, decisionId)`
-  6. `closeDecisionStore()` → calls `repository!.close()`, sets `repository = null`
-  7. Add `setDecisionRepository(repo: DecisionRepository): void` — injection point for Phase 2 or test doubles
+  6. `closeDecisionStore()` → `if (repository) { repository.close(); repository = null; }` (preserve no-op when null; avoid regression vs current behavior)
+  7. Add `setDecisionRepository(repo: DecisionRepository): void` — injection point for Phase 2 or test doubles. **Defensive**: close existing repository (if any) before assigning the new one to avoid connection leaks.
   8. `clearDecisionStore()` → `(repository as SqliteDecisionRepository).clear()` with instanceof guard
-  9. `getDecisionStoreDatabase()` → `(repository as SqliteDecisionRepository).getDatabase()` with instanceof guard
+  9. `getDecisionStoreDatabase()` → return `null` when `repository` is null; otherwise `(repository as SqliteDecisionRepository).getDatabase()` with instanceof guard. Preserve existing return type `Database.Database | null`.
   10. `encodePageToken()` — unchanged (not repository-specific)
   **Critical**: All existing exports keep their exact signatures. No import changes needed in any consumer.
 - **Verification**: `npm run build` succeeds. `npm test` passes (all tests).
@@ -139,11 +147,15 @@ Since `initDecisionStore(dbPath)` now internally creates and injects the `Sqlite
   - Confirm `initDecisionStore(decisionDbPath)` still works
   - Confirm `closeDecisionStore()` in the shutdown hook delegates to `repository.close()`
   - Add a comment noting the Phase 2 migration path:
-    ```typescript
+
+```typescript
     // Decision store (Stage 4). Phase 2: replace initDecisionStore(dbPath)
     // with setDecisionRepository(new DynamoDbDecisionRepository(config))
     initDecisionStore(decisionDbPath);
-    ```
+    
+
+```
+
 - **Verification**: `npm run dev` starts without errors. `GET /v1/decisions` returns empty `decisions[]`.
 
 ### TASK-005: Update decision-engine spec
@@ -155,7 +167,7 @@ Since `initDecisionStore(dbPath)` now internally creates and injects the `Sqlite
 - **Details**:
 Update the spec to document the repository extraction:
   1. **§Implementation Components → Decision Store**: Note that `DecisionRepository` interface is now defined in `src/decision/repository.ts` and `SqliteDecisionRepository` is the Phase 1 implementation.
-  2. **§Phase 2**: Update DEF-DEC-002 status to `**Partially Resolved**` — interface defined, SQLite adapter created, DynamoDB adapter deferred.
+  2. **§Phase 2**: Update DEF-DEC-002 status to `**Partially Resolved`** — interface defined, SQLite adapter created, DynamoDB adapter deferred.
   3. **§File Structure**: Add `src/decision/repository.ts` to the tree.
 - **Verification**: Spec is internally consistent. All described artifacts exist in codebase.
 
