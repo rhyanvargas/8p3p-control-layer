@@ -51,7 +51,8 @@ try {
 
 initStateStore(stateStoreDbPath);
 
-// Initialize Decision store (Stage 4)
+// Decision store (Stage 4). Phase 2: replace initDecisionStore(dbPath)
+// with setDecisionRepository(new DynamoDbDecisionRepository(config))
 const decisionDbPath = process.env.DECISION_DB_PATH ?? './data/decisions.db';
 try {
   mkdirSync(dirname(decisionDbPath), { recursive: true });

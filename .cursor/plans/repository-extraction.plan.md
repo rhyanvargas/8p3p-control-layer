@@ -4,22 +4,22 @@ overview: "Extract a vendor-agnostic DecisionRepository interface from the curre
 todos:
   - id: TASK-001
     content: Define DecisionRepository interface in src/decision/repository.ts
-    status: pending
+    status: completed
   - id: TASK-002
     content: Implement SqliteDecisionRepository class in src/decision/store.ts
-    status: pending
+    status: completed
   - id: TASK-003
     content: Add repository injection support to decision store module
-    status: pending
+    status: completed
   - id: TASK-004
     content: Update server.ts — confirm repository wiring + add Phase 2 migration comment
-    status: pending
+    status: completed
   - id: TASK-005
     content: Update decision-engine spec — document repository interface and file structure
-    status: pending
+    status: completed
   - id: TASK-006
     content: Regression check — all tests pass, build clean, lint clean
-    status: pending
+    status: completed
 isProject: false
 ---
 
@@ -44,7 +44,7 @@ isProject: false
 
 ### TASK-001: Define DecisionRepository interface
 
-- **Status**: pending
+- **Status**: completed
 - **Files**: `src/decision/repository.ts`
 - **Action**: Create
 - **Depends on**: none
@@ -80,7 +80,7 @@ Create the `DecisionRepository` interface as specified in `docs/specs/decision-e
 
 ### TASK-002: Implement SqliteDecisionRepository class
 
-- **Status**: pending
+- **Status**: completed
 - **Files**: `src/decision/store.ts`
 - **Action**: Modify
 - **Depends on**: TASK-001
@@ -117,7 +117,7 @@ Add a `SqliteDecisionRepository` class to `store.ts` that implements `DecisionRe
 
 ### TASK-003: Add repository injection support to decision store module
 
-- **Status**: pending
+- **Status**: completed
 - **Files**: `src/decision/store.ts`
 - **Action**: Modify
 - **Depends on**: TASK-002
@@ -138,7 +138,7 @@ Refactor the module-level singleton to delegate to an injected `DecisionReposito
 
 ### TASK-004: Update server.ts — confirm wiring
 
-- **Status**: pending
+- **Status**: completed
 - **Files**: `src/server.ts`
 - **Action**: Modify (minimal)
 - **Depends on**: TASK-003
@@ -160,7 +160,7 @@ Since `initDecisionStore(dbPath)` now internally creates and injects the `Sqlite
 
 ### TASK-005: Update decision-engine spec
 
-- **Status**: pending
+- **Status**: completed
 - **Files**: `docs/specs/decision-engine.md`
 - **Action**: Modify
 - **Depends on**: TASK-004
@@ -173,7 +173,7 @@ Update the spec to document the repository extraction:
 
 ### TASK-006: Regression check
 
-- **Status**: pending
+- **Status**: completed
 - **Files**: none (verification only)
 - **Action**: Verify
 - **Depends on**: TASK-005

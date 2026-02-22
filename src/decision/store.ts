@@ -10,8 +10,136 @@
 
 import Database from 'better-sqlite3';
 import type { Decision, GetDecisionsRequest } from '../shared/types.js';
+import type { DecisionRepository } from './repository.js';
 
-let db: Database.Database | null = null;
+let repository: DecisionRepository | null = null;
+
+// =============================================================================
+// SqliteDecisionRepository — Phase 1 adapter implementing DecisionRepository
+// =============================================================================
+
+export class SqliteDecisionRepository implements DecisionRepository {
+  private db: Database.Database;
+
+  constructor(dbPath: string) {
+    this.db = new Database(dbPath);
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS decisions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        org_id TEXT NOT NULL,
+        decision_id TEXT NOT NULL UNIQUE,
+        learner_reference TEXT NOT NULL,
+        decision_type TEXT NOT NULL,
+        decided_at TEXT NOT NULL,
+        decision_context TEXT NOT NULL,
+        trace_state_id TEXT NOT NULL,
+        trace_state_version INTEGER NOT NULL,
+        trace_policy_version TEXT NOT NULL,
+        trace_matched_rule_id TEXT,
+        UNIQUE(org_id, decision_id)
+      )
+    `);
+    this.db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_decisions_query
+      ON decisions(org_id, learner_reference, decided_at)
+    `);
+    this.db.pragma('journal_mode = WAL');
+  }
+
+  saveDecision(decision: Decision): void {
+    const stmt = this.db.prepare(`
+      INSERT INTO decisions (
+        org_id, decision_id, learner_reference, decision_type, decided_at,
+        decision_context, trace_state_id, trace_state_version, trace_policy_version, trace_matched_rule_id
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    stmt.run(
+      decision.org_id,
+      decision.decision_id,
+      decision.learner_reference,
+      decision.decision_type,
+      decision.decided_at,
+      JSON.stringify(decision.decision_context),
+      decision.trace.state_id,
+      decision.trace.state_version,
+      decision.trace.policy_version,
+      decision.trace.matched_rule_id
+    );
+  }
+
+  getDecisions(request: GetDecisionsRequest): {
+    decisions: Decision[];
+    hasMore: boolean;
+    nextCursor?: number;
+  } {
+    const pageSize = Math.min(Math.max(1, request.page_size ?? 100), 1000);
+    const cursorId = request.page_token ? decodePageToken(request.page_token) : 0;
+
+    const stmt = this.db.prepare(`
+      SELECT id, org_id, decision_id, learner_reference, decision_type, decided_at,
+             decision_context, trace_state_id, trace_state_version, trace_policy_version, trace_matched_rule_id
+      FROM decisions
+      WHERE org_id = ?
+        AND learner_reference = ?
+        AND decided_at >= ?
+        AND decided_at <= ?
+        AND id > ?
+      ORDER BY decided_at ASC, id ASC
+      LIMIT ?
+    `);
+
+    const rows = stmt.all(
+      request.org_id,
+      request.learner_reference,
+      request.from_time,
+      request.to_time,
+      cursorId,
+      pageSize + 1
+    ) as DecisionRow[];
+
+    const hasMore = rows.length > pageSize;
+    const resultRows = hasMore ? rows.slice(0, pageSize) : rows;
+    const decisions = resultRows.map(rowToDecision);
+
+    let nextCursor: number | undefined;
+    if (hasMore && resultRows.length > 0) {
+      const lastRow = resultRows[resultRows.length - 1];
+      nextCursor = lastRow ? lastRow.id : undefined;
+    }
+
+    return {
+      decisions,
+      hasMore,
+      nextCursor,
+    };
+  }
+
+  getDecisionById(orgId: string, decisionId: string): Decision | null {
+    const stmt = this.db.prepare(`
+      SELECT id, org_id, decision_id, learner_reference, decision_type, decided_at,
+             decision_context, trace_state_id, trace_state_version, trace_policy_version, trace_matched_rule_id
+      FROM decisions
+      WHERE org_id = ? AND decision_id = ?
+    `);
+    const row = stmt.get(orgId, decisionId) as DecisionRow | undefined;
+    return row ? rowToDecision(row) : null;
+  }
+
+  close(): void {
+    this.db.close();
+  }
+
+  /** Test utility — not on DecisionRepository interface. */
+  clear(): void {
+    this.db.exec('DELETE FROM decisions');
+  }
+
+  /** Test accessor — matches getDecisionStoreDatabase() pattern. */
+  getDatabase(): Database.Database {
+    return this.db;
+  }
+}
 
 /**
  * Initialize the Decision store with SQLite.
@@ -20,31 +148,19 @@ let db: Database.Database | null = null;
  * @param dbPath - Path to SQLite database file, or ':memory:' for in-memory
  */
 export function initDecisionStore(dbPath: string): void {
-  db = new Database(dbPath);
+  setDecisionRepository(new SqliteDecisionRepository(dbPath));
+}
 
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS decisions (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      org_id TEXT NOT NULL,
-      decision_id TEXT NOT NULL UNIQUE,
-      learner_reference TEXT NOT NULL,
-      decision_type TEXT NOT NULL,
-      decided_at TEXT NOT NULL,
-      decision_context TEXT NOT NULL,
-      trace_state_id TEXT NOT NULL,
-      trace_state_version INTEGER NOT NULL,
-      trace_policy_version TEXT NOT NULL,
-      trace_matched_rule_id TEXT,
-      UNIQUE(org_id, decision_id)
-    )
-  `);
-
-  db.exec(`
-    CREATE INDEX IF NOT EXISTS idx_decisions_query
-    ON decisions(org_id, learner_reference, decided_at)
-  `);
-
-  db.pragma('journal_mode = WAL');
+/**
+ * Inject a DecisionRepository instance (Phase 2 or test doubles).
+ * Closes existing repository before assigning to avoid connection leaks.
+ */
+export function setDecisionRepository(repo: DecisionRepository): void {
+  if (repository) {
+    repository.close();
+    repository = null;
+  }
+  repository = repo;
 }
 
 /**
@@ -52,9 +168,9 @@ export function initDecisionStore(dbPath: string): void {
  * Call this during graceful shutdown.
  */
 export function closeDecisionStore(): void {
-  if (db) {
-    db.close();
-    db = null;
+  if (repository) {
+    repository.close();
+    repository = null;
   }
 }
 
@@ -65,30 +181,10 @@ export function closeDecisionStore(): void {
  * @throws Error on UNIQUE constraint (duplicate decision_id)
  */
 export function saveDecision(decision: Decision): void {
-  if (!db) {
+  if (!repository) {
     throw new Error('Decision store not initialized. Call initDecisionStore first.');
   }
-
-  const stmt = db.prepare(`
-    INSERT INTO decisions (
-      org_id, decision_id, learner_reference, decision_type, decided_at,
-      decision_context, trace_state_id, trace_state_version, trace_policy_version, trace_matched_rule_id
-    )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `);
-
-  stmt.run(
-    decision.org_id,
-    decision.decision_id,
-    decision.learner_reference,
-    decision.decision_type,
-    decision.decided_at,
-    JSON.stringify(decision.decision_context),
-    decision.trace.state_id,
-    decision.trace.state_version,
-    decision.trace.policy_version,
-    decision.trace.matched_rule_id
-  );
+  repository.saveDecision(decision);
 }
 
 /**
@@ -102,50 +198,10 @@ export function getDecisions(request: GetDecisionsRequest): {
   hasMore: boolean;
   nextCursor?: number;
 } {
-  if (!db) {
+  if (!repository) {
     throw new Error('Decision store not initialized. Call initDecisionStore first.');
   }
-
-  const pageSize = Math.min(Math.max(1, request.page_size ?? 100), 1000);
-  const cursorId = request.page_token ? decodePageToken(request.page_token) : 0;
-
-  const stmt = db.prepare(`
-    SELECT id, org_id, decision_id, learner_reference, decision_type, decided_at,
-           decision_context, trace_state_id, trace_state_version, trace_policy_version, trace_matched_rule_id
-    FROM decisions
-    WHERE org_id = ?
-      AND learner_reference = ?
-      AND decided_at >= ?
-      AND decided_at <= ?
-      AND id > ?
-    ORDER BY decided_at ASC, id ASC
-    LIMIT ?
-  `);
-
-  const rows = stmt.all(
-    request.org_id,
-    request.learner_reference,
-    request.from_time,
-    request.to_time,
-    cursorId,
-    pageSize + 1
-  ) as DecisionRow[];
-
-  const hasMore = rows.length > pageSize;
-  const resultRows = hasMore ? rows.slice(0, pageSize) : rows;
-  const decisions = resultRows.map(rowToDecision);
-
-  let nextCursor: number | undefined;
-  if (hasMore && resultRows.length > 0) {
-    const lastRow = resultRows[resultRows.length - 1];
-    nextCursor = lastRow ? lastRow.id : undefined;
-  }
-
-  return {
-    decisions,
-    hasMore,
-    nextCursor,
-  };
+  return repository.getDecisions(request);
 }
 
 /**
@@ -156,36 +212,37 @@ export function getDecisions(request: GetDecisionsRequest): {
  * @returns The Decision or null if not found
  */
 export function getDecisionById(orgId: string, decisionId: string): Decision | null {
-  if (!db) {
+  if (!repository) {
     throw new Error('Decision store not initialized. Call initDecisionStore first.');
   }
-
-  const stmt = db.prepare(`
-    SELECT id, org_id, decision_id, learner_reference, decision_type, decided_at,
-           decision_context, trace_state_id, trace_state_version, trace_policy_version, trace_matched_rule_id
-    FROM decisions
-    WHERE org_id = ? AND decision_id = ?
-  `);
-
-  const row = stmt.get(orgId, decisionId) as DecisionRow | undefined;
-  return row ? rowToDecision(row) : null;
+  return repository.getDecisionById(orgId, decisionId);
 }
 
 /**
  * Clear all decisions (for testing only).
  */
 export function clearDecisionStore(): void {
-  if (!db) {
+  if (!repository) {
     throw new Error('Decision store not initialized. Call initDecisionStore first.');
   }
-  db.exec('DELETE FROM decisions');
+  if (repository instanceof SqliteDecisionRepository) {
+    repository.clear();
+  } else {
+    throw new Error('clearDecisionStore is only supported for SqliteDecisionRepository');
+  }
 }
 
 /**
  * Get the current database instance (for testing).
  */
 export function getDecisionStoreDatabase(): Database.Database | null {
-  return db;
+  if (!repository) {
+    return null;
+  }
+  if (repository instanceof SqliteDecisionRepository) {
+    return repository.getDatabase();
+  }
+  return null;
 }
 
 // =============================================================================

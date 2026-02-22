@@ -412,6 +412,8 @@ content_id, content_url
 
 ### 1. Decision Store (`src/decision/store.ts`)
 
+The `DecisionRepository` interface is defined in `src/decision/repository.ts`. `SqliteDecisionRepository` (in `store.ts`) is the Phase 1 implementation. Module-level functions delegate to the injected repository.
+
 SQLite-backed storage for decision records:
 
 ```sql
@@ -437,12 +439,13 @@ CREATE INDEX idx_decisions_query
 ```
 
 **Functions:**
-- `initDecisionStore(dbPath: string): void` — Initialize database with schema
+- `initDecisionStore(dbPath: string): void` — Initialize database with schema (creates `SqliteDecisionRepository` internally)
+- `setDecisionRepository(repo: DecisionRepository): void` — Injection point for Phase 2 or test doubles
 - `saveDecision(decision: Decision): void` — Insert immutable record
 - `getDecisions(request: GetDecisionsRequest): { decisions: Decision[]; hasMore: boolean; nextCursor?: number }` — Time-range query with pagination
 - `getDecisionById(orgId: string, decisionId: string): Decision | null` — Retrieve single decision
 - `closeDecisionStore(): void` — Close database connection
-- `clearDecisionStore(): void` — Clear for testing
+- `clearDecisionStore(): void` — Clear for testing (SqliteDecisionRepository only)
 
 **Access pattern notes (DynamoDB-ready):**
 - Write: Insert by `(org_id, decision_id)` — maps to DynamoDB PK
@@ -839,7 +842,8 @@ Called by `GET /v1/decisions` handler. The handler converts the store-level curs
 src/
 ├── decision/
 │   ├── engine.ts                      # Core evaluation logic (evaluateState)
-│   ├── store.ts                       # SQLite decision storage
+│   ├── repository.ts                  # DecisionRepository interface
+│   ├── store.ts                       # SqliteDecisionRepository + module-level delegation
 │   ├── validator.ts                   # Request/decision validation
 │   ├── policy-loader.ts              # Policy loading and evaluation
 │   ├── handler.ts                     # GET /decisions route handler
@@ -898,9 +902,11 @@ Implementation is complete when:
 
 Phase 2 (AWS deployment) will migrate persistence away from SQLite (e.g., to DynamoDB). To keep business logic stable and contract tests usable as migration guardrails, the Decision Engine should depend on a **storage interface** rather than SQLite-specific modules.
 
+**DEF-DEC-002 Partially Resolved** — Interface defined in `src/decision/repository.ts`, `SqliteDecisionRepository` adapter created in `store.ts`. DynamoDB adapter deferred to Phase 2 operational migration.
+
 ### DecisionRepository Interface (Contract)
 
-Define a repository interface (mirrors `StateRepository`):
+The interface is defined in `src/decision/repository.ts`:
 
 ```typescript
 interface DecisionRepository {
@@ -915,8 +921,8 @@ interface DecisionRepository {
 
 ### Adapter Approach
 
-- **SqliteDecisionRepository**: Extracted from the current `src/decision/store.ts` implementation
-- **DynamoDbDecisionRepository**: Phase 2 implementation using DynamoDB
+- **SqliteDecisionRepository**: Phase 1 implementation in `src/decision/store.ts`
+- **DynamoDbDecisionRepository**: Phase 2 implementation using DynamoDB (deferred)
 
 ### DynamoDB Table Design
 
@@ -931,7 +937,7 @@ This supports the two access patterns: write by `(org_id, decision_id)` and quer
 
 ### Phase 2 Prerequisites
 
-The current module-level singleton database pattern (`let db`) prevents dependency injection. Phase 2 should refactor Decision Engine construction to accept a `DecisionRepository` instance (or factory) to make backend swaps mechanical.
+**Resolved (DEF-DEC-002):** The module now uses `setDecisionRepository()` for injection. Phase 2 migration is mechanical: create `DynamoDbDecisionRepository`, call `setDecisionRepository(new DynamoDbDecisionRepository(config))` instead of `initDecisionStore(dbPath)`.
 
 **Tracking**: The operational migration checklist and storage preparation steps live in `docs/archive/playbooks/solo-dev-execution-playbook.md` under Phase 2.
 
@@ -949,7 +955,7 @@ The current module-level singleton database pattern (`let db`) prevents dependen
 | ID | Item | Origin | Deferred To |
 |----|------|--------|-------------|
 | DEF-DEC-001 | Event emission (`decision.emitted`) for OUT-EVT-* tests | Contract Test Matrix §6.4–6.6 | Phase 3 (EventBridge) |
-| DEF-DEC-002 | Extract `DecisionRepository` interface for DI | ISS-DGE-002, Playbook Phase 2 | Phase 2 |
+| DEF-DEC-002 | Extract `DecisionRepository` interface for DI | ISS-DGE-002, Playbook Phase 2 | **Partially Resolved** — interface + SqliteDecisionRepository done; DynamoDB adapter deferred |
 | DEF-DEC-003 | Separate decision trace store (if auditing needs grow) | ISS-DGE-003 | Future |
 | DEF-DEC-004 | Data-driven policy engine (replace simple JSON rules) | ISS-DGE-002 | **Resolved** — compound condition schema (`all`/`any` combinators) provides data-driven evaluation in Phase 1 |
 | DEF-DEC-005 | Policy rules for all 7 decision types | ISS-DGE-001 | **Resolved** — default policy expanded to 7 rules (POC v2, `policy_version: "2.0.0"`), with DEC-008 vectors covering all types. |
