@@ -1,4 +1,4 @@
-# 8P3P Control Layer — Pilot Readiness: CTO Response
+# 8P3P Control Layer — Pilot Readiness v1 and v1.1
 
 **Date:** 2026-02-20 (updated with v1.1 requirements)  
 **Context:** CEO requested auditable, trustworthy pilot demo readiness assessment with exact artifacts, timeline, and reliability requirements. Follow-up: define v1.1 requirements for 2-3 concurrent pilots.  
