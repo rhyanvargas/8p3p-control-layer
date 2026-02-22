@@ -294,7 +294,7 @@ Demo Seed + Rehearsal ───────────►   AWS Deployment (SAM
 
 | Document | Path | Relevance |
 |----------|------|-----------|
-| Pilot Readiness Assessment | `docs/reports/2026-02-19-pilot-readiness-assessment.md` | Gap analysis and phase sequence |
+| Pilot Readiness Assessment | *(consolidated into this document)* | Gap analysis and phase sequence (originally 2026-02-19) |
 | Inspection API Spec | `docs/specs/inspection-api.md` | Backend endpoints, enriched trace, ingestion log |
 | Inspection Panels Spec | `docs/specs/inspection-panels.md` | Frontend panels, layout, interactions |
 | Decision Repo Extraction Plan | `.cursor/plans/repository-extraction.plan.md` | Decision persistence abstraction (v1) |

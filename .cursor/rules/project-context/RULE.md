@@ -139,5 +139,5 @@ For exploring existing code, use `/extract-spec`.
 | `docs/foundation/[POC Playbook]...Interface Contracts.md` | JSON schemas for all interfaces |
 | `docs/foundation/[POC Playbook]...Contract Test Matrix.md` | Required contract tests |
 | `docs/foundation/[POC Playbook]...Validation Ruleset.md` | Validation rules and forbidden keys |
-| `docs/foundation/solo-dev-execution-playbook.md` | Development workflow guide |
+| `docs/archive/playbooks/solo-dev-execution-playbook.md` | Development workflow guide (archived) |
 | `docs/specs/` | Generated specification files |

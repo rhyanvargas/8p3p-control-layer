@@ -30,8 +30,8 @@ This spec turns the solo-dev playbook's Phase 2 sketch into an implementable dep
               ▼                 ▼                  ▼
      ┌────────────────┐ ┌──────────────┐ ┌────────────────┐
      │ Lambda: Ingest │ │ Lambda: Query│ │ Lambda: Inspect│
-     │ POST /signals  │ │ GET /signals │ │ GET /state     │
-     │                │ │ GET /decisions│ │ GET /ingestion │
+     │ POST /v1/signals│ │ GET /v1/signals│ │ GET /v1/state   │
+     │                │ │ GET /v1/decisions│ │ GET /v1/ingestion│
      └───────┬────────┘ └──────┬───────┘ └───────┬────────┘
              │                 │                  │
              ▼                 ▼                  ▼
@@ -179,7 +179,7 @@ IngestFunction:
 
 #### DynamoDB Tables
 
-Table designs are inherited from the solo-dev playbook (`docs/foundation/solo-dev-execution-playbook.md` §DynamoDB Table Design) with additions for the ingestion log and tenant tables.
+Table designs are inherited from the archived solo-dev playbook (`docs/archive/playbooks/solo-dev-execution-playbook.md` §DynamoDB Table Design) with additions for the ingestion log and tenant tables.
 
 ```yaml
 SignalsTable:

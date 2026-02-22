@@ -552,7 +552,7 @@ Store implementations must surface optimistic-lock conflicts as a vendor-neutral
 
 The current module-level singleton database pattern (`let db`) prevents dependency injection. Phase 2 should refactor STATE Engine construction to accept a `StateRepository` instance (or factory) to make backend swaps mechanical.
 
-**Tracking**: The operational migration checklist and storage preparation steps live in `docs/foundation/solo-dev-execution-playbook.md` under Phase 2.
+**Tracking**: The operational migration checklist and storage preparation steps live in `docs/archive/playbooks/solo-dev-execution-playbook.md` under Phase 2.
 
 ## Out of Scope
 

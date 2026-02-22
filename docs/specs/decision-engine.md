@@ -933,7 +933,7 @@ This supports the two access patterns: write by `(org_id, decision_id)` and quer
 
 The current module-level singleton database pattern (`let db`) prevents dependency injection. Phase 2 should refactor Decision Engine construction to accept a `DecisionRepository` instance (or factory) to make backend swaps mechanical.
 
-**Tracking**: The operational migration checklist and storage preparation steps live in `docs/foundation/solo-dev-execution-playbook.md` under Phase 2.
+**Tracking**: The operational migration checklist and storage preparation steps live in `docs/archive/playbooks/solo-dev-execution-playbook.md` under Phase 2.
 
 ## Out of Scope
 

@@ -17,7 +17,7 @@ How to set up, scaffold, run, test, and validate the 8P3P Control Layer locally.
 | Lifecycle directories | ✅ Created |
 | Database initialized | ⬜ Deferred (created on first use) |
 
-**Status:** ✅ Phase 0 scaffolding complete — ready for Phase 1 implementation.
+**Status:** ✅ Local development is operational (POC v1/v2 implemented). This doc includes historical scaffolding steps, but for day-to-day use you should follow **Quick Start** below and use `npm run check` as the correctness gate.
 
 ---
 
@@ -508,4 +508,4 @@ Once scaffolding is complete, proceed to **Phase 1** implementation:
 4. **Session 5**: Implement Decision Engine (DEC-* tests)
 5. **Session 6**: Implement Output (OUT-API-* tests)
 
-Refer to `docs/solo-dev-execution-playbook.md` for detailed implementation guidance.
+Refer to `docs/archive/playbooks/solo-dev-execution-playbook.md` for historical implementation guidance.

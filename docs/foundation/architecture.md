@@ -41,7 +41,7 @@ architecture-beta
 ```
 External System
        │
-       ▼ (API IN: POST /signals)
+       ▼ (API IN: POST /v1/signals)
 ┌──────────────────┐
 │ Signal Ingestion │ ← Validates SignalEnvelope
 └────────┬─────────┘
@@ -66,7 +66,7 @@ External System
 │ Output Interfaces│
 └────────┬─────────┘
          │
-         ▼ (API/Event OUT: GET /decisions)
+         ▼ (API/Event OUT: GET /v1/decisions)
 Downstream System
 ```
 
@@ -81,8 +81,8 @@ Downstream System
 
 | Boundary | Direction | Protocol | Endpoints |
 |----------|-----------|----------|-----------|
-| **API IN** | Inbound | REST/HTTP | `POST /signals` |
-| **API OUT** | Outbound | REST/HTTP | `GET /decisions` |
+| **API IN** | Inbound | REST/HTTP | `POST /v1/signals` |
+| **API OUT** | Outbound | REST/HTTP | `GET /v1/decisions` |
 | **Event OUT** | Outbound | EventBridge (Phase 3) | Decision events |
 
 ---

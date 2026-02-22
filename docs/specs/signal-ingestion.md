@@ -11,7 +11,7 @@ The Signal Ingestion component is the entry point for all external signals into 
 ## API Endpoint
 
 ```
-POST /signals
+POST /v1/signals
 ```
 
 ### Request Schema: SignalEnvelope
@@ -176,7 +176,7 @@ Fastify route handler that orchestrates:
 
 ### 6. Fastify Route (`src/ingestion/routes.ts`)
 
-Register `POST /signals` endpoint.
+Register `POST /v1/signals` endpoint.
 
 ## Contract Tests
 
@@ -206,7 +206,7 @@ src/
 │   └── validators/
 │       └── signal-envelope.ts        # Compiled Ajv validator
 ├── ingestion/
-│   ├── handler.ts                    # POST /signals handler
+│   ├── handler.ts                    # POST /v1/signals handler
 │   ├── routes.ts                     # Fastify route registration
 │   ├── forbidden-keys.ts             # Semantic key detector
 │   └── idempotency.ts                # Duplicate detection
@@ -223,7 +223,7 @@ tests/
 
 Implementation is complete when:
 
-- [ ] `POST /signals` accepts valid SignalEnvelope
+- [ ] `POST /v1/signals` accepts valid SignalEnvelope
 - [ ] All required field validations work correctly
 - [ ] Timestamp validation requires RFC3339 with timezone
 - [ ] schema_version matches `^v[0-9]+$` only

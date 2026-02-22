@@ -25,7 +25,7 @@ isProject: false
 
 # Idempotency Repository Extraction
 
-**Sources**: `docs/specs/signal-ingestion.md`, `docs/foundation/solo-dev-execution-playbook.md` §Phase 2
+**Sources**: `docs/specs/signal-ingestion.md`, `docs/archive/playbooks/solo-dev-execution-playbook.md` §Phase 2
 
 ## Prerequisites
 

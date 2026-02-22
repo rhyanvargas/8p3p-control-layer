@@ -187,20 +187,30 @@ tests/
 
 ## Documentation
 
+### Foundation
+
 | Document | Description |
 |----------|-------------|
 | [Architecture](docs/foundation/architecture.md) | System architecture and data flow |
 | [Setup](docs/foundation/setup.md) | Environment and runbook |
+| [Solo Dev Execution Playbook (Archived)](docs/archive/playbooks/solo-dev-execution-playbook.md) | Historical milestone-driven build plan and migration checklist |
+| [IP Defensibility & Value Proposition](docs/foundation/ip-defensibility-and-value-proposition.md) | Competitive moat analysis and value differentiation |
 | [Component Interface Contracts](<docs/foundation/[POC Playbook] 8P3P Learning Intelligence Control Layer-Component Interface Contracts.md>) | Complete API and event schemas |
 | [Contract Test Matrix](<docs/foundation/[POC Playbook] 8P3P Learning Intelligence Control Layer-Contract Test Matrix.md>) | Comprehensive test cases for validation |
 | [Interface Validation Ruleset](<docs/foundation/[POC Playbook] 8P3P Learning Intelligence Control Layer-Interface Validation Ruleset.md>) | Structural validation rules and error codes |
-| [Solo Dev Execution Playbook](docs/foundation/solo-dev-execution-playbook.md) | Milestone-driven build plan, Phase 1–3 roadmap, DynamoDB migration checklist |
-| [IP Defensibility & Value Proposition](docs/foundation/ip-defensibility-and-value-proposition.md) | Competitive moat analysis and value differentiation |
-| [QA Testing POC v1](docs/testing/qa-test-pocv1.md) | Manual QA test cases (historical POC v1 policy) |
-| [QA Testing POC v2](docs/testing/qa-test-pocv2.md) | Manual QA test cases for current POC v2 policy |
-| [POC v1 Summary Report](docs/reports/poc-v1-summary-report.md) | POC v1 completion summary and evidence |
-| [API Specs Index](docs/api/README.md) | Index for OpenAPI/AsyncAPI specs in `docs/api/` |
-| [Archived Reviews](docs/archive/reviews/) | Historical `/review` snapshots (may be stale vs current implementation) |
+
+### Specifications (prose)
+
+| Spec | Phase | Description |
+|------|-------|-------------|
+| [Signal Ingestion](docs/specs/signal-ingestion.md) | Implemented | Signal ingestion API, validation, idempotency |
+| [Signal Log](docs/specs/signal-log.md) | Implemented | Immutable signal storage, time-range queries, pagination |
+| [State Engine](docs/specs/state-engine.md) | Implemented | STATE engine, versioned learner state, optimistic locking |
+| [Decision Engine](docs/specs/decision-engine.md) | Implemented | Policy evaluation, deterministic decisions, trace provenance |
+| [Inspection API](docs/specs/inspection-api.md) | v1 — spec'd | Read-only query endpoints: ingestion log, state query, enriched decision trace |
+| [Inspection Panels](docs/specs/inspection-panels.md) | v1 — spec'd | 4 read-only panels: Signal Intake, State Viewer, Decision Stream, Decision Trace |
+| [Tenant Provisioning](docs/specs/tenant-provisioning.md) | v1.1 — spec'd | API key issuance, tenant onboarding, rate limits via API Gateway usage plans |
+| [AWS Deployment](docs/specs/aws-deployment.md) | v1.1 — spec'd | API Gateway + Lambda + DynamoDB serverless deployment (SAM) |
 
 ### API specifications (machine-readable)
 
@@ -208,60 +218,80 @@ tests/
 |------|-------------|
 | [OpenAPI](docs/api/openapi.yaml) | REST API contract (v1); interactive docs at `/docs` |
 | [AsyncAPI](docs/api/asyncapi.yaml) | Event contracts (e.g. `signal.ingested`, `decision.emitted`) |
+| [API Specs Index](docs/api/README.md) | Index for OpenAPI/AsyncAPI specs |
 
-### Specifications (prose)
+### Reports
 
-| Spec | Description |
-|------|-------------|
-| [Signal Ingestion](docs/specs/signal-ingestion.md) | Signal ingestion API specification |
-| [Signal Log](docs/specs/signal-log.md) | Immutable signal storage specification |
-| [State Engine](docs/specs/state-engine.md) | STATE engine specification (schemas, contracts, Phase 2 storage abstraction) |
-| [Decision Engine](docs/specs/decision-engine.md) | Decision engine specification (policy evaluation, deterministic decisions) |
+| Report | Description |
+|--------|-------------|
+| [Pilot Readiness v1 & v1.1](docs/reports/2026-02-20-pilot-readiness-v1-v1.1.md) | Pilot definition, 4-week v1 timeline, v1.1 concurrent-pilot requirements, reliability gates |
+| [POC v2 QA Execution](docs/reports/2026-02-18-poc-v2-qa-test-execution.md) | All 7 decision types verified with JSON trace evidence |
+| [POC v2 Policy Expansion](docs/reports/2026-02-17-poc-v2-policy-expansion.md) | 7-rule policy covering all decision types |
+| [POC v1 Summary](docs/reports/poc-v1-summary-report.md) | POC v1 completion summary: architecture, test coverage, live API evidence |
+
+### Testing
+
+| Document | Description |
+|----------|-------------|
+| [QA Testing POC v1](docs/testing/qa-test-pocv1.md) | Manual QA test cases (historical POC v1 policy) |
+| [QA Testing POC v2](docs/testing/qa-test-pocv2.md) | Manual QA test cases for current POC v2 policy |
+
+### Archive
+
+| Document | Description |
+|----------|-------------|
+| [Archived Reviews](docs/archive/reviews/) | Historical `/review` snapshots (may be stale vs current implementation) |
 
 ---
 
 ## Project Status
 
-This project is in **active development** (Phase 1). Four of five lifecycle stages are implemented and hardened through multiple review cycles. **343 tests passing** across 17 test files.
+**343 tests passing** across 17 test files. Full pipeline proven end-to-end: signal → validate → store → state accumulate → policy evaluate → decision with trace. All 7 decision types verified with JSON evidence.
 
-### Completed
-- [x] Component interface contracts
-- [x] Contract test matrix
-- [x] Interface validation ruleset
-- [x] Technology stack selection (TypeScript, Fastify, Ajv, Vitest)
-- [x] Project scaffolding
+> See [`docs/reports/2026-02-20-pilot-readiness-v1-v1.1.md`](docs/reports/2026-02-20-pilot-readiness-v1-v1.1.md) for the full pilot roadmap, timeline, and exit criteria.
+
+### Milestone Summary
+
+| Milestone | Target | Status |
+|-----------|--------|--------|
+| **POC v1** — single-rule pipeline | Feb 10 | Complete |
+| **POC v2** — 7-rule policy, all decision types | Feb 17 | Complete |
+| **POC v2 QA** — full test execution with JSON trace evidence | Feb 18 | Complete |
+| **v1: 1-Customer Pilot-Ready** — enriched trace + inspection panels + demo dataset | Week 4 | In progress (specs complete, build pending) |
+| **v1.1: 2-3 Concurrent Pilots** — AWS deployed + tenant provisioning + per-tenant policy | Week 6-7 | Spec'd (build follows v1) |
+
+### What's Built (POC v1 + v2)
+
 - [x] **Signal Ingestion** — POST `/v1/signals`, validation, forbidden key detection, idempotency
-- [x] Signal Envelope schema and Ajv validators
 - [x] **Signal Log** — append-only storage, time-range queries, pagination, org isolation
-- [x] **STATE Engine** — signal application, deep merge, optimistic locking, provenance tracking
-- [x] STATE Engine org-scoped queries (SQL-level isolation, DynamoDB-ready)
-- [x] Atomic `saveStateWithAppliedSignals` (state + applied_signals in single transaction)
-- [x] Contract tests for Signal Ingestion (SIG-API-001 through SIG-API-011)
-- [x] Contract tests for Signal Log (SIGLOG-001 through SIGLOG-010)
-- [x] Contract tests for STATE Engine (STATE-001 through STATE-014)
-- [x] Unit tests for all implemented components (state-engine, state-store, state-validator, signal-log-store, forbidden-keys, idempotency)
-- [x] API versioning (`/v1` prefix for signals and decisions)
-- [x] OpenAPI spec ([`docs/api/openapi.yaml`](docs/api/openapi.yaml)) and Swagger UI at `/docs`
-- [x] AsyncAPI spec ([`docs/api/asyncapi.yaml`](docs/api/asyncapi.yaml)) for event contracts
-- [x] `validate:api` script (Redocly lint for OpenAPI)
-- [x] Phase 2 storage abstraction documented (StateRepository interface, DynamoDB table designs, migration checklist)
-- [x] **Decision Engine** — Policy-driven evaluation, deterministic decisions, full trace provenance
-- [x] Decision JSON Schema and Ajv validator (`src/contracts/schemas/decision.json`)
-- [x] Contract tests for Decision Engine (DEC-001 through DEC-008)
-- [x] Unit tests for decision engine, store, validator, and policy loader
-- [x] E2E integration tests (signal ingestion → state → decision pipeline)
-- [x] `validate:contracts` script (JSON Schema ↔ OpenAPI ↔ AsyncAPI alignment)
-- [x] Contract drift prevention (automated detection in `npm run check`)
+- [x] **STATE Engine** — signal application, deep merge, optimistic locking, provenance tracking, atomic `saveStateWithAppliedSignals`
+- [x] **Decision Engine** — policy evaluation, deterministic decisions, full trace provenance
 - [x] **Policy Expansion** — POC v2 policy with 7 rules covering all decision types (`policy_version: "2.0.0"`)
-- [x] Output API — GET `/v1/decisions` exposes decisions (contract tests OUT-API-001 through OUT-API-003)
+- [x] **Output API** — GET `/v1/decisions` with trace (state_id, state_version, policy_version, matched_rule_id)
+- [x] **Contract System** — JSON Schemas, OpenAPI, AsyncAPI, Ajv validators, contract drift detection
+- [x] **343 tests** — unit, contract, integration, and drift detection across 17 files
 
-### Next Up
-- [ ] Repository Extraction — extract DecisionRepository interface for vendor-agnostic persistence ([`repository-extraction.plan.md`](.cursor/plans/repository-extraction.plan.md))
+### v1: 1-Customer Pilot-Ready (4 weeks)
 
-### Planned (Phase 2+)
-- [ ] Storage migration: SQLite → DynamoDB (StateRepository / SignalLogRepository adapter pattern)
-- [ ] AWS deployment (API Gateway + Lambda + DynamoDB)
-- [ ] EventBridge integration (Phase 3)
+- [ ] Decision Repository Extraction — vendor-agnostic persistence interface ([plan](.cursor/plans/repository-extraction.plan.md))
+- [ ] Inspection API — ingestion log, state query, enriched decision trace, decision stream metadata ([spec](docs/specs/inspection-api.md))
+- [ ] Inspection Panels — 4 read-only panels at `/inspect` ([spec](docs/specs/inspection-panels.md))
+- [ ] Demo seed script + rehearsal
+
+### v1.1: 2-3 Concurrent Pilots (+2-3 weeks after v1)
+
+- [ ] Remaining repository extractions — Idempotency ([plan](.cursor/plans/idempotency-repository-extraction.plan.md)), Signal Log ([plan](.cursor/plans/signal-log-repository-extraction.plan.md)), State ([plan](.cursor/plans/state-repository-extraction.plan.md))
+- [ ] Per-tenant policy lookup (`loadPolicy(orgId)` with default fallback)
+- [ ] AWS deployment — API Gateway + Lambda + DynamoDB ([spec](docs/specs/aws-deployment.md))
+- [ ] Tenant provisioning — API keys, rate limits, org enforcement ([spec](docs/specs/tenant-provisioning.md))
+
+### Deferred (Full Contract / Production)
+
+- [ ] JWT/OAuth authentication
+- [ ] EventBridge integration
+- [ ] Per-tenant field mappings
+- [ ] CI/CD pipeline
+- [ ] Multi-region deployment
 
 ---
 

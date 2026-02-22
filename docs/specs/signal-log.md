@@ -11,7 +11,7 @@ The Signal Log is an **immutable, append-only** storage layer that records all a
 ## API Endpoint
 
 ```
-GET /signals
+GET /v1/signals
 ```
 
 ### Request Schema: SignalLogReadRequest
@@ -130,7 +130,7 @@ The SignalRecord contains all fields from SignalEnvelope plus the `accepted_at` 
 
 ## Error Codes
 
-### Query Errors (GET /signals)
+### Query Errors (GET /v1/signals)
 
 | Code | Description | Example Trigger |
 |------|-------------|-----------------|
@@ -243,7 +243,7 @@ Validate query parameters:
 
 ### 4. Signal Log Handler (`src/signalLog/handler.ts`)
 
-Fastify route handler for `GET /signals`:
+Fastify route handler for `GET /v1/signals`:
 1. Parse and validate query parameters
 2. Query the signal log store
 3. Generate pagination token if more results
@@ -251,7 +251,7 @@ Fastify route handler for `GET /signals`:
 
 ### 5. Signal Log Routes (`src/signalLog/routes.ts`)
 
-Register `GET /signals` endpoint with Fastify.
+Register `GET /v1/signals` endpoint with Fastify.
 
 ### 6. Integration with Ingestion (`src/ingestion/handler.ts`)
 
@@ -288,7 +288,7 @@ src/
 ├── signalLog/
 │   ├── store.ts                      # SQLite storage layer
 │   ├── validator.ts                  # Query parameter validation
-│   ├── handler.ts                    # GET /signals handler
+│   ├── handler.ts                    # GET /v1/signals handler
 │   └── routes.ts                     # Fastify route registration
 ├── shared/
 │   ├── types.ts                      # Add SignalRecord, SignalLogRead* types
@@ -307,7 +307,7 @@ tests/
 
 Implementation is complete when:
 
-- [ ] `GET /signals` returns SignalLogReadResponse for valid queries
+- [ ] `GET /v1/signals` returns SignalLogReadResponse for valid queries
 - [ ] Time range validation enforces `from_time <= to_time`
 - [ ] page_size validation enforces 1-1000 bounds
 - [ ] Pagination returns stable, deterministic results
@@ -326,7 +326,7 @@ Implementation is complete when:
 
 ### Receives From
 
-- **Signal Ingestion** (`POST /signals`) - Accepted signals are forwarded here
+- **Signal Ingestion** (`POST /v1/signals`) - Accepted signals are forwarded here
 
 ### Feeds Into
 
