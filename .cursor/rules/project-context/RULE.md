@@ -53,6 +53,12 @@ npm run check              # build → validate:schemas → validate:contracts �
 
 ## Architecture
 
+## Planning Entry Point
+
+- **Roadmap (living anchor):** `docs/foundation/roadmap.md`
+- **Execution plans:** `.cursor/plans/`
+- **Rule of thumb:** specs define *what*, plans define *how*, reports define *why/when*.
+
 ### Source Structure (`src/`)
 
 | Folder | Purpose |
@@ -68,7 +74,7 @@ npm run check              # build → validate:schemas → validate:contracts �
 ### Data Flow
 
 ```
-External System → POST /signals → Ingestion → Signal Log → STATE Engine → Decision Engine → GET /decisions
+External System → POST /v1/signals → Ingestion → Signal Log → STATE Engine → Decision Engine → GET /v1/decisions
 ```
 
 ### Key Properties
@@ -136,6 +142,7 @@ For exploring existing code, use `/extract-spec`.
 |------|---------|
 | `docs/foundation/architecture.md` | System architecture overview |
 | `docs/foundation/setup.md` | Environment setup guide |
+| `docs/foundation/roadmap.md` | Planning entry point (latest roadmap snapshot + execution plans) |
 | `docs/foundation/[POC Playbook]...Interface Contracts.md` | JSON schemas for all interfaces |
 | `docs/foundation/[POC Playbook]...Contract Test Matrix.md` | Required contract tests |
 | `docs/foundation/[POC Playbook]...Validation Ruleset.md` | Validation rules and forbidden keys |

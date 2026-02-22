@@ -1,6 +1,8 @@
 # Setup Local Dev
 How to set up, scaffold, run, test, and validate the 8P3P Control Layer locally.
 
+**Roadmap entry point:** [`docs/foundation/roadmap.md`](roadmap.md).
+
 ---
 
 ## Current State

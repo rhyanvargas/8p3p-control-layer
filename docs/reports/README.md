@@ -6,6 +6,8 @@ This folder contains narrative **evidence and milestone reports**. These are not
 
 - [`2026-02-20-pilot-readiness-v1-v1.1.md`](2026-02-20-pilot-readiness-v1-v1.1.md) — Pilot readiness definition, v1 timeline, v1.1 multi-pilot requirements
 
+> Planning entry point: [`docs/foundation/roadmap.md`](../foundation/roadmap.md)
+
 ## POC Evidence
 
 - [`2026-02-18-poc-v2-qa-test-execution.md`](2026-02-18-poc-v2-qa-test-execution.md) — POC v2 QA execution with JSON trace evidence

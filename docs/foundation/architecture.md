@@ -1,5 +1,7 @@
 # 8P3P Control Layer Architecture
 
+**Roadmap entry point:** [`docs/foundation/roadmap.md`](roadmap.md) (links to the latest dated roadmap snapshot + active plans).
+
 ## System Architecture Diagram
 
 ```mermaid

@@ -193,6 +193,7 @@ tests/
 |----------|-------------|
 | [Architecture](docs/foundation/architecture.md) | System architecture and data flow |
 | [Setup](docs/foundation/setup.md) | Environment and runbook |
+| [Roadmap (Living Anchor)](docs/foundation/roadmap.md) | Stable entry point for planning (links to latest dated roadmap + plans) |
 | [Solo Dev Execution Playbook (Archived)](docs/archive/playbooks/solo-dev-execution-playbook.md) | Historical milestone-driven build plan and migration checklist |
 | [IP Defensibility & Value Proposition](docs/foundation/ip-defensibility-and-value-proposition.md) | Competitive moat analysis and value differentiation |
 | [Component Interface Contracts](<docs/foundation/[POC Playbook] 8P3P Learning Intelligence Control Layer-Component Interface Contracts.md>) | Complete API and event schemas |
