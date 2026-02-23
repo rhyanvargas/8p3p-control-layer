@@ -4,7 +4,9 @@ import swaggerUi from '@fastify/swagger-ui';
 import { fileURLToPath } from 'url';
 import { dirname, join, resolve } from 'path';
 import { registerIngestionRoutes } from './ingestion/routes.js';
+import { registerStateRoutes } from './state/routes.js';
 import { initIdempotencyStore, closeIdempotencyStore } from './ingestion/idempotency.js';
+import { initIngestionLogStore, closeIngestionLogStore } from './ingestion/ingestion-log-store.js';
 import { registerSignalLogRoutes } from './signalLog/routes.js';
 import { initSignalLogStore, closeSignalLogStore } from './signalLog/store.js';
 import { initStateStore, closeStateStore } from './state/store.js';
@@ -42,6 +44,15 @@ try {
 }
 
 initSignalLogStore(signalLogDbPath);
+
+// Ingestion log (Inspection API)
+const ingestionLogDbPath = process.env.INGESTION_LOG_DB_PATH ?? './data/ingestion-log.db';
+try {
+  mkdirSync(dirname(ingestionLogDbPath), { recursive: true });
+} catch {
+  // Directory may already exist
+}
+initIngestionLogStore(ingestionLogDbPath);
 
 // Ensure STATE store data directory exists
 try {
@@ -88,7 +99,7 @@ server.get('/', async () => {
   return {
     name: '8P3P Control Layer',
     version: '0.1.0',
-    endpoints: ['/health', '/v1/signals', '/v1/decisions', '/docs']
+    endpoints: ['/health', '/v1/signals', '/v1/ingestion', '/v1/state', '/v1/state/list', '/v1/decisions', '/docs']
   };
 });
 
@@ -100,6 +111,7 @@ server.get('/health', async () => {
 server.register(async (v1) => {
   v1.addHook('preHandler', apiKeyPreHandler);
   registerIngestionRoutes(v1);
+  registerStateRoutes(v1);
   registerSignalLogRoutes(v1);
   registerDecisionRoutes(v1);
 }, { prefix: '/v1' });
@@ -109,6 +121,7 @@ server.addHook('onClose', () => {
   closeDecisionStore();
   closeStateStore();
   closeSignalLogStore();
+  closeIngestionLogStore();
   closeIdempotencyStore();
 });
 

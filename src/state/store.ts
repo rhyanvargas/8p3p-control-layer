@@ -9,7 +9,7 @@
  */
 
 import Database from 'better-sqlite3';
-import type { LearnerState } from '../shared/types.js';
+import type { LearnerState, StateSummary } from '../shared/types.js';
 import { ErrorCodes } from '../shared/error-codes.js';
 
 let db: Database.Database | null = null;
@@ -310,6 +310,98 @@ export function clearStateStore(): void {
   }
   db.exec('DELETE FROM applied_signals');
   db.exec('DELETE FROM learner_state');
+}
+
+/**
+ * List learners for an org with latest state version per learner.
+ * Keyset pagination: cursor encodes (updated_at, learner_reference) for resume.
+ * Order: updated_at DESC, learner_reference ASC.
+ *
+ * @param orgId - Tenant identifier
+ * @param limit - Max results (1–500)
+ * @param cursor - Opaque pagination cursor (optional)
+ * @returns Learners and next_cursor for pagination
+ */
+export function listLearners(
+  orgId: string,
+  limit: number,
+  cursor?: string
+): { learners: StateSummary[]; nextCursor: string | null } {
+  if (!db) {
+    throw new Error('STATE store not initialized. Call initStateStore first.');
+  }
+
+  const cappedLimit = Math.min(Math.max(1, limit), 500);
+  const { cursorUpdatedAt, cursorLearnerRef } = decodeListCursor(cursor);
+
+  const stmt = db.prepare(`
+    SELECT ls.learner_reference, ls.state_version, ls.updated_at
+    FROM learner_state ls
+    INNER JOIN (
+      SELECT org_id, learner_reference, MAX(state_version) AS max_version
+      FROM learner_state
+      WHERE org_id = ?
+      GROUP BY org_id, learner_reference
+    ) latest
+      ON ls.org_id = latest.org_id
+      AND ls.learner_reference = latest.learner_reference
+      AND ls.state_version = latest.max_version
+    WHERE ls.org_id = ?
+      AND (
+        ls.updated_at < ?
+        OR (ls.updated_at = ? AND ls.learner_reference > ?)
+      )
+    ORDER BY ls.updated_at DESC, ls.learner_reference ASC
+    LIMIT ?
+  `);
+
+  const rows = stmt.all(
+    orgId,
+    orgId,
+    cursorUpdatedAt ?? '\uffff',
+    cursorUpdatedAt ?? '\uffff',
+    cursorLearnerRef ?? '',
+    cappedLimit + 1
+  ) as Array<{ learner_reference: string; state_version: number; updated_at: string }>;
+
+  const learners = rows.slice(0, cappedLimit).map((r) => ({
+    learner_reference: r.learner_reference,
+    state_version: r.state_version,
+    updated_at: r.updated_at,
+  }));
+
+  const nextCursor =
+    rows.length > cappedLimit
+      ? encodeListCursor(rows[cappedLimit - 1]!.updated_at, rows[cappedLimit - 1]!.learner_reference)
+      : null;
+
+  return { learners, nextCursor };
+}
+
+/**
+ * Decode list cursor to (updated_at, learner_reference) for keyset pagination.
+ */
+function decodeListCursor(
+  cursor: string | undefined
+): { cursorUpdatedAt: string | null; cursorLearnerRef: string | null } {
+  if (!cursor) return { cursorUpdatedAt: null, cursorLearnerRef: null };
+  try {
+    const decoded = Buffer.from(cursor, 'base64url').toString('utf-8');
+    const parsed = JSON.parse(decoded) as unknown;
+    if (Array.isArray(parsed) && parsed.length >= 2 && typeof parsed[0] === 'string' && typeof parsed[1] === 'string') {
+      return { cursorUpdatedAt: parsed[0], cursorLearnerRef: parsed[1] };
+    }
+  } catch {
+    /* ignore */
+  }
+  return { cursorUpdatedAt: null, cursorLearnerRef: null };
+}
+
+/**
+ * Encode (updated_at, learner_reference) to opaque cursor.
+ */
+function encodeListCursor(updatedAt: string, learnerReference: string): string {
+  return Buffer.from(JSON.stringify([updatedAt, learnerReference]), 'utf-8').toString('base64url');
 }
 
 /**

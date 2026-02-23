@@ -51,6 +51,11 @@ const MAPPING: ContractMapping[] = [
     openapiPath: 'SignalEnvelope',
     asyncapiPath: 'Signal',
   },
+  {
+    jsonSchemaId: 'ingestion-outcome',
+    openapiPath: 'IngestionOutcome',
+    asyncapiPath: 'IngestionOutcome',
+  },
 ];
 
 // ---------------------------------------------------------------------------

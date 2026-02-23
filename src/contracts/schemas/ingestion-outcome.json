@@ -1,0 +1,57 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "ingestion-outcome",
+  "title": "IngestionOutcome",
+  "description": "Single ingestion attempt outcome (accepted, rejected, duplicate) from the ingestion log",
+  "type": "object",
+  "required": [
+    "signal_id",
+    "source_system",
+    "learner_reference",
+    "timestamp",
+    "schema_version",
+    "outcome",
+    "received_at"
+  ],
+  "properties": {
+    "signal_id": {
+      "type": "string",
+      "description": "Signal identifier (may be empty if missing from request)"
+    },
+    "source_system": {
+      "type": "string",
+      "description": "Source system (may be empty if missing)"
+    },
+    "learner_reference": {
+      "type": "string",
+      "description": "Learner reference (may be empty if missing)"
+    },
+    "timestamp": {
+      "type": "string",
+      "description": "Signal timestamp as provided"
+    },
+    "schema_version": {
+      "type": "string",
+      "description": "Schema version as provided"
+    },
+    "outcome": {
+      "type": "string",
+      "enum": ["accepted", "rejected", "duplicate"],
+      "description": "Ingestion outcome"
+    },
+    "received_at": {
+      "type": "string",
+      "description": "When the ingestion attempt was processed (RFC3339)"
+    },
+    "rejection_reason": {
+      "type": ["object", "null"],
+      "description": "Present only when outcome is rejected",
+      "properties": {
+        "code": { "type": "string" },
+        "message": { "type": "string" },
+        "field_path": { "type": "string" }
+      }
+    }
+  },
+  "additionalProperties": false
+}

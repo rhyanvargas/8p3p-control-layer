@@ -76,6 +76,53 @@ export interface IdempotencyResult {
 }
 
 // =============================================================================
+// Ingestion Log Types (Inspection API)
+// =============================================================================
+
+/** Outcome of an ingestion attempt */
+export type IngestionOutcomeType = 'accepted' | 'rejected' | 'duplicate';
+
+/** Entry to append to the ingestion log */
+export interface IngestionOutcomeEntry {
+  org_id: string;
+  signal_id: string;
+  source_system: string;
+  learner_reference: string;
+  timestamp: string;
+  schema_version: string;
+  outcome: IngestionOutcomeType;
+  received_at: string;
+  rejection_reason?: RejectionReason | null;
+}
+
+/** Single ingestion outcome as returned from the log */
+export interface IngestionOutcome {
+  signal_id: string;
+  source_system: string;
+  learner_reference: string;
+  timestamp: string;
+  schema_version: string;
+  outcome: IngestionOutcomeType;
+  received_at: string;
+  rejection_reason: RejectionReason | null;
+}
+
+/** Request for GET /v1/ingestion */
+export interface GetIngestionOutcomesRequest {
+  org_id: string;
+  limit?: number;
+  outcome?: IngestionOutcomeType;
+  cursor?: string;
+}
+
+/** Response from GET /v1/ingestion */
+export interface IngestionLogResponse {
+  org_id: string;
+  entries: IngestionOutcome[];
+  next_cursor: string | null;
+}
+
+// =============================================================================
 // Signal Log Types (Stage 2)
 // =============================================================================
 
@@ -155,6 +202,13 @@ export interface LearnerState {
   updated_at: string;
   state: Record<string, unknown>;
   provenance: StateProvenance;
+}
+
+/** Lightweight learner summary for GET /v1/state/list */
+export interface StateSummary {
+  learner_reference: string;
+  state_version: number;
+  updated_at: string;
 }
 
 /**

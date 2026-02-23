@@ -15,6 +15,7 @@ import {
   isSignalApplied,
   recordAppliedSignals,
   getStateStoreDatabase,
+  listLearners,
   StateVersionConflictError,
 } from '../../src/state/store.js';
 import type { LearnerState } from '../../src/shared/types.js';
@@ -284,6 +285,143 @@ describe('STATE Store', () => {
     });
   });
 
+  describe('listLearners', () => {
+    it('should return empty array when no learners exist', () => {
+      const { learners, nextCursor } = listLearners('test-org', 50);
+      expect(learners).toEqual([]);
+      expect(nextCursor).toBeNull();
+    });
+
+    it('should return distinct learners with latest state_version per learner', () => {
+      saveState(
+        createState({
+          learner_reference: 'L1',
+          state_id: 'test-org:L1:v1',
+          state_version: 1,
+          updated_at: '2026-02-07T10:00:00Z',
+        })
+      );
+      saveState(
+        createState({
+          learner_reference: 'L1',
+          state_id: 'test-org:L1:v2',
+          state_version: 2,
+          updated_at: '2026-02-07T11:00:00Z',
+        })
+      );
+      saveState(
+        createState({
+          learner_reference: 'L2',
+          state_id: 'test-org:L2:v1',
+          state_version: 1,
+          updated_at: '2026-02-07T09:00:00Z',
+        })
+      );
+
+      const { learners, nextCursor } = listLearners('test-org', 50);
+      expect(learners).toHaveLength(2);
+      expect(learners.map((l) => l.learner_reference).sort()).toEqual(['L1', 'L2']);
+      expect(learners.find((l) => l.learner_reference === 'L1')).toMatchObject({
+        learner_reference: 'L1',
+        state_version: 2,
+        updated_at: '2026-02-07T11:00:00Z',
+      });
+      expect(learners.find((l) => l.learner_reference === 'L2')).toMatchObject({
+        learner_reference: 'L2',
+        state_version: 1,
+        updated_at: '2026-02-07T09:00:00Z',
+      });
+      expect(nextCursor).toBeNull();
+    });
+
+    it('should order by updated_at DESC, learner_reference ASC', () => {
+      saveState(
+        createState({
+          learner_reference: 'L-A',
+          state_id: 'test-org:L-A:v1',
+          state_version: 1,
+          updated_at: '2026-02-07T10:00:00Z',
+        })
+      );
+      saveState(
+        createState({
+          learner_reference: 'L-B',
+          state_id: 'test-org:L-B:v1',
+          state_version: 1,
+          updated_at: '2026-02-07T10:00:00Z',
+        })
+      );
+      saveState(
+        createState({
+          learner_reference: 'L-C',
+          state_id: 'test-org:L-C:v1',
+          state_version: 1,
+          updated_at: '2026-02-07T11:00:00Z',
+        })
+      );
+
+      const { learners } = listLearners('test-org', 50);
+      expect(learners.map((l) => l.learner_reference)).toEqual(['L-C', 'L-A', 'L-B']);
+    });
+
+    it('should respect limit and return nextCursor when more results exist', () => {
+      saveState(
+        createState({
+          learner_reference: 'L1',
+          state_id: 'test-org:L1:v1',
+          state_version: 1,
+          updated_at: '2026-02-07T10:00:00Z',
+        })
+      );
+      saveState(
+        createState({
+          learner_reference: 'L2',
+          state_id: 'test-org:L2:v1',
+          state_version: 1,
+          updated_at: '2026-02-07T09:00:00Z',
+        })
+      );
+      saveState(
+        createState({
+          learner_reference: 'L3',
+          state_id: 'test-org:L3:v1',
+          state_version: 1,
+          updated_at: '2026-02-07T08:00:00Z',
+        })
+      );
+
+      const page1 = listLearners('test-org', 2);
+      expect(page1.learners).toHaveLength(2);
+      expect(page1.nextCursor).not.toBeNull();
+
+      const page2 = listLearners('test-org', 2, page1.nextCursor!);
+      expect(page2.learners).toHaveLength(1);
+      expect(page2.nextCursor).toBeNull();
+    });
+
+    it('should scope by org_id', () => {
+      saveState(
+        createState({ org_id: 'org-A', learner_reference: 'L1', state_id: 'org-A:L1:v1', state_version: 1 })
+      );
+      saveState(
+        createState({ org_id: 'org-B', learner_reference: 'L2', state_id: 'org-B:L2:v1', state_version: 1 })
+      );
+
+      const { learners: orgA } = listLearners('org-A', 50);
+      const { learners: orgB } = listLearners('org-B', 50);
+      expect(orgA).toHaveLength(1);
+      expect(orgB).toHaveLength(1);
+      expect(orgA[0]!.learner_reference).toBe('L1');
+      expect(orgB[0]!.learner_reference).toBe('L2');
+    });
+
+    it('should cap limit at 500', () => {
+      const { learners } = listLearners('test-org', 999);
+      expect(learners).toEqual([]);
+      // No throw; limit is capped internally
+    });
+  });
+
   describe('errors when store not initialized', () => {
     it('should throw when getState called without init', () => {
       closeStateStore();
@@ -298,6 +436,11 @@ describe('STATE Store', () => {
     it('should throw when clearStateStore called without init', () => {
       closeStateStore();
       expect(() => clearStateStore()).toThrow('STATE store not initialized');
+    });
+
+    it('should throw when listLearners called without init', () => {
+      closeStateStore();
+      expect(() => listLearners('test-org', 50)).toThrow('STATE store not initialized');
     });
   });
 });

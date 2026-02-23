@@ -4,18 +4,61 @@
  */
 
 import type { FastifyRequest, FastifyReply } from 'fastify';
-import type { SignalEnvelope, SignalIngestResult, EvaluateStateForDecisionRequest } from '../shared/types.js';
+import type {
+  SignalEnvelope,
+  SignalIngestResult,
+  EvaluateStateForDecisionRequest,
+  IngestionOutcomeEntry,
+  RejectionReason,
+} from '../shared/types.js';
 import { ErrorCodes } from '../shared/error-codes.js';
 import { validateSignalEnvelope } from '../contracts/validators/signal-envelope.js';
 import { detectForbiddenKeys } from './forbidden-keys.js';
 import { checkAndStore } from './idempotency.js';
 import { appendSignal } from '../signalLog/store.js';
+import { appendIngestionOutcome } from './ingestion-log-store.js';
 import { applySignals, type ApplySignalsOutcome } from '../state/engine.js';
 import { evaluateState } from '../decision/engine.js';
 
 /**
+ * Log ingestion outcome to the ingestion log. Must not fail signal acceptance (spec §1.4).
+ */
+function logIngestionOutcome(
+  entry: IngestionOutcomeEntry,
+  log: { warn?: (obj: unknown, msg: string) => void }
+): void {
+  try {
+    appendIngestionOutcome(entry);
+  } catch (err) {
+    log?.warn?.({ err, org_id: entry.org_id, signal_id: entry.signal_id }, 'appendIngestionOutcome failed; signal response unchanged');
+  }
+}
+
+/**
+ * Build IngestionOutcomeEntry from partial request body and result
+ */
+function buildOutcomeEntry(
+  body: Partial<SignalEnvelope> | null,
+  outcome: 'accepted' | 'rejected' | 'duplicate',
+  receivedAt: string,
+  rejectionReason?: RejectionReason
+): IngestionOutcomeEntry {
+  return {
+    org_id: body?.org_id ?? '',
+    signal_id: body?.signal_id ?? '',
+    source_system: body?.source_system ?? '',
+    learner_reference: body?.learner_reference ?? '',
+    timestamp: body?.timestamp ?? '',
+    schema_version: body?.schema_version ?? '',
+    outcome,
+    received_at: receivedAt,
+    rejection_reason: rejectionReason ?? null,
+  };
+}
+
+/**
  * Handle POST /signals request
- * 
+ *
  * Validation pipeline (in order):
  * 1. Structural validation with Ajv
  * 2. Forbidden key detection in payload
@@ -35,11 +78,14 @@ export async function handleSignalIngestion(
   const validationResult = validateSignalEnvelope(body);
   
   if (!validationResult.valid) {
-    const firstError = validationResult.errors[0];
-    
-    // Cast to get org_id and signal_id if they exist (for response)
+    const firstError = validationResult.errors[0]!;
     const partialSignal = body as Partial<SignalEnvelope> | null;
-    
+
+    logIngestionOutcome(
+      buildOutcomeEntry(partialSignal, 'rejected', receivedAt, firstError),
+      request.log ?? {}
+    );
+
     const result: SignalIngestResult = {
       org_id: partialSignal?.org_id ?? '',
       signal_id: partialSignal?.signal_id ?? '',
@@ -47,7 +93,7 @@ export async function handleSignalIngestion(
       received_at: receivedAt,
       rejection_reason: firstError,
     };
-    
+
     reply.status(400);
     return result;
   }
@@ -59,18 +105,25 @@ export async function handleSignalIngestion(
   const forbiddenKey = detectForbiddenKeys(signal.payload, 'payload');
   
   if (forbiddenKey) {
+    const rejectionReason = {
+      code: ErrorCodes.FORBIDDEN_SEMANTIC_KEY_DETECTED,
+      message: `Forbidden semantic key '${forbiddenKey.key}' detected in payload`,
+      field_path: forbiddenKey.path,
+    };
+
+    logIngestionOutcome(
+      buildOutcomeEntry(signal, 'rejected', receivedAt, rejectionReason),
+      request.log ?? {}
+    );
+
     const result: SignalIngestResult = {
       org_id: signal.org_id,
       signal_id: signal.signal_id,
       status: 'rejected',
       received_at: receivedAt,
-      rejection_reason: {
-        code: ErrorCodes.FORBIDDEN_SEMANTIC_KEY_DETECTED,
-        message: `Forbidden semantic key '${forbiddenKey.key}' detected in payload`,
-        field_path: forbiddenKey.path,
-      },
+      rejection_reason: rejectionReason,
     };
-    
+
     reply.status(400);
     return result;
   }
@@ -79,13 +132,20 @@ export async function handleSignalIngestion(
   const idempotencyResult = checkAndStore(signal.org_id, signal.signal_id);
   
   if (idempotencyResult.isDuplicate) {
+    const dupReceivedAt = idempotencyResult.receivedAt ?? receivedAt;
+
+    logIngestionOutcome(
+      buildOutcomeEntry(signal, 'duplicate', dupReceivedAt),
+      request.log ?? {}
+    );
+
     const result: SignalIngestResult = {
       org_id: signal.org_id,
       signal_id: signal.signal_id,
       status: 'duplicate',
-      received_at: idempotencyResult.receivedAt ?? receivedAt,
+      received_at: dupReceivedAt,
     };
-    
+
     // Duplicates return 200 OK per spec (not an error, just idempotent)
     reply.status(200);
     return result;
@@ -147,13 +207,18 @@ export async function handleSignalIngestion(
   }
 
   // Step 5: Success - signal accepted (200 per OpenAPI: "Signal accepted or duplicate")
+  logIngestionOutcome(
+    buildOutcomeEntry(signal, 'accepted', acceptedAt),
+    request.log ?? {}
+  );
+
   const result: SignalIngestResult = {
     org_id: signal.org_id,
     signal_id: signal.signal_id,
     status: 'accepted',
     received_at: acceptedAt,
   };
-  
+
   reply.status(200);
   return result;
 }

@@ -147,6 +147,190 @@ paths:
               schema:
                 $ref: '#/components/schemas/SignalLogError'
 
+  /v1/ingestion:
+    get:
+      operationId: getIngestionOutcomes
+      summary: Query ingestion outcomes
+      description: |
+        Read-only query over all ingestion attempts (accepted, rejected, duplicate),
+        including validation failures. Inspection API. See docs/specs/inspection-api.md §1.
+      parameters:
+        - name: org_id
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 128
+          description: Organization identifier
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+            default: 50
+          description: Results per page (1-500)
+        - name: outcome
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [accepted, rejected, duplicate]
+          description: Optional outcome filter
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Opaque pagination cursor from previous response
+      responses:
+        '200':
+          description: Ingestion outcomes for org (most recent first)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IngestionLogResponse'
+        '400':
+          description: Invalid query (org_id, limit, outcome, cursor)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IngestionError'
+        '401':
+          description: Unauthorized (missing or invalid API key)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: string
+                    enum: [api_key_required, api_key_invalid]
+                  message:
+                    type: string
+
+  /v1/state:
+    get:
+      operationId: getState
+      summary: Get learner state
+      description: |
+        Read-only query for a learner's current or historical state.
+        Inspection API. See docs/specs/inspection-api.md §2.
+      parameters:
+        - name: org_id
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 128
+          description: Organization identifier
+        - name: learner_reference
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 256
+          description: Learner identifier
+        - name: version
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+          description: Specific state version; omit for current (latest)
+      responses:
+        '200':
+          description: Learner state (current or requested version)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LearnerState'
+        '400':
+          description: Invalid query (org_id, learner_reference)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StateError'
+        '401':
+          description: Unauthorized (missing or invalid API key)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: string
+                    enum: [api_key_required, api_key_invalid]
+                  message:
+                    type: string
+        '404':
+          description: No state for learner, or requested version not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StateError'
+
+  /v1/state/list:
+    get:
+      operationId: listLearners
+      summary: List learners for an org
+      description: |
+        Lightweight listing of learners with state. Paginated.
+        Inspection API. See docs/specs/inspection-api.md §2.2.
+      parameters:
+        - name: org_id
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 128
+          description: Organization identifier
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+            default: 50
+          description: Results per page (1-500)
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Opaque pagination cursor from previous response
+      responses:
+        '200':
+          description: Learner index
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StateSummaryListResponse'
+        '400':
+          description: Invalid query (org_id, limit)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StateError'
+        '401':
+          description: Unauthorized (missing or invalid API key)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: string
+                    enum: [api_key_required, api_key_invalid]
+                  message:
+                    type: string
+
   /v1/decisions:
     get:
       operationId: getDecisions
@@ -377,6 +561,164 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/RejectionReason'
+
+    # ---------------------------------------------------------------------------
+    # Ingestion Outcome Log (GET /v1/ingestion) — Inspection API
+    # Aligned with src/contracts/schemas/ingestion-outcome.json
+    # ---------------------------------------------------------------------------
+    IngestionOutcome:
+      type: object
+      required:
+        - signal_id
+        - source_system
+        - learner_reference
+        - timestamp
+        - schema_version
+        - outcome
+        - received_at
+      additionalProperties: false
+      properties:
+        signal_id:
+          type: string
+          description: Signal identifier (may be empty if missing from request)
+        source_system:
+          type: string
+          description: Source system (may be empty if missing)
+        learner_reference:
+          type: string
+          description: Learner reference (may be empty if missing)
+        timestamp:
+          type: string
+          description: Signal timestamp as provided
+        schema_version:
+          type: string
+          description: Schema version as provided
+        outcome:
+          type: string
+          enum: [accepted, rejected, duplicate]
+          description: Ingestion outcome
+        received_at:
+          type: string
+          description: When the ingestion attempt was processed (RFC3339)
+        rejection_reason:
+          type: ['object', 'null']
+          description: Present only when outcome is rejected
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            field_path:
+              type: string
+
+    IngestionLogResponse:
+      type: object
+      required:
+        - org_id
+        - entries
+        - next_cursor
+      properties:
+        org_id:
+          type: string
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/IngestionOutcome'
+        next_cursor:
+          type: ['string', 'null']
+
+    IngestionError:
+      type: object
+      properties:
+        code:
+          type: string
+          description: Error code (e.g. org_scope_required, missing_required_field, invalid_outcome_filter, limit_out_of_range)
+        message:
+          type: string
+        field_path:
+          type: string
+
+    # ---------------------------------------------------------------------------
+    # State Query (GET /v1/state, GET /v1/state/list) — Inspection API
+    # ---------------------------------------------------------------------------
+    LearnerState:
+      type: object
+      required:
+        - org_id
+        - learner_reference
+        - state_id
+        - state_version
+        - updated_at
+        - state
+        - provenance
+      properties:
+        org_id:
+          type: string
+        learner_reference:
+          type: string
+        state_id:
+          type: string
+        state_version:
+          type: integer
+        updated_at:
+          type: string
+          description: RFC3339
+        state:
+          type: object
+          description: Opaque state payload
+        provenance:
+          type: object
+          required:
+            - last_signal_id
+            - last_signal_timestamp
+          properties:
+            last_signal_id:
+              type: string
+            last_signal_timestamp:
+              type: string
+              description: RFC3339
+
+    StateSummary:
+      type: object
+      required:
+        - learner_reference
+        - state_version
+        - updated_at
+      properties:
+        learner_reference:
+          type: string
+        state_version:
+          type: integer
+        updated_at:
+          type: string
+          description: RFC3339
+
+    StateSummaryListResponse:
+      type: object
+      required:
+        - org_id
+        - learners
+        - next_cursor
+      properties:
+        org_id:
+          type: string
+        learners:
+          type: array
+          items:
+            $ref: '#/components/schemas/StateSummary'
+        next_cursor:
+          type: ['string', 'null']
+
+    StateError:
+      type: object
+      properties:
+        code:
+          type: string
+          description: Error code (e.g. org_scope_required, missing_required_field, state_not_found, state_version_not_found, limit_out_of_range)
+        message:
+          type: string
+        field_path:
+          type: string
 
     # ---------------------------------------------------------------------------
     # Decision Output (GET /v1/decisions)

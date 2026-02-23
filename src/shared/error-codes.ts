@@ -106,6 +106,19 @@ export const ErrorCodes = {
 
   /** API key does not match */
   API_KEY_INVALID: 'api_key_invalid',
+
+  // ==========================================================================
+  // Inspection API (v1 pilot)
+  // ==========================================================================
+
+  /** Requested state version does not exist for this learner */
+  STATE_VERSION_NOT_FOUND: 'state_version_not_found',
+
+  /** outcome parameter is not one of: accepted, rejected, duplicate */
+  INVALID_OUTCOME_FILTER: 'invalid_outcome_filter',
+
+  /** limit parameter is 0, negative, or > 500 */
+  LIMIT_OUT_OF_RANGE: 'limit_out_of_range',
 } as const;
 
 export type ErrorCode = typeof ErrorCodes[keyof typeof ErrorCodes];

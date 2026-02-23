@@ -4,22 +4,22 @@ overview: "Implement the Inspection API per docs/specs/inspection-api.md: (1) in
 todos:
   - id: TASK-001
     content: Add new error codes (state_version_not_found, invalid_outcome_filter, limit_out_of_range)
-    status: pending
+    status: completed
   - id: TASK-002
     content: Create ingestion-log-store.ts with schema, appendIngestionOutcome(), getIngestionOutcomes()
-    status: pending
+    status: completed
   - id: TASK-003
     content: Create ingestion-log-handler.ts and register GET /v1/ingestion route
-    status: pending
+    status: completed
   - id: TASK-004
     content: Modify ingestion handler to call appendIngestionOutcome() in all 3 paths
-    status: pending
+    status: completed
   - id: TASK-005
     content: Add listLearners() to state store for GET /v1/state/list
-    status: pending
+    status: completed
   - id: TASK-006
     content: Create state handler and routes for GET /v1/state and GET /v1/state/list
-    status: pending
+    status: completed
   - id: TASK-007
     content: Extend policy-loader evaluatePolicy to return evaluated_fields and matched_rule
     status: pending
@@ -57,7 +57,7 @@ Before starting implementation:
 
 ### TASK-001: Add new error codes
 
-- **Status**: pending
+- **Status**: completed
 - **Files**: `src/shared/error-codes.ts`
 - **Action**: Modify
 - **Depends on**: none
@@ -71,7 +71,7 @@ Before starting implementation:
 
 ### TASK-002: Create ingestion-log-store.ts
 
-- **Status**: pending
+- **Status**: completed
 - **Files**: `src/ingestion/ingestion-log-store.ts`
 - **Action**: Create
 - **Depends on**: TASK-001
@@ -88,7 +88,7 @@ Before starting implementation:
 
 ### TASK-003: Create ingestion-log-handler.ts and register route
 
-- **Status**: pending
+- **Status**: completed
 - **Files**: `src/ingestion/ingestion-log-handler.ts`, `src/ingestion/routes.ts`, `src/server.ts`
 - **Action**: Create | Modify
 - **Depends on**: TASK-002
@@ -106,7 +106,7 @@ Before starting implementation:
 
 ### TASK-004: Modify ingestion handler to call appendIngestionOutcome()
 
-- **Status**: pending
+- **Status**: completed
 - **Files**: `src/ingestion/handler.ts`
 - **Depends on**: TASK-002
 - **Details**:
@@ -121,7 +121,7 @@ Before starting implementation:
 
 ### TASK-005: Add listLearners() to state store
 
-- **Status**: pending
+- **Status**: completed
 - **Files**: `src/state/store.ts`
 - **Action**: Modify
 - **Depends on**: none
@@ -136,7 +136,7 @@ Before starting implementation:
 
 ### TASK-006: Create state handler and routes
 
-- **Status**: pending
+- **Status**: completed
 - **Files**: `src/state/handler.ts`, `src/state/routes.ts`, `src/server.ts`
 - **Action**: Create | Modify
 - **Depends on**: TASK-005
