@@ -13,6 +13,8 @@ import type {
   ConditionNode,
   PolicyDefinition,
   PolicyEvaluationResult,
+  EvaluatedField,
+  MatchedRule,
 } from '../shared/types.js';
 import { DECISION_TYPES } from '../shared/types.js';
 import { ErrorCodes } from '../shared/error-codes.js';
@@ -178,8 +180,26 @@ function validatePolicyStructure(raw: unknown): asserts raw is PolicyDefinition 
  * - any: at least one child true (short-circuit on true).
  */
 export function evaluateCondition(state: Record<string, unknown>, node: ConditionNode): boolean {
+  return evaluateConditionCollecting(state, node, []);
+}
+
+/**
+ * Evaluates condition and collects EvaluatedField for each leaf evaluated.
+ * Used by evaluatePolicy to build matched_rule.evaluated_fields.
+ */
+function evaluateConditionCollecting(
+  state: Record<string, unknown>,
+  node: ConditionNode,
+  collected: EvaluatedField[]
+): boolean {
   if (isConditionLeaf(node)) {
     const raw = state[node.field];
+    collected.push({
+      field: node.field,
+      operator: node.operator,
+      threshold: node.value,
+      actual_value: raw,
+    });
     if (raw === undefined) return false;
     const { operator, value } = node;
     switch (operator) {
@@ -213,13 +233,13 @@ export function evaluateCondition(state: Record<string, unknown>, node: Conditio
   }
   if (isConditionAll(node)) {
     for (const child of node.all) {
-      if (!evaluateCondition(state, child)) return false;
+      if (!evaluateConditionCollecting(state, child, collected)) return false;
     }
     return true;
   }
   if (isConditionAny(node)) {
     for (const child of node.any) {
-      if (evaluateCondition(state, child)) return true;
+      if (evaluateConditionCollecting(state, child, collected)) return true;
     }
     return false;
   }
@@ -262,16 +282,32 @@ export function loadPolicy(policyPath?: string): PolicyDefinition {
 /**
  * Evaluates state against policy rules in order. First matching rule wins.
  * If no rule matches, returns default_decision_type with matched_rule_id null.
+ * When a rule matches, returns matched_rule with evaluated_fields for trace enrichment.
  */
 export function evaluatePolicy(state: Record<string, unknown>, policy: PolicyDefinition): PolicyEvaluationResult {
-  for (const rule of policy.rules) {
-    if (evaluateCondition(state, rule.condition)) {
-      return { decision_type: rule.decision_type, matched_rule_id: rule.rule_id };
+  for (let i = 0; i < policy.rules.length; i++) {
+    const rule = policy.rules[i]!;
+    const evaluatedFields: EvaluatedField[] = [];
+    if (evaluateConditionCollecting(state, rule.condition, evaluatedFields)) {
+      const matchedRule: MatchedRule = {
+        rule_id: rule.rule_id,
+        decision_type: rule.decision_type,
+        condition: rule.condition,
+        evaluated_fields: evaluatedFields,
+      };
+      return {
+        decision_type: rule.decision_type,
+        matched_rule_id: rule.rule_id,
+        matched_rule: matchedRule,
+        evaluated_fields: evaluatedFields,
+      };
     }
   }
   return {
     decision_type: policy.default_decision_type,
     matched_rule_id: null,
+    matched_rule: null,
+    evaluated_fields: [],
   };
 }
 

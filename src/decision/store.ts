@@ -36,9 +36,15 @@ export class SqliteDecisionRepository implements DecisionRepository {
         trace_state_version INTEGER NOT NULL,
         trace_policy_version TEXT NOT NULL,
         trace_matched_rule_id TEXT,
+        trace_state_snapshot TEXT,
+        trace_matched_rule TEXT,
+        trace_rationale TEXT,
+        output_metadata TEXT,
         UNIQUE(org_id, decision_id)
       )
     `);
+    this.migrateAddOutputMetadata();
+    this.migrateAddEnrichedTraceColumns();
     this.db.exec(`
       CREATE INDEX IF NOT EXISTS idx_decisions_query
       ON decisions(org_id, learner_reference, decided_at)
@@ -46,13 +52,37 @@ export class SqliteDecisionRepository implements DecisionRepository {
     this.db.pragma('journal_mode = WAL');
   }
 
+  /** Migration: add output_metadata column if missing (existing DBs) */
+  private migrateAddOutputMetadata(): void {
+    const info = this.db.pragma('table_info(decisions)') as Array<{ name: string }>;
+    if (!info.some((c) => c.name === 'output_metadata')) {
+      this.db.exec('ALTER TABLE decisions ADD COLUMN output_metadata TEXT');
+    }
+  }
+
+  /** Migration: add enriched trace columns if missing (existing DBs) */
+  private migrateAddEnrichedTraceColumns(): void {
+    const info = this.db.pragma('table_info(decisions)') as Array<{ name: string }>;
+    const cols = new Set(info.map((c) => c.name));
+    if (!cols.has('trace_state_snapshot')) {
+      this.db.exec('ALTER TABLE decisions ADD COLUMN trace_state_snapshot TEXT');
+    }
+    if (!cols.has('trace_matched_rule')) {
+      this.db.exec('ALTER TABLE decisions ADD COLUMN trace_matched_rule TEXT');
+    }
+    if (!cols.has('trace_rationale')) {
+      this.db.exec('ALTER TABLE decisions ADD COLUMN trace_rationale TEXT');
+    }
+  }
+
   saveDecision(decision: Decision): void {
     const stmt = this.db.prepare(`
       INSERT INTO decisions (
         org_id, decision_id, learner_reference, decision_type, decided_at,
-        decision_context, trace_state_id, trace_state_version, trace_policy_version, trace_matched_rule_id
+        decision_context, trace_state_id, trace_state_version, trace_policy_version, trace_matched_rule_id,
+        trace_state_snapshot, trace_matched_rule, trace_rationale, output_metadata
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     stmt.run(
       decision.org_id,
@@ -64,7 +94,11 @@ export class SqliteDecisionRepository implements DecisionRepository {
       decision.trace.state_id,
       decision.trace.state_version,
       decision.trace.policy_version,
-      decision.trace.matched_rule_id
+      decision.trace.matched_rule_id,
+      decision.trace.state_snapshot != null ? JSON.stringify(decision.trace.state_snapshot) : null,
+      decision.trace.matched_rule != null ? JSON.stringify(decision.trace.matched_rule) : null,
+      decision.trace.rationale ?? null,
+      decision.output_metadata ? JSON.stringify(decision.output_metadata) : null
     );
   }
 
@@ -78,7 +112,8 @@ export class SqliteDecisionRepository implements DecisionRepository {
 
     const stmt = this.db.prepare(`
       SELECT id, org_id, decision_id, learner_reference, decision_type, decided_at,
-             decision_context, trace_state_id, trace_state_version, trace_policy_version, trace_matched_rule_id
+             decision_context, trace_state_id, trace_state_version, trace_policy_version, trace_matched_rule_id,
+             trace_state_snapshot, trace_matched_rule, trace_rationale, output_metadata
       FROM decisions
       WHERE org_id = ?
         AND learner_reference = ?
@@ -118,7 +153,8 @@ export class SqliteDecisionRepository implements DecisionRepository {
   getDecisionById(orgId: string, decisionId: string): Decision | null {
     const stmt = this.db.prepare(`
       SELECT id, org_id, decision_id, learner_reference, decision_type, decided_at,
-             decision_context, trace_state_id, trace_state_version, trace_policy_version, trace_matched_rule_id
+             decision_context, trace_state_id, trace_state_version, trace_policy_version, trace_matched_rule_id,
+             trace_state_snapshot, trace_matched_rule, trace_rationale, output_metadata
       FROM decisions
       WHERE org_id = ? AND decision_id = ?
     `);
@@ -261,28 +297,52 @@ interface DecisionRow {
   trace_state_version: number;
   trace_policy_version: string;
   trace_matched_rule_id: string | null;
+  trace_state_snapshot: string | null;
+  trace_matched_rule: string | null;
+  trace_rationale: string | null;
+  output_metadata: string | null;
 }
 
 function rowToDecision(row: DecisionRow): Decision {
-  return {
+  const trace: Decision['trace'] = {
+    state_id: row.trace_state_id,
+    state_version: row.trace_state_version,
+    policy_version: row.trace_policy_version,
+    matched_rule_id: row.trace_matched_rule_id,
+  };
+  if (row.trace_state_snapshot) {
+    trace.state_snapshot = JSON.parse(row.trace_state_snapshot) as Record<string, unknown>;
+  }
+  if (row.trace_matched_rule) {
+    trace.matched_rule = JSON.parse(row.trace_matched_rule) as Decision['trace']['matched_rule'];
+  }
+  if (row.trace_rationale) {
+    trace.rationale = row.trace_rationale;
+  }
+
+  const decision: Decision = {
     org_id: row.org_id,
     decision_id: row.decision_id,
     learner_reference: row.learner_reference,
     decision_type: row.decision_type as Decision['decision_type'],
     decided_at: row.decided_at,
     decision_context: JSON.parse(row.decision_context) as Record<string, unknown>,
-    trace: {
-      state_id: row.trace_state_id,
-      state_version: row.trace_state_version,
-      policy_version: row.trace_policy_version,
-      matched_rule_id: row.trace_matched_rule_id,
-    },
+    trace,
   };
+  if (row.output_metadata) {
+    decision.output_metadata = JSON.parse(row.output_metadata) as Decision['output_metadata'];
+  }
+  return decision;
 }
 
 /**
  * Decode page token to cursor id. Same pattern as Signal Log (v1:id base64).
  * Returns 0 if token is invalid.
+ *
+ * Phase-1 note (SQLite, single-writer): id-based cursor is sufficient because
+ * decisions are append-only and id monotonicity tracks insertion order.
+ * Phase-2 note (multi-writer/distributed stores): migrate to a composite keyset
+ * cursor aligned to ORDER BY (decided_at, id) to preserve deterministic paging.
  */
 function decodePageToken(token: string): number {
   try {

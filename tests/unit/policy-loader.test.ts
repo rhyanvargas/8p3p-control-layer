@@ -532,5 +532,65 @@ describe('Policy Loader', () => {
       expect(result.decision_type).toBe('reinforce');
       expect(result.matched_rule_id).toBeNull();
     });
+
+    it('returns matched_rule with evaluated_fields when a rule matches', () => {
+      const policy: PolicyDefinition = {
+        policy_id: 'p',
+        policy_version: '1.0.0',
+        description: 'test',
+        rules: [
+          {
+            rule_id: 'rule-x',
+            condition: {
+              all: [
+                { field: 'score', operator: 'gte', value: 50 },
+                { field: 'level', operator: 'eq', value: 3 },
+              ],
+            },
+            decision_type: 'advance',
+          },
+        ],
+        default_decision_type: 'reinforce',
+      };
+
+      const result = evaluatePolicy({ score: 60, level: 3 }, policy);
+      expect(result.matched_rule).toBeDefined();
+      expect(result.matched_rule!.rule_id).toBe('rule-x');
+      expect(result.matched_rule!.decision_type).toBe('advance');
+      expect(result.matched_rule!.evaluated_fields).toHaveLength(2);
+      expect(result.matched_rule!.evaluated_fields).toContainEqual({
+        field: 'score',
+        operator: 'gte',
+        threshold: 50,
+        actual_value: 60,
+      });
+      expect(result.matched_rule!.evaluated_fields).toContainEqual({
+        field: 'level',
+        operator: 'eq',
+        threshold: 3,
+        actual_value: 3,
+      });
+      expect(result.evaluated_fields).toEqual(result.matched_rule!.evaluated_fields);
+    });
+
+    it('returns matched_rule null and empty evaluated_fields when default matches', () => {
+      const policy: PolicyDefinition = {
+        policy_id: 'p',
+        policy_version: '1.0.0',
+        description: 'test',
+        rules: [
+          {
+            rule_id: 'rule-a',
+            condition: { field: 'x', operator: 'eq', value: 999 },
+            decision_type: 'intervene',
+          },
+        ],
+        default_decision_type: 'reinforce',
+      };
+
+      const result = evaluatePolicy({ x: 1 }, policy);
+      expect(result.matched_rule).toBeNull();
+      expect(result.evaluated_fields).toEqual([]);
+    });
   });
 });

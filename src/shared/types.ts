@@ -280,10 +280,37 @@ export type DecisionType = 'reinforce' | 'advance' | 'intervene' | 'pause' | 'es
 /** Runtime constant for decision type validation */
 export const DECISION_TYPES: readonly DecisionType[] = ['reinforce', 'advance', 'intervene', 'pause', 'escalate', 'recommend', 'reroute'] as const;
 
+/** Single leaf comparison result for trace (field, operator, threshold, actual value) */
+export interface EvaluatedField {
+  field: string;
+  operator: string;
+  threshold: string | number | boolean;
+  actual_value: unknown;
+}
+
+/** Matched rule with evaluated fields (for enriched trace) */
+export interface MatchedRule {
+  rule_id: string;
+  decision_type: DecisionType;
+  condition: ConditionNode;
+  evaluated_fields: EvaluatedField[];
+}
+
 /** Policy evaluation result */
 export interface PolicyEvaluationResult {
   decision_type: DecisionType;
   matched_rule_id: string | null;
+  /** Full rule when a rule matched; null when default matched */
+  matched_rule?: MatchedRule | null;
+  /** Leaf evaluations for the matching path */
+  evaluated_fields?: EvaluatedField[];
+}
+
+/** Output metadata for downstream routing (priority, TTL, targets) */
+export interface OutputMetadata {
+  priority: number | null;
+  ttl_seconds?: number | null;
+  downstream_targets?: string[];
 }
 
 /** Canonical Decision object */
@@ -299,7 +326,15 @@ export interface Decision {
     state_version: number;
     policy_version: string;
     matched_rule_id: string | null;
+    /** Frozen state at evaluation time (enriched trace) */
+    state_snapshot?: Record<string, unknown>;
+    /** Full matched rule with evaluated_fields (enriched trace) */
+    matched_rule?: MatchedRule | null;
+    /** Human-readable rationale (enriched trace) */
+    rationale?: string;
   };
+  /** Output metadata for downstream (priority = 1-based rule index) */
+  output_metadata?: OutputMetadata;
 }
 
 /** Request to evaluate state for a decision */

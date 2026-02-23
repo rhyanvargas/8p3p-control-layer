@@ -55,7 +55,31 @@
         "matched_rule_id": {
           "type": ["string", "null"],
           "description": "Rule ID that matched, or null if default decision"
+        },
+        "state_snapshot": {
+          "type": "object",
+          "description": "Frozen state at evaluation time (enriched trace)"
+        },
+        "matched_rule": {
+          "type": "object",
+          "description": "Full matched rule with evaluated_fields (enriched trace)"
+        },
+        "rationale": {
+          "type": "string",
+          "description": "Human-readable rationale (enriched trace)"
         }
+      }
+    },
+    "output_metadata": {
+      "type": "object",
+      "description": "Output metadata for downstream (priority, TTL, targets)",
+      "properties": {
+        "priority": {
+          "type": ["integer", "null"],
+          "description": "1-based rule index when rule matched; null for default"
+        },
+        "ttl_seconds": { "type": ["integer", "null"] },
+        "downstream_targets": { "type": "array", "items": { "type": "string" } }
       }
     }
   },

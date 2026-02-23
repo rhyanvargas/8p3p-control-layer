@@ -12,12 +12,29 @@ import type {
   Decision,
   EvaluateStateForDecisionRequest,
   EvaluateDecisionOutcome,
+  PolicyDefinition,
+  PolicyEvaluationResult,
 } from '../shared/types.js';
 import { ErrorCodes } from '../shared/error-codes.js';
 import { validateEvaluateRequest, validateDecisionContext } from './validator.js';
 import { getLoadedPolicy, getLoadedPolicyVersion, evaluatePolicy } from './policy-loader.js';
 import { getState } from '../state/store.js';
 import { saveDecision } from './store.js';
+
+/**
+ * Build rationale string for trace.
+ * Rule match: "Rule {rule_id} fired: {field} ({actual}) {op} {threshold} AND/OR ..."
+ * Default: "No rules matched. Default decision: {default_decision_type}"
+ */
+function buildRationale(evalResult: PolicyEvaluationResult, policy: PolicyDefinition): string {
+  if (evalResult.matched_rule_id && evalResult.evaluated_fields && evalResult.evaluated_fields.length > 0) {
+    const parts = evalResult.evaluated_fields.map(
+      (ef) => `${ef.field} (${JSON.stringify(ef.actual_value)}) ${ef.operator} ${JSON.stringify(ef.threshold)}`
+    );
+    return `Rule ${evalResult.matched_rule_id} fired: ${parts.join(' AND ')}`;
+  }
+  return `No rules matched. Default decision: ${policy.default_decision_type}`;
+}
 
 /**
  * Evaluate learner state against the loaded policy and produce a Decision.
@@ -109,16 +126,29 @@ export function evaluateState(request: EvaluateStateForDecisionRequest): Evaluat
   // Step 5: Evaluate policy rules against state
   const evalResult = evaluatePolicy(currentState.state, policy);
 
-  // Step 6: Build decision_context (empty object for Phase 1)
+  // Step 6: Build state_snapshot (frozen copy of state at evaluation time)
+  const stateSnapshot = JSON.parse(JSON.stringify(currentState.state)) as Record<string, unknown>;
+
+  // Step 7: Build rationale string
+  const rationale = buildRationale(evalResult, policy);
+
+  // Step 8: Build output_metadata (priority = 1-based rule index when rule matches)
+  let priority: number | null = null;
+  if (evalResult.matched_rule_id) {
+    const idx = policy.rules.findIndex((r) => r.rule_id === evalResult.matched_rule_id);
+    if (idx >= 0) priority = idx + 1;
+  }
+
+  // Step 9: Build decision_context (empty object for Phase 1)
   const decisionContext: Record<string, unknown> = {};
 
-  // Step 7: Validate decision_context
+  // Step 10: Validate decision_context
   const contextValidation = validateDecisionContext(decisionContext);
   if (!contextValidation.valid) {
     return { ok: false, errors: contextValidation.errors };
   }
 
-  // Step 8: Construct Decision
+  // Step 11: Construct Decision
   const decision: Decision = {
     org_id: request.org_id,
     decision_id: crypto.randomUUID(),
@@ -131,12 +161,16 @@ export function evaluateState(request: EvaluateStateForDecisionRequest): Evaluat
       state_version: currentState.state_version,
       policy_version: policyVersion,
       matched_rule_id: evalResult.matched_rule_id,
+      state_snapshot: stateSnapshot,
+      matched_rule: evalResult.matched_rule ?? null,
+      rationale,
     },
+    output_metadata: { priority },
   };
 
-  // Step 9: Persist Decision
+  // Step 12: Persist Decision
   saveDecision(decision);
 
-  // Step 10: Return success
+  // Step 13: Return success
   return { ok: true, result: decision };
 }

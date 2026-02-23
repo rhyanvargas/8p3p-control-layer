@@ -105,6 +105,11 @@ export function appendIngestionOutcome(entry: IngestionOutcomeEntry): void {
 
 /**
  * Decode cursor to numeric id. Cursor is base64-encoded id for pagination.
+ *
+ * Phase-1 note (SQLite, single-writer): id-based cursor is sufficient because inserts
+ * are append-only and id monotonicity tracks insertion order.
+ * Phase-2 note (multi-writer/distributed stores): migrate to a composite keyset cursor
+ * aligned to ORDER BY (received_at, id) to avoid cross-writer ordering ambiguity.
  */
 function decodeCursor(cursor: string): number {
   try {

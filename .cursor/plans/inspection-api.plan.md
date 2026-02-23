@@ -22,22 +22,22 @@ todos:
     status: completed
   - id: TASK-007
     content: Extend policy-loader evaluatePolicy to return evaluated_fields and matched_rule
-    status: pending
+    status: completed
   - id: TASK-008
     content: Add output_metadata (priority) to Decision and decision store
-    status: pending
+    status: completed
   - id: TASK-009
     content: Extend decision store schema for enriched trace columns
-    status: pending
+    status: completed
   - id: TASK-010
     content: Modify engine evaluateState for enriched trace (state_snapshot, matched_rule, rationale)
-    status: pending
+    status: completed
   - id: TASK-011
     content: Update decision schema, OpenAPI, and decision handler for enriched trace
-    status: pending
+    status: completed
   - id: TASK-012
     content: Contract tests INSP-001 through INSP-017
-    status: pending
+    status: completed
 isProject: false
 ---
 
@@ -151,7 +151,7 @@ Before starting implementation:
 
 ### TASK-007: Extend policy-loader evaluatePolicy to return evaluated_fields and matched_rule
 
-- **Status**: pending
+- **Status**: completed
 - **Files**: `src/decision/policy-loader.ts`, `src/shared/types.ts`
 - **Action**: Modify
 - **Depends on**: none
@@ -167,7 +167,7 @@ Before starting implementation:
 
 ### TASK-008: Add output_metadata (priority) to Decision and decision store
 
-- **Status**: pending
+- **Status**: completed
 - **Files**: `src/shared/types.ts`, `src/decision/store.ts`, `src/decision/engine.ts`
 - **Action**: Modify
 - **Depends on**: none
@@ -184,7 +184,7 @@ Before starting implementation:
 
 ### TASK-009: Extend decision store schema for enriched trace columns
 
-- **Status**: pending
+- **Status**: completed
 - **Files**: `src/decision/store.ts`
 - **Action**: Modify
 - **Depends on**: TASK-008
@@ -199,7 +199,7 @@ Before starting implementation:
 
 ### TASK-010: Modify engine evaluateState for enriched trace
 
-- **Status**: pending
+- **Status**: completed
 - **Files**: `src/decision/engine.ts`
 - **Action**: Modify
 - **Depends on**: TASK-007, TASK-009
@@ -215,7 +215,7 @@ Before starting implementation:
 
 ### TASK-011: Update decision schema, OpenAPI, and decision handler for enriched trace
 
-- **Status**: pending
+- **Status**: completed
 - **Files**: `src/contracts/schemas/decision.json`, `docs/api/openapi.yaml`, `src/decision/handler.ts`
 - **Action**: Modify
 - **Depends on**: TASK-010
@@ -231,7 +231,7 @@ Before starting implementation:
 
 ### TASK-012: Contract tests INSP-001 through INSP-017
 
-- **Status**: pending
+- **Status**: completed
 - **Files**: `tests/contracts/inspection-api.test.ts`
 - **Action**: Create
 - **Depends on**: TASK-003, TASK-004, TASK-006, TASK-008, TASK-010
