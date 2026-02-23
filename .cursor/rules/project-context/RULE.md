@@ -108,6 +108,13 @@ External System → POST /v1/signals → Ingestion → Signal Log → STATE Engi
 - Use Vitest globals (`describe`, `it`, `expect`)
 - Coverage targets: `src/**/*.ts` (excluding `.d.ts`)
 
+#### Test Coverage Policy
+
+- **Every new public function or class** must have at least one direct test exercising its primary behavior
+- **Every spec-defined contract test** (e.g., DEC-001–DEC-008) must have a corresponding test implementation in `tests/contracts/`
+- **New DI injection points, adapters, and interface implementations** must be tested both directly (class-level) and indirectly (through module-level delegation)
+- **Spec → Plan → Test mapping**: If a spec defines contract tests, the plan must include test implementation tasks, and `/implement-spec` must verify they exist before marking complete
+
 ## Environment Variables
 
 ```

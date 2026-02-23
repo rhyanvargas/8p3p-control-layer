@@ -49,9 +49,11 @@ When the user invokes `/implement-spec`:
 - Add comments for non-obvious logic
 
 ### Testing
-- Write tests alongside implementation
+- Write tests alongside implementation, not as a follow-up
 - Cover happy path and edge cases
 - Use existing test patterns
+- **Spec-defined contract tests are mandatory**: If the spec lists contract tests (e.g., DEC-001–DEC-008), implement all of them in `tests/contracts/`. Do not mark the task complete until every spec-defined test ID has a corresponding test.
+- **New public APIs require tests**: Every new exported function, class, or DI injection point must have at least one direct test. Indirect coverage through higher-level tests is supplementary, not sufficient.
 
 ### Contract Propagation
 - If JSON Schemas in `src/contracts/schemas/` are modified, propagate changes to OpenAPI and AsyncAPI docs
@@ -68,6 +70,8 @@ When the user invokes `/implement-spec`:
 Before reporting completion:
 - [ ] All spec requirements addressed
 - [ ] Tests written and passing
+- [ ] Every spec-defined contract test ID has a corresponding test implementation
+- [ ] Every new public function/class/DI point has at least one direct test
 - [ ] Linter passing
 - [ ] No regressions in existing tests
 - [ ] API contract files updated if schemas changed (`docs/api/openapi.yaml`, `docs/api/asyncapi.yaml`)

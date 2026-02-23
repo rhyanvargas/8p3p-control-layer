@@ -102,6 +102,17 @@ When a spec depends on functionality from another component:
 |------|-------------|
 | `new_error_code` | {description} |
 
+## Contract Tests
+
+Define the tests that verify this component's contract. These become implementation requirements — `/plan-impl` must include tasks for each, and `/review` will verify they exist.
+
+| Test ID | Description | Input | Expected |
+|---------|-------------|-------|----------|
+| {PREFIX}-001 | {Happy path} | {Valid input} | {Expected output} |
+| {PREFIX}-002 | {Validation failure} | {Invalid input} | rejected, `{error_code}` |
+
+> **Test strategy note:** Distinguish tests that exercise the full flow end-to-end from tests that exercise validators/safety-nets directly. Document which strategy each test uses so implementers know where to place them.
+
 ## Notes
 - {Any additional context}
 ```

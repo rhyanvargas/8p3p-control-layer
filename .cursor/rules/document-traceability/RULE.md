@@ -31,6 +31,7 @@ Each function, type, or interface should be **defined in exactly one place**:
 | Component functions | Component's spec (e.g., `docs/specs/signal-log.md`) | Dependent specs |
 | Error codes | Spec lists them; `src/shared/error-codes.ts` implements | Plans, implementation |
 | Types | Spec defines structure; `src/shared/types.ts` implements | Plans, implementation |
+| Contract tests | Spec defines test IDs and vectors; `tests/contracts/` implements | Plans (as tasks), `/review` (as checklist) |
 
 ## Cross-Document Reference Rules
 
@@ -98,6 +99,7 @@ When reviewing a spec, verify:
 2. **Explicit dependencies** - All cross-component dependencies reference source docs
 3. **Correct error code handling** - Existing codes referenced, new codes listed for implementation
 4. **No scope creep** - Spec only defines what this component owns
+5. **Test traceability** - Every spec-defined contract test ID (e.g., DEC-001) has a corresponding test implementation in `tests/contracts/`. Every new public export has at least one direct test.
 
 ## Recovery Protocol
 

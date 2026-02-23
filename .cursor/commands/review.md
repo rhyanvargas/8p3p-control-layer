@@ -43,6 +43,9 @@ Review against a spec:
 - [ ] Tests exist for new code
 - [ ] Edge cases covered
 - [ ] Tests are readable
+- [ ] Every new exported function, class, or DI injection point has at least one direct test
+- [ ] All spec-defined contract test IDs (e.g., DEC-001–DEC-008) have corresponding test implementations
+- [ ] New adapter/interface implementations are tested both directly (class-level) and through module-level delegation
 
 ### Security
 - [ ] No hardcoded secrets

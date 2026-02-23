@@ -43,11 +43,13 @@ When the user invokes `/plan-impl`:
    - Dependencies and integration points
 3. Generate a plan with concrete steps
 4. Each step should be small enough to verify independently
-5. Assign unique task IDs (e.g., `TASK-001`, `TASK-002`) for tracking
-6. Save the plan to `.cursor/plans/{feature-name}.plan.md`
-7. **Initialize todos** using the TodoWrite tool with all tasks in `pending` status
-8. **Suggest next step**: Tell the user to run `/implement-spec .cursor/plans/{feature-name}.plan.md` to execute the plan
+5. **Include test tasks**: For every implementation task that adds or modifies public APIs, classes, or DI surfaces, include a corresponding test task. If the spec defines contract tests (e.g., DEC-001–DEC-008), create explicit tasks to implement them. Map every spec-defined test to a plan task in the Test Plan table.
+6. Assign unique task IDs (e.g., `TASK-001`, `TASK-002`) for tracking
+7. Save the plan to `.cursor/plans/{feature-name}.plan.md`
+8. **Initialize todos** using the TodoWrite tool with all tasks in `pending` status
+9. **Suggest next step**: Tell the user to run `/implement-spec .cursor/plans/{feature-name}.plan.md` to execute the plan
 
+> **Test task rule of thumb**: If the spec has a Contract Tests section, every test ID in that section must appear in the Test Plan table linked to a task. If a plan has no test tasks, it is incomplete.
 
 ## Plan Template
 
