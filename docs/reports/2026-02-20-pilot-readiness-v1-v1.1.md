@@ -26,9 +26,10 @@ This framing is correct and governs every scoping decision below.
 | 3 | **State Query API** — `GET /v1/state` with version history | Read-only proof that persistent learning memory exists outside their tools | Spec'd (`inspection-api.md` §2), not built |
 | 4 | **4 Inspection Panels** at `/inspect` — Signal Intake, State Viewer, Decision Stream, Decision Trace | The trust surface. Walk-through proves the full loop in ~30 seconds: send signal → see state update → see decision appear → click to see full audit receipt | Spec'd (`inspection-panels.md`), not built |
 | 5 | **Decision Repository Interface** — persistence abstracted behind `DecisionRepository` | Answers the first enterprise CTO question: "Does this scale beyond SQLite?" Answer: yes, DynamoDB adapter is a swap. | **Done** *(amended 2026-02-22)* — `src/decision/repository.ts` interface + `SqliteDecisionRepository` shipped |
-| 8 | **API Key Middleware** — single key per deployment, checked on every request, org_id resolved server-side | Prevents open-endpoint security objection from blocking the deal. Not full tenant provisioning; enough to keep the environment controlled. | Not built *(added 2026-02-22 per CEO feedback)* |
 | 6 | **343+ passing tests** with enriched trace coverage | Regression safety net for pilot iterations | 343 passing today, will grow with inspection API tests (INSP-001 through INSP-017) |
 | 7 | **Seeded demo dataset** — pre-loaded learners with demo narrative anchored on `escalate` + `advance` | Repeatable demo script: two primary decisions narrated in walkthrough; other 5 types supported but not narrated *(amended 2026-02-22)* | QA vectors exist (vec-8a through vec-8g), need packaging as a seed script |
+| 8 | **API Key Middleware** — single key per deployment, checked on every request, org_id resolved server-side | Prevents open-endpoint security objection from blocking the deal. Not full tenant provisioning; enough to keep the environment controlled. | Not built *(added 2026-02-22 per CEO feedback)* |
+| 9 | **Pilot Integration Guide** — customer-facing onboarding doc (signals → decisions) | Removes integration ambiguity: how to map customer events to canonical fields, how to retry safely, and how to consume decisions. | **Done** *(added 2026-02-23)* — `docs/guides/pilot-integration-guide.md` |
 
 ### What's Already Proven (Not Re-Work)
 
