@@ -108,4 +108,3 @@ Define the tests that verify this component's contract. These become implementat
 After generating the spec:
 - Review requirements and test IDs with stakeholders
 - Run `/plan-impl docs/specs/{feature-name}.md`
-

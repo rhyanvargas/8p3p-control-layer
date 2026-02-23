@@ -44,13 +44,15 @@ When the user invokes `/sync-contracts`:
 8. After changes, run:
    - `npm run validate:contracts`
    - `npm run validate:api` when OpenAPI changed
-
-## Output
-
-Use this structure:
+## Output Format
 
 - **Status**: aligned | drift detected
 - **Drift items**: bullet list with source vs drifted value
 - **Validation**: `validate:contracts` (and `validate:api` when applicable)
-- **Next step**: `/review`
+
+## Next Steps
+
+After sync-contracts:
+- If drift fixed: run `npm run validate:contracts` and `npm run validate:api` to confirm
+- Run `/review` to verify contract alignment and overall quality
 

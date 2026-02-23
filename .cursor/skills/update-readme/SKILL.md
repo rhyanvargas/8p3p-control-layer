@@ -59,4 +59,3 @@ When the user invokes `/update-readme`:
 
 After update:
 - Run `/review README.md` for a final doc quality pass (optional)
-

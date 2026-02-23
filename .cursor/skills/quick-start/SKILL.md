@@ -44,3 +44,9 @@ When the user invokes `/quick-start`:
    - Brownfield: `/extract-spec`
 6. Reference canonical workflow doc: `docs/foundation/definitive-workflow.md`
 
+## Next Steps
+
+After quick-start:
+- Greenfield: run `/draft-spec "feature idea"`
+- Brownfield: run `/extract-spec` to document existing code, then `/draft-spec` for enhancements
+

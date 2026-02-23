@@ -56,4 +56,3 @@ When the user invokes `/implement-spec`:
 After implementation:
 - Run `/review` for quality check
 - Use `/review --spec {spec-path}` for requirement-by-requirement verification
-

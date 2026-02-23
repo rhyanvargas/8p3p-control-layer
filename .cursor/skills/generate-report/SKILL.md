@@ -27,6 +27,8 @@ Generate an executive-level changelog report. Adapts to what actually changed â€
 
 ## Instructions
 
+When the user invokes `/generate-report`:
+
 1. Determine baseline using:
    - user-provided ref, else latest report date, else `HEAD~10`
 2. Build change inventory:
@@ -69,4 +71,10 @@ Generate an executive-level changelog report. Adapts to what actually changed â€
 ## Impact
 - {business/product impact}
 ```
+
+## Next Steps
+
+After generating the report:
+- Share report path and 2-sentence recap with stakeholders
+- Run `/review` if doc quality verification is needed
 

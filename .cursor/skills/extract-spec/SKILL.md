@@ -100,4 +100,3 @@ When the user invokes `/extract-spec`:
 After extracting specs:
 - Review and refine inferred behavior with maintainers
 - Use as baseline for `/draft-spec` or `/plan-impl`
-

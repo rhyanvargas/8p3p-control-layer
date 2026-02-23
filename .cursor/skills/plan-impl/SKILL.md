@@ -131,10 +131,10 @@ Before starting implementation:
 {task-id} → {task-id} → {task-id}
          ↘ {task-id} ↗
 ```
+```
 
 ## Next Steps
 
 After generating the plan:
-1. Review and adjust task ordering/dependencies
-2. Run `/implement-spec .cursor/plans/{feature-name}.plan.md`
-
+- Review and adjust task ordering/dependencies
+- Run `/implement-spec .cursor/plans/{feature-name}.plan.md`

@@ -61,4 +61,3 @@ When the user invokes `/review`:
 After review:
 - If findings exist: fix highest severity first, then re-run `/review`
 - If no findings: implementation is ready for commit/PR
-
