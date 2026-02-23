@@ -36,8 +36,8 @@ isProject: false
 
 - **Scope is Idempotency Store only.** This is the simplest store — 2 production functions (`checkAndStore`, `close`). Extracting it first validates the pattern before applying to larger stores.
 - **Zero downstream changes.** All existing module-level function exports (`initIdempotencyStore`, `checkAndStore`, `closeIdempotencyStore`, `clearIdempotencyStore`, `getDatabase`) keep their signatures. The ingestion handler and all tests continue importing from `./idempotency.js` unchanged.
-- **`clearIdempotencyStore()` is test-only.** It lives on the `SqliteIdempotencyRepository` class but is intentionally excluded from the `IdempotencyRepository` interface.
-- **`getDatabase()` is test-only.** Same pattern as Decision Store — exposed on the class, not on the interface.
+- `**clearIdempotencyStore()` is test-only.** It lives on the `SqliteIdempotencyRepository` class but is intentionally excluded from the `IdempotencyRepository` interface.
+- `**getDatabase()` is test-only.** Same pattern as Decision Store — exposed on the class, not on the interface.
 
 ## Tasks
 
@@ -170,25 +170,31 @@ Full verification suite:
 
 ### To Create
 
-| File                                     | Task     | Purpose                                                       |
-| ---------------------------------------- | -------- | ------------------------------------------------------------- |
-| `src/ingestion/idempotency-repository.ts`| TASK-001 | IdempotencyRepository interface (vendor-agnostic contract)    |
+
+| File                                      | Task     | Purpose                                                    |
+| ----------------------------------------- | -------- | ---------------------------------------------------------- |
+| `src/ingestion/idempotency-repository.ts` | TASK-001 | IdempotencyRepository interface (vendor-agnostic contract) |
+
 
 ### To Modify
 
-| File                              | Task               | Changes                                                                                                  |
-| --------------------------------- | ------------------ | -------------------------------------------------------------------------------------------------------- |
-| `src/ingestion/idempotency.ts`    | TASK-002, TASK-003 | Add SqliteIdempotencyRepository class, refactor module-level functions to delegate to injected repository |
-| `src/server.ts`                   | TASK-004           | Add Phase 2 migration comment                                                                            |
-| `docs/specs/signal-ingestion.md`  | TASK-005           | Document repository interface, update file tree                                                           |
+
+| File                             | Task               | Changes                                                                                                   |
+| -------------------------------- | ------------------ | --------------------------------------------------------------------------------------------------------- |
+| `src/ingestion/idempotency.ts`   | TASK-002, TASK-003 | Add SqliteIdempotencyRepository class, refactor module-level functions to delegate to injected repository |
+| `src/server.ts`                  | TASK-004           | Add Phase 2 migration comment                                                                             |
+| `docs/specs/signal-ingestion.md` | TASK-005           | Document repository interface, update file tree                                                           |
+
 
 ## Risks
 
-| Risk                                            | Impact | Mitigation                                                                                  |
-| ----------------------------------------------- | ------ | ------------------------------------------------------------------------------------------- |
-| Repository extraction breaks existing tests     | Medium | TASK-003 preserves all function signatures; TASK-006 gates on full test suite               |
-| `clearIdempotencyStore()` breaks after refactor | Low    | Implement `clear()` on SqliteIdempotencyRepository; module-level wrapper uses instanceof guard |
+
+| Risk                                            | Impact | Mitigation                                                                                           |
+| ----------------------------------------------- | ------ | ---------------------------------------------------------------------------------------------------- |
+| Repository extraction breaks existing tests     | Medium | TASK-003 preserves all function signatures; TASK-006 gates on full test suite                        |
+| `clearIdempotencyStore()` breaks after refactor | Low    | Implement `clear()` on SqliteIdempotencyRepository; module-level wrapper uses instanceof guard       |
 | `getDatabase()` breaks after refactor           | Low    | Implement `getDatabase()` on SqliteIdempotencyRepository; module-level wrapper uses instanceof guard |
+
 
 ## Verification Checklist
 

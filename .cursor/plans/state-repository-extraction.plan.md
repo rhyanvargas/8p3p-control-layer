@@ -38,9 +38,9 @@ isProject: false
 
 - **Scope is State Store only.** This is the most complex of the four stores: two tables (`learner_state`, `applied_signals`), optimistic-lock conflict detection, transactional writes (`saveStateWithAppliedSignals`), and version-history queries.
 - **Zero downstream changes.** All existing module-level function exports (`initStateStore`, `getState`, `getStateByVersion`, `saveState`, `saveStateWithAppliedSignals`, `isSignalApplied`, `recordAppliedSignals`, `closeStateStore`, `clearStateStore`, `getStateStoreDatabase`) keep their signatures. The STATE Engine and all tests continue importing from `./store.js` unchanged.
-- **`StateVersionConflictError` remains module-level.** It is an error class, not a repository concern. Both SQLite and DynamoDB adapters throw this same error on version conflicts. It stays exported from `store.ts` and is not part of the interface — it's part of the error contract.
-- **`clearStateStore()` is test-only.** It lives on the `SqliteStateRepository` class but is intentionally excluded from the `StateRepository` interface.
-- **`saveState()` is deprecated.** The interface still includes it for backward compatibility, but the preferred method is `saveStateWithAppliedSignals()`. The deprecation annotation is preserved.
+- `**StateVersionConflictError` remains module-level.** It is an error class, not a repository concern. Both SQLite and DynamoDB adapters throw this same error on version conflicts. It stays exported from `store.ts` and is not part of the interface — it's part of the error contract.
+- `**clearStateStore()` is test-only.** It lives on the `SqliteStateRepository` class but is intentionally excluded from the `StateRepository` interface.
+- `**saveState()` is deprecated.** The interface still includes it for backward compatibility, but the preferred method is `saveStateWithAppliedSignals()`. The deprecation annotation is preserved.
 - **Transactional guarantee must be preserved.** `saveStateWithAppliedSignals` wraps state insert + applied-signals inserts in a single SQLite transaction. The interface documents this atomicity requirement — any adapter must ensure crash-safety (DynamoDB: TransactWriteItems).
 
 ## Tasks
@@ -215,27 +215,33 @@ Full verification suite:
 
 ### To Create
 
+
 | File                      | Task     | Purpose                                              |
 | ------------------------- | -------- | ---------------------------------------------------- |
 | `src/state/repository.ts` | TASK-001 | StateRepository interface (vendor-agnostic contract) |
 
+
 ### To Modify
 
-| File                          | Task               | Changes                                                                                              |
-| ----------------------------- | ------------------ | ---------------------------------------------------------------------------------------------------- |
-| `src/state/store.ts`          | TASK-002, TASK-003 | Add SqliteStateRepository class, refactor module-level functions to delegate to injected repository   |
-| `src/server.ts`               | TASK-004           | Add Phase 2 migration comment                                                                         |
-| `docs/specs/state-engine.md`  | TASK-005           | Document repository interface, update file tree, confirm atomicity + conflict error contracts          |
+
+| File                         | Task               | Changes                                                                                             |
+| ---------------------------- | ------------------ | --------------------------------------------------------------------------------------------------- |
+| `src/state/store.ts`         | TASK-002, TASK-003 | Add SqliteStateRepository class, refactor module-level functions to delegate to injected repository |
+| `src/server.ts`              | TASK-004           | Add Phase 2 migration comment                                                                       |
+| `docs/specs/state-engine.md` | TASK-005           | Document repository interface, update file tree, confirm atomicity + conflict error contracts       |
+
 
 ## Risks
 
-| Risk                                                       | Impact | Mitigation                                                                                        |
-| ---------------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------- |
-| Repository extraction breaks existing tests                | Medium | TASK-003 preserves all function signatures; TASK-006 gates on full test suite                    |
-| `StateVersionConflictError` semantics lost during refactor | High   | Error class stays module-level; both class and module-level wrappers use the same throw path     |
-| Transactional atomicity of `saveStateWithAppliedSignals` broken | High | Transaction logic moves into class method unchanged; regression test in TASK-006               |
-| `clearStateStore()` breaks after refactor                  | Low    | Implement `clear()` on SqliteStateRepository; module-level wrapper uses instanceof guard          |
-| `isSqliteConstraintError` incorrectly moved to interface   | Low    | Explicitly stays as private module-level helper; only used by SqliteStateRepository              |
+
+| Risk                                                            | Impact | Mitigation                                                                                   |
+| --------------------------------------------------------------- | ------ | -------------------------------------------------------------------------------------------- |
+| Repository extraction breaks existing tests                     | Medium | TASK-003 preserves all function signatures; TASK-006 gates on full test suite                |
+| `StateVersionConflictError` semantics lost during refactor      | High   | Error class stays module-level; both class and module-level wrappers use the same throw path |
+| Transactional atomicity of `saveStateWithAppliedSignals` broken | High   | Transaction logic moves into class method unchanged; regression test in TASK-006             |
+| `clearStateStore()` breaks after refactor                       | Low    | Implement `clear()` on SqliteStateRepository; module-level wrapper uses instanceof guard     |
+| `isSqliteConstraintError` incorrectly moved to interface        | Low    | Explicitly stays as private module-level helper; only used by SqliteStateRepository          |
+
 
 ## Verification Checklist
 
@@ -289,3 +295,4 @@ These notes capture decisions for the future DynamoDB adapter, reducing Phase 2 
   - `Put(applied_signals items)` per signal — throw `StateVersionConflictError` on `TransactionCanceledException` with `ConditionalCheckFailed` reason.
 - **isSignalApplied**: `GetItem` on applied-signals table/GSI.
 - **recordAppliedSignals**: `BatchWriteItem` — inherently idempotent (PutItem overwrites).
+

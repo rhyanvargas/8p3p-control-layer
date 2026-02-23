@@ -37,9 +37,9 @@ isProject: false
 
 - **Scope is Signal Log Store only.** This store has the richest read interface: `appendSignal`, `querySignals`, `getSignalsByIds`, and `close`. The interface must capture all four production operations.
 - **Zero downstream changes.** All existing module-level function exports (`initSignalLogStore`, `appendSignal`, `querySignals`, `getSignalsByIds`, `closeSignalLogStore`, `clearSignalLogStore`, `getSignalLogDatabase`, `encodePageToken`, `decodePageToken`) keep their signatures. The ingestion handler, STATE Engine, query handler, and all tests continue importing from `./store.js` unchanged.
-- **`clearSignalLogStore()` is test-only.** It lives on the `SqliteSignalLogRepository` class but is intentionally excluded from the `SignalLogRepository` interface.
-- **`encodePageToken` / `decodePageToken` stay on store module.** Pagination encoding is not vendor-specific — it's an API-layer concern. They remain standalone exported functions shared across adapters. (DynamoDB pagination will use `LastEvaluatedKey`-based tokens with its own encode/decode.)
-- **`getSignalsByIds()` error semantics preserved.** The `unknown_signal_id` and `signals_not_in_org_scope` error codes thrown by this function are part of the public contract. The interface must document these, and any adapter must implement the same two-phase lookup (primary query → missing-ID resolution).
+- `**clearSignalLogStore()` is test-only.** It lives on the `SqliteSignalLogRepository` class but is intentionally excluded from the `SignalLogRepository` interface.
+- `**encodePageToken` / `decodePageToken` stay on store module.** Pagination encoding is not vendor-specific — it's an API-layer concern. They remain standalone exported functions shared across adapters. (DynamoDB pagination will use `LastEvaluatedKey`-based tokens with its own encode/decode.)
+- `**getSignalsByIds()` error semantics preserved.** The `unknown_signal_id` and `signals_not_in_org_scope` error codes thrown by this function are part of the public contract. The interface must document these, and any adapter must implement the same two-phase lookup (primary query → missing-ID resolution).
 
 ## Tasks
 
@@ -193,26 +193,32 @@ Full verification suite:
 
 ### To Create
 
-| File                         | Task     | Purpose                                                  |
-| ---------------------------- | -------- | -------------------------------------------------------- |
-| `src/signalLog/repository.ts`| TASK-001 | SignalLogRepository interface (vendor-agnostic contract) |
+
+| File                          | Task     | Purpose                                                  |
+| ----------------------------- | -------- | -------------------------------------------------------- |
+| `src/signalLog/repository.ts` | TASK-001 | SignalLogRepository interface (vendor-agnostic contract) |
+
 
 ### To Modify
 
-| File                         | Task               | Changes                                                                                               |
-| ---------------------------- | ------------------ | ----------------------------------------------------------------------------------------------------- |
-| `src/signalLog/store.ts`     | TASK-002, TASK-003 | Add SqliteSignalLogRepository class, refactor module-level functions to delegate to injected repository |
-| `src/server.ts`              | TASK-004           | Add Phase 2 migration comment                                                                          |
-| `docs/specs/signal-log.md`   | TASK-005           | Document repository interface, update file tree, confirm error contracts                                |
+
+| File                       | Task               | Changes                                                                                                 |
+| -------------------------- | ------------------ | ------------------------------------------------------------------------------------------------------- |
+| `src/signalLog/store.ts`   | TASK-002, TASK-003 | Add SqliteSignalLogRepository class, refactor module-level functions to delegate to injected repository |
+| `src/server.ts`            | TASK-004           | Add Phase 2 migration comment                                                                           |
+| `docs/specs/signal-log.md` | TASK-005           | Document repository interface, update file tree, confirm error contracts                                |
+
 
 ## Risks
 
-| Risk                                                        | Impact | Mitigation                                                                                         |
-| ----------------------------------------------------------- | ------ | -------------------------------------------------------------------------------------------------- |
-| Repository extraction breaks existing tests                 | Medium | TASK-003 preserves all function signatures; TASK-006 gates on full test suite                     |
-| `getSignalsByIds` error codes lost during refactor          | High   | Interface documents error contract; TASK-006 specifically verifies both error paths               |
-| `clearSignalLogStore()` breaks after refactor               | Low    | Implement `clear()` on SqliteSignalLogRepository; module-level wrapper uses instanceof guard       |
-| `encodePageToken`/`decodePageToken` accidentally moved      | Low    | Explicitly kept at module level; not part of repository interface                                  |
+
+| Risk                                                   | Impact | Mitigation                                                                                   |
+| ------------------------------------------------------ | ------ | -------------------------------------------------------------------------------------------- |
+| Repository extraction breaks existing tests            | Medium | TASK-003 preserves all function signatures; TASK-006 gates on full test suite                |
+| `getSignalsByIds` error codes lost during refactor     | High   | Interface documents error contract; TASK-006 specifically verifies both error paths          |
+| `clearSignalLogStore()` breaks after refactor          | Low    | Implement `clear()` on SqliteSignalLogRepository; module-level wrapper uses instanceof guard |
+| `encodePageToken`/`decodePageToken` accidentally moved | Low    | Explicitly kept at module level; not part of repository interface                            |
+
 
 ## Verification Checklist
 
@@ -259,3 +265,4 @@ These notes capture decisions for the future DynamoDB adapter, reducing Phase 2 
 - **appendSignal**: `PutItem` with `ConditionExpression: attribute_not_exists(PK)` (enforces immutability + uniqueness).
 - **querySignals**: `Query` on GSI with `LastEvaluatedKey`-based pagination. `encodePageToken`/`decodePageToken` will need adapter-specific overrides (DynamoDB tokens are opaque maps, not integer cursors).
 - **getSignalsByIds**: `BatchGetItem` for primary lookup, then same two-phase resolution for missing IDs.
+
