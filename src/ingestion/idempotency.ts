@@ -5,102 +5,126 @@
 
 import Database from 'better-sqlite3';
 import type { IdempotencyResult } from '../shared/types.js';
+import type { IdempotencyRepository } from './idempotency-repository.js';
 
-let db: Database.Database | null = null;
+// ─── SqliteIdempotencyRepository ────────────────────────────────────────────
+
+export class SqliteIdempotencyRepository implements IdempotencyRepository {
+  private db: Database.Database;
+
+  constructor(dbPath: string) {
+    this.db = new Database(dbPath);
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS signal_ids (
+        org_id TEXT NOT NULL,
+        signal_id TEXT NOT NULL,
+        received_at TEXT NOT NULL,
+        PRIMARY KEY (org_id, signal_id)
+      )
+    `);
+    this.db.pragma('journal_mode = WAL');
+  }
+
+  checkAndStore(orgId: string, signalId: string): IdempotencyResult {
+    const now = new Date().toISOString();
+
+    const insertStmt = this.db.prepare(`
+      INSERT OR IGNORE INTO signal_ids (org_id, signal_id, received_at)
+      VALUES (?, ?, ?)
+    `);
+    const result = insertStmt.run(orgId, signalId, now);
+
+    if (result.changes === 1) {
+      return { isDuplicate: false, receivedAt: now };
+    }
+
+    const selectStmt = this.db.prepare(`
+      SELECT received_at FROM signal_ids WHERE org_id = ? AND signal_id = ?
+    `);
+    const row = selectStmt.get(orgId, signalId) as { received_at: string } | undefined;
+
+    return { isDuplicate: true, receivedAt: row?.received_at };
+  }
+
+  close(): void {
+    this.db.close();
+  }
+
+  /** Test utility — not part of IdempotencyRepository interface. */
+  clear(): void {
+    this.db.exec('DELETE FROM signal_ids');
+  }
+
+  /** Test accessor — not part of IdempotencyRepository interface. */
+  getDatabase(): Database.Database {
+    return this.db;
+  }
+}
+
+// ─── Module-level singleton (delegates to injected repository) ───────────────
+
+let repository: IdempotencyRepository | null = null;
 
 /**
- * Initialize the idempotency store with SQLite
- * Must be called before any checkAndStore operations
- * 
- * @param dbPath - Path to SQLite database file, or ':memory:' for in-memory
+ * Initialize the idempotency store with SQLite.
+ * Must be called before any checkAndStore operations.
  */
 export function initIdempotencyStore(dbPath: string): void {
-  db = new Database(dbPath);
-  
-  // Create table with composite primary key for idempotency
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS signal_ids (
-      org_id TEXT NOT NULL,
-      signal_id TEXT NOT NULL,
-      received_at TEXT NOT NULL,
-      PRIMARY KEY (org_id, signal_id)
-    )
-  `);
-  
-  // Prepare statements for better performance
-  db.pragma('journal_mode = WAL');
+  repository = new SqliteIdempotencyRepository(dbPath);
 }
 
 /**
- * Close the database connection
- * Call this during graceful shutdown
+ * Inject an alternative IdempotencyRepository implementation.
+ * Closes any existing repository before assigning.
+ * Phase 2 entry point — swap in DynamoDbIdempotencyRepository here.
+ */
+export function setIdempotencyRepository(repo: IdempotencyRepository): void {
+  if (repository) {
+    repository.close();
+  }
+  repository = repo;
+}
+
+/**
+ * Close the database connection.
+ * Call this during graceful shutdown.
  */
 export function closeIdempotencyStore(): void {
-  if (db) {
-    db.close();
-    db = null;
+  if (repository) {
+    repository.close();
+    repository = null;
   }
 }
 
 /**
- * Check if a signal has been processed and store if new
- * Uses INSERT OR IGNORE for atomic check-and-store
- * 
- * @param orgId - Organization ID
- * @param signalId - Signal ID
- * @returns IdempotencyResult indicating if duplicate and when originally received
+ * Check if a signal has been processed and store if new.
+ * Uses INSERT OR IGNORE for atomic check-and-store.
  */
 export function checkAndStore(orgId: string, signalId: string): IdempotencyResult {
-  if (!db) {
+  if (!repository) {
     throw new Error('Idempotency store not initialized. Call initIdempotencyStore first.');
   }
-  
-  const now = new Date().toISOString();
-  
-  // Try to insert - this will fail silently if the key exists (INSERT OR IGNORE)
-  const insertStmt = db.prepare(`
-    INSERT OR IGNORE INTO signal_ids (org_id, signal_id, received_at)
-    VALUES (?, ?, ?)
-  `);
-  
-  const result = insertStmt.run(orgId, signalId, now);
-  
-  // If changes === 1, the insert succeeded (new signal)
-  // If changes === 0, the key already existed (duplicate)
-  if (result.changes === 1) {
-    return {
-      isDuplicate: false,
-      receivedAt: now,
-    };
-  }
-  
-  // Fetch the original received_at time for duplicates
-  const selectStmt = db.prepare(`
-    SELECT received_at FROM signal_ids WHERE org_id = ? AND signal_id = ?
-  `);
-  
-  const row = selectStmt.get(orgId, signalId) as { received_at: string } | undefined;
-  
-  return {
-    isDuplicate: true,
-    receivedAt: row?.received_at,
-  };
+  return repository.checkAndStore(orgId, signalId);
 }
 
 /**
- * Clear all entries (useful for testing)
+ * Clear all entries (test utility).
  */
 export function clearIdempotencyStore(): void {
-  if (!db) {
+  if (!repository) {
     throw new Error('Idempotency store not initialized. Call initIdempotencyStore first.');
   }
-  
-  db.exec('DELETE FROM signal_ids');
+  if (!(repository instanceof SqliteIdempotencyRepository)) {
+    throw new Error('clearIdempotencyStore() is only supported on SqliteIdempotencyRepository.');
+  }
+  repository.clear();
 }
 
 /**
- * Get the current database instance (for testing purposes)
+ * Get the current database instance (test accessor).
  */
 export function getDatabase(): Database.Database | null {
-  return db;
+  if (!repository) return null;
+  if (!(repository instanceof SqliteIdempotencyRepository)) return null;
+  return repository.getDatabase();
 }

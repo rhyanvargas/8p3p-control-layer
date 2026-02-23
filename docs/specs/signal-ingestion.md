@@ -164,6 +164,12 @@ Recursive function to scan payload for forbidden semantic keys.
 
 Store and check `(org_id, signal_id)` pairs for duplicate detection.
 
+The idempotency layer is built around a vendor-agnostic repository interface:
+
+- **`IdempotencyRepository`** (`src/ingestion/idempotency-repository.ts`) — production contract with two methods: `checkAndStore()` and `close()`.
+- **`SqliteIdempotencyRepository`** (`src/ingestion/idempotency.ts`) — Phase 1 implementation backed by `better-sqlite3`.
+- **`setIdempotencyRepository()`** — DI injection point for Phase 2. Swap in a `DynamoDbIdempotencyRepository` (or any other adapter) without changing any downstream consumers.
+
 ### 5. Ingestion Handler (`src/ingestion/handler.ts`)
 
 Fastify route handler that orchestrates:
@@ -209,7 +215,8 @@ src/
 │   ├── handler.ts                    # POST /v1/signals handler
 │   ├── routes.ts                     # Fastify route registration
 │   ├── forbidden-keys.ts             # Semantic key detector
-│   └── idempotency.ts                # Duplicate detection
+│   ├── idempotency-repository.ts     # IdempotencyRepository interface (vendor-agnostic)
+│   └── idempotency.ts                # SqliteIdempotencyRepository + module-level API
 └── shared/
     ├── error-codes.ts                # Canonical error codes
     └── types.ts                      # TypeScript types
@@ -238,6 +245,8 @@ Implementation is complete when:
 - **Ajv** - JSON Schema validation (add to package.json)
 - **Fastify** - Already installed (v5.7.2)
 - **better-sqlite3** - Already installed (for idempotency store)
+
+**Phase 2 DI readiness:** `setIdempotencyRepository()` is exported from `idempotency.ts`. Any adapter implementing `IdempotencyRepository` can be injected at startup in `server.ts` without changing the ingestion handler or any test.
 
 ## Notes
 

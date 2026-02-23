@@ -34,6 +34,9 @@ try {
   // Directory may already exist
 }
 
+// Idempotency store (Stage 1). Phase 2: replace initIdempotencyStore(dbPath)
+// with setIdempotencyRepository(new DynamoDbIdempotencyRepository(config))
+// or fold into Signals table via conditional writes.
 initIdempotencyStore(dbPath);
 
 // Ensure signal log data directory exists

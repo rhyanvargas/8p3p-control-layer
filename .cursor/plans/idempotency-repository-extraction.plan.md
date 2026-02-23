@@ -4,22 +4,22 @@ overview: "Extract a vendor-agnostic IdempotencyRepository interface from the cu
 todos:
   - id: TASK-001
     content: Define IdempotencyRepository interface in src/ingestion/idempotency-repository.ts
-    status: pending
+    status: completed
   - id: TASK-002
     content: Implement SqliteIdempotencyRepository class in src/ingestion/idempotency.ts
-    status: pending
+    status: completed
   - id: TASK-003
     content: Add repository injection support to idempotency store module
-    status: pending
+    status: completed
   - id: TASK-004
     content: Update server.ts — confirm wiring + add Phase 2 migration comment
-    status: pending
+    status: completed
   - id: TASK-005
     content: Update signal-ingestion spec — document repository interface
-    status: pending
+    status: completed
   - id: TASK-006
     content: Regression check — all tests pass, build clean, lint clean
-    status: pending
+    status: completed
 isProject: false
 ---
 
