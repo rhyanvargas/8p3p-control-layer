@@ -2,6 +2,8 @@
 
 Generate code from a specification or implementation plan.
 
+**Source of truth:** `.cursor/skills/implement-spec/SKILL.md` (workflow is maintained there to avoid duplication).
+
 ## Usage
 
 From a spec:
@@ -14,73 +16,6 @@ From a plan:
 /implement-spec .cursor/plans/{feature-name}.plan.md
 ```
 
-## Behavior
-
-1. **Read** - Parse the spec or plan
-2. **Implement** - Generate code following the spec/plan
-3. **Verify** - Run tests and linters
-4. **Iterate** - Fix issues until verification passes
-
 ## Instructions
 
-When the user invokes `/implement-spec`:
-
-1. Read the referenced spec or plan file
-2. If a plan exists, follow it step by step
-3. If only a spec exists, create an implicit plan
-4. For each step:
-   - Create or modify the specified files
-   - Follow coding standards from `.cursor/rules/`
-   - Write tests for new functionality
-   - **Update the plan file's todo status** (both frontmatter and markdown body)
-5. After implementation:
-   - Run the test suite
-   - Run linters
-   - Fix any issues
-6. Report completion status
-7. **Suggest next step**: Tell the user to run `/review` to verify code quality, or `/review --spec {spec-path}` to check against the original spec
-
-## Implementation Guidelines
-
-### Code Quality
-- Follow existing patterns in the codebase
-- Keep functions small and focused
-- Use descriptive names
-- Add comments for non-obvious logic
-
-### Testing
-- Write tests alongside implementation, not as a follow-up
-- Cover happy path and edge cases
-- Use existing test patterns
-- **Spec-defined contract tests are mandatory**: If the spec lists contract tests (e.g., DEC-001–DEC-008), implement all of them in `tests/contracts/`. Do not mark the task complete until every spec-defined test ID has a corresponding test.
-- **New public APIs require tests**: Every new exported function, class, or DI injection point must have at least one direct test. Indirect coverage through higher-level tests is supplementary, not sufficient.
-
-### Contract Propagation
-- If JSON Schemas in `src/contracts/schemas/` are modified, propagate changes to OpenAPI and AsyncAPI docs
-- Run `npm run validate:contracts` to confirm alignment
-- See `.cursor/rules/contract-enforcement/RULE.md` for the propagation protocol
-
-### Iteration
-- If tests fail, analyze and fix
-- If linter fails, correct style issues
-- Maximum 3 iteration attempts before asking for help
-
-## Verification Checklist
-
-Before reporting completion:
-- [ ] All spec requirements addressed
-- [ ] Tests written and passing
-- [ ] Every spec-defined contract test ID has a corresponding test implementation
-- [ ] Every new public function/class/DI point has at least one direct test
-- [ ] Linter passing
-- [ ] No regressions in existing tests
-- [ ] API contract files updated if schemas changed (`docs/api/openapi.yaml`, `docs/api/asyncapi.yaml`)
-- [ ] Contract alignment verified (`npm run validate:contracts`)
-- [ ] Plan file todos updated to `completed` status (if using a plan)
-
-## Next Steps
-
-After implementation:
-- Run `/review` for quality check
-- Manually test the feature
-- Update documentation if needed
+When the user invokes `/implement-spec`, follow `.cursor/skills/implement-spec/SKILL.md`.

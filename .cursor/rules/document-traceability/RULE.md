@@ -99,7 +99,8 @@ When reviewing a spec, verify:
 2. **Explicit dependencies** - All cross-component dependencies reference source docs
 3. **Correct error code handling** - Existing codes referenced, new codes listed for implementation
 4. **No scope creep** - Spec only defines what this component owns
-5. **Test traceability** - Every spec-defined contract test ID (e.g., DEC-001) has a corresponding test implementation in `tests/contracts/`. Every new public export has at least one direct test.
+5. **Test traceability** - Every spec-defined contract test ID (e.g., DEC-001) has a corresponding test implementation in `tests/contracts/`, with one explicit `it(...)` per ID. Every new public export has at least one direct test.
+6. **Error assertion precision** - Contract tests for error paths must assert exact expected error codes (e.g., `missing_required_field`), not just presence/type of `code`.
 
 ## Recovery Protocol
 

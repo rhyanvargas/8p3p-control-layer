@@ -21,5 +21,6 @@ Specifications in this folder are the **single source of truth for requirements 
 - [`aws-deployment.md`](aws-deployment.md) — API Gateway + Lambda + DynamoDB deployment via SAM
 
 > Roadmap entry point: [`docs/foundation/roadmap.md`](../foundation/roadmap.md)  
+> Canonical delivery flow: [`docs/foundation/definitive-workflow.md`](../foundation/definitive-workflow.md)  
 > Current snapshot: [`docs/reports/2026-02-20-pilot-readiness-v1-v1.1.md`](../reports/2026-02-20-pilot-readiness-v1-v1.1.md)
 

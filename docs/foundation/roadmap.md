@@ -22,6 +22,12 @@ When there is a conflict:
 2. **Plans win** for step-by-step implementation: `.cursor/plans/`
 3. **Reports win** for timeline commitments and auditability: `docs/reports/`
 
+## Execution Workflow
+
+- Canonical workflow: `docs/foundation/definitive-workflow.md`
+- Command entrypoints: `.cursor/commands/`
+- Step-by-step execution logic: `.cursor/skills/`
+
 ## Versioning Policy
 
 - Roadmaps are published as **dated snapshots** under `docs/reports/`.

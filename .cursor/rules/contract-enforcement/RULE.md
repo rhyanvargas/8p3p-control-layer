@@ -40,6 +40,9 @@ Never add fields, required entries, or enum values to OpenAPI/AsyncAPI that don'
 | ------------------- | ----------------------------------- | ------------------------------ |
 | `decision`          | `components.schemas.Decision`       | `components.schemas.Decision`  |
 | `signal-envelope`   | `components.schemas.SignalEnvelope` | `components.schemas.Signal`    |
+| `ingestion-outcome` | `components.schemas.IngestionOutcome` | `components.schemas.IngestionOutcome` |
+
+Keep this table synchronized with `scripts/validate-contracts.ts` `MAPPING` entries.
 
 ## Verification
 

@@ -1,46 +1,40 @@
-# .cursor Folder
+# .cursor Configuration
 
-Cursor IDE configuration for spec-driven development.
+Cursor configuration for spec-driven development in this repository.
 
-## Contents
+## Directory Structure
 
 ```
 .cursor/
-├── commands/       # Slash commands (/draft-spec, /plan-impl, etc.)
-├── rules/          # Persistent rules (always loaded)
-├── templates/      # Rule templates for customization
-└── plans/          # Generated implementation plans
+├── commands/   # Slash-command entrypoints (lightweight wrappers)
+├── rules/      # Persistent standards and constraints
+├── skills/     # Canonical step-by-step workflow instructions
+└── plans/      # Generated implementation plans
 ```
 
-## Quick Start
+## Ownership Model (No Redundancy)
 
-```
-/quick-start
-```
+- **Rules** define policy and standards.
+- **Commands** provide concise invocation UX.
+- **Skills** contain workflow logic.
 
-## Commands Available
+Detailed workflow instructions must live in `.cursor/skills/`.
 
-- `/draft-spec` - Generate spec from idea
-- `/plan-impl` - Create implementation plan
-- `/implement-spec` - Generate code from spec
-- `/review` - Quality check
-- `/extract-spec` - Document existing code
-- `/quick-start` - Initialize workflow
+## Canonical Workflow
 
-## Customization
+See: `docs/foundation/definitive-workflow.md`
 
-1. Copy templates to rules:
-   ```bash
-   cp templates/coding-style.rule.md rules/my-style.mdc
-   ```
+Core path:
+1. `/draft-spec`
+2. `/plan-impl`
+3. `/implement-spec`
+4. `/sync-contracts` (when contracts changed)
+5. `/review`
 
-2. Edit for your project
+Brownfield path: `/extract-spec` before `/draft-spec`.
 
-3. Agent picks up changes automatically
+## Key References
 
-## Documentation
-
-Full documentation at [/docs](../docs/):
-- [Getting Started](../docs/getting-started.md)
-- [Commands Reference](../docs/commands-reference.md)
-- [Extending](../docs/extending.md)
+- `docs/foundation/definitive-workflow.md`
+- `docs/foundation/roadmap.md`
+- `docs/specs/README.md`
