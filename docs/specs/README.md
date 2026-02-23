@@ -11,6 +11,7 @@ Specifications in this folder are the **single source of truth for requirements 
 
 ## v1 (1-customer pilot-ready) — spec’d
 
+- [`api-key-middleware.md`](api-key-middleware.md) — single key per deployment, org_id override, exempt routes (added 2026-02-22)
 - [`inspection-api.md`](inspection-api.md) — ingestion outcome log, state query API, enriched decision receipts
 - [`inspection-panels.md`](inspection-panels.md) — 4 read-only inspection panels at `/inspect`
 

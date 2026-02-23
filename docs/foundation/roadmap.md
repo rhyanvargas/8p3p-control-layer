@@ -4,7 +4,8 @@ This document is the **stable entry point** for planning and execution. It inten
 
 ## Current Roadmap Snapshot (Auditable)
 
-- [`docs/reports/2026-02-20-pilot-readiness-v1-v1.1.md`](../reports/2026-02-20-pilot-readiness-v1-v1.1.md)
+- [`docs/reports/2026-02-22-cto-response-ceo-scope-timeline.md`](../reports/2026-02-22-cto-response-ceo-scope-timeline.md) — Latest: auth scope, timeline compression, demo narrative
+- [`docs/reports/2026-02-20-pilot-readiness-v1-v1.1.md`](../reports/2026-02-20-pilot-readiness-v1-v1.1.md) — Amended: v1/v1.1 definitions, artifacts, reliability requirements
 
 ## Active Execution Plans (Implementation Tasks)
 

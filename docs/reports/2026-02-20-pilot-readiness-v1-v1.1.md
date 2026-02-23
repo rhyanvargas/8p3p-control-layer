@@ -1,8 +1,9 @@
 # 8P3P Control Layer — Pilot Readiness v1 and v1.1
 
-**Date:** 2026-02-20 (updated with v1.1 requirements)  
+**Date:** 2026-02-20 (updated with v1.1 requirements; amended 2026-02-22 per CEO scope/timeline feedback)  
 **Context:** CEO requested auditable, trustworthy pilot demo readiness assessment with exact artifacts, timeline, and reliability requirements. Follow-up: define v1.1 requirements for 2-3 concurrent pilots.  
-**Baseline:** POC v2 QA complete (2026-02-18), 343 tests passing, Inspection API + Panels spec'd (2026-02-19)
+**Baseline:** POC v2 QA complete (2026-02-18), 343 tests passing, Inspection API + Panels spec'd (2026-02-19)  
+**Amendments:** See `2026-02-22-cto-response-ceo-scope-timeline.md` for full rationale. Changes below marked with *(amended 2026-02-22)*.
 
 ---
 
@@ -24,9 +25,10 @@ This framing is correct and governs every scoping decision below.
 | 2 | **Ingestion Log** — every signal attempt (accepted/rejected/duplicate) persisted and queryable | Integration teams see what's arriving and what's failing, after the fact | Spec'd (`inspection-api.md` §1), not built |
 | 3 | **State Query API** — `GET /v1/state` with version history | Read-only proof that persistent learning memory exists outside their tools | Spec'd (`inspection-api.md` §2), not built |
 | 4 | **4 Inspection Panels** at `/inspect` — Signal Intake, State Viewer, Decision Stream, Decision Trace | The trust surface. Walk-through proves the full loop in ~30 seconds: send signal → see state update → see decision appear → click to see full audit receipt | Spec'd (`inspection-panels.md`), not built |
-| 5 | **Decision Repository Interface** — persistence abstracted behind `DecisionRepository` | Answers the first enterprise CTO question: "Does this scale beyond SQLite?" Answer: yes, DynamoDB adapter is a swap. | Plan written (`.cursor/plans/repository-extraction.plan.md`), not built |
+| 5 | **Decision Repository Interface** — persistence abstracted behind `DecisionRepository` | Answers the first enterprise CTO question: "Does this scale beyond SQLite?" Answer: yes, DynamoDB adapter is a swap. | **Done** *(amended 2026-02-22)* — `src/decision/repository.ts` interface + `SqliteDecisionRepository` shipped |
+| 8 | **API Key Middleware** — single key per deployment, checked on every request, org_id resolved server-side | Prevents open-endpoint security objection from blocking the deal. Not full tenant provisioning; enough to keep the environment controlled. | Not built *(added 2026-02-22 per CEO feedback)* |
 | 6 | **343+ passing tests** with enriched trace coverage | Regression safety net for pilot iterations | 343 passing today, will grow with inspection API tests (INSP-001 through INSP-017) |
-| 7 | **Seeded demo dataset** — pre-loaded learners covering all 7 decision types | Repeatable demo script: escalate, pause, reroute, intervene, reinforce, advance, recommend — all visible in one walkthrough | QA vectors exist (vec-8a through vec-8g), need packaging as a seed script |
+| 7 | **Seeded demo dataset** — pre-loaded learners with demo narrative anchored on `escalate` + `advance` | Repeatable demo script: two primary decisions narrated in walkthrough; other 5 types supported but not narrated *(amended 2026-02-22)* | QA vectors exist (vec-8a through vec-8g), need packaging as a seed script |
 
 ### What's Already Proven (Not Re-Work)
 
@@ -35,7 +37,7 @@ This framing is correct and governs every scoping decision below.
 
 ### Minimum Scope — What We Will NOT Build for the Pilot
 
-- No authentication/authorization (org_id scoping is sufficient for single-tenant pilot; auth is a full-contract hardening concern)
+- ~~No authentication/authorization~~ *(amended 2026-02-22)* — **API key middleware added to v1 scope**: single key per deployment, org_id resolved server-side. Not full tenant provisioning (v1.1); enough to prevent security objection. ~1 day effort.
 - No WebSocket real-time updates (5-30s polling is fine for demos and debugging)
 - No mobile responsive panels (desktop-only; these are engineering inspection tools)
 - No event output / EventBridge / webhooks (pilot proves the decision, not the routing)
@@ -49,59 +51,62 @@ This framing is correct and governs every scoping decision below.
 
 ## 2. Timeline — Deliverables by Week
 
-**Proposed: 3 weeks build + 1 week buffer = 4 weeks total.**
+**~~Proposed: 3 weeks build + 1 week buffer = 4 weeks total.~~**  
+**Revised *(2026-02-22)*: 2.5 weeks build + 3-4 days buffer = ~3 weeks total.**
 
-The original 4-6 week estimate (readiness assessment, Feb 19) included 1 full week for repository extraction and generous panel estimates. Compressed based on how well-specified the plans already are.
+The original 4-week estimate included 2 days for repository extraction (now done) and no API key auth. Net delta: -2 days (repo done) +1 day (API key added) = ~1 day ahead.
 
-### Week 1: Backend Foundation (Days 1-5)
-
-| Day | Deliverable | Evidence |
-|-----|------------|----------|
-| 1-2 | **Repository extraction** — `DecisionRepository` interface, `SqliteDecisionRepository` adapter, injection wiring, regression green | All 343 tests pass, `setDecisionRepository()` exported for Phase 2 |
-| 3 | **Ingestion outcome log** — `ingestion_log` table, `appendIngestionOutcome()` on every request, `GET /v1/ingestion` endpoint | INSP-001 through INSP-005 passing |
-| 4 | **State query API** — `GET /v1/state`, `GET /v1/state?version=N`, `GET /v1/state/list` | INSP-006 through INSP-009 passing |
-| 5 | **Decision stream metadata** — `output_metadata.priority` on decisions | INSP-013 passing |
-
-**Week 1 exit criteria:** All new read-only API endpoints operational. Existing 343 tests still green. New INSP tests passing.
-
-### Week 2: Enriched Trace + Panels 1-2 (Days 6-10)
+### Week 1: Backend Foundation + Security (Days 1-5)
 
 | Day | Deliverable | Evidence |
 |-----|------------|----------|
-| 6-7 | **Enriched decision trace** — `state_snapshot`, `matched_rule` with evaluated fields, `rationale` string on every new decision | INSP-010 through INSP-012, INSP-014, INSP-017 passing |
-| 8 | **Panel 1: Signal Intake** — ingestion outcomes with color-coded pass/fail/duplicate, filtering | Live at `/inspect`, rendering real data |
-| 9-10 | **Panel 2: State Viewer** — learner index + detail pane with version navigation | Live at `/inspect`, rendering real data |
+| ~~1-2~~ | ~~Repository extraction~~ | **Done** *(completed before timeline start)* |
+| 1 | **Ingestion outcome log** — `ingestion_log` table, `appendIngestionOutcome()` on every request, `GET /v1/ingestion` endpoint | INSP-001 through INSP-005 passing |
+| 2 | **State query API** — `GET /v1/state`, `GET /v1/state?version=N`, `GET /v1/state/list` | INSP-006 through INSP-009 passing |
+| 3 | **API key middleware** — single key per deployment, checked on every request, org_id resolved server-side *(added 2026-02-22)* | Unauthenticated requests rejected; org_id enforced by key |
+| 4 | **Decision stream metadata** — `output_metadata.priority` on decisions | INSP-013 passing |
+| 5 | **Start enriched decision trace** — `state_snapshot`, `matched_rule` with evaluated fields | Trace capture working in unit tests |
 
-**Week 2 exit criteria:** Full audit receipt data flowing. Panels 1-2 rendering live API data. The enriched trace is the hardest single piece — it modifies the core evaluation pipeline to capture snapshots and field-level comparisons.
+**Week 1 exit criteria:** All new read-only API endpoints operational. API key enforced. Existing 343 tests still green. New INSP tests passing.
 
-### Week 3: Panels 3-4 + Demo Polish (Days 11-15)
+### Week 2: Enriched Trace + Panels 1-3 (Days 6-10)
 
 | Day | Deliverable | Evidence |
 |-----|------------|----------|
-| 11 | **Panel 3: Decision Stream** — reverse-chronological feed with type, rule, priority, color coding | Live at `/inspect` |
-| 12-13 | **Panel 4: Decision Trace/Receipt** — rationale block, threshold table, frozen state snapshot, rule condition JSON | Live at `/inspect`, Panel 3 → Panel 4 navigation working |
-| 14 | **Integration smoke tests** — panels load, API calls succeed, error states handled gracefully | Smoke test suite passing |
-| 15 | **Demo seed script + rehearsal** — deterministic dataset, scripted walkthrough covering all 7 decision types | End-to-end demo completes in <60 seconds |
+| 6 | **Finish enriched decision trace** — `rationale` string, full trace on every new decision | INSP-010 through INSP-012, INSP-014, INSP-017 passing |
+| 7 | **Panel 1: Signal Intake** — ingestion outcomes with color-coded pass/fail/duplicate, filtering | Live at `/inspect`, rendering real data |
+| 8-9 | **Panel 2: State Viewer** — learner index + detail pane with version navigation | Live at `/inspect`, rendering real data |
+| 10 | **Panel 3: Decision Stream** — reverse-chronological feed with type, rule, priority, color coding | Live at `/inspect` |
+
+**Week 2 exit criteria:** Full audit receipt data flowing. Panels 1-3 rendering live API data.
+
+### Week 3 (partial): Panel 4 + Demo Polish (Days 11-14)
+
+| Day | Deliverable | Evidence |
+|-----|------------|----------|
+| 11-12 | **Panel 4: Decision Trace/Receipt** — rationale block, threshold table, frozen state snapshot, rule condition JSON | Live at `/inspect`, Panel 3 → Panel 4 navigation working |
+| 13 | **Integration smoke tests** — panels load, API calls succeed, error states handled gracefully | Smoke test suite passing |
+| 14 | **Demo seed script + rehearsal** — dataset with `escalate` + `advance` narrative anchors *(amended 2026-02-22)* | End-to-end demo completes in <60 seconds |
 
 **Week 3 exit criteria:** All 4 panels live. Full demo walkthrough rehearsed. All INSP tests + existing tests green.
 
-### Week 4: Buffer + Hardening
+### Buffer (Days 15-17)
 
-Absorbs scope creep, edge cases discovered during panel testing, and integration surprises. If clean, use for:
+3-4 days absorbing edge cases discovered during panel testing and integration surprises. If clean, use for:
 - Org isolation verification on all new endpoints (INSP-015, INSP-016)
 - Error state polish (API down, missing data, historical decisions without enriched trace)
 - OpenAPI spec updates for new endpoints
 - Documentation for pilot client integration guide
 
-### What Specifically Forces 3-4 Weeks (Not 1-2)
+### What Specifically Forces ~3 Weeks (Not 1-2) *(amended 2026-02-22)*
 
-Three things cannot be compressed without creating audit integrity risk:
+Two things cannot be compressed without creating audit integrity risk (previously three; repository extraction is done):
 
 1. **Enriched decision trace (2 days minimum, realistically 3).** This touches the core `evaluateState()` and `evaluatePolicy()` code paths — the same code that 343 tests validate. Modifying it requires capturing state snapshots mid-evaluation, collecting field-level threshold comparisons during condition tree walking, and generating deterministic rationale strings. Rushing this risks breaking the property the entire system is built on: deterministic, traceable decisions.
 
 2. **Four panels consuming five API endpoints with edge case handling (5-6 days).** The panels are thin (vanilla JS, read-only), but they need to handle: historical decisions without enriched trace, API errors, pagination, filtering, and Panel 3 → Panel 4 navigation. Each panel has its own data shape, display logic, and error states. Claiming "2 days for 4 panels" would mean shipping panels that break on edge cases during a live pilot demo.
 
-3. **Repository extraction before panels (2 days).** This is the cheapest insurance in the entire timeline. Without it, the first enterprise technical question — "What happens when we have 500K learners?" — gets answered with "It's SQLite." With it, the answer is "The persistence interface is abstracted; DynamoDB adapter is a swap." Two days of work buys permanent credibility.
+~~3. **Repository extraction before panels (2 days).**~~ **Done** *(completed 2026-02-22).* `DecisionRepository` interface defined, `SqliteDecisionRepository` adapter implemented, `setDecisionRepository()` exported for Phase 2 swap.
 
 ---
 
@@ -121,16 +126,18 @@ Five requirements. Each one is a trust gate — if any fails during a pilot demo
 
 - 99.9% uptime SLA (this is a controlled environment on a single server; if it goes down, we restart it)
 - Horizontal scaling (single-tenant, single-server is fine for pilot volumes)
-- Authentication (org_id scoping + controlled environment is sufficient)
+- ~~Authentication (org_id scoping + controlled environment is sufficient)~~ *(amended 2026-02-22)* — API key middleware now in v1 scope. Full tenant provisioning (key rotation, rate limits, DynamoDB mapping) remains v1.1.
 - Automated backups (pilot data is demonstrative, not production-critical)
 
 ---
 
-## Bottom Line (v1)
+## Bottom Line (v1) *(amended 2026-02-22)*
 
-Your framing is right — tight scope, fast execution. Pilot-ready in **3 weeks of build** with a **1-week buffer** (4 weeks total from start date). The original 4-6 week range was conservative; compressing repository extraction from 1 week to 2 days and running panels in parallel with late backend work gets us there.
+Pilot-ready in **~2.5 weeks of build** with a **3-4 day buffer** (~3 weeks total). Down from 4 weeks: repository extraction is done (-2 days), API key middleware added (+1 day).
 
-The one thing that will not be compressed: the enriched decision trace. That's the artifact that makes an enterprise compliance officer say "this is auditable" — which is exactly what converts a pilot to a full contract. Rushing it to save 2 days isn't worth the risk.
+The enriched decision trace remains the critical path. It modifies the same code paths that 343 tests validate. Won't compress below 2 days — it's the artifact that makes a compliance officer say "this is auditable."
+
+Demo narrative anchored on `escalate` + `advance` — two bookend decisions that are immediately intuitive. All 7 types ship and are visible in panels; other 5 are supported but not narrated in the walkthrough.
 
 If enterprise conversations need to start before panels are ready (Week 1-2), the existing API + Swagger UI can demonstrate the decision loop via curl. The panels make it visual and self-service.
 
@@ -232,11 +239,11 @@ Each plan follows the same proven pattern: define interface → implement SQLite
 
 | Week | Deliverable | Evidence |
 |------|------------|----------|
-| v1+1 (Week 5) | **Remaining 3 repository extractions** (Idempotency, Signal Log, State) + **Per-tenant policy lookup** | All 343+ tests green, `setStateRepository()` / `setSignalLogRepository()` / `setIdempotencyRepository()` exported, `loadPolicy(orgId)` working with fallback |
-| v1+2 (Week 6) | **AWS deployment** — SAM template, DynamoDB tables, DynamoDB adapters, Lambda handlers, contract tests against deployed stack | `sam deploy` succeeds, all contract tests pass against `api.8p3p.dev` |
-| v1+3 (Week 7) | **Tenant provisioning** — CLI tools, API key enforcement, rate limits, org-resolver middleware. **Second pilot tenant provisioned and verified.** | `provision-tenant.ts` works end-to-end, Pilot A and Pilot B data isolated, rate limits enforced |
+| v1+1 (Week 4) *(amended 2026-02-22)* | **Remaining 3 repository extractions** (Idempotency, Signal Log, State) + **Per-tenant policy lookup** | All 343+ tests green, `setStateRepository()` / `setSignalLogRepository()` / `setIdempotencyRepository()` exported, `loadPolicy(orgId)` working with fallback |
+| v1+2 (Week 5) *(amended 2026-02-22)* | **AWS deployment** — SAM template, DynamoDB tables, DynamoDB adapters, Lambda handlers, contract tests against deployed stack | `sam deploy` succeeds, all contract tests pass against `api.8p3p.dev` |
+| v1+3 (Week 6) *(amended 2026-02-22)* | **Tenant provisioning** — CLI tools, full API key enforcement, rate limits, org-resolver middleware. **Second pilot tenant provisioned and verified.** | `provision-tenant.ts` works end-to-end, Pilot A and Pilot B data isolated, rate limits enforced |
 
-**Overlap opportunity:** Start repository extractions 2-4 during v1 Week 4 (buffer week) if v1 is clean. This compresses the total to **~6 weeks from start** instead of 7.
+**Overlap opportunity:** Start repository extractions 2-4 during v1 buffer days if v1 is clean. This compresses the total to **~5 weeks from start** instead of 6.
 
 ### v1.1 Exit Criteria
 
@@ -255,14 +262,14 @@ All of the following must be true:
 ### v1 → v1.1 Dependency Chain
 
 ```
-v1 (4 weeks)                          v1.1 (+ 2-3 weeks)
+v1 (~3 weeks, amended 2026-02-22)     v1.1 (+ 2-3 weeks)
 ─────────────────────────────────     ──────────────────────────────
-Decision Repo Extraction ──────────► Idempotency Repo Extraction
+Decision Repo Extraction (DONE) ───► Idempotency Repo Extraction
 Inspection API ──────────────────►   Signal Log Repo Extraction
 Enriched Decision Trace ─────────►   State Repo Extraction
-Inspection Panels ───────────────►   Per-Tenant Policy Lookup
-Demo Seed + Rehearsal ───────────►   AWS Deployment (SAM + DynamoDB)
-                                     Tenant Provisioning (CLI + keys)
+API Key Middleware (NEW) ────────►   Per-Tenant Policy Lookup
+Inspection Panels ───────────────►   AWS Deployment (SAM + DynamoDB)
+Demo Seed + Rehearsal ───────────►   Tenant Provisioning (CLI + keys)
                                      Contract Tests vs Deployed Stack
 ```
 
@@ -284,8 +291,8 @@ Demo Seed + Rehearsal ───────────►   AWS Deployment (SAM
 
 | Milestone | Target | Key Deliverable |
 |-----------|--------|-----------------|
-| **v1: 1-Customer Pilot-Ready** | Week 4 | Enriched trace + 4 inspection panels + demo dataset |
-| **v1.1: 2-3 Concurrent Pilots** | Week 6-7 | AWS deployed + tenant provisioning + per-tenant policy + rate limits |
+| **v1: 1-Customer Pilot-Ready** | **Week 3** *(amended 2026-02-22, was Week 4)* | Enriched trace + 4 inspection panels + API key middleware + demo dataset |
+| **v1.1: 2-3 Concurrent Pilots** | Week 5-6 *(amended 2026-02-22, was Week 6-7)* | AWS deployed + tenant provisioning + per-tenant policy + rate limits |
 | **Full Contract Conversion** | Post-pilot | Enterprise hardening based on pilot success criteria |
 
 ---
@@ -294,6 +301,7 @@ Demo Seed + Rehearsal ───────────►   AWS Deployment (SAM
 
 | Document | Path | Relevance |
 |----------|------|-----------|
+| CTO Response — CEO Scope & Timeline | `docs/reports/2026-02-22-cto-response-ceo-scope-timeline.md` | Full rationale for amendments below (2026-02-22) |
 | Pilot Readiness Assessment | *(consolidated into this document)* | Gap analysis and phase sequence (originally 2026-02-19) |
 | Inspection API Spec | `docs/specs/inspection-api.md` | Backend endpoints, enriched trace, ingestion log |
 | Inspection Panels Spec | `docs/specs/inspection-panels.md` | Frontend panels, layout, interactions |
@@ -308,4 +316,4 @@ Demo Seed + Rehearsal ───────────►   AWS Deployment (SAM
 
 ---
 
-*Generated: 2026-02-20 (v1.1 addendum added) | Baseline: Pilot Readiness Assessment (2026-02-19), POC v2 QA (2026-02-18)*
+*Generated: 2026-02-20 (v1.1 addendum added) | Amended: 2026-02-22 (auth scope, timeline compression, demo narrative, artifact status) | Baseline: Pilot Readiness Assessment (2026-02-19), POC v2 QA (2026-02-18)*
