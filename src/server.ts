@@ -11,6 +11,7 @@ import { initStateStore, closeStateStore } from './state/store.js';
 import { initDecisionStore, closeDecisionStore } from './decision/store.js';
 import { loadPolicy } from './decision/policy-loader.js';
 import { registerDecisionRoutes } from './decision/routes.js';
+import { apiKeyPreHandler } from './auth/api-key-middleware.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -95,8 +96,9 @@ server.get('/health', async () => {
   return { status: 'ok' };
 });
 
-// Register v1 API routes
+// Register v1 API routes (api-key preHandler runs before route handlers)
 server.register(async (v1) => {
+  v1.addHook('preHandler', apiKeyPreHandler);
   registerIngestionRoutes(v1);
   registerSignalLogRoutes(v1);
   registerDecisionRoutes(v1);

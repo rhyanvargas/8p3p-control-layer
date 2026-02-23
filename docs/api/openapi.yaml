@@ -4,13 +4,16 @@ info:
   description: |
     REST API for the 8P3P Learning Intelligence Control Layer.
     Lifecycle: Ingestion → Signal Log → STATE Engine → Decision Engine → Output.
+
+    **Authentication:** When API_KEY env is set, all /v1/* endpoints require the x-api-key header.
+    When API_KEY is unset (local dev), auth is disabled.
   version: 1.0.0
   license:
     name: ISC
     identifier: ISC
 
-# No authentication required for current operations (tenant isolation via org_id/learner_reference).
-security: []
+security:
+  - ApiKeyAuth: []
 
 servers:
   - url: /
@@ -39,6 +42,18 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SignalIngestResult'
+        '401':
+          description: Unauthorized (missing or invalid API key)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: string
+                    enum: [api_key_required, api_key_invalid]
+                  message:
+                    type: string
         '400':
           description: Validation failed (structural or enforced semantic constraints)
           content:
@@ -113,6 +128,18 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SignalLogReadResponse'
+        '401':
+          description: Unauthorized (missing or invalid API key)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: string
+                    enum: [api_key_required, api_key_invalid]
+                  message:
+                    type: string
         '400':
           description: Invalid query (time range, page_size, org_id, etc.)
           content:
@@ -181,6 +208,18 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/GetDecisionsResponse'
+        '401':
+          description: Unauthorized (missing or invalid API key)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: string
+                    enum: [api_key_required, api_key_invalid]
+                  message:
+                    type: string
         '400':
           description: Invalid query parameters
           content:
@@ -189,6 +228,12 @@ paths:
                 $ref: '#/components/schemas/SignalLogError'
 
 components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: x-api-key
+      description: API key for pilot access (required when API_KEY env is set)
   schemas:
     # ---------------------------------------------------------------------------
     # Signal Ingestion (POST /v1/signals)

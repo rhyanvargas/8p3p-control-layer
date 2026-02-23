@@ -96,6 +96,16 @@ export const ErrorCodes = {
 
   /** policy_version is not valid semver (e.g. 1.0.0) */
   INVALID_POLICY_VERSION: 'invalid_policy_version',
+
+  // ==========================================================================
+  // API Key Middleware (v1 pilot)
+  // ==========================================================================
+
+  /** API key header missing */
+  API_KEY_REQUIRED: 'api_key_required',
+
+  /** API key does not match */
+  API_KEY_INVALID: 'api_key_invalid',
 } as const;
 
 export type ErrorCode = typeof ErrorCodes[keyof typeof ErrorCodes];
