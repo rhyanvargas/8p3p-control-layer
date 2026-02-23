@@ -11,10 +11,13 @@ import {
   querySignals,
   getSignalsByIds,
   clearSignalLogStore,
+  setSignalLogRepository,
+  SqliteSignalLogRepository,
   encodePageToken,
   decodePageToken,
 } from '../../src/signalLog/store.js';
 import type { SignalEnvelope, SignalLogReadRequest } from '../../src/shared/types.js';
+import type { SignalLogRepository } from '../../src/signalLog/repository.js';
 
 /**
  * Create a valid signal envelope for testing
@@ -472,6 +475,86 @@ describe('Signal Log Store', () => {
         expect((err as Error & { code: string }).code).toBe('unknown_signal_id');
         expect((err as Error & { field_path?: string }).field_path).toBe('signal_ids');
       }
+    });
+  });
+
+  describe('STORE-REPO-001: SqliteSignalLogRepository direct usage', () => {
+    it('should append and query via repository class', () => {
+      const repo = new SqliteSignalLogRepository(':memory:');
+      const signal = createSignal({ signal_id: 'repo-direct-1', learner_reference: 'repo-learner' });
+      const acceptedAt = '2026-01-30T10:05:00Z';
+
+      repo.appendSignal(signal, acceptedAt);
+
+      const result = repo.querySignals({
+        org_id: signal.org_id,
+        learner_reference: 'repo-learner',
+        from_time: '2026-01-30T00:00:00Z',
+        to_time: '2026-01-31T00:00:00Z',
+      });
+
+      expect(result.signals.length).toBe(1);
+      expect(result.signals[0].signal_id).toBe('repo-direct-1');
+      expect(result.signals[0].accepted_at).toBe(acceptedAt);
+
+      repo.close();
+    });
+  });
+
+  describe('STORE-REPO-002: setSignalLogRepository delegates module exports', () => {
+    it('should close old repo on swap and delegate calls', () => {
+      const repo1: SignalLogRepository & { closed: boolean } = {
+        closed: false,
+        appendSignal: (signal, acceptedAt) => ({ ...signal, accepted_at: acceptedAt }),
+        querySignals: () => ({ signals: [], hasMore: false, nextCursor: undefined }),
+        getSignalsByIds: () => [],
+        close: () => {
+          repo1.closed = true;
+        },
+      };
+
+      const repo2: SignalLogRepository = {
+        appendSignal: (signal) => ({
+          ...signal,
+          signal_id: 'injected-append',
+          accepted_at: '2026-01-30T00:00:00Z',
+        }),
+        querySignals: () => ({
+          signals: [
+            {
+              ...createSignal({ signal_id: 'injected-query' }),
+              accepted_at: '2026-01-30T00:00:01Z',
+            },
+          ],
+          hasMore: false,
+          nextCursor: undefined,
+        }),
+        getSignalsByIds: () => [
+          {
+            ...createSignal({ signal_id: 'injected-ids' }),
+            accepted_at: '2026-01-30T00:00:02Z',
+          },
+        ],
+        close: () => {},
+      };
+
+      setSignalLogRepository(repo1);
+      setSignalLogRepository(repo2);
+      expect(repo1.closed).toBe(true);
+
+      const appended = appendSignal(createSignal({ signal_id: 'original' }), '2026-01-30T10:00:00Z');
+      expect(appended.signal_id).toBe('injected-append');
+
+      const queried = querySignals({
+        org_id: 'test-org',
+        learner_reference: 'learner-123',
+        from_time: '2026-01-01T00:00:00Z',
+        to_time: '2026-12-31T23:59:59Z',
+      });
+      expect(queried.signals[0]?.signal_id).toBe('injected-query');
+
+      const byIds = getSignalsByIds('test-org', ['anything']);
+      expect(byIds[0]?.signal_id).toBe('injected-ids');
     });
   });
 });

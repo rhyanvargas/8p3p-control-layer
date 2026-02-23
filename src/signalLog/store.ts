@@ -16,8 +16,201 @@ import type {
   SignalLogQueryResult,
   SignalMetadata,
 } from '../shared/types.js';
+import type { SignalLogRepository } from './repository.js';
 
-let db: Database.Database | null = null;
+// ─── SqliteSignalLogRepository ───────────────────────────────────────────────
+
+export class SqliteSignalLogRepository implements SignalLogRepository {
+  private db: Database.Database;
+
+  constructor(dbPath: string) {
+    this.db = new Database(dbPath);
+
+    // Create table for signal records
+    // Note: payload and metadata stored as JSON strings
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS signal_log (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        org_id TEXT NOT NULL,
+        signal_id TEXT NOT NULL,
+        source_system TEXT NOT NULL,
+        learner_reference TEXT NOT NULL,
+        timestamp TEXT NOT NULL,
+        schema_version TEXT NOT NULL,
+        payload TEXT NOT NULL,
+        metadata TEXT,
+        accepted_at TEXT NOT NULL,
+        UNIQUE(org_id, signal_id)
+      )
+    `);
+
+    // Create index for efficient queries on (org_id, learner_reference, accepted_at)
+    this.db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_signal_log_query
+      ON signal_log(org_id, learner_reference, accepted_at)
+    `);
+
+    // Use WAL mode for better concurrent read performance
+    this.db.pragma('journal_mode = WAL');
+  }
+
+  appendSignal(signal: SignalEnvelope, acceptedAt: string): SignalRecord {
+    const stmt = this.db.prepare(`
+      INSERT INTO signal_log (
+        org_id, signal_id, source_system, learner_reference,
+        timestamp, schema_version, payload, metadata, accepted_at
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    stmt.run(
+      signal.org_id,
+      signal.signal_id,
+      signal.source_system,
+      signal.learner_reference,
+      signal.timestamp,
+      signal.schema_version,
+      JSON.stringify(signal.payload),
+      signal.metadata ? JSON.stringify(signal.metadata) : null,
+      acceptedAt
+    );
+
+    return {
+      ...signal,
+      accepted_at: acceptedAt,
+    };
+  }
+
+  querySignals(request: SignalLogReadRequest): SignalLogQueryResult {
+    const pageSize = request.page_size ?? 100;
+
+    // Decode cursor from page_token if provided
+    let cursorId = 0;
+    if (request.page_token) {
+      cursorId = decodePageToken(request.page_token);
+    }
+
+    // Query with one extra row to determine if there are more results
+    // We use `id > cursorId` for cursor-based pagination (stable ordering by insert order)
+    // Filter by accepted_at time range for user-specified window
+    const stmt = this.db.prepare(`
+      SELECT id, org_id, signal_id, source_system, learner_reference,
+             timestamp, schema_version, payload, metadata, accepted_at
+      FROM signal_log
+      WHERE org_id = ?
+        AND learner_reference = ?
+        AND accepted_at >= ?
+        AND accepted_at <= ?
+        AND id > ?
+      ORDER BY accepted_at ASC, id ASC
+      LIMIT ?
+    `);
+
+    const rows = stmt.all(
+      request.org_id,
+      request.learner_reference,
+      request.from_time,
+      request.to_time,
+      cursorId,
+      pageSize + 1 // Fetch one extra to check for more
+    ) as SignalLogRow[];
+
+    // Check if there are more results
+    const hasMore = rows.length > pageSize;
+    const resultRows = hasMore ? rows.slice(0, pageSize) : rows;
+
+    // Transform rows to SignalRecord objects
+    const signals: SignalRecord[] = resultRows.map(rowToSignalRecord);
+
+    // Get next cursor position if there are more results
+    let nextCursor: number | undefined;
+    if (hasMore && resultRows.length > 0) {
+      const lastRow = resultRows[resultRows.length - 1];
+      nextCursor = lastRow ? lastRow.id : undefined;
+    }
+
+    return {
+      signals,
+      hasMore,
+      nextCursor,
+    };
+  }
+
+  getSignalsByIds(orgId: string, signalIds: string[]): SignalRecord[] {
+    if (signalIds.length === 0) {
+      return [];
+    }
+
+    // Step 1: Primary query — org isolation enforced at the SQL level
+    const placeholders = signalIds.map(() => '?').join(', ');
+    const stmt = this.db.prepare(`
+      SELECT id, org_id, signal_id, source_system, learner_reference,
+             timestamp, schema_version, payload, metadata, accepted_at
+      FROM signal_log
+      WHERE signal_id IN (${placeholders}) AND org_id = ?
+      ORDER BY accepted_at ASC, id ASC
+    `);
+
+    const rows = stmt.all(...signalIds, orgId) as SignalLogRow[];
+
+    // Step 2: If some IDs weren't returned, determine why (truly missing vs cross-org)
+    const foundIds = new Set(rows.map((r) => r.signal_id));
+    const missingIds = signalIds.filter((id) => !foundIds.has(id));
+
+    if (missingIds.length > 0) {
+      // Secondary existence check — do the missing IDs exist in other orgs?
+      const missingPlaceholders = missingIds.map(() => '?').join(', ');
+      const existStmt = this.db.prepare(
+        `SELECT signal_id FROM signal_log WHERE signal_id IN (${missingPlaceholders})`
+      );
+      const existRows = existStmt.all(...missingIds) as { signal_id: string }[];
+      const existingInOtherOrgs = new Set(existRows.map((r) => r.signal_id));
+
+      const trulyMissing = missingIds.filter((id) => !existingInOtherOrgs.has(id));
+      const crossOrgIds = missingIds.filter((id) => existingInOtherOrgs.has(id));
+
+      // unknown_signal_id takes precedence over signals_not_in_org_scope
+      if (trulyMissing.length > 0) {
+        const err = new Error(`Unknown signal id(s): ${trulyMissing.join(', ')}`) as Error & {
+          code: string;
+          field_path?: string;
+        };
+        err.code = 'unknown_signal_id';
+        err.field_path = 'signal_ids';
+        throw err;
+      }
+
+      if (crossOrgIds.length > 0) {
+        const err = new Error(
+          `Signal ${crossOrgIds[0]} belongs to a different org, not ${orgId}`
+        ) as Error & { code: string; field_path?: string };
+        err.code = 'signals_not_in_org_scope';
+        err.field_path = 'signal_ids';
+        throw err;
+      }
+    }
+
+    return rows.map(rowToSignalRecord);
+  }
+
+  close(): void {
+    this.db.close();
+  }
+
+  /** Test utility — not part of SignalLogRepository interface. */
+  clear(): void {
+    this.db.exec('DELETE FROM signal_log');
+  }
+
+  /** Test accessor — not part of SignalLogRepository interface. */
+  getDatabase(): Database.Database {
+    return this.db;
+  }
+}
+
+// ─── Module-level singleton (delegates to injected repository) ───────────────
+
+let repository: SignalLogRepository | null = null;
 
 /**
  * Initialize the Signal Log store with SQLite
@@ -26,34 +219,10 @@ let db: Database.Database | null = null;
  * @param dbPath - Path to SQLite database file, or ':memory:' for in-memory
  */
 export function initSignalLogStore(dbPath: string): void {
-  db = new Database(dbPath);
-  
-  // Create table for signal records
-  // Note: payload and metadata stored as JSON strings
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS signal_log (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      org_id TEXT NOT NULL,
-      signal_id TEXT NOT NULL,
-      source_system TEXT NOT NULL,
-      learner_reference TEXT NOT NULL,
-      timestamp TEXT NOT NULL,
-      schema_version TEXT NOT NULL,
-      payload TEXT NOT NULL,
-      metadata TEXT,
-      accepted_at TEXT NOT NULL,
-      UNIQUE(org_id, signal_id)
-    )
-  `);
-  
-  // Create index for efficient queries on (org_id, learner_reference, accepted_at)
-  db.exec(`
-    CREATE INDEX IF NOT EXISTS idx_signal_log_query 
-    ON signal_log(org_id, learner_reference, accepted_at)
-  `);
-  
-  // Use WAL mode for better concurrent read performance
-  db.pragma('journal_mode = WAL');
+  if (repository) {
+    repository.close();
+  }
+  repository = new SqliteSignalLogRepository(dbPath);
 }
 
 /**
@@ -61,10 +230,22 @@ export function initSignalLogStore(dbPath: string): void {
  * Call this during graceful shutdown
  */
 export function closeSignalLogStore(): void {
-  if (db) {
-    db.close();
-    db = null;
+  if (repository) {
+    repository.close();
+    repository = null;
   }
+}
+
+/**
+ * Inject an alternative SignalLogRepository implementation.
+ * Closes any existing repository before assigning.
+ * Phase 2 entry point — swap in DynamoDbSignalLogRepository here.
+ */
+export function setSignalLogRepository(repo: SignalLogRepository): void {
+  if (repository) {
+    repository.close();
+  }
+  repository = repo;
 }
 
 /**
@@ -76,34 +257,11 @@ export function closeSignalLogStore(): void {
  * @returns The complete SignalRecord with accepted_at
  */
 export function appendSignal(signal: SignalEnvelope, acceptedAt: string): SignalRecord {
-  if (!db) {
+  if (!repository) {
     throw new Error('Signal Log store not initialized. Call initSignalLogStore first.');
   }
-  
-  const stmt = db.prepare(`
-    INSERT INTO signal_log (
-      org_id, signal_id, source_system, learner_reference, 
-      timestamp, schema_version, payload, metadata, accepted_at
-    )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `);
-  
-  stmt.run(
-    signal.org_id,
-    signal.signal_id,
-    signal.source_system,
-    signal.learner_reference,
-    signal.timestamp,
-    signal.schema_version,
-    JSON.stringify(signal.payload),
-    signal.metadata ? JSON.stringify(signal.metadata) : null,
-    acceptedAt
-  );
-  
-  return {
-    ...signal,
-    accepted_at: acceptedAt,
-  };
+
+  return repository.appendSignal(signal, acceptedAt);
 }
 
 /**
@@ -114,62 +272,11 @@ export function appendSignal(signal: SignalEnvelope, acceptedAt: string): Signal
  * @returns Query result with signals and pagination info
  */
 export function querySignals(request: SignalLogReadRequest): SignalLogQueryResult {
-  if (!db) {
+  if (!repository) {
     throw new Error('Signal Log store not initialized. Call initSignalLogStore first.');
   }
-  
-  const pageSize = request.page_size ?? 100;
-  
-  // Decode cursor from page_token if provided
-  let cursorId = 0;
-  if (request.page_token) {
-    cursorId = decodePageToken(request.page_token);
-  }
-  
-  // Query with one extra row to determine if there are more results
-  // We use `id > cursorId` for cursor-based pagination (stable ordering by insert order)
-  // Filter by accepted_at time range for user-specified window
-  const stmt = db.prepare(`
-    SELECT id, org_id, signal_id, source_system, learner_reference,
-           timestamp, schema_version, payload, metadata, accepted_at
-    FROM signal_log
-    WHERE org_id = ?
-      AND learner_reference = ?
-      AND accepted_at >= ?
-      AND accepted_at <= ?
-      AND id > ?
-    ORDER BY accepted_at ASC, id ASC
-    LIMIT ?
-  `);
-  
-  const rows = stmt.all(
-    request.org_id,
-    request.learner_reference,
-    request.from_time,
-    request.to_time,
-    cursorId,
-    pageSize + 1 // Fetch one extra to check for more
-  ) as SignalLogRow[];
-  
-  // Check if there are more results
-  const hasMore = rows.length > pageSize;
-  const resultRows = hasMore ? rows.slice(0, pageSize) : rows;
-  
-  // Transform rows to SignalRecord objects
-  const signals: SignalRecord[] = resultRows.map(rowToSignalRecord);
-  
-  // Get next cursor position if there are more results
-  let nextCursor: number | undefined;
-  if (hasMore && resultRows.length > 0) {
-    const lastRow = resultRows[resultRows.length - 1];
-    nextCursor = lastRow ? lastRow.id : undefined;
-  }
-  
-  return {
-    signals,
-    hasMore,
-    nextCursor,
-  };
+
+  return repository.querySignals(request);
 }
 
 /**
@@ -183,82 +290,32 @@ export function querySignals(request: SignalLogReadRequest): SignalLogQueryResul
  * @throws Error with code 'signals_not_in_org_scope' if any returned signal belongs to a different org
  */
 export function getSignalsByIds(orgId: string, signalIds: string[]): SignalRecord[] {
-  if (!db) {
+  if (!repository) {
     throw new Error('Signal Log store not initialized. Call initSignalLogStore first.');
   }
-
-  if (signalIds.length === 0) {
-    return [];
-  }
-
-  // Step 1: Primary query — org isolation enforced at the SQL level
-  const placeholders = signalIds.map(() => '?').join(', ');
-  const stmt = db.prepare(`
-    SELECT id, org_id, signal_id, source_system, learner_reference,
-           timestamp, schema_version, payload, metadata, accepted_at
-    FROM signal_log
-    WHERE signal_id IN (${placeholders}) AND org_id = ?
-    ORDER BY accepted_at ASC, id ASC
-  `);
-
-  const rows = stmt.all(...signalIds, orgId) as SignalLogRow[];
-
-  // Step 2: If some IDs weren't returned, determine why (truly missing vs cross-org)
-  const foundIds = new Set(rows.map((r) => r.signal_id));
-  const missingIds = signalIds.filter((id) => !foundIds.has(id));
-
-  if (missingIds.length > 0) {
-    // Secondary existence check — do the missing IDs exist in other orgs?
-    const missingPlaceholders = missingIds.map(() => '?').join(', ');
-    const existStmt = db.prepare(
-      `SELECT signal_id FROM signal_log WHERE signal_id IN (${missingPlaceholders})`
-    );
-    const existRows = existStmt.all(...missingIds) as { signal_id: string }[];
-    const existingInOtherOrgs = new Set(existRows.map((r) => r.signal_id));
-
-    const trulyMissing = missingIds.filter((id) => !existingInOtherOrgs.has(id));
-    const crossOrgIds = missingIds.filter((id) => existingInOtherOrgs.has(id));
-
-    // unknown_signal_id takes precedence over signals_not_in_org_scope
-    if (trulyMissing.length > 0) {
-      const err = new Error(`Unknown signal id(s): ${trulyMissing.join(', ')}`) as Error & {
-        code: string;
-        field_path?: string;
-      };
-      err.code = 'unknown_signal_id';
-      err.field_path = 'signal_ids';
-      throw err;
-    }
-
-    if (crossOrgIds.length > 0) {
-      const err = new Error(
-        `Signal ${crossOrgIds[0]} belongs to a different org, not ${orgId}`
-      ) as Error & { code: string; field_path?: string };
-      err.code = 'signals_not_in_org_scope';
-      err.field_path = 'signal_ids';
-      throw err;
-    }
-  }
-
-  return rows.map(rowToSignalRecord);
+  return repository.getSignalsByIds(orgId, signalIds);
 }
 
 /**
  * Clear all entries (for testing only)
  */
 export function clearSignalLogStore(): void {
-  if (!db) {
+  if (!repository) {
     throw new Error('Signal Log store not initialized. Call initSignalLogStore first.');
   }
-  
-  db.exec('DELETE FROM signal_log');
+  if (!(repository instanceof SqliteSignalLogRepository)) {
+    throw new Error('clearSignalLogStore() is only supported on SqliteSignalLogRepository.');
+  }
+  repository.clear();
 }
 
 /**
  * Get the current database instance (for testing purposes)
  */
 export function getSignalLogDatabase(): Database.Database | null {
-  return db;
+  if (!repository) return null;
+  if (!(repository instanceof SqliteSignalLogRepository)) return null;
+  return repository.getDatabase();
 }
 
 // =============================================================================

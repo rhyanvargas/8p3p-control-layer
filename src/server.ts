@@ -46,6 +46,8 @@ try {
   // Directory may already exist
 }
 
+// Signal Log store (Stage 2). Phase 2: replace initSignalLogStore(dbPath)
+// with setSignalLogRepository(new DynamoDbSignalLogRepository(config))
 initSignalLogStore(signalLogDbPath);
 
 // Ingestion log (Inspection API)

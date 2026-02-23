@@ -152,6 +152,13 @@ The SignalRecord contains all fields from SignalEnvelope plus the `accepted_at` 
 
 ### 1. Signal Log Store (`src/signalLog/store.ts`)
 
+Signal Log storage is implemented behind a vendor-agnostic repository contract:
+
+- `SignalLogRepository` interface: `src/signalLog/repository.ts`
+- Phase 1 adapter: `SqliteSignalLogRepository` (exported from `src/signalLog/store.ts`)
+- Store module exports preserve existing function signatures and **delegate to an injected repository**
+  (Phase 2 entry point: `setSignalLogRepository(new DynamoDbSignalLogRepository(...))`).
+
 SQLite-backed storage for signal records:
 
 ```sql
@@ -176,7 +183,7 @@ CREATE INDEX idx_signal_log_query
 **Functions:**
 - `initSignalLogStore(dbPath: string): void` - Initialize database
 - `appendSignal(signal: SignalEnvelope, acceptedAt: string): SignalRecord` - Store accepted signal
-- `querySignals(request: SignalLogReadRequest): SignalLogReadResponse` - Query signals by time range
+- `querySignals(request: SignalLogReadRequest): SignalLogQueryResult` - Query signals by time range (internal return type; the handler maps this to `SignalLogReadResponse` for the API)
 - `getSignalsByIds(orgId: string, signalIds: string[]): SignalRecord[]` - Retrieve specific signals by ID
 
 ### getSignalsByIds (Internal Function)
@@ -202,6 +209,8 @@ getSignalsByIds(orgId: string, signalIds: string[]): SignalRecord[]
 |-----------|------------|
 | Signal ID not found | `unknown_signal_id` |
 | Signal belongs to different org | `signals_not_in_org_scope` |
+
+These two error codes are part of the `SignalLogRepository.getSignalsByIds` contract — any future adapter (e.g. DynamoDB) must preserve the same semantics.
 
 **Implementation note:** When a requested `signal_id` is missing from results, the function distinguishes between truly missing signals (`unknown_signal_id`) and signals that exist in another org (`signals_not_in_org_scope`) via a secondary existence check.
 
@@ -230,6 +239,13 @@ interface SignalLogReadResponse {
   learner_reference: string;
   signals: SignalRecord[];
   next_page_token: string | null;
+}
+
+/** Store/internal return type for querySignals; handler maps to SignalLogReadResponse for API. */
+interface SignalLogQueryResult {
+  signals: SignalRecord[];
+  hasMore: boolean;
+  nextCursor?: number;
 }
 ```
 
@@ -286,6 +302,7 @@ Implement all tests from the Contract Test Matrix:
 ```
 src/
 ├── signalLog/
+│   ├── repository.ts                 # SignalLogRepository interface (vendor-agnostic)
 │   ├── store.ts                      # SQLite storage layer
 │   ├── validator.ts                  # Query parameter validation
 │   ├── handler.ts                    # GET /v1/signals handler
@@ -342,6 +359,4 @@ Implementation is complete when:
 
 ## Deferred Items
 
-| ID | Item | Origin | Deferred To |
-|----|------|--------|-------------|
-| DEF-SIGLOG-001 | Extract `SignalLogRepository` interface for DI (mirrors StateRepository pattern) | Playbook Phase 2 | Phase 2 |
+None.

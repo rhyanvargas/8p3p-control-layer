@@ -4,22 +4,22 @@ overview: "Extract a vendor-agnostic SignalLogRepository interface from the curr
 todos:
   - id: TASK-001
     content: Define SignalLogRepository interface in src/signalLog/repository.ts
-    status: pending
+    status: completed
   - id: TASK-002
     content: Implement SqliteSignalLogRepository class in src/signalLog/store.ts
-    status: pending
+    status: completed
   - id: TASK-003
     content: Add repository injection support to signal log store module
-    status: pending
+    status: completed
   - id: TASK-004
     content: Update server.ts — confirm wiring + add Phase 2 migration comment
-    status: pending
+    status: completed
   - id: TASK-005
     content: Update signal-log spec — document repository interface and file structure
-    status: pending
+    status: completed
   - id: TASK-006
     content: Regression check — all tests pass, build clean, lint clean
-    status: pending
+    status: completed
 isProject: false
 ---
 
@@ -45,7 +45,7 @@ isProject: false
 
 ### TASK-001: Define SignalLogRepository interface
 
-- **Status**: pending
+- **Status**: completed
 - **Files**: `src/signalLog/repository.ts`
 - **Action**: Create
 - **Depends on**: none
@@ -85,7 +85,7 @@ Create the `SignalLogRepository` interface:
 
 ### TASK-002: Implement SqliteSignalLogRepository class
 
-- **Status**: pending
+- **Status**: completed
 - **Files**: `src/signalLog/store.ts`
 - **Action**: Modify
 - **Depends on**: TASK-001
@@ -120,7 +120,7 @@ Add a `SqliteSignalLogRepository` class to `store.ts` that implements `SignalLog
 
 ### TASK-003: Add repository injection support to signal log store module
 
-- **Status**: pending
+- **Status**: completed
 - **Files**: `src/signalLog/store.ts`
 - **Action**: Modify
 - **Depends on**: TASK-002
@@ -141,7 +141,7 @@ Refactor the module-level singleton to delegate to an injected `SignalLogReposit
 
 ### TASK-004: Update server.ts — confirm wiring
 
-- **Status**: pending
+- **Status**: completed
 - **Files**: `src/server.ts`
 - **Action**: Modify (minimal)
 - **Depends on**: TASK-003
@@ -161,7 +161,7 @@ Since `initSignalLogStore(dbPath)` now internally creates and injects the `Sqlit
 
 ### TASK-005: Update signal-log spec
 
-- **Status**: pending
+- **Status**: completed
 - **Files**: `docs/specs/signal-log.md`
 - **Action**: Modify
 - **Depends on**: TASK-004
@@ -175,7 +175,7 @@ Update the spec to document the repository extraction:
 
 ### TASK-006: Regression check
 
-- **Status**: pending
+- **Status**: completed
 - **Files**: none (verification only)
 - **Action**: Verify
 - **Depends on**: TASK-005
