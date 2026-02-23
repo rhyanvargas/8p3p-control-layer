@@ -43,7 +43,7 @@ isProject: false
 
 ### TASK-001: Define IdempotencyRepository interface
 
-- **Status**: pending
+- **Status**: completed
 - **Files**: `src/ingestion/idempotency-repository.ts`
 - **Action**: Create
 - **Depends on**: none
@@ -71,7 +71,7 @@ Create the `IdempotencyRepository` interface:
 
 ### TASK-002: Implement SqliteIdempotencyRepository class
 
-- **Status**: pending
+- **Status**: completed
 - **Files**: `src/ingestion/idempotency.ts`
 - **Action**: Modify
 - **Depends on**: TASK-001
@@ -101,7 +101,7 @@ Add a `SqliteIdempotencyRepository` class to `idempotency.ts` that implements `I
 
 ### TASK-003: Add repository injection support to idempotency store module
 
-- **Status**: pending
+- **Status**: completed
 - **Files**: `src/ingestion/idempotency.ts`
 - **Action**: Modify
 - **Depends on**: TASK-002
@@ -119,7 +119,7 @@ Refactor the module-level singleton to delegate to an injected `IdempotencyRepos
 
 ### TASK-004: Update server.ts — confirm wiring
 
-- **Status**: pending
+- **Status**: completed
 - **Files**: `src/server.ts`
 - **Action**: Modify (minimal)
 - **Depends on**: TASK-003
@@ -140,7 +140,7 @@ Since `initIdempotencyStore(dbPath)` now internally creates and injects the `Sql
 
 ### TASK-005: Update signal-ingestion spec
 
-- **Status**: pending
+- **Status**: completed
 - **Files**: `docs/specs/signal-ingestion.md`
 - **Action**: Modify
 - **Depends on**: TASK-004
@@ -153,7 +153,7 @@ Update the spec to document the repository extraction:
 
 ### TASK-006: Regression check
 
-- **Status**: pending
+- **Status**: completed
 - **Files**: none (verification only)
 - **Action**: Verify
 - **Depends on**: TASK-005

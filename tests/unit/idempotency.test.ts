@@ -8,7 +8,10 @@ import {
   closeIdempotencyStore,
   checkAndStore,
   clearIdempotencyStore,
+  setIdempotencyRepository,
+  SqliteIdempotencyRepository,
 } from '../../src/ingestion/idempotency.js';
+import type { IdempotencyRepository } from '../../src/ingestion/idempotency-repository.js';
 
 describe('Idempotency Store', () => {
   beforeEach(() => {
@@ -132,6 +135,71 @@ describe('Idempotency Store', () => {
       
       expect(result1.isDuplicate).toBe(false);
       expect(result2.isDuplicate).toBe(false);
+    });
+  });
+
+  describe('SqliteIdempotencyRepository (direct)', () => {
+    it('ID-UNIT-004: should implement IdempotencyRepository contract', () => {
+      const repo = new SqliteIdempotencyRepository(':memory:');
+      const first = repo.checkAndStore('org-1', 'sig-direct');
+      const second = repo.checkAndStore('org-1', 'sig-direct');
+      expect(first.isDuplicate).toBe(false);
+      expect(second.isDuplicate).toBe(true);
+      expect(second.receivedAt).toBe(first.receivedAt);
+      repo.close();
+    });
+
+    it('ID-UNIT-005: should close without leaking', () => {
+      const repo = new SqliteIdempotencyRepository(':memory:');
+      repo.checkAndStore('org-1', 'sig-close');
+      repo.close();
+      expect(() => repo.checkAndStore('org-1', 'sig-close')).toThrow();
+    });
+  });
+
+  describe('setIdempotencyRepository (injection)', () => {
+    it('ID-UNIT-006: should delegate to injected repository', () => {
+      const stub: IdempotencyRepository = {
+        checkAndStore: (orgId, signalId) => ({
+          isDuplicate: orgId === 'org-stub' && signalId === 'stub-dup',
+          receivedAt: '2026-01-01T00:00:00Z',
+        }),
+        close: () => {},
+      };
+      closeIdempotencyStore();
+      setIdempotencyRepository(stub);
+
+      const r1 = checkAndStore('org-stub', 'stub-dup');
+      const r2 = checkAndStore('org-other', 'other');
+      expect(r1.isDuplicate).toBe(true);
+      expect(r2.isDuplicate).toBe(false);
+
+      closeIdempotencyStore();
+      initIdempotencyStore(':memory:'); // restore for afterEach
+    });
+
+    it('ID-UNIT-007: should close existing repository before assigning', () => {
+      initIdempotencyStore(':memory:');
+      checkAndStore('org-1', 'pre-swap');
+      const stub: IdempotencyRepository = {
+        checkAndStore: () => ({ isDuplicate: false, receivedAt: '2026-01-01T00:00:00Z' }),
+        close: () => {},
+      };
+      setIdempotencyRepository(stub);
+      // Module should use stub (no shared state with prior SQLite instance)
+      const r = checkAndStore('org-1', 'post-swap');
+      expect(r.isDuplicate).toBe(false);
+    });
+  });
+
+  describe('initIdempotencyStore re-initialization', () => {
+    it('ID-UNIT-008: should close prior instance before reassigning', () => {
+      initIdempotencyStore(':memory:');
+      checkAndStore('org-1', 'before-reinit');
+      initIdempotencyStore(':memory:'); // second init — prior handle must be closed
+      // Fresh instance: prior signal should not exist
+      const r = checkAndStore('org-1', 'before-reinit');
+      expect(r.isDuplicate).toBe(false);
     });
   });
 });

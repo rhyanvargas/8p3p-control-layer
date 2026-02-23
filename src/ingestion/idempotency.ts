@@ -68,8 +68,12 @@ let repository: IdempotencyRepository | null = null;
 /**
  * Initialize the idempotency store with SQLite.
  * Must be called before any checkAndStore operations.
+ * Defensive: closes any existing repository before assigning (avoids handle leak on re-init).
  */
 export function initIdempotencyStore(dbPath: string): void {
+  if (repository) {
+    repository.close();
+  }
   repository = new SqliteIdempotencyRepository(dbPath);
 }
 
