@@ -14,6 +14,8 @@ All actionable implementation work should be driven by the Cursor plans in:
 
 - `.cursor/plans/` (see `.cursor/plans/*.plan.md`)
 
+**Repository extraction complete (2026-02-23):** All plans in `.cursor/plans/` (Idempotency, Signal Log, State) are executed. Next steps — QA execution, Week 1 checkpoint, and any new plans — are in [`docs/reports/2026-02-23-post-repository-extraction-next-steps.md`](../reports/2026-02-23-post-repository-extraction-next-steps.md).
+
 ## Planning Rules
 
 When there is a conflict:

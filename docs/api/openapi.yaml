@@ -7,6 +7,7 @@ info:
 
     **Authentication:** When API_KEY env is set, all /v1/* endpoints require the x-api-key header.
     When API_KEY is unset (local dev), auth is disabled.
+    When API_KEY_ORG_ID is set, request org_id is overridden server-side (one org per key); when unset, client org_id is used.
   version: 1.0.0
   license:
     name: ISC

@@ -32,7 +32,8 @@ If the key is missing or invalid, you will receive **401** with `api_key_require
 
 ### Org scoping
 
-In v1 pilot, deployments are typically single-tenant. 8P3P may enforce org scoping server-side (your `org_id` in body/query may be overridden). You should still send the correct `org_id` for clarity and log correlation.
+- **When 8P3P sets `API_KEY_ORG_ID`** (typical single-tenant pilot): the server overrides every request’s `org_id` with that value. You cannot access another org; sending a different `org_id` has no effect. You may omit or leave `org_id` as a placeholder — the server fills it in.
+- **When `API_KEY_ORG_ID` is not set:** the server uses the `org_id` you send in the body (POST) or query (GET). The key proves identity only; you choose which org you’re acting on.
 
 ---
 

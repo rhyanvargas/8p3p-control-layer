@@ -17,8 +17,11 @@ import {
   getStateStoreDatabase,
   listLearners,
   StateVersionConflictError,
+  setStateRepository,
+  SqliteStateRepository,
 } from '../../src/state/store.js';
 import type { LearnerState } from '../../src/shared/types.js';
+import type { StateRepository } from '../../src/state/repository.js';
 
 function createState(overrides: Partial<LearnerState> = {}): LearnerState {
   return {
@@ -441,6 +444,92 @@ describe('STATE Store', () => {
     it('should throw when listLearners called without init', () => {
       closeStateStore();
       expect(() => listLearners('test-org', 50)).toThrow('STATE store not initialized');
+    });
+  });
+
+  describe('SqliteStateRepository (direct)', () => {
+    it('should support direct class usage without module wrappers', () => {
+      const repo = new SqliteStateRepository(':memory:');
+      const state = createState({
+        state_id: 'test-org:learner-123:v1',
+        state_version: 1,
+        state: { direct: true },
+      });
+
+      repo.saveState(state);
+      const current = repo.getState('test-org', 'learner-123');
+
+      expect(current).not.toBeNull();
+      expect(current!.state).toEqual({ direct: true });
+      expect(repo.getDatabase()).not.toBeNull();
+
+      repo.close();
+    });
+  });
+
+  describe('setStateRepository (injection)', () => {
+    it('should delegate module exports to injected repository', () => {
+      class StubRepository implements StateRepository {
+        getState(orgId: string, learnerReference: string): LearnerState | null {
+          return createState({
+            org_id: orgId,
+            learner_reference: learnerReference,
+            state: { injected: true },
+          });
+        }
+        getStateByVersion(): LearnerState | null {
+          return null;
+        }
+        saveState(): void {}
+        saveStateWithAppliedSignals(): void {}
+        isSignalApplied(): boolean {
+          return true;
+        }
+        recordAppliedSignals(): void {}
+        close(): void {}
+      }
+
+      setStateRepository(new StubRepository());
+      expect(getState('org-injected', 'learner-injected')?.state).toEqual({ injected: true });
+      expect(isSignalApplied('org-injected', 'learner-injected', 'sig-1')).toBe(true);
+    });
+
+    it('should close previous repository before replacing it', () => {
+      let closed1 = false;
+      let closed2 = false;
+
+      class ClosingStub implements StateRepository {
+        constructor(private readonly onClose: () => void) {}
+        getState(): LearnerState | null {
+          return null;
+        }
+        getStateByVersion(): LearnerState | null {
+          return null;
+        }
+        saveState(): void {}
+        saveStateWithAppliedSignals(): void {}
+        isSignalApplied(): boolean {
+          return false;
+        }
+        recordAppliedSignals(): void {}
+        close(): void {
+          this.onClose();
+        }
+      }
+
+      const repo1 = new ClosingStub(() => {
+        closed1 = true;
+      });
+      const repo2 = new ClosingStub(() => {
+        closed2 = true;
+      });
+
+      setStateRepository(repo1);
+      setStateRepository(repo2);
+      expect(closed1).toBe(true);
+
+      closeStateStore();
+      expect(closed2).toBe(true);
     });
   });
 });

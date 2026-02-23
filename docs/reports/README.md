@@ -4,6 +4,7 @@ This folder contains narrative **evidence and milestone reports**. These are not
 
 ## Current
 
+- [`2026-02-23-ai-data-infrastructure-position.md`](2026-02-23-ai-data-infrastructure-position.md) — Position: how 8P3P addresses “sprinkle AI” critique; data infrastructure and readiness measurement relevance
 - [`2026-02-22-cto-response-ceo-scope-timeline.md`](2026-02-22-cto-response-ceo-scope-timeline.md) — CTO response to CEO feedback: 7 decision types, demo narrative, API key auth, revised 3-week timeline
 - [`2026-02-20-pilot-readiness-v1-v1.1.md`](2026-02-20-pilot-readiness-v1-v1.1.md) — Pilot readiness definition, v1 timeline, v1.1 multi-pilot requirements
 

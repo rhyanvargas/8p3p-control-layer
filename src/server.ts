@@ -66,6 +66,8 @@ try {
   // Directory may already exist
 }
 
+// STATE store (Stage 3). Phase 2: replace initStateStore(dbPath)
+// with setStateRepository(new DynamoDbStateRepository(config))
 initStateStore(stateStoreDbPath);
 
 // Decision store (Stage 4). Phase 2: replace initDecisionStore(dbPath)

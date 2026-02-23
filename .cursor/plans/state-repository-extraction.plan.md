@@ -4,22 +4,22 @@ overview: "Extract a vendor-agnostic StateRepository interface from the current 
 todos:
   - id: TASK-001
     content: Define StateRepository interface in src/state/repository.ts
-    status: pending
+    status: completed
   - id: TASK-002
     content: Implement SqliteStateRepository class in src/state/store.ts
-    status: pending
+    status: completed
   - id: TASK-003
     content: Add repository injection support to state store module
-    status: pending
+    status: completed
   - id: TASK-004
     content: Update server.ts — confirm wiring + add Phase 2 migration comment
-    status: pending
+    status: completed
   - id: TASK-005
     content: Update state-engine spec — document repository interface and file structure
-    status: pending
+    status: completed
   - id: TASK-006
     content: Regression check — all tests pass, build clean, lint clean
-    status: pending
+    status: completed
 isProject: false
 ---
 
@@ -47,7 +47,7 @@ isProject: false
 
 ### TASK-001: Define StateRepository interface
 
-- **Status**: pending
+- **Status**: completed
 - **Files**: `src/state/repository.ts`
 - **Action**: Create
 - **Depends on**: none
@@ -94,7 +94,7 @@ Create the `StateRepository` interface:
 
 ### TASK-002: Implement SqliteStateRepository class
 
-- **Status**: pending
+- **Status**: completed
 - **Files**: `src/state/store.ts`
 - **Action**: Modify
 - **Depends on**: TASK-001
@@ -136,7 +136,7 @@ Add a `SqliteStateRepository` class to `store.ts` that implements `StateReposito
 
 ### TASK-003: Add repository injection support to state store module
 
-- **Status**: pending
+- **Status**: completed
 - **Files**: `src/state/store.ts`
 - **Action**: Modify
 - **Depends on**: TASK-002
@@ -160,7 +160,7 @@ Refactor the module-level singleton to delegate to an injected `StateRepository`
 
 ### TASK-004: Update server.ts — confirm wiring
 
-- **Status**: pending
+- **Status**: completed
 - **Files**: `src/server.ts`
 - **Action**: Modify (minimal)
 - **Depends on**: TASK-003
@@ -180,7 +180,7 @@ Since `initStateStore(dbPath)` now internally creates and injects the `SqliteSta
 
 ### TASK-005: Update state-engine spec
 
-- **Status**: pending
+- **Status**: completed
 - **Files**: `docs/specs/state-engine.md`
 - **Action**: Modify
 - **Depends on**: TASK-004
@@ -195,7 +195,7 @@ Update the spec to document the repository extraction:
 
 ### TASK-006: Regression check
 
-- **Status**: pending
+- **Status**: completed
 - **Files**: none (verification only)
 - **Action**: Verify
 - **Depends on**: TASK-005

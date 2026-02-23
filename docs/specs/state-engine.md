@@ -224,9 +224,17 @@ content_id, content_url
 
 ## Implementation Components
 
-### 1. STATE Store (`src/state/store.ts`)
+### 1. STATE Store (`src/state/store.ts`, `src/state/repository.ts`)
 
-SQLite-backed storage for learner state:
+The STATE store now follows a repository contract:
+
+- `StateRepository` is defined in `src/state/repository.ts` (vendor-agnostic interface)
+- `SqliteStateRepository` in `src/state/store.ts` is the Phase 1 adapter
+- Module-level exports in `src/state/store.ts` delegate to an injected repository
+- `setStateRepository(repo)` is the Phase 2 injection point for DynamoDB
+- `StateVersionConflictError` remains a module-level export and shared error contract across adapters
+
+SQLite storage shape (Phase 1 adapter):
 
 ```sql
 CREATE TABLE IF NOT EXISTS learner_state (
@@ -251,6 +259,7 @@ CREATE INDEX idx_learner_state_current
 
 **Functions:**
 - `initStateStore(dbPath: string): void` - Initialize database with schema
+- `setStateRepository(repo: StateRepository): void` - Inject store adapter (Phase 2 migration hook)
 - `getState(orgId: string, learnerReference: string): LearnerState | null` - Get current state
 - `getStateByVersion(orgId: string, learnerReference: string, version: number): LearnerState | null` - Get specific version
 - `saveStateWithAppliedSignals(state: LearnerState, appliedEntries: Array<{ signal_id: string; state_version: number; applied_at: string }>): void` - **Primary** write path; persist new state version and record applied signals atomically
@@ -343,7 +352,7 @@ CREATE TABLE IF NOT EXISTS applied_signals (
 );
 ```
 
-Before applying a signal, check if it's already been applied. This ensures idempotency (STATE-007).
+Before applying a signal, check if it's already been applied. This ensures idempotency (STATE-007). The repository contract requires idempotent write behavior for applied-signal tracking (`INSERT OR IGNORE` semantics for SQLite).
 
 ## Signal Application Flow
 
@@ -414,6 +423,7 @@ Implement all tests from the Contract Test Matrix:
 ```
 src/
 ├── state/
+│   ├── repository.ts                 # StateRepository contract
 │   ├── store.ts                      # SQLite storage layer
 │   ├── engine.ts                     # Signal application logic
 │   └── validator.ts                  # Request/state validation
@@ -524,20 +534,28 @@ Phase 2 (AWS deployment) will migrate persistence away from SQLite (e.g., to Dyn
 
 ### StateRepository interface (contract)
 
-Define a repository interface (names are illustrative; exact placement TBD):
+The repository contract is implemented in `src/state/repository.ts`:
 
 ```typescript
 interface StateRepository {
   getState(orgId: string, learnerReference: string): LearnerState | null;
   getStateByVersion(orgId: string, learnerReference: string, version: number): LearnerState | null;
+  saveState(state: LearnerState): void; // deprecated compatibility path
   saveStateWithAppliedSignals(
     state: LearnerState,
     appliedEntries: Array<{ signal_id: string; state_version: number; applied_at: string }>
   ): void;
   isSignalApplied(orgId: string, learnerReference: string, signalId: string): boolean;
+  recordAppliedSignals(
+    orgId: string,
+    learnerReference: string,
+    entries: Array<{ signal_id: string; state_version: number; applied_at: string }>
+  ): void;
   close(): void;
 }
 ```
+
+`saveStateWithAppliedSignals` is the interface-level atomic write requirement: adapters must persist state + applied-signal rows in a single atomic operation (SQLite transaction / DynamoDB `TransactWriteItems`).
 
 ### Adapter approach
 
@@ -550,7 +568,7 @@ Store implementations must surface optimistic-lock conflicts as a vendor-neutral
 
 ### Phase 2 prerequisite (ISS-007)
 
-The current module-level singleton database pattern (`let db`) prevents dependency injection. Phase 2 should refactor STATE Engine construction to accept a `StateRepository` instance (or factory) to make backend swaps mechanical.
+Dependency injection is now in place at the store boundary via `setStateRepository(repo)`. Phase 2 can swap `SqliteStateRepository` with `DynamoDbStateRepository` without changing STATE Engine business logic or downstream module imports.
 
 **Tracking**: The operational migration checklist and storage preparation steps live in `docs/archive/playbooks/solo-dev-execution-playbook.md` under Phase 2.
 
@@ -569,4 +587,4 @@ The current module-level singleton database pattern (`let db`) prevents dependen
 | DEF-STATE-001 | Validate `requested_at` as RFC3339 | ISS-R3-005 | Next tightening pass |
 | DEF-STATE-002 | Remove redundant `sourceVal !== null` check in `deepMerge` | ISS-R3-003 | Next cleanup pass |
 | DEF-STATE-003 | Remove `saveState()` usage from test helpers once Phase 2 DI is in place | ISS-R3-002 | Phase 2 |
-| DEF-STATE-004 | Refactor module singleton to DI (`StateRepository`) | ISS-007 (R2) | Phase 2 |
+| DEF-STATE-004 | Refactor module singleton to DI (`StateRepository`) | ISS-007 (R2) | **Done** — State Repository Extraction plan |

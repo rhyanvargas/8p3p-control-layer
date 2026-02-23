@@ -19,6 +19,7 @@
     "validate:schemas": "tsx scripts/validate-schemas.ts",
     "validate:contracts": "tsx scripts/validate-contracts.ts",
     "validate:api": "redocly lint docs/api/openapi.yaml",
+    "generate:api-key": "node scripts/generate-api-key.mjs",
     "lint": "eslint src tests",
     "typecheck": "tsc --noEmit",
     "check": "npm run build && npm run validate:schemas && npm run validate:contracts && npm run validate:api && npm run lint && npm test"

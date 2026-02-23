@@ -149,6 +149,11 @@ v1.1 (`docs/specs/tenant-provisioning.md`) replaces this manual flow with:
 | `API_KEY` | No | The expected API key value. If unset or empty, middleware is disabled. |
 | `API_KEY_ORG_ID` | No | When set, overrides request `org_id` with this value. Caller cannot access another org. If unset, org_id from request is used. |
 
+**Pilot use — when to set `API_KEY_ORG_ID`:**
+
+- **Set it** when the deployment is **one org per key**: the server forces all requests to that org; client-supplied `org_id` is ignored. Use for single-tenant pilot and when org must not be self-declared by the caller.
+- **Leave unset** when the client is allowed to send different `org_id` values (e.g. multi-tenant testing or local dev); the key only proves identity, and request `org_id` is used as-is.
+
 ### Header
 
 | Header | Description |
