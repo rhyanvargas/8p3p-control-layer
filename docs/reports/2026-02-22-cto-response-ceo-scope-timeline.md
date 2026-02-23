@@ -21,7 +21,7 @@
 
 All 7 types are already built, tested, and passing (343 tests, POC v2 QA verified Feb 18). The policy engine evaluates a priority-ordered rule set — `escalate` evaluates first, `recommend` last — and the entire closed set ships as a unit. Removing 5 types from the engine wouldn't save a single day of build time because the work is done.
 
-**Proposal:** Lead the demo with **`escalate`** and **`advance`** — the two bookend decisions. Escalate = "something is wrong, elevate to human review." Advance = "learner is ready, move forward." Both are immediately intuitive to a buyer, and both produce the clearest contrast in the audit receipt (high-risk vs. high-confidence).
+**Proposal (amended 2026-02-23 per CEO approval):** Lead the demo with **`reinforce`** and **`intervene`** — the two primary decisions. REINFORCE = "prevent decay / prevent future failure before it happens." INTERVENE = "high-risk now; take action immediately." These map directly to enterprise pain (waste + risk), and the receipts make them defensible. Advance is nice but not the pain point; escalate implies workflow/human review which can drag into approval-checkpoint discussions.
 
 The other 5 are visible in the system (they'll appear in the Decision Stream panel if someone scrolls), but we don't narrate them in the walkthrough. If a buyer asks "what about reroute vs. intervene?" the panel shows the exact rule that fired and why. That's the receipts layer answering the question, not us.
 
@@ -52,13 +52,13 @@ The repository extraction being done already knocks 2 days off the original Week
 
 - **Week 1:** Ingestion log, State query API, API key middleware, start enriched trace
 - **Week 2:** Finish enriched trace, Panels 1-3, start Panel 4
-- **Week 3 (partial):** Finish Panel 4, smoke tests, demo seed with `escalate` + `advance` narrative, rehearsal
+- **Week 3 (partial):** Finish Panel 4, smoke tests, demo seed with `reinforce` + `intervene` narrative anchors *(amended 2026-02-23 per CEO approval)*, rehearsal
 
 The enriched decision trace is still the critical path item. It modifies `evaluateState()` and `evaluatePolicy()` — the same code paths that 343 tests validate — to capture frozen state snapshots and field-level threshold comparisons mid-evaluation. Won't compress below 2 days. It's the artifact that makes a compliance officer say "this is auditable."
 
 ### Bottom Line
 
-- All 7 types ship. Demo narrative anchored on `escalate` + `advance`. Other 5 are supported, not narrated.
+- All 7 types ship. Demo narrative anchored on `reinforce` + `intervene` *(amended 2026-02-23 per CEO approval)*. Other 5 are supported, not narrated.
 - API key auth added for v1. Not full tenant provisioning — just enough to close the security objection.
 - **3 weeks to demo-ready** (down from 4), driven by the repo extraction already being done.
 - The enriched trace + panels are the real timeline, not the decision types.
@@ -73,7 +73,7 @@ The enriched decision trace is still the critical path item. It modifies `evalua
 | 343 tests passing | POC v2 QA report (2026-02-18), contract tests DEC-001 through DEC-008 |
 | Repo extraction done | `src/decision/repository.ts` interface, `store.ts` SqliteDecisionRepository, `setDecisionRepository()` exported |
 | No auth exists | `src/server.ts` — no middleware, no key check, no auth imports |
-| Escalate + advance as demo anchors | Default policy: `escalate` = low confidence + instability/high risk; `advance` = high stability + mastery + low risk + high confidence |
+| Reinforce + intervene as demo anchors *(2026-02-23)* | Default policy: `reinforce` = prevent decay; `intervene` = high-risk now, take action. Maps to enterprise pain (waste + risk). |
 
 ---
 
@@ -83,9 +83,9 @@ The following items in `2026-02-20-pilot-readiness-v1-v1.1.md` are superseded or
 
 1. **Minimum Scope — Auth:** Previously "No authentication/authorization (org_id scoping is sufficient for single-tenant pilot)." **Amended:** Add API key middleware for v1 to prevent security objection.
 2. **Timeline:** Previously 3 weeks build + 1 week buffer = 4 weeks. **Revised:** 2.5 weeks build + 3-4 days buffer = ~3 weeks (repo extraction done).
-3. **Demo seed scope:** Previously "all 7 decision types" in walkthrough. **Revised:** Demo narrative anchored on `escalate` + `advance`; other 5 supported but not narrated.
+3. **Demo seed scope:** Previously "all 7 decision types" in walkthrough. **Revised:** Demo narrative anchored on `reinforce` + `intervene` *(amended 2026-02-23 per CEO approval)*; other 5 supported but not narrated.
 4. **Artifact #5 (Decision Repository):** Status updated from "not built" to **Done** (interface + SqliteDecisionRepository shipped).
 
 ---
 
-*Generated: 2026-02-22 | Baseline: Pilot Readiness v1/v1.1 (2026-02-20),  feedback*
+*Generated: 2026-02-22 | Amended: 2026-02-23 (CEO approval — demo anchors REINFORCE + INTERVENE) | Baseline: Pilot Readiness v1/v1.1 (2026-02-20)*

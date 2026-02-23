@@ -135,8 +135,10 @@ Decisions are advisory outputs. Your system decides how to act on them.
 
 In the pilot narrative, we anchor on:
 
-- `escalate`: low confidence / high risk → elevate to human review
-- `advance`: high confidence / high mastery → progress learner
+- **`reinforce`**: prevent decay / prevent future failure before it happens
+- **`intervene`**: high-risk now; take action immediately
+
+These map directly to enterprise pain (waste + risk). The other 5 types are fully supported and may appear in the Decision Stream; we simply don't lead with them unless asked.
 
 ### All 7 types may occur
 
@@ -194,4 +196,5 @@ The response includes `rejection_reason.code` and `field_path`. Common causes:
 - `docs/specs/decision-engine.md` (§4.7 canonical state fields)
 - `docs/specs/api-key-middleware.md`
 - `docs/specs/inspection-api.md` (enriched receipts, inspection endpoints — v1 scope)
+- `docs/reports/2026-02-23-ceo-scope-approval.md` (demo anchors REINFORCE + INTERVENE)
 

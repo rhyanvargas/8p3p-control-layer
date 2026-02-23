@@ -3,7 +3,7 @@
 **Date:** 2026-02-20 (updated with v1.1 requirements; amended 2026-02-22 per CEO scope/timeline feedback)  
 **Context:** CEO requested auditable, trustworthy pilot demo readiness assessment with exact artifacts, timeline, and reliability requirements. Follow-up: define v1.1 requirements for 2-3 concurrent pilots.  
 **Baseline:** POC v2 QA complete (2026-02-18), 343 tests passing, Inspection API + Panels spec'd (2026-02-19)  
-**Amendments:** See `2026-02-22-cto-response-ceo-scope-timeline.md` for full rationale. Changes below marked with *(amended 2026-02-22)*.
+**Amendments:** See `2026-02-22-cto-response-ceo-scope-timeline.md` for rationale; `2026-02-23-ceo-scope-approval.md` for CEO approval with edits. Changes marked with amendment dates.
 
 ---
 
@@ -27,8 +27,8 @@ This framing is correct and governs every scoping decision below.
 | 4 | **4 Inspection Panels** at `/inspect` — Signal Intake, State Viewer, Decision Stream, Decision Trace | The trust surface. Walk-through proves the full loop in ~30 seconds: send signal → see state update → see decision appear → click to see full audit receipt | Spec'd (`inspection-panels.md`), not built |
 | 5 | **Decision Repository Interface** — persistence abstracted behind `DecisionRepository` | Answers the first enterprise CTO question: "Does this scale beyond SQLite?" Answer: yes, DynamoDB adapter is a swap. | **Done** *(amended 2026-02-22)* — `src/decision/repository.ts` interface + `SqliteDecisionRepository` shipped |
 | 6 | **343+ passing tests** with enriched trace coverage | Regression safety net for pilot iterations | 343 passing today, will grow with inspection API tests (INSP-001 through INSP-017) |
-| 7 | **Seeded demo dataset** — pre-loaded learners with demo narrative anchored on `escalate` + `advance` | Repeatable demo script: two primary decisions narrated in walkthrough; other 5 types supported but not narrated *(amended 2026-02-22)* | QA vectors exist (vec-8a through vec-8g), need packaging as a seed script |
-| 8 | **API Key Middleware** — single key per deployment, checked on every request, org_id resolved server-side | Prevents open-endpoint security objection from blocking the deal. Not full tenant provisioning; enough to keep the environment controlled. | Not built *(added 2026-02-22 per CEO feedback)* |
+| 7 | **Seeded demo dataset** — pre-loaded learners with demo narrative anchored on `reinforce` + `intervene` | Repeatable demo script: two primary decisions narrated in walkthrough; other 5 types supported but not narrated *(amended 2026-02-23 per CEO approval)* | QA vectors exist (vec-8a through vec-8g), need packaging as a seed script |
+| 8 | **API Key Middleware** — single key per deployment, org resolved server-side, client org_id ignored/overridden | Prevents open-endpoint security objection from blocking the deal. Not full tenant provisioning; enough to keep the environment controlled. | **Done** *(amended 2026-02-23)* — `src/auth/api-key-middleware.ts`, AUTH-001 through AUTH-007 passing |
 | 9 | **Pilot Integration Guide** — customer-facing onboarding doc (signals → decisions) | Removes integration ambiguity: how to map customer events to canonical fields, how to retry safely, and how to consume decisions. | **Done** *(added 2026-02-23)* — `docs/guides/pilot-integration-guide.md` |
 
 ### What's Already Proven (Not Re-Work)
@@ -64,11 +64,13 @@ The original 4-week estimate included 2 days for repository extraction (now done
 | ~~1-2~~ | ~~Repository extraction~~ | **Done** *(completed before timeline start)* |
 | 1 | **Ingestion outcome log** — `ingestion_log` table, `appendIngestionOutcome()` on every request, `GET /v1/ingestion` endpoint | INSP-001 through INSP-005 passing |
 | 2 | **State query API** — `GET /v1/state`, `GET /v1/state?version=N`, `GET /v1/state/list` | INSP-006 through INSP-009 passing |
-| 3 | **API key middleware** — single key per deployment, checked on every request, org_id resolved server-side *(added 2026-02-22)* | Unauthenticated requests rejected; org_id enforced by key |
+| 3 | **API key middleware** — single key per deployment, org resolved server-side, client org_id ignored *(added 2026-02-22; done 2026-02-23)* | Unauthenticated requests rejected; org_id enforced by key |
 | 4 | **Decision stream metadata** — `output_metadata.priority` on decisions | INSP-013 passing |
 | 5 | **Start enriched decision trace** — `state_snapshot`, `matched_rule` with evaluated fields | Trace capture working in unit tests |
 
 **Week 1 exit criteria:** All new read-only API endpoints operational. API key enforced. Existing 343 tests still green. New INSP tests passing.
+
+**Week 1 checkpoint demo *(2026-02-23 per CEO approval):** By end of Week 1, a working checkpoint demo must show: (1) queryable ingestion outcomes (accepted/rejected/duplicate), (2) read-only `GET /v1/state`, (3) API key enforced on endpoints, (4) decisions visible in stream (receipts may be stubbed in early form). Prevents timeline drift.
 
 ### Week 2: Enriched Trace + Panels 1-3 (Days 6-10)
 
@@ -87,7 +89,7 @@ The original 4-week estimate included 2 days for repository extraction (now done
 |-----|------------|----------|
 | 11-12 | **Panel 4: Decision Trace/Receipt** — rationale block, threshold table, frozen state snapshot, rule condition JSON | Live at `/inspect`, Panel 3 → Panel 4 navigation working |
 | 13 | **Integration smoke tests** — panels load, API calls succeed, error states handled gracefully | Smoke test suite passing |
-| 14 | **Demo seed script + rehearsal** — dataset with `escalate` + `advance` narrative anchors *(amended 2026-02-22)* | End-to-end demo completes in <60 seconds |
+| 14 | **Demo seed script + rehearsal** — dataset with `reinforce` + `intervene` narrative anchors *(amended 2026-02-23 per CEO approval)* | End-to-end demo completes in <60 seconds |
 
 **Week 3 exit criteria:** All 4 panels live. Full demo walkthrough rehearsed. All INSP tests + existing tests green.
 
@@ -138,7 +140,7 @@ Pilot-ready in **~2.5 weeks of build** with a **3-4 day buffer** (~3 weeks total
 
 The enriched decision trace remains the critical path. It modifies the same code paths that 343 tests validate. Won't compress below 2 days — it's the artifact that makes a compliance officer say "this is auditable."
 
-Demo narrative anchored on `escalate` + `advance` — two bookend decisions that are immediately intuitive. All 7 types ship and are visible in panels; other 5 are supported but not narrated in the walkthrough.
+Demo narrative anchored on `reinforce` + `intervene` *(amended 2026-02-23 per CEO approval)* — two primary decisions mapping to enterprise pain (waste + risk). All 7 types ship and are visible in panels; other 5 are supported but not narrated in the walkthrough.
 
 If enterprise conversations need to start before panels are ready (Week 1-2), the existing API + Swagger UI can demonstrate the decision loop via curl. The panels make it visual and self-service.
 
@@ -302,7 +304,8 @@ Demo Seed + Rehearsal ───────────►   Tenant Provisioning
 
 | Document | Path | Relevance |
 |----------|------|-----------|
-| CTO Response — CEO Scope & Timeline | `docs/reports/2026-02-22-cto-response-ceo-scope-timeline.md` | Full rationale for amendments below (2026-02-22) |
+| CEO Scope Approval | `docs/reports/2026-02-23-ceo-scope-approval.md` | Authoritative approval with 3 edits (demo anchors, security, Week 1 checkpoint) |
+| CTO Response — CEO Scope & Timeline | `docs/reports/2026-02-22-cto-response-ceo-scope-timeline.md` | Full rationale for amendments (amended per CEO approval) |
 | Pilot Readiness Assessment | *(consolidated into this document)* | Gap analysis and phase sequence (originally 2026-02-19) |
 | Inspection API Spec | `docs/specs/inspection-api.md` | Backend endpoints, enriched trace, ingestion log |
 | Inspection Panels Spec | `docs/specs/inspection-panels.md` | Frontend panels, layout, interactions |
@@ -317,4 +320,4 @@ Demo Seed + Rehearsal ───────────►   Tenant Provisioning
 
 ---
 
-*Generated: 2026-02-20 (v1.1 addendum added) | Amended: 2026-02-22 (auth scope, timeline compression, demo narrative, artifact status) | Baseline: Pilot Readiness Assessment (2026-02-19), POC v2 QA (2026-02-18)*
+*Generated: 2026-02-20 (v1.1 addendum added) | Amended: 2026-02-22 (auth scope, timeline compression) | Amended: 2026-02-23 (CEO approval — demo anchors REINFORCE + INTERVENE, Week 1 checkpoint, Artifact 8 done) | Baseline: Pilot Readiness Assessment (2026-02-19), POC v2 QA (2026-02-18)*
