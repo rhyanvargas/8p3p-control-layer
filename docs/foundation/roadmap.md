@@ -30,6 +30,10 @@ When there is a conflict:
 - Command entrypoints: `.cursor/commands/`
 - Step-by-step execution logic: `.cursor/skills/`
 
+## Go-to-Market (GTM) Readiness
+
+- Documentation experience (Stripe/Plaid-quality): `docs/foundation/documentation-experience.md`
+
 ## Versioning Policy
 
 - Roadmaps are published as **dated snapshots** under `docs/reports/`.

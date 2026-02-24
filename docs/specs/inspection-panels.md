@@ -340,7 +340,7 @@ Proves explainability, governance, and auditability. This is the enterprise trus
 - **No framework requirement:** Vanilla JS is acceptable; if a framework is used, total bundle must be < 50KB gzipped
 - **No build step required:** Panels should work as static files served by Fastify. If a build step is needed (e.g., for TypeScript or JSX), it must be a single `npm run build:panels` command.
 - **Terminal aesthetic:** Monospaced fonts, dark background, high-contrast text. These are engineering tools, not consumer products.
-- **No authentication:** Phase 1 relies on org_id for scoping (matches existing API pattern). Auth is deferred.
+- **API key required for /v1/*:** The control-layer API requires an `x-api-key` header for all `/v1/*` requests. Panels do not implement user login; they must provide an API key input and forward it with every request. Org_id remains required for scoping. (User-facing auth is deferred to Phase 2.)
 - **Graceful degradation:** If the API returns an error or data is missing, panels show clear error messages — never blank screens or unhandled errors
 
 ---
