@@ -90,6 +90,79 @@ const server = Fastify({
 });
 
 const apiSpecDir = resolve(__dirname, '..', 'docs', 'api');
+const swaggerBrandThemeCss = `
+  :root {
+    --brand-bg: #fff;
+    --brand-text: #000;
+    --brand-topbar-bg: #000;
+    --brand-topbar-border: rgba(249, 247, 245, 1);
+    --brand-border: #e5e1dc;
+    --brand-accent: #c9d5c4;
+    --brand-accent-2: #e4dbc9;
+  }
+  body.swagger-ui {
+    background: var(--brand-bg);
+    color: var(--brand-text);
+    font-family: Inter, sans-serif;
+  }
+  .swagger-ui .topbar {
+    background: var(--brand-topbar-bg);
+    color: rgba(228, 230, 230, 1);
+    border-bottom: 1px solid var(--brand-topbar-border);
+  }
+  .swagger-ui .topbar .topbar-wrapper .link > * {
+    display: none;
+  }
+  .swagger-ui .topbar .topbar-wrapper .link::after {
+    content: '8P3P';
+    color: #fff;
+    font-family: Inter, sans-serif;
+    font-size: 1.875rem;
+    font-weight: 700;
+    letter-spacing: -0.05em;
+    line-height: 1;
+  }
+  .swagger-ui .topbar .download-url-wrapper .select-label select,
+  .swagger-ui .topbar input[type=text] {
+    border: 1px solid var(--brand-border);
+    border-radius: 8px;
+  }
+  .swagger-ui .btn.authorize {
+    background-color: rgba(62, 206, 144, 0.23);
+    border-color: rgba(62, 206, 144, 1);
+    color: rgba(62, 206, 144, 1);
+    font-weight: 600;
+  }
+  .swagger-ui .btn.execute {
+    background: var(--brand-accent);
+    border-color: var(--brand-accent);
+    color: var(--brand-text);
+    font-weight: 600;
+  }
+  .swagger-ui .btn.authorize:hover {
+    background: var(--brand-accent-2);
+    border-color: var(--brand-accent-2);
+  }
+  .swagger-ui .btn.execute:hover {
+    background: var(--brand-accent-2);
+    border-color: var(--brand-accent-2);
+  }
+  .swagger-ui .opblock,
+  .swagger-ui .scheme-container,
+  .swagger-ui .information-container.wrapper {
+    border-color: var(--brand-border);
+    box-shadow: none;
+  }
+  .swagger-ui a {
+    color: var(--brand-text);
+  }
+  .swagger-ui .auth-btn-wrapper {
+    align-items: flex-start;
+    gap: 10px;
+    justify-content: flex-start;
+  }
+`;
+
 await server.register(swagger, {
   mode: 'static',
   specification: {
@@ -99,7 +172,12 @@ await server.register(swagger, {
 });
 
 await server.register(swaggerUi, {
-  routePrefix: '/docs'
+  routePrefix: '/docs',
+  logo: null as never,
+  theme: {
+    title: '8P3P Control Layer API Docs',
+    css: [{ filename: '8p3p-theme.css', content: swaggerBrandThemeCss }]
+  }
 });
 
 server.get('/', async () => {

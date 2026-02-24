@@ -20,9 +20,20 @@ servers:
   - url: /
     description: Base path (version prefix applied per route)
 
+tags:
+  - name: Signal
+    description: Signal log query operations.
+  - name: Ingest
+    description: Signal ingestion and ingestion-outcome inspection operations.
+  - name: State
+    description: Learner state inspection operations.
+  - name: Decision
+    description: Decision output query operations.
+
 paths:
   /v1/signals:
     post:
+      tags: [Ingest]
       operationId: ingestSignal
       summary: Ingest a signal
       description: |
@@ -71,6 +82,7 @@ paths:
                   message: "Required field 'learner_reference' is missing"
                   field_path: /learner_reference
     get:
+      tags: [Signal]
       operationId: querySignals
       summary: Query the signal log
       description: |
@@ -150,6 +162,7 @@ paths:
 
   /v1/ingestion:
     get:
+      tags: [Ingest]
       operationId: getIngestionOutcomes
       summary: Query ingestion outcomes
       description: |
@@ -214,6 +227,7 @@ paths:
 
   /v1/state:
     get:
+      tags: [State]
       operationId: getState
       summary: Get learner state
       description: |
@@ -277,6 +291,7 @@ paths:
 
   /v1/state/list:
     get:
+      tags: [State]
       operationId: listLearners
       summary: List learners for an org
       description: |
@@ -334,6 +349,7 @@ paths:
 
   /v1/decisions:
     get:
+      tags: [Decision]
       operationId: getDecisions
       summary: Get decisions for a learner
       description: |
