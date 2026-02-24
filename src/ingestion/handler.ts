@@ -14,6 +14,7 @@ import type {
 import { ErrorCodes } from '../shared/error-codes.js';
 import { validateSignalEnvelope } from '../contracts/validators/signal-envelope.js';
 import { detectForbiddenKeys } from './forbidden-keys.js';
+import { normalizeAndValidateTenantPayload } from '../config/tenant-field-mappings.js';
 import { checkAndStore } from './idempotency.js';
 import { appendSignal } from '../signalLog/store.js';
 import { appendIngestionOutcome } from './ingestion-log-store.js';
@@ -99,7 +100,7 @@ export async function handleSignalIngestion(
   }
   
   // Now we know body is a valid SignalEnvelope structurally
-  const signal = body as SignalEnvelope;
+  let signal = body as SignalEnvelope;
   
   // Step 2: Forbidden key detection in payload
   const forbiddenKey = detectForbiddenKeys(signal.payload, 'payload');
@@ -127,6 +128,32 @@ export async function handleSignalIngestion(
     reply.status(400);
     return result;
   }
+
+  // Step 2b: Optional tenant-scoped payload mappings (Phase 2: DEF-DEC-006)
+  // If mappings exist for this org, normalize + enforce required payload semantics.
+  const tenantPayload = normalizeAndValidateTenantPayload({ orgId: signal.org_id, payload: signal.payload });
+  if (!tenantPayload.ok) {
+    const firstError = tenantPayload.errors[0]!;
+
+    logIngestionOutcome(
+      buildOutcomeEntry(signal, 'rejected', receivedAt, firstError),
+      request.log ?? {}
+    );
+
+    const result: SignalIngestResult = {
+      org_id: signal.org_id,
+      signal_id: signal.signal_id,
+      status: 'rejected',
+      received_at: receivedAt,
+      rejection_reason: firstError,
+    };
+
+    reply.status(400);
+    return result;
+  }
+
+  // Persist normalized payload (adds canonical keys; does not delete alias keys).
+  signal = { ...signal, payload: tenantPayload.payload };
   
   // Step 3: Idempotency check
   const idempotencyResult = checkAndStore(signal.org_id, signal.signal_id);

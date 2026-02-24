@@ -327,11 +327,11 @@ export interface Decision {
     policy_version: string;
     matched_rule_id: string | null;
     /** Frozen state at evaluation time (enriched trace) */
-    state_snapshot?: Record<string, unknown>;
+    state_snapshot: Record<string, unknown>;
     /** Full matched rule with evaluated_fields (enriched trace) */
-    matched_rule?: MatchedRule | null;
+    matched_rule: MatchedRule | null;
     /** Human-readable rationale (enriched trace) */
-    rationale?: string;
+    rationale: string;
   };
   /** Output metadata for downstream (priority = 1-based rule index) */
   output_metadata?: OutputMetadata;

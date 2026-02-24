@@ -25,6 +25,7 @@ import { initDecisionStore, closeDecisionStore } from './decision/store.js';
 import { loadPolicy } from './decision/policy-loader.js';
 import { registerDecisionRoutes } from './decision/routes.js';
 import { apiKeyPreHandler } from './auth/api-key-middleware.js';
+import { loadTenantFieldMappingsFromFile } from './config/tenant-field-mappings.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -93,6 +94,22 @@ initDecisionStore(decisionDbPath);
 
 // Load decision policy (must happen after store init, before route registration)
 loadPolicy();
+
+// Optional: Phase 2 tenant-scoped payload mappings (DEF-DEC-006).
+// When unset, ingestion behaves like Phase 1 (payload remains opaque except forbidden keys).
+const tenantMappingsPath = process.env.TENANT_FIELD_MAPPINGS_PATH;
+if (tenantMappingsPath && tenantMappingsPath.trim() !== '' && existsSync(tenantMappingsPath)) {
+  try {
+    loadTenantFieldMappingsFromFile(tenantMappingsPath);
+  } catch (err) {
+    // Fail-open: do not block server startup on tenant mapping misconfig.
+    // Ingestion will proceed without tenant payload enforcement.
+    console.warn(
+      'Failed to load TENANT_FIELD_MAPPINGS_PATH; continuing without tenant payload enforcement',
+      err
+    );
+  }
+}
 
 const server = Fastify({
   logger: {

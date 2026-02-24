@@ -10,10 +10,10 @@ todos:
     status: completed
   - id: phase2-mappings
     content: Prioritize Phase 2 tenant field mappings DEF-DEC-006 for payload schema enforcement
-    status: pending
+    status: completed
   - id: receipts-endpoint
     content: Consider and implement GET /v1/receipts (or equivalent) for compliance/audit
-    status: pending
+    status: completed
 isProject: false
 ---
 

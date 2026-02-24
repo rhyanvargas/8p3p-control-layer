@@ -1,11 +1,12 @@
 /**
- * Contract Tests for Signal Ingestion (SIG-API-001 through SIG-API-011)
+ * Contract Tests for Signal Ingestion (SIG-API-001 through SIG-API-015)
  * Tests the POST /signals endpoint against the spec contract
  */
 
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { registerIngestionRoutes } from '../../src/ingestion/routes.js';
+import { setTenantFieldMappings } from '../../src/config/tenant-field-mappings.js';
 import {
   initIdempotencyStore,
   closeIdempotencyStore,
@@ -15,6 +16,7 @@ import {
   initSignalLogStore,
   closeSignalLogStore,
   clearSignalLogStore,
+  getSignalsByIds,
 } from '../../src/signalLog/store.js';
 import {
   initStateStore,
@@ -71,6 +73,8 @@ describe('Signal Ingestion Contract Tests', () => {
     clearIdempotencyStore();
     clearSignalLogStore();
     clearStateStore();
+    // Reset tenant mappings between tests (global singleton)
+    setTenantFieldMappings(null);
   });
 
   describe('SIG-API-001: Accept valid signal', () => {
@@ -558,6 +562,147 @@ describe('Signal Ingestion Contract Tests', () => {
       expect(first.json().rejection_reason.code).toBe('forbidden_semantic_key_detected');
       expect(second.json().rejection_reason.code).toBe('forbidden_semantic_key_detected');
       expect(first.json().rejection_reason.field_path).toBe(second.json().rejection_reason.field_path);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Phase 2: Tenant-scoped payload semantics (DEF-DEC-006)
+  // ---------------------------------------------------------------------------
+
+  describe('SIG-API-012: Tenant payload mappings - required canonical field', () => {
+    it('should reject when tenant requires a canonical payload field that is missing', async () => {
+      setTenantFieldMappings({
+        version: 1,
+        tenants: {
+          'test-org': {
+            payload: {
+              required: ['stabilityScore'],
+            },
+          },
+        },
+      });
+
+      const signal = validSignal({ payload: { level: 5 } });
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/v1/signals',
+        payload: signal,
+      });
+
+      expect(response.statusCode).toBe(400);
+      const body = response.json();
+      expect(body.status).toBe('rejected');
+      expect(body.rejection_reason.code).toBe('missing_required_field');
+      expect(body.rejection_reason.field_path).toBe('payload.stabilityScore');
+    });
+  });
+
+  describe('SIG-API-013: Tenant payload mappings - alias normalization', () => {
+    it('should accept when alias can be normalized into required canonical field', async () => {
+      setTenantFieldMappings({
+        version: 1,
+        tenants: {
+          'test-org': {
+            payload: {
+              required: ['stabilityScore'],
+              aliases: {
+                stabilityScore: ['stability_score'],
+              },
+              types: {
+                stabilityScore: 'number',
+              },
+            },
+          },
+        },
+      });
+
+      const signal = validSignal({
+        payload: { stability_score: 0.5 },
+      });
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/v1/signals',
+        payload: signal,
+      });
+
+      expect(response.statusCode).toBe(200);
+      const body = response.json();
+      expect(body.status).toBe('accepted');
+
+      // Side effect: signal log stores normalized payload (canonical field added)
+      const stored = getSignalsByIds(signal.org_id, [signal.signal_id]);
+      expect(stored).toHaveLength(1);
+      expect(stored[0]!.payload).toMatchObject({
+        stability_score: 0.5,
+        stabilityScore: 0.5,
+      });
+    });
+  });
+
+  describe('SIG-API-014: Tenant payload mappings - alias conflict', () => {
+    it('should reject when multiple alias candidates are present for a missing canonical field', async () => {
+      setTenantFieldMappings({
+        version: 1,
+        tenants: {
+          'test-org': {
+            payload: {
+              aliases: {
+                stabilityScore: ['a', 'b'],
+              },
+            },
+          },
+        },
+      });
+
+      const signal = validSignal({
+        payload: { a: 1, b: 2 },
+      });
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/v1/signals',
+        payload: signal,
+      });
+
+      expect(response.statusCode).toBe(400);
+      const body = response.json();
+      expect(body.status).toBe('rejected');
+      expect(body.rejection_reason.code).toBe('invalid_format');
+      expect(body.rejection_reason.field_path).toBe('payload.stabilityScore');
+    });
+  });
+
+  describe('SIG-API-015: Tenant payload mappings - type enforcement', () => {
+    it('should reject when a mapped payload field has the wrong primitive type', async () => {
+      setTenantFieldMappings({
+        version: 1,
+        tenants: {
+          'test-org': {
+            payload: {
+              required: ['level'],
+              types: {
+                level: 'number',
+              },
+            },
+          },
+        },
+      });
+
+      const signal = validSignal({ payload: { level: '5' } });
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/v1/signals',
+        payload: signal,
+      });
+
+      expect(response.statusCode).toBe(400);
+      const body = response.json();
+      expect(body.status).toBe('rejected');
+      expect(body.rejection_reason.code).toBe('invalid_type');
+      expect(body.rejection_reason.field_path).toBe('payload.level');
     });
   });
 });

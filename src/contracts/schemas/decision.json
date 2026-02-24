@@ -36,7 +36,15 @@
     },
     "trace": {
       "type": "object",
-      "required": ["state_id", "state_version", "policy_version", "matched_rule_id"],
+      "required": [
+        "state_id",
+        "state_version",
+        "policy_version",
+        "matched_rule_id",
+        "state_snapshot",
+        "matched_rule",
+        "rationale"
+      ],
       "additionalProperties": false,
       "properties": {
         "state_id": {
@@ -61,7 +69,7 @@
           "description": "Frozen state at evaluation time (enriched trace)"
         },
         "matched_rule": {
-          "type": "object",
+          "type": ["object", "null"],
           "description": "Full matched rule with evaluated_fields (enriched trace)"
         },
         "rationale": {

@@ -435,6 +435,9 @@ describe('Inspection API Contract Tests', () => {
           state_version: 1,
           policy_version: '2.0.0',
           matched_rule_id: 'rule-reinforce',
+          state_snapshot: {},
+          matched_rule: null,
+          rationale: 'legacy decision: rationale unavailable',
         },
       };
       saveDecision(historicalDecision);
@@ -449,8 +452,10 @@ describe('Inspection API Contract Tests', () => {
       const d = body.decisions.find((x: { decision_id: string }) => x.decision_id === historicalDecision.decision_id);
       expect(d).toBeDefined();
       expect(d.trace.state_id).toBe(historicalDecision.trace.state_id);
-      // Enriched fields may be absent or null
-      expect(d.trace.state_snapshot === undefined || d.trace.state_snapshot === null || typeof d.trace.state_snapshot === 'object').toBe(true);
+      // Enriched fields are always present (legacy decisions get safe defaults)
+      expect(typeof d.trace.state_snapshot).toBe('object');
+      expect(d.trace).toHaveProperty('matched_rule');
+      expect(typeof d.trace.rationale).toBe('string');
     });
   });
 

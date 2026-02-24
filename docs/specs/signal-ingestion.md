@@ -64,6 +64,12 @@ All of the following fields are required:
 | `schema_version` | string | Pattern: `^v[0-9]+$` (e.g., `v1`, `v2`) |
 | `payload` | object | JSON object (non-null), opaque content |
 
+### Phase 2 (optional): Tenant-scoped payload mappings (DEF-DEC-006)
+
+Phase 1 treats `payload` as opaque (except forbidden semantic keys). Phase 2 can optionally apply **per-tenant payload normalization and enforcement** (required canonical fields, alias normalization, primitive type checks) during ingestion.
+
+Source of truth: `docs/specs/tenant-field-mappings.md`.
+
 ### Optional Fields
 
 | Field | Type | Description |
@@ -201,6 +207,10 @@ Implement all tests from the Contract Test Matrix:
 | SIG-API-009 | Invalid signal_id charset | `rejected`, `invalid_charset` |
 | SIG-API-010 | Duplicate signal_id | First: `accepted`, Second: `duplicate` |
 | SIG-API-011 | Deterministic rejection | Same error on repeat |
+| SIG-API-012 | Tenant payload mapping: required canonical field | `rejected`, `missing_required_field` |
+| SIG-API-013 | Tenant payload mapping: alias normalization | `accepted` + canonical field stored |
+| SIG-API-014 | Tenant payload mapping: alias conflict | `rejected`, `invalid_format` |
+| SIG-API-015 | Tenant payload mapping: type enforcement | `rejected`, `invalid_type` |
 
 ## File Structure
 

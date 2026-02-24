@@ -36,6 +36,9 @@ function createDecision(overrides: Partial<Decision> = {}): Decision {
       state_version: 1,
       policy_version: '2.0.0',
       matched_rule_id: 'rule-1',
+      state_snapshot: {},
+      matched_rule: null,
+      rationale: 'test decision',
     },
     ...overrides,
   };
@@ -241,6 +244,9 @@ describe('Decision Store', () => {
           state_version: 1,
           policy_version: '2.0.0',
           matched_rule_id: null,
+          state_snapshot: {},
+          matched_rule: null,
+          rationale: 'test decision',
         },
       });
       saveDecision(decision);

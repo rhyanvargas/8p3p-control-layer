@@ -28,8 +28,8 @@ This document is the **stable entry point** for planning and execution. It inten
 ### Remaining v1 Work
 
 1. **QA sign-off** — `docs/testing/qa-test-inspection-panels.md` and `docs/testing/qa-test-post-repository-extraction.md`
-2. **Demo seed script** — pre-loaded learners with reinforce + intervene narrative (plan pending)
-3. **CEO fact-check actions** — terminology glossary (done), trace fields required, `/v1/receipts` endpoint (plans pending)
+2. **Demo seed script** — pre-loaded learners with reinforce + intervene narrative (plan: `.cursor/plans/demo-seed-script.plan.md`)
+3. **CEO fact-check actions** — glossary (done), trace fields required (done), tenant field mappings (done), `/v1/receipts` endpoint (spec: `docs/specs/receipts-api.md`; plan + impl pending)
 
 ### Next Phase: v1.1 (multi-tenant, AWS)
 
@@ -47,8 +47,8 @@ All actionable implementation work should be driven by the Cursor plans in:
 | Signal Log Repository Extraction | **Complete** (2026-02-23) |
 | State Repository Extraction | **Complete** (2026-02-23) |
 | Inspection Panels | **Complete** (2026-02-24) — QA pending |
-| CEO Fact-Check Actions | **In progress** — glossary done; 3 items pending |
-| Demo Seed Script | **Pending** — plan to be created |
+| CEO Fact-Check Actions | **In progress** — glossary, trace-required, tenant mappings done; receipts endpoint pending |
+| Demo Seed Script | **Pending** — plan exists |
 
 ## Planning Rules
 

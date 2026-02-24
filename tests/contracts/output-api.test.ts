@@ -41,6 +41,9 @@ describe('Output API Contract Tests', () => {
         state_version: 1,
         policy_version: '2.0.0',
         matched_rule_id: 'rule-reinforce',
+        state_snapshot: {},
+        matched_rule: null,
+        rationale: 'test decision',
       },
       ...overrides,
     };

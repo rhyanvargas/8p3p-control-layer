@@ -95,9 +95,9 @@ export class SqliteDecisionRepository implements DecisionRepository {
       decision.trace.state_version,
       decision.trace.policy_version,
       decision.trace.matched_rule_id,
-      decision.trace.state_snapshot != null ? JSON.stringify(decision.trace.state_snapshot) : null,
+      JSON.stringify(decision.trace.state_snapshot),
       decision.trace.matched_rule != null ? JSON.stringify(decision.trace.matched_rule) : null,
-      decision.trace.rationale ?? null,
+      decision.trace.rationale,
       decision.output_metadata ? JSON.stringify(decision.output_metadata) : null
     );
   }
@@ -309,6 +309,10 @@ function rowToDecision(row: DecisionRow): Decision {
     state_version: row.trace_state_version,
     policy_version: row.trace_policy_version,
     matched_rule_id: row.trace_matched_rule_id,
+    // Required enriched receipt fields (legacy rows may have NULLs).
+    state_snapshot: {},
+    matched_rule: null,
+    rationale: 'legacy decision: rationale unavailable',
   };
   if (row.trace_state_snapshot) {
     trace.state_snapshot = JSON.parse(row.trace_state_snapshot) as Record<string, unknown>;
