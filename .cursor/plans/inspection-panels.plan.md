@@ -41,7 +41,8 @@ isProject: false
 
 # Inspection Panels
 
-**Spec**: `docs/specs/inspection-panels.md`
+**Spec**: `docs/specs/inspection-panels.md`  
+**QA test plan**: `docs/testing/qa-test-inspection-panels.md`
 
 ## Prerequisites
 
