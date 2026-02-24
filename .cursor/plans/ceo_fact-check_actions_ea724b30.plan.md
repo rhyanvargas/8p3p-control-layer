@@ -4,10 +4,10 @@ overview: Track and implement the four recommended actions from the CEO statemen
 todos:
   - id: glossary
     content: Add terminology glossary to foundation docs (Signal = event; pipeline wording)
-    status: pending
+    status: completed
   - id: trace-required
     content: Make Decision.trace state_snapshot, matched_rule, rationale required in schema and engine
-    status: pending
+    status: completed
   - id: phase2-mappings
     content: Prioritize Phase 2 tenant field mappings DEF-DEC-006 for payload schema enforcement
     status: pending
