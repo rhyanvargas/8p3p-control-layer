@@ -230,7 +230,7 @@ server.get('/', async () => {
   return {
     name: '8P3P Control Layer',
     version: '0.1.0',
-    endpoints: ['/health', '/v1/signals', '/v1/ingestion', '/v1/state', '/v1/state/list', '/v1/decisions', '/inspect', '/docs']
+    endpoints: ['/health', '/v1/signals', '/v1/ingestion', '/v1/state', '/v1/state/list', '/v1/decisions', '/v1/receipts', '/inspect', '/docs']
   };
 });
 

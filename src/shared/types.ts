@@ -369,3 +369,18 @@ export interface GetDecisionsResponse {
   decisions: Decision[];
   next_page_token: string | null;
 }
+
+// =============================================================================
+// Receipts API (GET /v1/receipts) — Compliance/audit projection of Decision.trace
+// =============================================================================
+
+/** Receipt: projection of Decision for compliance/audit (decision_id, decision_type, decided_at, trace) */
+export type Receipt = Pick<Decision, 'decision_id' | 'decision_type' | 'decided_at' | 'trace'>;
+
+/** Response for GET /v1/receipts */
+export interface GetReceiptsResponse {
+  org_id: string;
+  learner_reference: string;
+  receipts: Receipt[];
+  next_page_token: string | null;
+}

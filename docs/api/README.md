@@ -9,6 +9,7 @@ Machine-readable interface specifications for the 8P3P Control Layer.
 | `POST` | `/v1/signals` | Ingest a learning signal → triggers state update + decision | Implemented |
 | `GET` | `/v1/signals` | Query the immutable signal log | Implemented |
 | `GET` | `/v1/decisions` | Query decisions for a learner | Implemented |
+| `GET` | `/v1/receipts` | Compliance/audit query (projection of decision trace) | Implemented |
 | `GET` | `/v1/ingestion` | Query ingestion outcomes (accepted/rejected/duplicate) | v1 — spec'd |
 | `GET` | `/v1/state` | Query current learner state | v1 — spec'd |
 | `GET` | `/v1/state/list` | List learners per org | v1 — spec'd |

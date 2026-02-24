@@ -429,6 +429,87 @@ paths:
               schema:
                 $ref: '#/components/schemas/SignalLogError'
 
+  /v1/receipts:
+    get:
+      tags: [Decision]
+      operationId: getReceipts
+      summary: Get receipts for a learner (compliance/audit)
+      description: |
+        Compliance/audit query surface. Returns receipts (projection of decision trace:
+        decision_id, decision_type, decided_at, trace). Same query params and pagination
+        as GET /v1/decisions. See docs/specs/receipts-api.md.
+      parameters:
+        - name: org_id
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 128
+          description: Organization identifier
+        - name: learner_reference
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 256
+          description: Learner identifier
+        - name: from_time
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date-time
+          description: Start of time window (RFC3339)
+        - name: to_time
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date-time
+          description: End of time window (RFC3339)
+        - name: page_token
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Opaque pagination token
+        - name: page_size
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 100
+          description: Results per page (1-1000)
+      responses:
+        '200':
+          description: Receipts in time range
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetReceiptsResponse'
+        '401':
+          description: Unauthorized (missing or invalid API key)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: string
+                    enum: [api_key_required, api_key_invalid]
+                  message:
+                    type: string
+        '400':
+          description: Invalid query parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignalLogError'
+
 components:
   securitySchemes:
     ApiKeyAuth:
@@ -778,37 +859,7 @@ components:
           type: object
           description: Opaque, downstream-neutral context
         trace:
-          type: object
-          required:
-            - state_id
-            - state_version
-            - policy_version
-            - matched_rule_id
-            - state_snapshot
-            - matched_rule
-            - rationale
-          additionalProperties: false
-          properties:
-            state_id:
-              type: string
-            state_version:
-              type: integer
-            policy_version:
-              type: string
-              pattern: '^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+(\.[a-zA-Z0-9]+)*)?(\+[a-zA-Z0-9]+(\.[a-zA-Z0-9]+)*)?$'
-              description: Policy version that produced this decision (semver)
-            matched_rule_id:
-              type: ['string', 'null']
-              description: Rule ID that matched, or null if default decision
-            state_snapshot:
-              type: object
-              description: Frozen state at evaluation time (enriched trace)
-            matched_rule:
-              type: ['object', 'null']
-              description: Full matched rule with evaluated_fields (enriched trace)
-            rationale:
-              type: string
-              description: Human-readable rationale (enriched trace)
+          $ref: '#/components/schemas/DecisionTrace'
         output_metadata:
           type: object
           description: Output metadata for downstream (priority, TTL, targets)
@@ -841,3 +892,83 @@ components:
             $ref: '#/components/schemas/Decision'
         next_page_token:
           type: ['string', 'null']
+
+    # Receipts API (GET /v1/receipts) — projection of Decision for compliance/audit
+    Receipt:
+      type: object
+      required:
+        - decision_id
+        - decision_type
+        - decided_at
+        - trace
+      properties:
+        decision_id:
+          type: string
+        decision_type:
+          type: string
+          enum:
+            - reinforce
+            - advance
+            - intervene
+            - pause
+            - escalate
+            - recommend
+            - reroute
+        decided_at:
+          type: string
+          description: RFC3339
+        trace:
+          $ref: '#/components/schemas/DecisionTrace'
+
+    GetReceiptsResponse:
+      type: object
+      required:
+        - org_id
+        - learner_reference
+        - receipts
+        - next_page_token
+      properties:
+        org_id:
+          type: string
+        learner_reference:
+          type: string
+        receipts:
+          type: array
+          items:
+            $ref: '#/components/schemas/Receipt'
+        next_page_token:
+          type: ['string', 'null']
+
+    # Shared trace schema (Decision.trace and Receipt.trace — keep verbatim)
+    DecisionTrace:
+      type: object
+      required:
+        - state_id
+        - state_version
+        - policy_version
+        - matched_rule_id
+        - state_snapshot
+        - matched_rule
+        - rationale
+      additionalProperties: false
+      properties:
+        state_id:
+          type: string
+        state_version:
+          type: integer
+        policy_version:
+          type: string
+          pattern: '^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+(\.[a-zA-Z0-9]+)*)?(\+[a-zA-Z0-9]+(\.[a-zA-Z0-9]+)*)?$'
+          description: Policy version that produced this decision (semver)
+        matched_rule_id:
+          type: ['string', 'null']
+          description: Rule ID that matched, or null if default decision
+        state_snapshot:
+          type: object
+          description: Frozen state at evaluation time (enriched trace)
+        matched_rule:
+          type: ['object', 'null']
+          description: Full matched rule with evaluated_fields (enriched trace)
+        rationale:
+          type: string
+          description: Human-readable rationale (enriched trace)

@@ -4,19 +4,19 @@ overview: Add GET /v1/receipts as a thin compliance/audit query surface over the
 todos:
   - id: TASK-001
     content: Add Receipt and GetReceiptsResponse types to shared types
-    status: pending
+    status: completed
   - id: TASK-002
     content: Implement receipts handler (thin wrapper over getDecisions)
-    status: pending
+    status: completed
   - id: TASK-003
     content: Register GET /receipts route and add /v1/receipts to server endpoints
-    status: pending
+    status: completed
   - id: TASK-004
     content: Add OpenAPI path and schemas for GET /v1/receipts
-    status: pending
+    status: completed
   - id: TASK-005
     content: Add contract tests RCPT-API-001 through RCPT-API-005
-    status: pending
+    status: completed
 isProject: false
 ---
 
@@ -35,7 +35,7 @@ Before starting implementation:
 
 ### TASK-001: Add Receipt and GetReceiptsResponse types to shared types
 
-- **Status**: pending
+- **Status**: completed
 - **Files**: `src/shared/types.ts`
 - **Action**: Modify
 - **Details**: Add `Receipt` as a type-level projection of `Decision` to prevent drift (e.g., `Pick<Decision, 'decision_id' | 'decision_type' | 'decided_at' | 'trace'>`). Add `GetReceiptsResponse` (org_id, learner_reference, receipts: Receipt[], next_page_token). Place near existing GetDecisionsRequest/GetDecisionsResponse.
@@ -44,7 +44,7 @@ Before starting implementation:
 
 ### TASK-002: Implement receipts handler (thin wrapper over getDecisions)
 
-- **Status**: pending
+- **Status**: completed
 - **Files**: `src/decision/receipts-handler.ts` (new)
 - **Action**: Create
 - **Details**: New file with `handleGetReceipts`. Parse query params, call `validateGetDecisionsRequest` (reuse), call `getDecisions` and `encodePageToken` from store. Map each Decision to Receipt (decision_id, decision_type, decided_at, trace). Return GetReceiptsResponse with same next_page_token semantics. On validation failure return 400 with same error shape as decision handler (reuse existing error codes; no new codes per spec).
@@ -53,7 +53,7 @@ Before starting implementation:
 
 ### TASK-003: Register GET /receipts route and add /v1/receipts to server endpoints
 
-- **Status**: pending
+- **Status**: completed
 - **Files**: `src/decision/routes.ts`, `src/server.ts`, `docs/api/README.md`
 - **Action**: Modify
 - **Details**: In routes.ts import handleGetReceipts and register `app.get('/receipts', handleGetReceipts)`. In server.ts add `'/v1/receipts'` to the `endpoints` array in the root handler so it appears in API discovery. Update `docs/api/README.md` endpoint table to include `GET /v1/receipts`. Receipts are served under the same `/v1` prefix and apiKeyPreHandler, so auth is already applied.
@@ -62,7 +62,7 @@ Before starting implementation:
 
 ### TASK-004: Add OpenAPI path and schemas for GET /v1/receipts
 
-- **Status**: pending
+- **Status**: completed
 - **Files**: `docs/api/openapi.yaml`
 - **Action**: Modify
 - **Details**: Add path `/v1/receipts` with get operation (tag: `Decision`); parameters identical to `/v1/decisions` (org_id, learner_reference, from_time, to_time, page_token, page_size). Responses 200 (GetReceiptsResponse), 400 (SignalLogError), 401 (API key). Add components/schemas: `Receipt` (decision_id, decision_type, decided_at, trace with the exact same trace sub-schema as `Decision`), `GetReceiptsResponse` (org_id, learner_reference, receipts[], next_page_token).
@@ -72,7 +72,7 @@ Before starting implementation:
 
 ### TASK-005: Add contract tests RCPT-API-001 through RCPT-API-005
 
-- **Status**: pending
+- **Status**: completed
 - **Files**: `tests/contracts/receipts-api.test.ts` (new)
 - **Action**: Create
 - **Details**: HTTP-level contract tests using Fastify app.inject(), mirroring `tests/contracts/output-api.test.ts`. Reuse same store setup (initDecisionStore, clearDecisionStore, saveDecision, createDecision helper). Implement: RCPT-API-001 happy path (valid params → 200, receipts array, next_page_token); RCPT-API-002 invalid time range (from_time > to_time → 400, invalid_time_range); RCPT-API-003 paging determinism (page_size=1 across pages, stable order, no duplication); RCPT-API-004 org isolation (mixed-org dataset, only org-scoped receipts); RCPT-API-005 receipt contains enriched trace (trace.state_snapshot, trace.matched_rule, trace.rationale present).

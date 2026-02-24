@@ -8,27 +8,27 @@ This feature introduces a dedicated **compliance/audit query surface**: `GET /v1
 ## Requirements
 
 ### Functional
-- [ ] **New endpoint**: Add `GET /v1/receipts`.
-- [ ] **Query semantics**: Parameters MUST match `GET /v1/decisions` for consistency:
+- [x] **New endpoint**: Add `GET /v1/receipts`.
+- [x] **Query semantics**: Parameters MUST match `GET /v1/decisions` for consistency:
   - `org_id` (required)
   - `learner_reference` (required)
   - `from_time` (required, RFC3339)
   - `to_time` (required, RFC3339; must be >= `from_time`)
   - `page_token` (optional)
   - `page_size` (optional, 1–1000, default 100)
-- [ ] **Response shape**: Return `GetReceiptsResponse`:
+- [x] **Response shape**: Return `GetReceiptsResponse`:
   - `org_id`
   - `learner_reference`
   - `receipts: Receipt[]`
   - `next_page_token`
-- [ ] **Receipt projection**: Each `Receipt` MUST include:
+- [x] **Receipt projection**: Each `Receipt` MUST include:
   - `decision_id`
   - `decision_type`
   - `decided_at`
   - `trace` (same semantics and fields as `Decision.trace`)
-- [ ] **Ordering + pagination**: Deterministic ordering and pagination MUST match `GET /v1/decisions` (Phase 1 store semantics: `decided_at ASC`, then stable cursor).
-- [ ] **Auth behavior**: When API key auth is enabled, `GET /v1/receipts` MUST be protected under `/v1/*` like other endpoints.
-- [ ] **No new storage**: MUST not create a new receipt table in Phase 1; receipts are a view over the decision log.
+- [x] **Ordering + pagination**: Deterministic ordering and pagination MUST match `GET /v1/decisions` (Phase 1 store semantics: `decided_at ASC`, then stable cursor).
+- [x] **Auth behavior**: When API key auth is enabled, `GET /v1/receipts` MUST be protected under `/v1/*` like other endpoints.
+- [x] **No new storage**: MUST not create a new receipt table in Phase 1; receipts are a view over the decision log.
 
 ### Acceptance Criteria
 - Given decisions exist for `(org_id, learner_reference)` in a time range, when `GET /v1/receipts` is called with that range, then it returns `200` with `receipts.length >= 1` and each receipt contains `trace.state_snapshot`, `trace.matched_rule`, and `trace.rationale`.

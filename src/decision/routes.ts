@@ -1,11 +1,12 @@
 /**
  * Decision Routes
- * Registers GET /decisions endpoint with Fastify.
+ * Registers GET /decisions and GET /receipts endpoints with Fastify.
  * Follows src/signalLog/routes.ts pattern.
  */
 
 import type { FastifyInstance } from 'fastify';
 import { handleGetDecisions } from './handler.js';
+import { handleGetReceipts } from './receipts-handler.js';
 
 /**
  * Register Decision routes with Fastify
@@ -30,4 +31,15 @@ export function registerDecisionRoutes(app: FastifyInstance): void {
    * - 400: Validation error
    */
   app.get('/decisions', handleGetDecisions);
+
+  /**
+   * GET /receipts
+   * Compliance/audit query — projection of decision trace (decision_id, decision_type, decided_at, trace).
+   * Same query params and pagination as GET /decisions.
+   *
+   * Response:
+   * - 200: GetReceiptsResponse with receipts and pagination
+   * - 400: Validation error (same codes as decisions)
+   */
+  app.get('/receipts', handleGetReceipts);
 }

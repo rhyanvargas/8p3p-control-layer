@@ -54,8 +54,29 @@ let decisionJson: SchemaShape;
 let signalJson: SchemaShape;
 let openapiDecision: SchemaShape;
 let openapiSignal: SchemaShape;
+let openapiDoc: Record<string, unknown>;
 let asyncapiDecision: SchemaShape;
 let asyncapiSignal: SchemaShape;
+
+/** Resolve $ref to schema (e.g. #/components/schemas/DecisionTrace) */
+function resolveRef(ref: string, doc: Record<string, unknown>): SchemaShape | undefined {
+  if (typeof ref !== 'string' || !ref.startsWith('#/components/schemas/')) {
+    return undefined;
+  }
+  const name = ref.replace('#/components/schemas/', '');
+  const schemas = (doc as { components?: { schemas?: Record<string, SchemaShape> } }).components?.schemas;
+  return schemas?.[name];
+}
+
+/** Get trace schema, resolving $ref if present */
+function getTraceSchema(decisionSchema: SchemaShape, doc?: Record<string, unknown>): SchemaShape | undefined {
+  const traceProp = decisionSchema.properties?.trace as { $ref?: string } & SchemaShape | undefined;
+  if (!traceProp) return undefined;
+  if (traceProp.$ref && doc) {
+    return resolveRef(traceProp.$ref, doc);
+  }
+  return traceProp as SchemaShape;
+}
 
 beforeAll(() => {
   const root = process.cwd();
@@ -72,11 +93,11 @@ beforeAll(() => {
   );
 
   // OpenAPI
-  const openapi = YAML.parse(
+  openapiDoc = YAML.parse(
     readFileSync(join(root, 'docs/api/openapi.yaml'), 'utf-8'),
   );
-  openapiDecision = resolve('components.schemas.Decision', openapi);
-  openapiSignal = resolve('components.schemas.SignalEnvelope', openapi);
+  openapiDecision = resolve('components.schemas.Decision', openapiDoc);
+  openapiSignal = resolve('components.schemas.SignalEnvelope', openapiDoc);
 
   // AsyncAPI
   const asyncapi = YAML.parse(
@@ -119,9 +140,9 @@ describe('Decision contract drift', () => {
   });
 
   it('DRIFT-004: Decision trace.required fields match across all 3 sources', () => {
-    const jsonTrace = decisionJson.properties?.trace;
-    const openapiTrace = openapiDecision.properties?.trace;
-    const asyncapiTrace = asyncapiDecision.properties?.trace;
+    const jsonTrace = decisionJson.properties?.trace as SchemaShape;
+    const openapiTrace = getTraceSchema(openapiDecision, openapiDoc) ?? (openapiDecision.properties?.trace as SchemaShape);
+    const asyncapiTrace = asyncapiDecision.properties?.trace as SchemaShape;
 
     expect(jsonTrace?.required).toBeDefined();
     expect(openapiTrace?.required).toBeDefined();
@@ -177,9 +198,9 @@ describe('Cross-spec consistency', () => {
       sorted(openapiDecision.properties?.decision_type?.enum ?? []),
     );
 
-    // trace sub-object
-    const asyncTrace = asyncapiDecision.properties?.trace;
-    const openapiTrace = openapiDecision.properties?.trace;
+    // trace sub-object (resolve $ref for OpenAPI when trace uses DecisionTrace)
+    const asyncTrace = asyncapiDecision.properties?.trace as SchemaShape;
+    const openapiTrace = getTraceSchema(openapiDecision, openapiDoc) ?? (openapiDecision.properties?.trace as SchemaShape);
     expect(sorted(asyncTrace?.required ?? [])).toEqual(
       sorted(openapiTrace?.required ?? []),
     );
