@@ -41,6 +41,19 @@
     return 'decision-reinforce';
   }
 
+  function encodeDecision(decision) {
+    return encodeURIComponent(JSON.stringify(decision));
+  }
+
+  function decodeDecision(encoded) {
+    if (!encoded) return null;
+    try {
+      return JSON.parse(decodeURIComponent(encoded));
+    } catch {
+      return null;
+    }
+  }
+
   async function refresh() {
     const container = getContainer();
     if (!container) return;
@@ -56,11 +69,11 @@
         <div class="controls" style="margin-bottom:12px">
           <label>Org ID: <input type="text" id="decisions-org" placeholder="(uses global)" disabled></label>
           <label>Learner: <input type="text" id="decisions-learner" placeholder="learner_reference (required)"></label>
-          <label>From: <input type="datetime-local" id="decisions-from"></label>
-          <label>To: <input type="datetime-local" id="decisions-to"></label>
+          <label>From: <input type="datetime-local" id="decisions-from" title="Default: 2020-01-01T00:00:00Z when empty"></label>
+          <label>To: <input type="datetime-local" id="decisions-to" title="Default: 2030-12-31T23:59:59Z when empty"></label>
           <button type="button" id="decisions-load" class="primary">Load</button>
         </div>
-        <div class="empty-state">Enter learner reference and click Load to fetch decisions. You can copy learner IDs from the State Viewer panel.</div>
+        <div class="empty-state">Enter learner reference and click Load to fetch decisions. Open <a href="#state">State Viewer</a> to copy learner IDs.</div>
       `;
       document.getElementById('decisions-learner')?.focus();
       document.getElementById('decisions-load')?.addEventListener('click', refresh);
@@ -92,8 +105,8 @@
         <h2>DECISION STREAM</h2>
         <div class="controls" style="margin-bottom:12px">
           <label>Learner: <input type="text" id="decisions-learner" value="${esc(learner)}" placeholder="learner_reference"></label>
-          <label>From: <input type="datetime-local" id="decisions-from" value="${fromEl?.value || ''}"></label>
-          <label>To: <input type="datetime-local" id="decisions-to" value="${toEl?.value || ''}"></label>
+          <label>From: <input type="datetime-local" id="decisions-from" value="${fromEl?.value || ''}" title="Default: 2020-01-01T00:00:00Z when empty"></label>
+          <label>To: <input type="datetime-local" id="decisions-to" value="${toEl?.value || ''}" title="Default: 2030-12-31T23:59:59Z when empty"></label>
           <button type="button" id="decisions-load" class="primary">Load</button>
         </div>
       `;
@@ -116,9 +129,9 @@
           const priority = meta.priority != null ? meta.priority : '—';
           const policy = esc(trace.policy_version || '—');
           const cls = decisionClass(d.decision_type);
-          const safeJson = JSON.stringify(d).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/'/g, '&#39;');
+          const encodedDecision = encodeDecision(d);
 
-          html += `<tr class="clickable" data-decision='${safeJson}'>`;
+          html += `<tr class="clickable" data-decision="${encodedDecision}">`;
           html += `<td>${fmt(d.decided_at)}</td>`;
           html += `<td class="${cls}" title="${decisionTooltip(d.decision_type)}">${esc(d.decision_type || '—')}</td>`;
           html += `<td>${ruleId}</td>`;
@@ -141,14 +154,12 @@
 
       container.querySelectorAll('tr.clickable').forEach((tr) => {
         tr.addEventListener('click', () => {
-          try {
-            const json = tr.getAttribute('data-decision');
-            const decision = json ? JSON.parse(json) : null;
-            if (decision) {
-              window.setSelectedDecision(decision);
-              window.Tabs.switchTo('trace');
-            }
-          } catch { /* ignore */ }
+          const encoded = tr.getAttribute('data-decision');
+          const decision = decodeDecision(encoded);
+          if (decision) {
+            window.setSelectedDecision(decision);
+            window.Tabs.switchTo('trace');
+          }
         });
       });
 
@@ -176,11 +187,15 @@
           const cls = decisionClass(d.decision_type);
           const row = document.createElement('tr');
           row.className = 'clickable';
-          row.setAttribute('data-decision', JSON.stringify(d));
+          row.setAttribute('data-decision', encodeDecision(d));
           row.innerHTML = `<td>${fmt2(d.decided_at)}</td><td class="${cls}" title="${decisionTooltip(d.decision_type)}">${esc2(d.decision_type || '—')}</td><td>${ruleId}</td><td>${esc2(String(priority))}</td><td>${policy}</td><td>${esc2(d.learner_reference || '—')}</td>`;
           row.addEventListener('click', () => {
-            window.setSelectedDecision(d);
-            window.Tabs.switchTo('trace');
+            const encoded = row.getAttribute('data-decision');
+            const decision = decodeDecision(encoded);
+            if (decision) {
+              window.setSelectedDecision(decision);
+              window.Tabs.switchTo('trace');
+            }
           });
           tbody?.appendChild(row);
         }

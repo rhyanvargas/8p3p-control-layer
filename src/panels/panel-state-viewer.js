@@ -111,20 +111,21 @@
   async function loadStateForVersion(version) {
     if (!selectedLearner) return;
     const container = getContainer();
-    const detailEl = container?.querySelector('.state-detail');
-    if (!detailEl) return;
+    const masterDetail = container?.querySelector('.master-detail');
+    const rightPane = masterDetail?.querySelector('.state-detail') || masterDetail?.children?.[1];
+    if (!rightPane) return;
 
     try {
       const org = window.API.getOrgId();
-      const params = { org_id: org, learner_reference: selectedLearner };
-      if (version > 1) params.version = version;
+      const params = { org_id: org, learner_reference: selectedLearner, version };
 
       const state = await window.API.fetch('/v1/state', params);
-      detailEl.outerHTML = renderStateDetail(state);
-      renderVersionButtons(version);
+      maxVersion = Math.max(maxVersion, state.state_version || version || 1);
+      rightPane.innerHTML = renderStateDetail(state);
+      renderVersionButtons(state.state_version || version);
       bindJsonToggles(container);
     } catch (err) {
-      detailEl.innerHTML = '<div class="error-state">' + window.UI.escapeHtml(err.message) + '</div>';
+      rightPane.innerHTML = '<div class="error-state">' + window.UI.escapeHtml(err.message) + '</div>';
     }
   }
 

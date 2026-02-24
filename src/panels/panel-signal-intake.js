@@ -137,7 +137,7 @@
       window._signalIntakeEntries = res.entries || [];
 
       if (!res.entries || res.entries.length === 0) {
-        container.innerHTML = '<h2>SIGNAL INTAKE</h2><div class="empty-state">No ingestion entries. Send signals via POST /v1/signals to see data.</div>';
+        container.innerHTML = '<h2>SIGNAL INTAKE</h2><div class="empty-state">No ingestion entries. Send a signal via <a href="/docs#/default/post_v1_signals">POST /v1/signals in API docs</a> to see data.</div>';
         return;
       }
 
