@@ -6,6 +6,7 @@ info:
     Lifecycle: Ingestion → Signal Log → STATE Engine → Decision Engine → Output.
 
     **Authentication:** When API_KEY env is set, all /v1/* endpoints require the x-api-key header.
+    Endpoints show a lock icon; when you have not authorized they appear grey (401 if you try). After you click Authorize and enter a valid key, the locks turn **green** to show you have access.
     When API_KEY is unset (local dev), auth is disabled.
     When API_KEY_ORG_ID is set, request org_id is overridden server-side (one org per key); when unset, client org_id is used.
   version: 1.0.0
@@ -434,7 +435,9 @@ components:
       type: apiKey
       in: header
       name: x-api-key
-      description: API key for pilot access (required when API_KEY env is set)
+      description: |
+        API key for pilot access (required when API_KEY env is set).
+        Endpoints are locked until you click Authorize and enter a valid key; without it, requests return 401. When authorized, lock icons turn green to show you have access.
   schemas:
     # ---------------------------------------------------------------------------
     # Signal Ingestion (POST /v1/signals)

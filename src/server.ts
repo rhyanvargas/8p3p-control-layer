@@ -1,8 +1,18 @@
+import dotenv from 'dotenv';
+import { existsSync } from 'fs';
+import { dirname, join, resolve } from 'path';
+import { fileURLToPath } from 'url';
+
+// Load .env then .env.local (local overrides). Ensures API_KEY etc. are set when running dev.
+dotenv.config();
+const localPath = join(process.cwd(), '.env.local');
+if (existsSync(localPath)) {
+  dotenv.config({ path: localPath });
+}
+
 import Fastify from 'fastify';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
-import { fileURLToPath } from 'url';
-import { dirname, join, resolve } from 'path';
 import { registerIngestionRoutes } from './ingestion/routes.js';
 import { registerStateRoutes } from './state/routes.js';
 import { initIdempotencyStore, closeIdempotencyStore } from './ingestion/idempotency.js';
@@ -160,6 +170,14 @@ const swaggerBrandThemeCss = `
     align-items: flex-start;
     gap: 10px;
     justify-content: flex-start;
+  }
+  /* When authorized, Swagger shows .locked / aria-label "authorization button locked"; make lock green so "you have access" is obvious */
+  .swagger-ui .btn.authorize.locked svg,
+  .swagger-ui .authorization__btn.locked svg,
+  .swagger-ui .authorization__btn .locked svg,
+  .swagger-ui .authorization__btn[aria-label="authorization button locked"] svg {
+    fill: #49cc90 !important;
+    opacity: 1;
   }
 `;
 
