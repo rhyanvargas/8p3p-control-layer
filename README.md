@@ -303,6 +303,7 @@ Common business use-cases and integration workflows (built from the existing API
 - [ ] JWT/OAuth authentication
 - [ ] EventBridge integration
 - [ ] Per-tenant field mappings
+- [ ] Public documentation site UX (Stripe/Plaid-quality) — see [Documentation Experience (GTM)](docs/foundation/documentation-experience.md)
 - [ ] CI/CD pipeline
 - [ ] Multi-region deployment
 
