@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>8P3P Inspection Panels</title>
+  <link rel="stylesheet" href="/inspect/styles.css">
+</head>
+<body>
+  <div class="controls">
+    <label>
+      Org ID:
+      <input type="text" id="org-id" placeholder="org_8p3p" required>
+    </label>
+    <label>
+      API Key:
+      <input type="password" id="api-key" placeholder="x-api-key">
+    </label>
+    <button type="button" id="btn-refresh" class="primary">Refresh</button>
+    <label>
+      <input type="checkbox" id="auto-poll">
+      Auto-poll
+    </label>
+    <select id="poll-interval">
+      <option value="5000">5s</option>
+      <option value="10000" selected>10s</option>
+      <option value="30000">30s</option>
+    </select>
+  </div>
+
+  <nav class="tabs">
+    <button type="button" data-panel="signal" class="active">Signal Intake</button>
+    <button type="button" data-panel="state">State Viewer</button>
+    <button type="button" data-panel="decisions">Decision Stream</button>
+    <button type="button" data-panel="trace">Decision Trace</button>
+  </nav>
+
+  <main>
+    <div id="panel-signal" class="panel active" data-panel-id="signal"></div>
+    <div id="panel-state" class="panel" data-panel-id="state"></div>
+    <div id="panel-decisions" class="panel" data-panel-id="decisions"></div>
+    <div id="panel-trace" class="panel" data-panel-id="trace"></div>
+  </main>
+
+  <script src="/inspect/app.js"></script>
+  <script src="/inspect/panel-signal-intake.js"></script>
+  <script src="/inspect/panel-state-viewer.js"></script>
+  <script src="/inspect/panel-decision-stream.js"></script>
+  <script src="/inspect/panel-decision-trace.js"></script>
+</body>
+</html>

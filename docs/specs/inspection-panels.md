@@ -213,7 +213,7 @@ Proves decision authority exists and operates continuously. Shows a live feed of
 
 ### Interactions
 
-- **Filter by org_id and learner:** Text inputs (org required, learner optional for all-learner view)
+- **Filter by org_id and learner:** Text inputs (org required, learner required — `GET /v1/decisions` requires `learner_reference` by design; for org-wide decisions use the fan-out pattern via `GET /v1/state/list`, see `docs/guides/get-all-learner-decisions-from-org.md`)
 - **Time range:** From/to date-time pickers
 - **Click row:** Navigate to Panel 4 (Decision Trace) for the selected decision
 - **Color legend:** Hover on decision type for description

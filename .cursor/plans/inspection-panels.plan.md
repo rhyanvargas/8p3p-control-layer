@@ -5,37 +5,37 @@ overview: |
 todos:
   - id: TASK-001
     content: Install @fastify/static dependency
-    status: pending
+    status: completed
   - id: TASK-002
     content: Create terminal-aesthetic stylesheet (styles.css)
-    status: pending
+    status: completed
   - id: TASK-003
     content: Create main shell HTML with tab navigation (index.html)
-    status: pending
+    status: completed
   - id: TASK-004
     content: Create shared API client and tab orchestration (app.js)
-    status: pending
+    status: completed
   - id: TASK-005
     content: Create Panel 1 — Signal Intake (panel-signal-intake.js)
-    status: pending
+    status: completed
   - id: TASK-006
     content: Create Panel 2 — State Viewer (panel-state-viewer.js)
-    status: pending
+    status: completed
   - id: TASK-007
     content: Create Panel 3 — Decision Stream (panel-decision-stream.js)
-    status: pending
+    status: completed
   - id: TASK-008
     content: Create Panel 4 — Decision Trace / Receipt (panel-decision-trace.js)
-    status: pending
+    status: completed
   - id: TASK-009
     content: Modify server.ts to serve /inspect static files
-    status: pending
+    status: completed
   - id: TASK-010
     content: Create smoke / integration tests for panels
-    status: pending
+    status: completed
   - id: TASK-011
     content: End-to-end verification and lint pass
-    status: pending
+    status: completed
 isProject: false
 ---
 

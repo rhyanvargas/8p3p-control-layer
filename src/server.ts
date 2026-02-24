@@ -11,6 +11,7 @@ if (existsSync(localPath)) {
 }
 
 import Fastify from 'fastify';
+import fastifyStatic from '@fastify/static';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
 import { registerIngestionRoutes } from './ingestion/routes.js';
@@ -181,6 +182,16 @@ const swaggerBrandThemeCss = `
   }
 `;
 
+// Inspection panels: redirect /inspect → /inspect/, then static files
+server.get('/inspect', async (_request, reply) => {
+  return reply.redirect('/inspect/');
+});
+
+await server.register(fastifyStatic, {
+  root: resolve(process.cwd(), 'src/panels'),
+  prefix: '/inspect/',
+});
+
 await server.register(swagger, {
   mode: 'static',
   specification: {
@@ -202,7 +213,7 @@ server.get('/', async () => {
   return {
     name: '8P3P Control Layer',
     version: '0.1.0',
-    endpoints: ['/health', '/v1/signals', '/v1/ingestion', '/v1/state', '/v1/state/list', '/v1/decisions', '/docs']
+    endpoints: ['/health', '/v1/signals', '/v1/ingestion', '/v1/state', '/v1/state/list', '/v1/decisions', '/inspect', '/docs']
   };
 });
 

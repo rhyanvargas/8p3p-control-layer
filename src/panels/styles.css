@@ -1,0 +1,360 @@
+/**
+ * 8P3P Inspection Panels — Terminal Aesthetic
+ * Spec: docs/specs/inspection-panels.md
+ * Plan: .cursor/plans/inspection-panels.plan.md (TASK-002)
+ */
+
+:root {
+  --bg: #0a0a0a;
+  --text: #e0e0e0;
+  --text-dim: #888;
+  --border: #333;
+  --accent-accepted: #49cc90;
+  --accent-duplicate: #f0ad4e;
+  --accent-rejected: #f93e3e;
+  --accent-reinforce: #61affe;
+  --accent-advance: #49cc90;
+  --accent-pause: #f0ad4e;
+  --accent-escalate: #f93e3e;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'SF Mono', 'Cascadia Code', monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.5;
+  min-height: 100vh;
+}
+
+/* Global controls bar */
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: #111;
+  border-bottom: 1px solid var(--border);
+}
+
+.controls label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.controls input[type="text"],
+.controls input[type="password"] {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 6px 10px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  min-width: 120px;
+}
+
+.controls input:focus {
+  outline: 1px solid var(--accent-reinforce);
+}
+
+.controls button {
+  background: var(--border);
+  border: 1px solid #555;
+  color: var(--text);
+  padding: 6px 12px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.controls button:hover {
+  background: #444;
+}
+
+.controls button.primary {
+  background: var(--accent-reinforce);
+  border-color: var(--accent-reinforce);
+  color: var(--bg);
+}
+
+.controls button.primary:hover {
+  opacity: 0.9;
+}
+
+/* Tab navigation */
+.tabs {
+  display: flex;
+  gap: 0;
+  background: #111;
+  border-bottom: 1px solid var(--border);
+  padding: 0 16px;
+}
+
+.tabs button {
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-dim);
+  padding: 12px 16px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.tabs button:hover {
+  color: var(--text);
+}
+
+.tabs button.active {
+  color: var(--accent-reinforce);
+  border-bottom-color: var(--accent-reinforce);
+}
+
+/* Panel containers */
+.panel {
+  display: none;
+  padding: 16px;
+  min-height: 400px;
+}
+
+.panel.active {
+  display: block;
+}
+
+.panel h2 {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* Tables */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+th, td {
+  padding: 8px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+
+th {
+  background: #151515;
+  color: var(--text-dim);
+  font-weight: 600;
+}
+
+tr:nth-child(even) {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+tr:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+tr.clickable {
+  cursor: pointer;
+}
+
+/* Outcome colors */
+.outcome-accepted { color: var(--accent-accepted); }
+.outcome-duplicate { color: var(--accent-duplicate); }
+.outcome-rejected { color: var(--accent-rejected); }
+
+.decision-reinforce { color: var(--accent-reinforce); }
+.decision-advance { color: var(--accent-advance); }
+.decision-pause { color: var(--accent-pause); }
+.decision-escalate { color: var(--accent-escalate); }
+.decision-intervene { color: var(--accent-duplicate); }
+.decision-reroute { color: var(--accent-duplicate); }
+.decision-recommend { color: var(--accent-advance); }
+
+/* Collapsible JSON */
+.json-section {
+  margin: 12px 0;
+  border: 1px solid var(--border);
+  background: #0d0d0d;
+}
+
+.json-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  cursor: pointer;
+  background: #111;
+}
+
+.json-section-header:hover {
+  background: #151515;
+}
+
+.json-section-content {
+  padding: 12px;
+  overflow-x: auto;
+  font-size: 11px;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.json-section-content.collapsed {
+  display: none;
+}
+
+/* Loading indicator */
+.loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 24px;
+  color: var(--text-dim);
+}
+
+.loading::before {
+  content: '';
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent-reinforce);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Error state */
+.error-state {
+  padding: 24px;
+  color: var(--accent-rejected);
+  border: 1px solid var(--accent-rejected);
+  background: rgba(249, 62, 62, 0.1);
+}
+
+/* Empty state */
+.empty-state {
+  padding: 24px;
+  color: var(--text-dim);
+  text-align: center;
+}
+
+/* Master-detail layout (Panel 2) */
+.master-detail {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 16px;
+  min-height: 400px;
+}
+
+.learner-list {
+  border: 1px solid var(--border);
+  background: #0d0d0d;
+  overflow-y: auto;
+  max-height: 500px;
+}
+
+.learner-list-item {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+}
+
+.learner-list-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.learner-list-item.selected {
+  background: rgba(97, 175, 254, 0.15);
+  border-left: 3px solid var(--accent-reinforce);
+}
+
+.state-detail {
+  border: 1px solid var(--border);
+  background: #0d0d0d;
+  padding: 16px;
+  overflow-y: auto;
+}
+
+.canonical-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.canonical-field {
+  padding: 8px 12px;
+  background: #111;
+  border: 1px solid var(--border);
+}
+
+.canonical-field.present {
+  border-left: 3px solid var(--accent-accepted);
+}
+
+.canonical-field.missing {
+  color: var(--text-dim);
+  opacity: 0.6;
+}
+
+.version-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 12px 0;
+}
+
+.version-buttons button {
+  padding: 6px 10px;
+  background: var(--border);
+  border: 1px solid #555;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.version-buttons button:hover {
+  background: #444;
+}
+
+.version-buttons button.active {
+  background: var(--accent-reinforce);
+  border-color: var(--accent-reinforce);
+  color: var(--bg);
+}
+
+/* Rejection detail expandable */
+.rejection-detail {
+  font-size: 11px;
+  color: var(--accent-rejected);
+  margin-top: 4px;
+  padding-left: 12px;
+}
+
+/* Copy button */
+.btn-copy {
+  padding: 4px 8px;
+  font-size: 10px;
+  background: var(--border);
+  border: 1px solid #555;
+  color: var(--text);
+  cursor: pointer;
+  font-family: var(--font-mono);
+}
+
+.btn-copy:hover {
+  background: #444;
+}
