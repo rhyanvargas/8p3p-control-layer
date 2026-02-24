@@ -363,11 +363,11 @@ Proves explainability, governance, and auditability. This is the enterprise trus
 
 | Dependency | Source Document | Status |
 |------------|----------------|--------|
-| `GET /v1/ingestion` | `docs/specs/inspection-api.md` §1 | Spec'd (not yet implemented) |
-| `GET /v1/state` | `docs/specs/inspection-api.md` §2 | Spec'd (not yet implemented) |
-| `GET /v1/state/list` | `docs/specs/inspection-api.md` §2.2 | Spec'd (not yet implemented) |
-| `GET /v1/decisions` (with enriched trace) | `docs/specs/inspection-api.md` §3 | Spec'd (not yet implemented) |
-| `output_metadata` on Decision | `docs/specs/inspection-api.md` §4 | Spec'd (not yet implemented) |
+| `GET /v1/ingestion` | `docs/specs/inspection-api.md` §1 | Implemented |
+| `GET /v1/state` | `docs/specs/inspection-api.md` §2 | Implemented |
+| `GET /v1/state/list` | `docs/specs/inspection-api.md` §2.2 | Implemented |
+| `GET /v1/decisions` (with enriched trace) | `docs/specs/inspection-api.md` §3 | Implemented |
+| `output_metadata` on Decision | `docs/specs/inspection-api.md` §4 | Implemented |
 | Existing `GET /v1/signals` | `docs/specs/signal-log.md` | Implemented |
 | Existing `GET /v1/decisions` | `docs/specs/decision-engine.md` | Implemented |
 
@@ -428,9 +428,9 @@ Implementation is complete when:
 
 ## Next Steps
 
-1. Implement the Inspection API first (`docs/specs/inspection-api.md`) — panels cannot render without the backend endpoints
-2. Run `/plan-impl docs/specs/inspection-panels.md` to create an implementation plan for the panels
-3. Use the panels as the primary QA surface for ongoing development
+1. ~~Implement the Inspection API~~ — **Done.** Backend endpoints and panels are implemented.
+2. Use the panels as the primary QA surface for ongoing development (`docs/testing/qa-test-inspection-panels.md`).
+3. Optional: Implement `GET /v1/receipts` per `docs/specs/receipts-api.md` for a dedicated compliance/audit query surface.
 
 ---
 

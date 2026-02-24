@@ -201,9 +201,9 @@ npm run dev
 
 ## Sign-Off
 
-- [ ] All QA-IN-001 through QA-IN-010 executed.
-- [ ] Failures documented with environment (with/without API_KEY), steps, and screenshot or console/network detail.
-- [ ] Automated tests passing: `npm test` (includes `tests/integration/inspection-panels.test.ts`).
+- [X] All QA-IN-001 through QA-IN-010 executed.
+- [X] Failures documented with environment (with/without API_KEY), steps, and screenshot or console/network detail.
+- [X] Automated tests passing: `npm test` (includes `tests/integration/inspection-panels.test.ts`).
 
 **Plan:** `.cursor/plans/inspection-panels.plan.md`  
 **Spec:** `docs/specs/inspection-panels.md`

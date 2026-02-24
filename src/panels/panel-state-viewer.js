@@ -115,6 +115,9 @@
     const rightPane = masterDetail?.querySelector('.state-detail') || masterDetail?.children?.[1];
     if (!rightPane) return;
 
+    const stateJsonEl = document.getElementById('state-json');
+    const wasJsonOpen = stateJsonEl && !stateJsonEl.classList.contains('collapsed');
+
     try {
       const org = window.API.getOrgId();
       const params = { org_id: org, learner_reference: selectedLearner, version };
@@ -124,6 +127,10 @@
       rightPane.innerHTML = renderStateDetail(state);
       renderVersionButtons(state.state_version || version);
       bindJsonToggles(container);
+      if (wasJsonOpen) {
+        const newStateJson = document.getElementById('state-json');
+        if (newStateJson) newStateJson.classList.remove('collapsed');
+      }
     } catch (err) {
       rightPane.innerHTML = '<div class="error-state">' + window.UI.escapeHtml(err.message) + '</div>';
     }

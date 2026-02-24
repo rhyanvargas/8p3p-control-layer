@@ -310,7 +310,7 @@ Demo Seed + Rehearsal ───────────►   Tenant Provisioning
 | Pilot Readiness Assessment | *(consolidated into this document)* | Gap analysis and phase sequence (originally 2026-02-19) |
 | Inspection API Spec | `docs/specs/inspection-api.md` | Backend endpoints, enriched trace, ingestion log |
 | Inspection Panels Spec | `docs/specs/inspection-panels.md` | Frontend panels, layout, interactions |
-| Decision Repo Extraction Plan | `.cursor/plans/repository-extraction.plan.md` | Decision persistence abstraction (v1) |
+| Decision repository extraction | Completed (v1); see `docs/specs/decision-engine.md`, `src/decision/repository.ts` | Decision persistence abstraction; plan doc was consolidated/removed |
 | Idempotency Repo Extraction Plan | `.cursor/plans/idempotency-repository-extraction.plan.md` | Idempotency persistence abstraction (v1.1) |
 | Signal Log Repo Extraction Plan | `.cursor/plans/signal-log-repository-extraction.plan.md` | Signal log persistence abstraction (v1.1) |
 | State Repo Extraction Plan | `.cursor/plans/state-repository-extraction.plan.md` | State persistence abstraction (v1.1) |

@@ -63,11 +63,12 @@
     const toEl = document.getElementById('decisions-to');
 
     const learner = learnerEl?.value?.trim() || '';
+    const orgDisplay = (document.getElementById('org-id')?.value?.trim()) || '—';
     if (!learner) {
       container.innerHTML = `
         <h2>DECISION STREAM</h2>
         <div class="controls" style="margin-bottom:12px">
-          <label>Org ID: <input type="text" id="decisions-org" placeholder="(uses global)" disabled></label>
+          <label>Org: <span class="org-display">${window.UI.escapeHtml(orgDisplay)}</span></label>
           <label>Learner: <input type="text" id="decisions-learner" placeholder="learner_reference (required)"></label>
           <label>From: <input type="datetime-local" id="decisions-from" title="Default: 2020-01-01T00:00:00Z when empty"></label>
           <label>To: <input type="datetime-local" id="decisions-to" title="Default: 2030-12-31T23:59:59Z when empty"></label>

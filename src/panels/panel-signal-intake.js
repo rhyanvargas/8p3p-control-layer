@@ -12,6 +12,7 @@
 
   let nextCursor = null;
   let expandedRows = new Set();
+  let selectedOutcomeFilter = '';
 
   function getContainer() {
     return document.getElementById(CONTAINER_ID);
@@ -20,7 +21,7 @@
   function renderTable(entries) {
     const esc = window.UI.escapeHtml;
     const fmt = window.UI.formatTime;
-    const currentOutcome = document.getElementById('outcome-filter')?.value || '';
+    const currentOutcome = selectedOutcomeFilter;
 
     let html = `
       <h2>SIGNAL INTAKE</h2>
@@ -78,7 +79,10 @@
     const filterEl = document.getElementById('outcome-filter');
     if (filterEl) {
       filterEl.value = currentOutcome;
-      filterEl.addEventListener('change', () => refresh());
+      filterEl.addEventListener('change', () => {
+        selectedOutcomeFilter = filterEl.value || '';
+        refresh();
+      });
     }
     document.getElementById('btn-load-more')?.addEventListener('click', loadMore);
 
@@ -100,8 +104,7 @@
     if (!nextCursor) return;
     try {
       const org = window.API.getOrgId();
-      const outcomeEl = document.getElementById('outcome-filter');
-      const outcome = outcomeEl?.value || undefined;
+      const outcome = selectedOutcomeFilter || undefined;
       const res = await window.API.fetch('/v1/ingestion', {
         org_id: org,
         limit: LIMIT,
@@ -124,8 +127,7 @@
     try {
       window.UI.showLoading(container);
       const org = window.API.getOrgId();
-      const outcomeEl = document.getElementById('outcome-filter');
-      const outcome = outcomeEl?.value || undefined;
+      const outcome = selectedOutcomeFilter || undefined;
 
       const res = await window.API.fetch('/v1/ingestion', {
         org_id: org,

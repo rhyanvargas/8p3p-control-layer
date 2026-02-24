@@ -8,24 +8,30 @@
 </head>
 <body>
   <div class="controls">
-    <label>
-      Org ID:
-      <input type="text" id="org-id" placeholder="org_8p3p" required>
-    </label>
-    <label>
-      API Key:
-      <input type="password" id="api-key" placeholder="x-api-key">
-    </label>
-    <button type="button" id="btn-refresh" class="primary">Refresh</button>
-    <label>
-      <input type="checkbox" id="auto-poll">
-      Auto-poll
-    </label>
-    <select id="poll-interval">
-      <option value="5000">5s</option>
-      <option value="10000" selected>10s</option>
-      <option value="30000">30s</option>
-    </select>
+    <div class="controls-brand">
+      <span class="controls-logo">8P3P</span>
+      <span class="controls-pill">Pilot v1</span>
+    </div>
+    <div class="controls-bar">
+      <label>
+        Org ID:
+        <input type="text" id="org-id" placeholder="org_8p3p" required>
+      </label>
+      <label>
+        API Key:
+        <input type="password" id="api-key" placeholder="x-api-key">
+      </label>
+      <button type="button" id="btn-refresh" class="primary">Refresh</button>
+      <label>
+        <input type="checkbox" id="auto-poll">
+        Auto-poll
+      </label>
+      <select id="poll-interval">
+        <option value="5000">5s</option>
+        <option value="10000" selected>10s</option>
+        <option value="30000">30s</option>
+      </select>
+    </div>
   </div>
 
   <nav class="tabs">
