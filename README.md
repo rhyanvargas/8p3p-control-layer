@@ -187,6 +187,17 @@ tests/
 
 ## Documentation
 
+### Guides
+
+Common business use-cases and integration workflows (built from the existing API contracts):
+
+| Guide | Description |
+|------|-------------|
+| [Guides Index](docs/guides/README.md) | Entry point for integration workflows |
+| [Pilot Integration Guide (v1)](docs/guides/pilot-integration-guide.md) | “Send signals → consume decisions” |
+| [Get all learner decisions from my org](docs/guides/get-all-learner-decisions-from-org.md) | Org-wide decision export (list learners → fetch decisions per learner) |
+| [Pilot Deployment Checklist (v1)](docs/guides/deployment-checklist.md) | Pre-deployment gates (requires `API_KEY_ORG_ID`) |
+
 ### Foundation
 
 | Document | Description |

@@ -17,6 +17,7 @@
 
 - **Endpoint:** `GET /v1/decisions`
 - **Purpose:** Poll for decisions per learner and time range. You decide what to do with them in your system (we emit decisions; we do not enforce workflows).
+- **Common use-case:** If you need decisions for **all learners in an org** (export/analytics), use the supported fan-out workflow: list learners → fetch decisions per learner. See [`get-all-learner-decisions-from-org.md`](get-all-learner-decisions-from-org.md).
 
 ---
 
@@ -33,7 +34,7 @@ If the key is missing or invalid, you will receive **401** with `api_key_require
 ### Org scoping
 
 - **When 8P3P sets `API_KEY_ORG_ID`** (typical single-tenant pilot): the server overrides every request’s `org_id` with that value. You cannot access another org; sending a different `org_id` has no effect. You may omit or leave `org_id` as a placeholder — the server fills it in.
-- **When `API_KEY_ORG_ID` is not set:** the server uses the `org_id` you send in the body (POST) or query (GET). The key proves identity only; you choose which org you’re acting on.
+- **When `API_KEY_ORG_ID` is not set (local dev / controlled testing only):** the server uses the `org_id` you send in the body (POST) or query (GET). This mode does **not** prevent cross-org access if more than one org’s data exists in the same environment, so it is not used for pilot deployments.
 
 ---
 

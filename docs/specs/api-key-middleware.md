@@ -13,6 +13,18 @@ This spec defines a **minimal API key middleware** for v1: one key per deploymen
 
 ---
 
+## Deployment Requirements (Pilot / Non-Local)
+
+For any pilot environment reachable by a customer (or any shared environment with >1 org's data), the following are **required**:
+
+- **`API_KEY` must be set** (auth enforced on `/v1/*`)
+- **`API_KEY_ORG_ID` must be set** (org_id resolved server-side; caller cannot self-declare org)
+- **One org per deployment**: a single running process must serve exactly one `org_id`
+
+If you need multiple concurrent pilots in one environment, do **not** run v1 in “caller-provided org_id” mode. Use v1.1 tenant provisioning (`docs/specs/tenant-provisioning.md`) for key→org enforcement + rate limits.
+
+---
+
 ## Requirements
 
 ### Functional
@@ -22,7 +34,7 @@ This spec defines a **minimal API key middleware** for v1: one key per deploymen
 - [ ] When `API_KEY` env var is **not** set: middleware is disabled (local dev, backward compatible)
 - [ ] Valid key = header value matches `API_KEY` (constant-time comparison)
 - [ ] When `API_KEY_ORG_ID` is set: request `org_id` (body or query) is overridden with this value — caller cannot impersonate another org
-- [ ] When `API_KEY_ORG_ID` is not set: org_id from request is used (single-tenant, key proves identity only)
+- [ ] When `API_KEY_ORG_ID` is not set: org_id from request is used (**local dev / controlled testing only**). This mode does **not** prevent cross-org reads if multiple orgs exist in the same datastore.
 - [ ] Exempt routes: `/`, `/health`, `/docs`, `/docs/*` — no key required
 - [ ] Rejection response: 401, JSON body with `code` and `message` (matches existing error schema)
 
@@ -147,12 +159,12 @@ v1.1 (`docs/specs/tenant-provisioning.md`) replaces this manual flow with:
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `API_KEY` | No | The expected API key value. If unset or empty, middleware is disabled. |
-| `API_KEY_ORG_ID` | No | When set, overrides request `org_id` with this value. Caller cannot access another org. If unset, org_id from request is used. |
+| `API_KEY_ORG_ID` | No | When set, overrides request `org_id` with this value. Caller cannot access another org. If unset, org_id from request is used (**local dev / controlled testing only**). |
 
 **Pilot use — when to set `API_KEY_ORG_ID`:**
 
 - **Set it** when the deployment is **one org per key**: the server forces all requests to that org; client-supplied `org_id` is ignored. Use for single-tenant pilot and when org must not be self-declared by the caller.
-- **Leave unset** when the client is allowed to send different `org_id` values (e.g. multi-tenant testing or local dev); the key only proves identity, and request `org_id` is used as-is.
+- **Leave unset** only for **local dev** or **controlled testing** with non-sensitive data. Do **not** use this mode for any shared environment or any environment where >1 org's data could exist.
 
 ### Header
 
@@ -277,7 +289,7 @@ Implementation is complete when:
 ## Notes
 
 - **Why env var, not config file?** Env vars are standard for secrets in 12-factor apps. No file to accidentally commit. Easy to vary per environment.
-- **Why optional API_KEY_ORG_ID?** Single-tenant pilot may have only one org; key proves "you're the pilot" and org_id from request is fine. Multi-org override is for stricter isolation when needed.
+- **Why is API_KEY_ORG_ID optional in code?** It preserves local-dev flexibility and backward compatibility. For pilot / non-local deployments, treat `API_KEY_ORG_ID` as **required** to prevent org_id impersonation.
 - **Migration path:** v1.1 tenant provisioning replaces this middleware with API Gateway + Lambda org resolution. The middleware can be removed or bypassed when deployed to AWS.
 
 ---

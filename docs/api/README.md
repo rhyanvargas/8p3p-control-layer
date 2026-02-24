@@ -28,6 +28,15 @@ New endpoints and enriched trace fields are defined in:
 - [`docs/specs/inspection-api.md`](../specs/inspection-api.md) — ingestion log, state query, enriched decision trace, decision stream metadata
 - [`docs/specs/inspection-panels.md`](../specs/inspection-panels.md) — 4 read-only inspection panels at `/inspect`
 
+## Guides (common workflows)
+
+If you're integrating the API for a business workflow (export, analytics, onboarding), start here:
+
+- [`docs/guides/README.md`](../guides/README.md) — Guides index
+- [`docs/guides/pilot-integration-guide.md`](../guides/pilot-integration-guide.md) — “Send signals → consume decisions”
+- [`docs/guides/get-all-learner-decisions-from-org.md`](../guides/get-all-learner-decisions-from-org.md) — org-wide decision export (fan-out pattern)
+- [`docs/guides/deployment-checklist.md`](../guides/deployment-checklist.md) — pilot deployment gates (includes required `API_KEY_ORG_ID`)
+
 ## Historical reviews
 
 Historical `/review` outputs and other narrative review artifacts are archived under:

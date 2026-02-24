@@ -34,7 +34,8 @@ This framing is correct and governs every scoping decision below.
 ### What's Already Proven (Not Re-Work)
 
 - Full pipeline: signal → validate → store → state accumulate → policy evaluate → decision with trace. All 7 decision types verified with JSON evidence (QA report, Feb 18).
-- Deterministic decisions, org isolation, signal idempotency, contract drift detection — all covered by existing 343 tests.
+- Deterministic decisions, **org data partitioning** (org_id-scoped persistence + queries), signal idempotency, contract drift detection — all covered by existing 343 tests.
+- **Org access control** (a caller cannot choose another org) is proven **only** when `org_id` is resolved server-side (v1: `API_KEY_ORG_ID` set; v1.1: tenant provisioning / key→org mapping).
 
 ### Minimum Scope — What We Will NOT Build for the Pilot
 
@@ -122,7 +123,7 @@ Five requirements. Each one is a trust gate — if any fails during a pilot demo
 | 1 | **Deterministic decisions** — same state + same policy = same decision, every time | If the same learner gets different decisions on the same data, the system is not trustworthy. Enterprise compliance requires reproducibility. | **Proven.** 343 tests enforce this. Rationale generation will be deterministic by spec. |
 | 2 | **Decision traceability** — every decision links to exact state version, policy version, matched rule, AND now: frozen state snapshot + threshold comparisons + rationale | The pilot client's compliance team will ask "why did this learner get this decision?" Panel 4 must answer that question completely, from the decision record alone, without reconstructing state. | **Partially proven.** Trace references exist today (state_id, policy_version, matched_rule_id). Enriched trace (snapshot, thresholds, rationale) is the primary build target. |
 | 3 | **Zero data loss on accepted signals** — if we return `status: accepted`, the signal is in the log, state is updated, and a decision is produced | If a signal is "accepted" but no decision appears, the pilot client loses trust in the pipeline. | **Proven.** Integration tests verify full pipeline. Ingestion outcome logging adds a secondary evidence trail. |
-| 4 | **Org isolation** — pilot client's data is never visible to another org | A pilot client that sees another org's data terminates the relationship. This is table stakes. | **Proven.** Enforced at query level, verified by existing contract tests. New endpoints will add INSP-015/016. |
+| 4 | **Org isolation** — pilot client's data is never visible to another org | A pilot client that sees another org's data terminates the relationship. This is table stakes. | **Proven for single-tenant pilot** when `API_KEY_ORG_ID` is set (server overrides org_id; caller cannot self-declare org). **Not sufficient for multi-tenant**; v1.1 tenant provisioning is required for key→org enforcement. |
 | 5 | **Graceful degradation** — panels never show blank screens or unhandled errors | A panel crash during a live demo with a prospect kills the deal. Panels must show clear error messages, "N/A" for missing enriched data on historical decisions, and loading states. | **Not yet applicable.** Will be enforced during panel build (Week 2-3). |
 
 ### What Is Explicitly NOT Required for a Paid Pilot
@@ -160,7 +161,7 @@ The architecture was designed multi-tenant from day one. These properties are **
 
 | Capability | How It Works Today | v1.1 Ready? |
 |-----------|-------------------|-------------|
-| **Tenant isolation** | Every query (signals, state, decisions, ingestion log) is scoped by `org_id`. Cross-org access is blocked at the data layer. Verified by contract tests. | **Yes** — inherent |
+| **Tenant isolation** | Every query (signals, state, decisions, ingestion log) is scoped by `org_id`. **Access control** (caller cannot pick another org) is enforced when org_id is resolved server-side (v1: `API_KEY_ORG_ID` set; v1.1: tenant provisioning). | **Single-tenant: Yes. Multi-tenant: requires v1.1** |
 | **Separate logs** | Signal log, ingestion log, and decision records all carry `org_id`. Pilot A's signals are invisible to Pilot B. | **Yes** — inherent |
 | **Separate receipts** | Decision traces include `org_id`, `state_id`, and full provenance. Each pilot's audit trail is self-contained. | **Yes** — inherent |
 | **Inspection panels per-org** | All 4 panels require `org_id` input and filter exclusively by it. | **Yes** — by design (spec'd in `inspection-panels.md`) |

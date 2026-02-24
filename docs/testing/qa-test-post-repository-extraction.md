@@ -139,7 +139,7 @@ In Swagger UI: use **Authorize** and set `x-api-key` when the server is run with
 
 ---
 
-### QA-RE-009: Org Isolation (Decisions)
+### QA-RE-009: Org Data Partitioning (Decisions)
 
 **Depends on:** QA-RE-002 (data under `org_8p3p`)
 
@@ -147,7 +147,28 @@ In Swagger UI: use **Authorize** and set `x-api-key` when the server is run with
 
 **Steps:** Same params as QA-RE-003 but `org_id=org_other`.
 
-**Expected:** Status `200`, `decisions` array **empty** (decisions scoped to org).
+**Expected:** Status `200`, `decisions` array **empty** (proves decisions are partitioned by `org_id` at query time).
+
+**Note:** This test does **not** prove org **access control** by itself. To verify that a caller cannot *choose* another org in a pilot deployment, run QA-RE-012 (API key org override).
+
+---
+
+### QA-RE-012: Org Access Control (API_KEY_ORG_ID Override)
+
+**Depends on:** QA-RE-002 (a decision exists for `org_8p3p` + `maya-k`)
+
+**Precondition:** Server started with `API_KEY=test-key` **and** `API_KEY_ORG_ID=org_8p3p`.
+
+**Endpoint:** `GET /v1/decisions`
+
+**Steps:**
+- Send the same request as QA-RE-003, but set `org_id=org_other`.
+- Include header `x-api-key: test-key`.
+
+**Expected:**
+- Status `200`
+- Response `org_id` is **`org_8p3p`** (server override), not `org_other`
+- `decisions` is **non-empty** (same data as QA-RE-003, proving caller cannot impersonate another org)
 
 ---
 
@@ -185,9 +206,10 @@ Then send the same request **with** `x-api-key: test-key`; expect success (e.g. 
 | QA-RE-006 | Signal log     | GET /v1/signals           | 200             | Signals and payload preserved          |
 | QA-RE-007 | Validation     | POST /v1/signals (invalid) | 400          | `code: missing_required_field`         |
 | QA-RE-008 | Validation     | POST /v1/signals (forbidden key) | 400     | `code: forbidden_semantic_key_detected` |
-| QA-RE-009 | Isolation      | GET /v1/decisions (wrong org) | 200         | Empty decisions                        |
+| QA-RE-009 | Partitioning   | GET /v1/decisions (wrong org) | 200         | Empty decisions                        |
 | QA-RE-010 | Inspection     | GET /v1/ingestion         | 200             | Accepted + duplicate outcomes          |
 | QA-RE-011 | Auth           | /v1/* without key (when API_KEY set) | 401   | `api_key_required` or `api_key_invalid` |
+| QA-RE-012 | Access control | GET /v1/decisions (org override) | 200        | `org_id` overridden; caller cannot impersonate org |
 
 ---
 
@@ -199,7 +221,7 @@ Per CEO scope, demo narrative anchors on **REINFORCE** and **INTERVENE**. To ver
 
 ## Sign-Off
 
-- [ ] All QA-RE-001 through QA-RE-011 executed.
+- [ ] All QA-RE-001 through QA-RE-012 executed.
 - [ ] Optional decision-type cases run if required.
 - [ ] Failures documented with environment (with/without API_KEY), request, and response.
 - [ ] Build and automated tests already passing: `npm run build`, `npm test`, `npm run lint`, `npm run typecheck`.
