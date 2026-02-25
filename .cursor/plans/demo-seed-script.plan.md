@@ -5,16 +5,16 @@ overview: |
 todos:
   - id: TASK-001
     content: Design demo learner scenarios and signal payloads
-    status: pending
+    status: completed
   - id: TASK-002
     content: Create seed-demo.mjs script
-    status: pending
+    status: completed
   - id: TASK-003
     content: Create demo walkthrough documentation
-    status: pending
+    status: completed
   - id: TASK-004
     content: Add npm script entry and verify end-to-end
-    status: pending
+    status: completed
 isProject: false
 ---
 
@@ -33,14 +33,16 @@ Before starting implementation:
 
 ## Design Decisions
 
-| Decision | Choice | Rationale |
-|----------|--------|-----------|
-| Script format | Standalone `.mjs` (ES module, no compile) | Matches `generate-api-key.mjs` pattern; runs with `node` directly |
-| Server interaction | HTTP `fetch()` against live server | Proves the real API path; no DB manipulation needed |
-| API key handling | Read from `API_KEY` env var or accept `--api-key` CLI arg | Matches pilot integration guide; script is usable in any environment |
-| Org ID | Default `org_demo` (overridable via `--org` CLI arg) | Demo-specific org; doesn't pollute pilot data |
-| Idempotent re-runs | Fixed `signal_id` values so re-running produces `duplicate` (not double data) | Safe to run multiple times without corrupting demo state |
-| Learner count | 4 learners (2 primary anchors + 2 supporting) | Enough to populate all panels without overwhelming the demo |
+
+| Decision           | Choice                                                                        | Rationale                                                            |
+| ------------------ | ----------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| Script format      | Standalone `.mjs` (ES module, no compile)                                     | Matches `generate-api-key.mjs` pattern; runs with `node` directly    |
+| Server interaction | HTTP `fetch()` against live server                                            | Proves the real API path; no DB manipulation needed                  |
+| API key handling   | Read from `API_KEY` env var or accept `--api-key` CLI arg                     | Matches pilot integration guide; script is usable in any environment |
+| Org ID             | Default `org_demo` (overridable via `--org` CLI arg)                          | Demo-specific org; doesn't pollute pilot data                        |
+| Idempotent re-runs | Fixed `signal_id` values so re-running produces `duplicate` (not double data) | Safe to run multiple times without corrupting demo state             |
+| Learner count      | 4 learners (2 primary anchors + 2 supporting)                                 | Enough to populate all panels without overwhelming the demo          |
+
 
 ## Learner Scenarios
 
@@ -50,10 +52,12 @@ Before starting implementation:
 
 **Signal payloads (2 signals, showing state evolution):**
 
-| Signal | stabilityScore | masteryScore | timeSinceReinforcement | confidenceInterval | riskSignal | Expected Decision |
-|--------|---------------|-------------|----------------------|-------------------|-----------|-------------------|
-| maya-k-001 | 0.62 | 0.75 | 90000 | 0.80 | 0.20 | `reinforce` (stability < 0.7, timeSince > 86400) |
-| maya-k-002 | 0.55 | 0.72 | 100000 | 0.78 | 0.25 | `reinforce` (stability further decayed) |
+
+| Signal     | stabilityScore | masteryScore | timeSinceReinforcement | confidenceInterval | riskSignal | Expected Decision                                |
+| ---------- | -------------- | ------------ | ---------------------- | ------------------ | ---------- | ------------------------------------------------ |
+| maya-k-001 | 0.62           | 0.75         | 90000                  | 0.80               | 0.20       | `reinforce` (stability < 0.7, timeSince > 86400) |
+| maya-k-002 | 0.55           | 0.72         | 100000                 | 0.78               | 0.25       | `reinforce` (stability further decayed)          |
+
 
 ### Learner 2: `alex-r` — INTERVENE anchor
 
@@ -61,10 +65,12 @@ Before starting implementation:
 
 **Signal payloads (2 signals):**
 
-| Signal | stabilityScore | masteryScore | timeSinceReinforcement | confidenceInterval | riskSignal | Expected Decision |
-|--------|---------------|-------------|----------------------|-------------------|-----------|-------------------|
-| alex-r-001 | 0.35 | 0.40 | 50000 | 0.55 | 0.60 | `intervene` (stability < 0.4, confidence ≥ 0.3) |
-| alex-r-002 | 0.28 | 0.35 | 60000 | 0.50 | 0.65 | `intervene` (stability even lower) |
+
+| Signal     | stabilityScore | masteryScore | timeSinceReinforcement | confidenceInterval | riskSignal | Expected Decision                               |
+| ---------- | -------------- | ------------ | ---------------------- | ------------------ | ---------- | ----------------------------------------------- |
+| alex-r-001 | 0.35           | 0.40         | 50000                  | 0.55               | 0.60       | `intervene` (stability < 0.4, confidence ≥ 0.3) |
+| alex-r-002 | 0.28           | 0.35         | 60000                  | 0.50               | 0.65       | `intervene` (stability even lower)              |
+
 
 ### Learner 3: `jordan-m` — Supporting (ADVANCE, if asked)
 
@@ -72,26 +78,30 @@ Before starting implementation:
 
 **Signal payload (1 signal):**
 
-| Signal | stabilityScore | masteryScore | timeSinceReinforcement | confidenceInterval | riskSignal | Expected Decision |
-|--------|---------------|-------------|----------------------|-------------------|-----------|-------------------|
-| jordan-m-001 | 0.88 | 0.90 | 40000 | 0.85 | 0.10 | `advance` (stability ≥ 0.8, mastery ≥ 0.8, risk < 0.3, confidence ≥ 0.7) |
+
+| Signal       | stabilityScore | masteryScore | timeSinceReinforcement | confidenceInterval | riskSignal | Expected Decision                                                        |
+| ------------ | -------------- | ------------ | ---------------------- | ------------------ | ---------- | ------------------------------------------------------------------------ |
+| jordan-m-001 | 0.88           | 0.90         | 40000                  | 0.85               | 0.10       | `advance` (stability ≥ 0.8, mastery ≥ 0.8, risk < 0.3, confidence ≥ 0.7) |
+
 
 ### Learner 4: `sam-t` — Supporting (edge case: rejected + duplicate)
 
 **Narrative:** Sam's first signal is malformed (rejected). Second signal is valid (accepted). Third signal is a retry of the second (duplicate). This proves Panel 1's three ingestion outcomes.
 
-| Signal | Payload | Expected Outcome |
-|--------|---------|-----------------|
-| sam-t-bad | `{ "bogus": true }` (no canonical fields, but valid envelope) | `accepted` (payload content is not validated, only envelope structure) |
-| sam-t-reject | Missing `learner_reference` field entirely | `rejected` — `missing_required_field` |
-| sam-t-001 | stabilityScore: 0.50, masteryScore: 0.60, timeSinceReinforcement: 90000, confidenceInterval: 0.80, riskSignal: 0.15 | `accepted` → `reinforce` |
-| sam-t-001 (retry) | Same signal_id as above | `duplicate` |
+
+| Signal            | Payload                                                                                                             | Expected Outcome                                                       |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| sam-t-bad         | `{ "bogus": true }` (no canonical fields, but valid envelope)                                                       | `accepted` (payload content is not validated, only envelope structure) |
+| sam-t-reject      | Missing `learner_reference` field entirely                                                                          | `rejected` — `missing_required_field`                                  |
+| sam-t-001         | stabilityScore: 0.50, masteryScore: 0.60, timeSinceReinforcement: 90000, confidenceInterval: 0.80, riskSignal: 0.15 | `accepted` → `reinforce`                                               |
+| sam-t-001 (retry) | Same signal_id as above                                                                                             | `duplicate`                                                            |
+
 
 ## Tasks
 
 ### TASK-001: Design demo learner scenarios and signal payloads
 
-- **Status**: pending
+- **Status**: completed
 - **Files**: none (design task — scenarios documented above)
 - **Action**: Verify
 - **Details**: Verify the 4 learner scenarios against `default.json` policy rules. Confirm each signal's canonical field values trigger the expected decision type using first-match-wins priority ordering. Specifically:
@@ -104,7 +114,7 @@ Before starting implementation:
 
 ### TASK-002: Create seed-demo.mjs script
 
-- **Status**: pending
+- **Status**: completed
 - **Files**: `scripts/seed-demo.mjs`
 - **Action**: Create
 - **Details**:
@@ -123,7 +133,7 @@ Before starting implementation:
 
 ### TASK-003: Create demo walkthrough documentation
 
-- **Status**: pending
+- **Status**: completed
 - **Files**: `docs/guides/demo-walkthrough.md`
 - **Action**: Create
 - **Details**:
@@ -143,7 +153,7 @@ Before starting implementation:
 
 ### TASK-004: Add npm script entry and verify end-to-end
 
-- **Status**: pending
+- **Status**: completed
 - **Files**: `package.json`
 - **Action**: Modify
 - **Details**:
@@ -161,45 +171,53 @@ Before starting implementation:
 
 ### To Create
 
-| File | Task | Purpose |
-|------|------|---------|
-| `scripts/seed-demo.mjs` | TASK-002 | Standalone seed script: sends demo signals via POST /v1/signals |
-| `docs/guides/demo-walkthrough.md` | TASK-003 | Step-by-step demo script for investor/enterprise audiences |
+
+| File                              | Task     | Purpose                                                         |
+| --------------------------------- | -------- | --------------------------------------------------------------- |
+| `scripts/seed-demo.mjs`           | TASK-002 | Standalone seed script: sends demo signals via POST /v1/signals |
+| `docs/guides/demo-walkthrough.md` | TASK-003 | Step-by-step demo script for investor/enterprise audiences      |
+
 
 ### To Modify
 
-| File | Task | Changes |
-|------|------|---------|
+
+| File           | Task     | Changes                    |
+| -------------- | -------- | -------------------------- |
 | `package.json` | TASK-004 | Add `seed:demo` npm script |
+
 
 ## Test Plan
 
-| Test ID | Type | Description | Task |
-|---------|------|-------------|------|
-| TEST-SEED-001 | manual | Script runs without error against live server | TASK-002 |
-| TEST-SEED-002 | manual | Re-running script produces duplicates (idempotent) | TASK-002 |
-| TEST-SEED-003 | manual | Panel 1 shows accepted/rejected/duplicate rows for seeded data | TASK-004 |
-| TEST-SEED-004 | manual | Panel 2 shows 4 learners with correct state and version history | TASK-004 |
-| TEST-SEED-005 | manual | Panel 3 shows reinforce + intervene + advance decisions | TASK-004 |
+
+| Test ID       | Type   | Description                                                                     | Task     |
+| ------------- | ------ | ------------------------------------------------------------------------------- | -------- |
+| TEST-SEED-001 | manual | Script runs without error against live server                                   | TASK-002 |
+| TEST-SEED-002 | manual | Re-running script produces duplicates (idempotent)                              | TASK-002 |
+| TEST-SEED-003 | manual | Panel 1 shows accepted/rejected/duplicate rows for seeded data                  | TASK-004 |
+| TEST-SEED-004 | manual | Panel 2 shows 4 learners with correct state and version history                 | TASK-004 |
+| TEST-SEED-005 | manual | Panel 3 shows reinforce + intervene + advance decisions                         | TASK-004 |
 | TEST-SEED-006 | manual | Panel 4 shows full trace with rationale and thresholds for any clicked decision | TASK-004 |
-| TEST-SEED-007 | manual | Demo walkthrough can be completed in < 2 minutes | TASK-003 |
+| TEST-SEED-007 | manual | Demo walkthrough can be completed in < 2 minutes                                | TASK-003 |
+
 
 ## Risks
 
-| Risk | Impact | Mitigation |
-|------|--------|------------|
-| API_KEY_ORG_ID overrides `org_demo` to the key's org | Low — seeded data still works, just under different org_id | Script documents this; panels use whatever org_id the server returns |
-| Policy changes make demo payloads trigger wrong decisions | Medium — demo narrative breaks | Payloads are designed with margin (e.g. maya-k stability 0.62, well below 0.7 threshold); document which policy fields matter |
-| Server not running when script executes | Low — script fails immediately | Clear error message: "Connection refused — is the server running?" |
+
+| Risk                                                      | Impact                                                     | Mitigation                                                                                                                    |
+| --------------------------------------------------------- | ---------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| API_KEY_ORG_ID overrides `org_demo` to the key's org      | Low — seeded data still works, just under different org_id | Script documents this; panels use whatever org_id the server returns                                                          |
+| Policy changes make demo payloads trigger wrong decisions | Medium — demo narrative breaks                             | Payloads are designed with margin (e.g. maya-k stability 0.62, well below 0.7 threshold); document which policy fields matter |
+| Server not running when script executes                   | Low — script fails immediately                             | Clear error message: "Connection refused — is the server running?"                                                            |
+
 
 ## Verification Checklist
 
-- [ ] All tasks completed
-- [ ] `npm run seed:demo` exits 0
-- [ ] Re-run produces only duplicates (idempotent)
-- [ ] All 4 inspection panels render seeded data
-- [ ] Demo walkthrough follows CEO-approved narrative (REINFORCE + INTERVENE)
-- [ ] Walkthrough completes in < 2 minutes
+- All tasks completed
+- `npm run seed:demo` exits 0
+- Re-run produces only duplicates (idempotent)
+- All 4 inspection panels render seeded data
+- Demo walkthrough follows CEO-approved narrative (REINFORCE + INTERVENE)
+- Walkthrough completes in < 2 minutes
 
 ## Implementation Order
 
