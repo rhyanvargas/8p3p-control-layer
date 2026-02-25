@@ -66,9 +66,10 @@ Before starting implementation:
 
 ## Tasks
 
+> **Status tracking**: Task status lives **only** in the YAML frontmatter `todos` list to prevent drift. Do not duplicate per-task status inside the task bodies.
+
 ### TASK-001: Install @fastify/static dependency
 
-- **Status**: pending
 - **Files**: `package.json`
 - **Action**: Modify
 - **Details**: `npm install @fastify/static`. This adds static file serving capability to Fastify. No types package needed since we're writing vanilla JS panels (TS types only needed for `server.ts`, and `@fastify/static` ships its own).
@@ -77,7 +78,6 @@ Before starting implementation:
 
 ### TASK-002: Create terminal-aesthetic stylesheet
 
-- **Status**: pending
 - **Files**: `src/panels/styles.css`
 - **Action**: Create
 - **Details**: Terminal-aesthetic CSS following spec constraints:
@@ -96,7 +96,6 @@ Before starting implementation:
 
 ### TASK-003: Create main shell HTML with tab navigation
 
-- **Status**: pending
 - **Files**: `src/panels/index.html`
 - **Action**: Create
 - **Details**: Single HTML file that is the SPA shell:
@@ -111,7 +110,6 @@ Before starting implementation:
 
 ### TASK-004: Create shared API client and tab orchestration
 
-- **Status**: pending
 - **Files**: `src/panels/app.js`
 - **Action**: Create
 - **Details**: Orchestration module exposing:
@@ -132,7 +130,6 @@ Before starting implementation:
 
 ### TASK-005: Create Panel 1 — Signal Intake
 
-- **Status**: pending
 - **Files**: `src/panels/panel-signal-intake.js`
 - **Action**: Create
 - **Details**: Implements Panel 1 per spec layout:
@@ -150,7 +147,6 @@ Before starting implementation:
 
 ### TASK-006: Create Panel 2 — State Viewer
 
-- **Status**: pending
 - **Files**: `src/panels/panel-state-viewer.js`
 - **Action**: Create
 - **Details**: Implements Panel 2 per spec (master-detail layout):
@@ -168,7 +164,6 @@ Before starting implementation:
 
 ### TASK-007: Create Panel 3 — Decision Stream
 
-- **Status**: pending
 - **Files**: `src/panels/panel-decision-stream.js`
 - **Action**: Create
 - **Details**: Implements Panel 3 per spec:
@@ -187,7 +182,6 @@ Before starting implementation:
 
 ### TASK-008: Create Panel 4 — Decision Trace / Receipt
 
-- **Status**: pending
 - **Files**: `src/panels/panel-decision-trace.js`
 - **Action**: Create
 - **Details**: Implements Panel 4 per spec:
@@ -207,7 +201,6 @@ Before starting implementation:
 
 ### TASK-009: Modify server.ts to serve /inspect static files
 
-- **Status**: pending
 - **Files**: `src/server.ts`
 - **Action**: Modify
 - **Details**:
@@ -221,7 +214,6 @@ Before starting implementation:
 
 ### TASK-010: Create smoke / integration tests for panels
 
-- **Status**: pending
 - **Files**: `tests/integration/inspection-panels.test.ts`
 - **Action**: Create
 - **Details**: Vitest integration tests that:
@@ -246,7 +238,6 @@ Before starting implementation:
 
 ### TASK-011: End-to-end verification and lint pass
 
-- **Status**: pending
 - **Files**: none (verification only)
 - **Action**: Verify
 - **Details**:

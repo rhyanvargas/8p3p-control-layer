@@ -76,8 +76,9 @@ Before starting implementation:
 
 ## Tasks
 
+> **Status tracking**: Task status lives **only** in the YAML frontmatter `todos` list to prevent drift. Do not duplicate per-task status inside the task bodies.
+
 ### TASK-001: {Step Title}
-- **Status**: pending
 - **Files**: `path/to/file.ts`
 - **Action**: Create | Modify | Delete
 - **Details**: {What specifically to do}
@@ -85,7 +86,6 @@ Before starting implementation:
 - **Verification**: {How to verify this step is complete}
 
 ### TASK-002: {Step Title}
-- **Status**: pending
 - **Files**: `path/to/file.ts`
 - **Action**: Create | Modify | Delete
 - **Details**: {What specifically to do}

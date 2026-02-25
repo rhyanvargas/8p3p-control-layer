@@ -37,7 +37,8 @@ When the user invokes `/implement-spec`:
 4. For each task:
    - Implement the code change and required tests
    - Apply standards from `.cursor/rules/project-context/RULE.md` and `.cursor/rules/document-traceability/RULE.md`
-   - If using a plan, update task status in both frontmatter and task body
+   - If using a plan, update task status in the plan YAML frontmatter `todos` list (single source of truth). Do not add/maintain per-task status fields in the body because they drift from the frontmatter.
+   - If the plan body already contains legacy per-task status lines (e.g. `- **Status**: pending/completed` under each `TASK-XXX`), remove them so the plan cannot contradict itself later.
 5. Run validation in this order:
    - Targeted tests for touched modules
    - `npm test`
