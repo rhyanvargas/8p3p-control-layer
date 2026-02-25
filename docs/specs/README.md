@@ -1,6 +1,6 @@
 # Specs Index
 
-Specifications in this folder are the **single source of truth for requirements and interfaces**. They are written to support contract-first development and regression safety.
+Specifications in this folder are the **single source of truth for requirements and interfaces**. They are written to support contract-first development and regression safety. Pipeline and term definitions (e.g. signal, receipt, trace): [`docs/foundation/terminology.md`](../foundation/terminology.md).
 
 ## Implemented (POC v1 + v2)
 
@@ -14,7 +14,7 @@ Specifications in this folder are the **single source of truth for requirements 
 - [`api-key-middleware.md`](api-key-middleware.md) — single key per deployment, org_id override, exempt routes (added 2026-02-22)
 - [`inspection-api.md`](inspection-api.md) — ingestion outcome log, state query API, enriched decision receipts
 - [`inspection-panels.md`](inspection-panels.md) — 4 read-only inspection panels at `/inspect`
-- [`receipts-api.md`](receipts-api.md) — `GET /v1/receipts` compliance/audit query surface (spec only; plan + impl pending)
+- [`receipts-api.md`](receipts-api.md) — `GET /v1/receipts` compliance/audit query surface (implemented)
 - [`tenant-field-mappings.md`](tenant-field-mappings.md) — Phase 2 per-tenant payload normalization (DEF-DEC-006; implemented)
 
 ## v1.1 (2–3 concurrent pilots) — spec’d

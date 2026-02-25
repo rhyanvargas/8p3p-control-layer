@@ -13,23 +13,25 @@ This document is the **stable entry point** for planning and execution. It inten
 
 ### v1 Artifacts — Status
 
-| # | Artifact | Status |
-|---|----------|--------|
-| 1 | Enriched Decision Trace | **Done** |
-| 2 | Ingestion Log (queryable) | **Done** |
-| 3 | State Query API | **Done** |
-| 4 | 4 Inspection Panels at `/inspect` | **Done** |
-| 5 | Decision Repository Interface | **Done** |
-| 6 | 343+ passing tests | **Done** |
-| 7 | Seeded demo dataset | **Not built** — plan: `.cursor/plans/demo-seed-script.plan.md` |
-| 8 | API Key Middleware | **Done** |
-| 9 | Pilot Integration Guide | **Done** |
+
+| #   | Artifact                          | Status                                                         |
+| --- | --------------------------------- | -------------------------------------------------------------- |
+| 1   | Enriched Decision Trace           | **Done**                                                       |
+| 2   | Ingestion Log (queryable)         | **Done**                                                       |
+| 3   | State Query API                   | **Done**                                                       |
+| 4   | 4 Inspection Panels at `/inspect` | **Done**                                                       |
+| 5   | Decision Repository Interface     | **Done**                                                       |
+| 6   | 343+ passing tests                | **Done**                                                       |
+| 7   | Seeded demo dataset               | **Done** — `scripts/seed-demo.mjs`, `npm run seed:demo`, `docs/guides/demo-walkthrough.md` |
+| 8   | API Key Middleware                | **Done**                                                       |
+| 9   | Pilot Integration Guide           | **Done**                                                       |
+
 
 ### Remaining v1 Work
 
-1. **QA sign-off** — `docs/testing/qa-test-inspection-panels.md` and `docs/testing/qa-test-post-repository-extraction.md`
-2. **Demo seed script** — pre-loaded learners with reinforce + intervene narrative (plan: `.cursor/plans/demo-seed-script.plan.md`)
-3. **CEO fact-check actions** — glossary (done), trace fields required (done), tenant field mappings (done), `/v1/receipts` endpoint (spec: `docs/specs/receipts-api.md`; plan + impl pending)
+1. **Inspection panels QA** — signed off (`docs/testing/qa-test-inspection-panels.md`). Optional: `docs/testing/qa-test-post-repository-extraction.md`.
+2. **Demo seed script** — done (`npm run seed:demo`, `docs/guides/demo-walkthrough.md`).
+3. **CEO fact-check actions** — all four complete (glossary, trace fields required, tenant field mappings, GET /v1/receipts).
 
 ### Next Phase: v1.1 (multi-tenant, AWS)
 
@@ -41,14 +43,16 @@ All actionable implementation work should be driven by the Cursor plans in:
 
 - `.cursor/plans/` (see `.cursor/plans/*.plan.md`)
 
-| Plan | Status |
-|------|--------|
-| Idempotency Repository Extraction | **Complete** (2026-02-23) |
-| Signal Log Repository Extraction | **Complete** (2026-02-23) |
-| State Repository Extraction | **Complete** (2026-02-23) |
-| Inspection Panels | **Complete** (2026-02-24) — QA pending |
-| CEO Fact-Check Actions | **In progress** — glossary, trace-required, tenant mappings done; receipts endpoint pending |
-| Demo Seed Script | **Pending** — plan exists |
+
+| Plan                              | Status                                                                                             |
+| --------------------------------- | -------------------------------------------------------------------------------------------------- |
+| Idempotency Repository Extraction | **Complete** (2026-02-23)                                                                          |
+| Signal Log Repository Extraction  | **Complete** (2026-02-23)                                                                          |
+| State Repository Extraction       | **Complete** (2026-02-23)                                                                          |
+| Inspection Panels                 | **Complete** (2026-02-24) — QA signed off                                                          |
+| CEO Fact-Check Actions            | **Complete** — all four actions done (glossary, trace-required, tenant mappings, GET /v1/receipts) |
+| Demo Seed Script                  | **Complete** — `scripts/seed-demo.mjs`, demo walkthrough, `npm run seed:demo`                      |
+
 
 ## Planning Rules
 

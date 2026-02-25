@@ -13,7 +13,7 @@ todos:
     status: completed
   - id: receipts-endpoint
     content: Consider and implement GET /v1/receipts (or equivalent) for compliance/audit
-    status: pending
+    status: completed
 isProject: false
 ---
 
