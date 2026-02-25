@@ -14,6 +14,7 @@ import {
   saveDecision,
 } from '../../src/decision/store.js';
 import type { Decision } from '../../src/shared/types.js';
+import { ErrorCodes } from '../../src/shared/error-codes.js';
 
 describe('Output API Contract Tests', () => {
   let app: FastifyInstance;
@@ -208,7 +209,7 @@ describe('Output API Contract Tests', () => {
       expect(response.statusCode).toBe(400);
 
       const body = response.json();
-      expect(body.code).toBe('invalid_time_range');
+      expect(body.code).toBe(ErrorCodes.INVALID_TIME_RANGE);
     });
   });
 

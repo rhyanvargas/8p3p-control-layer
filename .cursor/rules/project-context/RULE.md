@@ -68,7 +68,7 @@ npm run check              # build → validate:schemas → validate:contracts �
 | `signalLog/` | Append-only signal storage |
 | `state/` | STATE Engine - learner state management |
 | `decision/` | Decision Engine - deterministic evaluation |
-| `output/` | API/event output interfaces |
+| `output/` | Placeholder for future webhook/event adapters; API output (GET /v1/decisions, GET /v1/receipts) implemented in `decision/` |
 | `shared/` | Shared utilities and types |
 
 ### Data Flow

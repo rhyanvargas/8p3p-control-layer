@@ -295,7 +295,7 @@ describe('Inspection API Contract Tests', () => {
 
       expect(response.statusCode).toBe(404);
       const body = response.json();
-      expect(body.code).toBe('state_not_found');
+      expect(body.code).toBe(ErrorCodes.STATE_NOT_FOUND);
     });
   });
 

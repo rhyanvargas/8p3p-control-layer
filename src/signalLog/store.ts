@@ -363,12 +363,12 @@ function rowToSignalRecord(row: SignalLogRow): SignalRecord {
 
 /**
  * Encode a cursor position as a page token
- * Uses base64 encoding with version prefix for future compatibility
+ * Uses base64url encoding (URL-safe) with version prefix for future compatibility
  */
 export function encodePageToken(cursorId: number): string {
-  // Format: v1:{id} -> base64
+  // Format: v1:{id} -> base64url
   const tokenData = `v1:${cursorId}`;
-  return Buffer.from(tokenData).toString('base64');
+  return Buffer.from(tokenData).toString('base64url');
 }
 
 /**
@@ -377,7 +377,7 @@ export function encodePageToken(cursorId: number): string {
  */
 export function decodePageToken(token: string): number {
   try {
-    const decoded = Buffer.from(token, 'base64').toString('utf-8');
+    const decoded = Buffer.from(token, 'base64url').toString('utf-8');
     
     // Check for v1 format
     if (!decoded.startsWith('v1:')) {

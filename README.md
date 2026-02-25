@@ -259,7 +259,7 @@ Common business use-cases and integration workflows (built from the existing API
 
 ## Project Status
 
-**343 tests passing** across 17 test files. Full pipeline proven end-to-end: signal → validate → store → state accumulate → policy evaluate → decision with trace. All 7 decision types verified with JSON evidence.
+**426 tests passing** across 23 test files. Full pipeline proven end-to-end: signal → validate → store → state accumulate → policy evaluate → decision with trace. All 7 decision types verified with JSON evidence.
 
 > See [`docs/reports/2026-02-20-pilot-readiness-v1-v1.1.md`](docs/reports/2026-02-20-pilot-readiness-v1-v1.1.md) for the full pilot roadmap, timeline, and exit criteria.
 
@@ -282,7 +282,7 @@ Common business use-cases and integration workflows (built from the existing API
 - [x] **Policy Expansion** — POC v2 policy with 7 rules covering all decision types (`policy_version: "2.0.0"`)
 - [x] **Output API** — GET `/v1/decisions` with trace (state_id, state_version, policy_version, matched_rule_id)
 - [x] **Contract System** — JSON Schemas, OpenAPI, AsyncAPI, Ajv validators, contract drift detection
-- [x] **343 tests** — unit, contract, integration, and drift detection across 17 files
+- [x] **426 tests** — unit, contract, integration, and drift detection across 23 files
 
 ### v1: 1-Customer Pilot-Ready (4 weeks)
 

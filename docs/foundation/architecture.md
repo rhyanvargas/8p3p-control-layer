@@ -36,7 +36,7 @@ architecture-beta
 | **2** | Signal Log | Store signals immutably with full provenance |
 | **3** | STATE Engine | Apply signals to learner state; single source of truth |
 | **4** | Decision Engine | Evaluate state and generate deterministic decisions |
-| **5** | Output Interfaces | Expose decisions via API and/or events |
+| **5** | Output Interfaces | Expose decisions via API and/or events (implemented in `decision/`: GET `/v1/decisions`, GET `/v1/receipts`) |
 
 ## Data Flow Summary
 

@@ -277,7 +277,7 @@ export function validateGetDecisionsRequest(
       });
     } else {
       try {
-        const decoded = Buffer.from(p.page_token, 'base64').toString('utf-8');
+        const decoded = Buffer.from(p.page_token, 'base64url').toString('utf-8');
         if (!decoded.startsWith('v1:')) {
           errors.push({
             code: ErrorCodes.INVALID_PAGE_TOKEN,

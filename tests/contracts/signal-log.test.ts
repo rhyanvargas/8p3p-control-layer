@@ -22,6 +22,7 @@ import {
   closeStateStore,
   clearStateStore,
 } from '../../src/state/store.js';
+import { ErrorCodes } from '../../src/shared/error-codes.js';
 
 describe('Signal Log Contract Tests', () => {
   let app: FastifyInstance;
@@ -163,7 +164,7 @@ describe('Signal Log Contract Tests', () => {
       expect(response.statusCode).toBe(400);
       
       const body = response.json();
-      expect(body.code).toBe('invalid_time_range');
+      expect(body.code).toBe(ErrorCodes.INVALID_TIME_RANGE);
     });
   });
 
@@ -180,7 +181,7 @@ describe('Signal Log Contract Tests', () => {
       expect(response.statusCode).toBe(400);
       
       const body = response.json();
-      expect(body.code).toBe('page_size_out_of_range');
+      expect(body.code).toBe(ErrorCodes.PAGE_SIZE_OUT_OF_RANGE);
     });
 
     it('should reject page_size greater than 1000', async () => {
@@ -195,7 +196,7 @@ describe('Signal Log Contract Tests', () => {
       expect(response.statusCode).toBe(400);
       
       const body = response.json();
-      expect(body.code).toBe('page_size_out_of_range');
+      expect(body.code).toBe(ErrorCodes.PAGE_SIZE_OUT_OF_RANGE);
     });
   });
 

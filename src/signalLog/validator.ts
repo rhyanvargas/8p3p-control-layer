@@ -127,7 +127,7 @@ export function validateSignalLogQuery(
     }
   }
   
-  // Validate page_token (optional, valid base64)
+  // Validate page_token (optional, valid base64url)
   let pageToken: string | undefined;
   if (params.page_token !== undefined && params.page_token !== '') {
     if (typeof params.page_token !== 'string') {
@@ -137,9 +137,9 @@ export function validateSignalLogQuery(
         field_path: 'page_token',
       });
     } else {
-      // Validate it's valid base64
+      // Validate it's valid base64url
       try {
-        const decoded = Buffer.from(params.page_token, 'base64').toString('utf-8');
+        const decoded = Buffer.from(params.page_token, 'base64url').toString('utf-8');
         if (!decoded.startsWith('v1:')) {
           errors.push({
             code: ErrorCodes.INVALID_PAGE_TOKEN,

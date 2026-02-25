@@ -9,7 +9,7 @@
  */
 
 import Database from 'better-sqlite3';
-import type { Decision, GetDecisionsRequest } from '../shared/types.js';
+import { DECISION_TYPES, type Decision, type GetDecisionsRequest } from '../shared/types.js';
 import type { DecisionRepository } from './repository.js';
 
 let repository: DecisionRepository | null = null;
@@ -324,11 +324,15 @@ function rowToDecision(row: DecisionRow): Decision {
     trace.rationale = row.trace_rationale;
   }
 
+  const dt = row.decision_type;
+  if (!DECISION_TYPES.includes(dt as (typeof DECISION_TYPES)[number])) {
+    throw new Error(`Invalid decision_type in DB (decision_id=${row.decision_id}): ${dt}`);
+  }
   const decision: Decision = {
     org_id: row.org_id,
     decision_id: row.decision_id,
     learner_reference: row.learner_reference,
-    decision_type: row.decision_type as Decision['decision_type'],
+    decision_type: dt as Decision['decision_type'],
     decided_at: row.decided_at,
     decision_context: JSON.parse(row.decision_context) as Record<string, unknown>,
     trace,
@@ -340,7 +344,7 @@ function rowToDecision(row: DecisionRow): Decision {
 }
 
 /**
- * Decode page token to cursor id. Same pattern as Signal Log (v1:id base64).
+ * Decode page token to cursor id. Same pattern as Signal Log (v1:id base64url).
  * Returns 0 if token is invalid.
  *
  * Phase-1 note (SQLite, single-writer): id-based cursor is sufficient because
@@ -350,7 +354,7 @@ function rowToDecision(row: DecisionRow): Decision {
  */
 function decodePageToken(token: string): number {
   try {
-    const decoded = Buffer.from(token, 'base64').toString('utf-8');
+    const decoded = Buffer.from(token, 'base64url').toString('utf-8');
     if (!decoded.startsWith('v1:')) {
       return 0;
     }
@@ -370,5 +374,5 @@ function decodePageToken(token: string): number {
  */
 export function encodePageToken(cursorId: number): string {
   const tokenData = `v1:${cursorId}`;
-  return Buffer.from(tokenData).toString('base64');
+  return Buffer.from(tokenData).toString('base64url');
 }
