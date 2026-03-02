@@ -31,10 +31,7 @@ This document is the **stable entry point** for planning and execution. It inten
 
 ### Remaining v1 Work
 
-1. **Inspection panels QA** — signed off (`docs/testing/qa-test-inspection-panels.md`). Optional: `docs/testing/qa-test-post-repository-extraction.md`.
-2. **Demo seed script** — done (`npm run seed:demo`, `docs/guides/demo-walkthrough.md`).
-3. **CEO fact-check actions** — original four complete (glossary, trace fields required, tenant field mappings, GET /v1/receipts).
-4. **PII hardening (CEO directive 2026-02-24)** — **complete**. PII keys rejected at ingestion (DEF-DEC-008-PII); `state_snapshot` canonical-only (DEF-DEC-007).
+All v1 work is complete. Optional follow-ups: inspection panels QA sign-off (`docs/testing/qa-test-inspection-panels.md`), post–repository-extraction QA if desired.
 
 ### Next Phase: v1.1 (multi-tenant, AWS)
 
@@ -49,6 +46,7 @@ All actionable implementation work should be driven by the Cursor plans in:
 
 | Plan                              | Status                                                                                                             |
 | --------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Decision Types + Policy Loader    | **Complete** — 4-type closed set, org-scoped policies, routing (`policies/{orgId}/routing.json`), Springs pilot configs |
 | Idempotency Repository Extraction | **Complete** (2026-02-23)                                                                                          |
 | Signal Log Repository Extraction  | **Complete** (2026-02-23)                                                                                          |
 | State Repository Extraction       | **Complete** (2026-02-23)                                                                                          |

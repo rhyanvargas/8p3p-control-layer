@@ -192,19 +192,14 @@ Four capabilities are missing. Each has a spec, plan, or gap status:
 
 #### 4.2 Per-Tenant Policy / Config
 
-**Status: Gap — not spec'd anywhere.** This is the one genuine missing capability.
+**Status: Done — implemented (org-scoped policies + routing).**
 
-Today, all orgs evaluate against the same `policy.json` loaded at startup. For 2-3 concurrent pilots with different LMS platforms, they will likely need different decision thresholds (what triggers "escalate" for Absorb may differ from Coursera) and potentially different active rule sets.
+The control layer supports per-org policy resolution and source-system → policy key routing. Different orgs (and within an org, different source systems such as learner LMS vs. staff training) use different policy files without code changes.
 
-**Proposed approach (scoped, low-risk):**
-
-- Per-tenant policy files: `policies/{org_id}/policy.json`
-- Default fallback: if no tenant-specific policy exists, use `policies/default/policy.json`
-- `loadPolicy()` becomes `loadPolicy(orgId: string)` — one parameter change
-- Policy loaded on-demand at evaluation time (cached per org, invalidated on file change or restart)
-- No new infrastructure — file-based for v1.1, DynamoDB-based for production
-
-**Estimated effort:** ~2 days. Modify `loadPolicy()` signature, add org-scoped file lookup with fallback, update decision engine to pass `org_id` through evaluation, add tests for per-tenant and default-fallback paths.
+- **Spec:** `docs/specs/decision-engine.md` §Policy Routing and Org-Scoped Policies
+- **Implementation:** `loadPolicyForContext(orgId, userType)`, `loadRoutingConfigForOrg(orgId)`, `resolveUserTypeFromSourceSystem(orgId, sourceSystem)` in `src/decision/policy-loader.ts`
+- **Config:** Optional `src/decision/policies/{orgId}/routing.json` maps `source_system` to policy key; policy files at `policies/{orgId}/{policyKey}.json` (e.g. `learner.json`, `staff.json`) with fallback to `policies/{orgId}/default.json` then `policies/default.json`
+- **Example:** Springs pilot uses `policies/springs/routing.json`, `policies/springs/learner.json`, `policies/springs/staff.json`; see `docs/guides/pilot-integration-guide.md` §12
 
 **What this does NOT include (deferred to full contract):**
 - Per-tenant field mappings (tenants conform to our signal schema in v1.1)
