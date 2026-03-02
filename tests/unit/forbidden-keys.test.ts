@@ -152,10 +152,67 @@ describe('detectForbiddenKeys', () => {
       for (const forbiddenKey of FORBIDDEN_KEYS) {
         const payload = { [forbiddenKey]: 'value' };
         const result = detectForbiddenKeys(payload, 'payload');
-        
+
         expect(result, `Expected '${forbiddenKey}' to be detected as forbidden`).not.toBeNull();
         expect(result?.key).toBe(forbiddenKey);
       }
+    });
+  });
+
+  describe('FK-PII-001: PII key rejection (DEF-DEC-008-PII)', () => {
+    const PII_KEYS = [
+      'firstName', 'lastName', 'first_name', 'last_name', 'fullName', 'full_name',
+      'email', 'emailAddress', 'email_address',
+      'phone', 'phoneNumber', 'phone_number',
+      'ssn', 'social_security', 'socialSecurity',
+      'birthdate', 'birthday', 'birth_date', 'date_of_birth', 'dateOfBirth', 'dob',
+      'address', 'streetAddress', 'street_address',
+      'zipCode', 'zip_code', 'postalCode', 'postal_code',
+    ];
+
+    it('should reject top-level firstName', () => {
+      const result = detectForbiddenKeys({ firstName: 'Maya' }, 'payload');
+      expect(result).not.toBeNull();
+      expect(result?.key).toBe('firstName');
+      expect(result?.path).toBe('payload.firstName');
+    });
+
+    it('should reject top-level email', () => {
+      const result = detectForbiddenKeys({ email: 'test@example.com' }, 'payload');
+      expect(result).not.toBeNull();
+      expect(result?.key).toBe('email');
+    });
+
+    it('should reject top-level ssn', () => {
+      const result = detectForbiddenKeys({ ssn: '123-45-6789' }, 'payload');
+      expect(result).not.toBeNull();
+      expect(result?.key).toBe('ssn');
+    });
+
+    it('should reject nested PII — firstName inside learnerProfile', () => {
+      const result = detectForbiddenKeys({ learnerProfile: { firstName: 'Maya' } }, 'payload');
+      expect(result).not.toBeNull();
+      expect(result?.key).toBe('firstName');
+      expect(result?.path).toBe('payload.learnerProfile.firstName');
+    });
+
+    it('should reject all PII keys individually', () => {
+      for (const piiKey of PII_KEYS) {
+        const result = detectForbiddenKeys({ [piiKey]: 'value' }, 'payload');
+        expect(result, `Expected PII key '${piiKey}' to be rejected`).not.toBeNull();
+        expect(result?.key).toBe(piiKey);
+      }
+    });
+
+    it('should allow canonical fields alongside pseudonymous learner_reference', () => {
+      const result = detectForbiddenKeys({
+        stabilityScore: 0.62,
+        masteryScore: 0.75,
+        timeSinceReinforcement: 90000,
+        confidenceInterval: 0.8,
+        riskSignal: 0.2,
+      }, 'payload');
+      expect(result).toBeNull();
     });
   });
 });

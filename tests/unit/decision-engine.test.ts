@@ -24,7 +24,7 @@ import {
   getDecisionById,
 } from '../../src/decision/store.js';
 import { loadPolicy } from '../../src/decision/policy-loader.js';
-import { evaluateState } from '../../src/decision/engine.js';
+import { evaluateState, extractCanonicalSnapshot } from '../../src/decision/engine.js';
 import type { SignalEnvelope, EvaluateStateForDecisionRequest } from '../../src/shared/types.js';
 import { ErrorCodes } from '../../src/shared/error-codes.js';
 
@@ -166,7 +166,7 @@ describe('Decision Engine', () => {
       if (outcome.ok) {
         expect(outcome.result.trace.state_id).toBe(state_id);
         expect(outcome.result.trace.state_version).toBe(state_version);
-        expect(outcome.result.trace.policy_version).toBe('2.0.0');
+        expect(outcome.result.trace.policy_version).toBe('1.0.0');
         // Default policy: stabilityScore<0.7 AND timeSinceReinforcement>86400 → rule-reinforce
         expect(outcome.result.trace.matched_rule_id).toBe('rule-reinforce');
       }
@@ -325,6 +325,148 @@ describe('Decision Engine', () => {
       if (outcome1.ok && outcome2.ok) {
         expect(outcome1.result.decision_type).toBe(outcome2.result.decision_type);
         expect(outcome1.result.trace.matched_rule_id).toBe(outcome2.result.trace.matched_rule_id);
+      }
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // Canonical snapshot (DEF-DEC-007)
+  // -----------------------------------------------------------------------
+  describe('extractCanonicalSnapshot (DEF-DEC-007)', () => {
+    it('should include only policy-evaluated fields from state', () => {
+      const state = {
+        stabilityScore: 0.5,
+        timeSinceReinforcement: 100000,
+        gradeLevel: 'K',
+        age: 5,
+        subjects: ['math'],
+      };
+      const policy = {
+        policy_version: '1.0.0',
+        default_decision_type: 'reinforce' as const,
+        rules: [
+          {
+            rule_id: 'r1',
+            decision_type: 'reinforce' as const,
+            condition: {
+              all: [
+                { field: 'stabilityScore', operator: 'lt' as const, value: 0.7 },
+                { field: 'timeSinceReinforcement', operator: 'gt' as const, value: 86400 },
+              ],
+            },
+          },
+        ],
+      };
+      const snapshot = extractCanonicalSnapshot(state, policy);
+      expect(snapshot).toEqual({
+        stabilityScore: 0.5,
+        timeSinceReinforcement: 100000,
+      });
+    });
+
+    it('should exclude PII and non-canonical fields', () => {
+      const state = {
+        stabilityScore: 0.5,
+        timeSinceReinforcement: 100000,
+        age: 5,
+        gradeLevel: 'K',
+        subjects: ['math'],
+      };
+      const policy = {
+        policy_version: '1.0.0',
+        default_decision_type: 'reinforce' as const,
+        rules: [
+          {
+            rule_id: 'r1',
+            decision_type: 'reinforce' as const,
+            condition: { field: 'stabilityScore', operator: 'lt' as const, value: 0.7 },
+          },
+        ],
+      };
+      const snapshot = extractCanonicalSnapshot(state, policy);
+      expect(snapshot).toEqual({ stabilityScore: 0.5 });
+      expect(snapshot).not.toHaveProperty('age');
+      expect(snapshot).not.toHaveProperty('gradeLevel');
+      expect(snapshot).not.toHaveProperty('timeSinceReinforcement');
+    });
+
+    it('should handle missing state fields gracefully', () => {
+      const state = { masteryScore: 0.8 };
+      const policy = {
+        policy_version: '1.0.0',
+        default_decision_type: 'reinforce' as const,
+        rules: [
+          {
+            rule_id: 'r1',
+            decision_type: 'reinforce' as const,
+            condition: { field: 'stabilityScore', operator: 'lt' as const, value: 0.7 },
+          },
+        ],
+      };
+      const snapshot = extractCanonicalSnapshot(state, policy);
+      expect(snapshot).toEqual({});
+    });
+
+    it('should collect fields from nested any/all conditions', () => {
+      const state = {
+        stabilityScore: 0.5,
+        masteryScore: 0.8,
+        confidenceInterval: 0.9,
+        extra: 'ignored',
+      };
+      const policy = {
+        policy_version: '1.0.0',
+        default_decision_type: 'reinforce' as const,
+        rules: [
+          {
+            rule_id: 'r1',
+            decision_type: 'reinforce' as const,
+            condition: {
+              any: [
+                { field: 'stabilityScore', operator: 'lt' as const, value: 0.7 },
+                {
+                  all: [
+                    { field: 'masteryScore', operator: 'gte' as const, value: 0.5 },
+                    { field: 'confidenceInterval', operator: 'gt' as const, value: 0.8 },
+                  ],
+                },
+              ],
+            },
+          },
+        ],
+      };
+      const snapshot = extractCanonicalSnapshot(state, policy);
+      expect(snapshot).toEqual({
+        stabilityScore: 0.5,
+        masteryScore: 0.8,
+        confidenceInterval: 0.9,
+      });
+      expect(snapshot).not.toHaveProperty('extra');
+    });
+
+    it('should produce canonical-only snapshot in full engine evaluation', () => {
+      const { state_id, state_version } = setupLearnerState('org-A', 'learner-1', {
+        stabilityScore: 0.3,
+        timeSinceReinforcement: 100000,
+        gradeLevel: 'K',
+        age: 5,
+      });
+
+      const outcome = evaluateState({
+        org_id: 'org-A',
+        learner_reference: 'learner-1',
+        state_id,
+        state_version,
+        requested_at: new Date().toISOString(),
+      });
+
+      expect(outcome.ok).toBe(true);
+      if (outcome.ok) {
+        const snap = outcome.result.trace.state_snapshot;
+        expect(snap).toHaveProperty('stabilityScore', 0.3);
+        expect(snap).toHaveProperty('timeSinceReinforcement', 100000);
+        expect(snap).not.toHaveProperty('gradeLevel');
+        expect(snap).not.toHaveProperty('age');
       }
     });
   });

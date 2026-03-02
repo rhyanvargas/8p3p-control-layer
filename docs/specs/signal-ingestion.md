@@ -99,6 +99,8 @@ Source of truth: `docs/specs/tenant-field-mappings.md`.
 
 The following keys are **globally forbidden** in the `payload` field at any nesting depth:
 
+### UI / Workflow / LMS Keys
+
 ```
 ui, screen, view, page, route, url, link, button, cta
 workflow, task, job, assignment, assignee, owner
@@ -106,6 +108,21 @@ status, step, stage, completion, progress_percent
 course, lesson, module, quiz, score, grade
 content_id, content_url
 ```
+
+### PII Keys (v1 pilot hardening)
+
+Per CEO directive (2026-02-24): the pilot operates with pseudonymous IDs only; inbound PII fields must be rejected or stripped. The following keys are forbidden at any nesting depth:
+
+```
+firstName, lastName, first_name, last_name, fullName, full_name
+email, emailAddress, email_address
+phone, phoneNumber, phone_number
+ssn, social_security, socialSecurity
+birthdate, birthday, birth_date, date_of_birth, dateOfBirth, dob
+address, streetAddress, street_address, zipCode, zip_code, postalCode, postal_code
+```
+
+**Rationale:** `learner_reference` is the only identifier the control layer needs. It should be a pseudonymous ID (e.g., `user-123`). PII in payloads would flow into STATE and then into receipt `state_snapshot`, violating the pilot's "no PII in receipts" commitment.
 
 If any forbidden key is detected:
 - **Status:** `rejected`

@@ -849,9 +849,6 @@ components:
             - advance
             - intervene
             - pause
-            - escalate
-            - recommend
-            - reroute
         decided_at:
           type: string
           description: RFC3339
@@ -911,9 +908,6 @@ components:
             - advance
             - intervene
             - pause
-            - escalate
-            - recommend
-            - reroute
         decided_at:
           type: string
           description: RFC3339
@@ -965,7 +959,7 @@ components:
           description: Rule ID that matched, or null if default decision
         state_snapshot:
           type: object
-          description: Frozen state at evaluation time (enriched trace)
+          description: Canonical state fields at evaluation time — includes only policy-evaluated fields, excludes non-canonical and PII data (enriched trace)
         matched_rule:
           type: ['object', 'null']
           description: Full matched rule with evaluated_fields (enriched trace)

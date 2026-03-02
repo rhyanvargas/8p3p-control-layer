@@ -189,7 +189,7 @@ describe('Decision Validator', () => {
   // validateDecisionType
   // -----------------------------------------------------------------------
   describe('validateDecisionType', () => {
-    const validTypes = ['reinforce', 'advance', 'intervene', 'pause', 'escalate', 'recommend', 'reroute'];
+    const validTypes = ['reinforce', 'advance', 'intervene', 'pause'];
 
     it.each(validTypes)('should pass for valid decision type: %s', (type) => {
       const result = validateDecisionType(type);

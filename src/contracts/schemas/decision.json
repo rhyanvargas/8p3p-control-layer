@@ -23,8 +23,8 @@
     },
     "decision_type": {
       "type": "string",
-      "enum": ["reinforce", "advance", "intervene", "pause", "escalate", "recommend", "reroute"],
-      "description": "Closed set of 7 decision types"
+      "enum": ["reinforce", "advance", "intervene", "pause"],
+      "description": "Closed set of 4 decision types"
     },
     "decided_at": {
       "type": "string",

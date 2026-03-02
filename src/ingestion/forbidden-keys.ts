@@ -6,8 +6,10 @@
 import type { ForbiddenKeyResult } from '../shared/types.js';
 
 /**
- * Set of globally forbidden keys in payload at any nesting depth
- * These keys indicate coupling to specific UI, workflow, or LMS concepts
+ * Set of globally forbidden keys in payload at any nesting depth.
+ * Two categories:
+ * 1. Semantic/UI/workflow/LMS keys — indicate coupling to vendor concepts
+ * 2. PII keys — personal data must never enter STATE or receipts (CEO directive 2026-02-24)
  */
 export const FORBIDDEN_KEYS = new Set([
   // UI/Frontend keys
@@ -20,7 +22,7 @@ export const FORBIDDEN_KEYS = new Set([
   'link',
   'button',
   'cta',
-  
+
   // Workflow keys
   'workflow',
   'task',
@@ -28,14 +30,14 @@ export const FORBIDDEN_KEYS = new Set([
   'assignment',
   'assignee',
   'owner',
-  
+
   // Status/Progress keys
   'status',
   'step',
   'stage',
   'completion',
   'progress_percent',
-  
+
   // LMS-specific keys
   'course',
   'lesson',
@@ -43,10 +45,40 @@ export const FORBIDDEN_KEYS = new Set([
   'quiz',
   'score',
   'grade',
-  
+
   // Content keys
   'content_id',
   'content_url',
+
+  // PII keys — pilot operates with pseudonymous IDs only; personal data rejected at ingestion
+  'firstName',
+  'lastName',
+  'first_name',
+  'last_name',
+  'fullName',
+  'full_name',
+  'email',
+  'emailAddress',
+  'email_address',
+  'phone',
+  'phoneNumber',
+  'phone_number',
+  'ssn',
+  'social_security',
+  'socialSecurity',
+  'birthdate',
+  'birthday',
+  'birth_date',
+  'date_of_birth',
+  'dateOfBirth',
+  'dob',
+  'address',
+  'streetAddress',
+  'street_address',
+  'zipCode',
+  'zip_code',
+  'postalCode',
+  'postal_code',
 ]);
 
 /**

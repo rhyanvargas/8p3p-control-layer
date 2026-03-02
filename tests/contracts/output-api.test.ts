@@ -40,7 +40,7 @@ describe('Output API Contract Tests', () => {
       trace: {
         state_id: 'test-org:learner-123:v1',
         state_version: 1,
-        policy_version: '2.0.0',
+        policy_version: '1.0.0',
         matched_rule_id: 'rule-reinforce',
         state_snapshot: {},
         matched_rule: null,

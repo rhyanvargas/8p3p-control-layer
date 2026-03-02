@@ -1,63 +1,53 @@
 {
   "policy_id": "default",
-  "policy_version": "2.0.0",
-  "description": "POC v2 policy: 7 rules covering all decision types. Uses canonical state fields (stabilityScore, masteryScore, timeSinceReinforcement, confidenceInterval, riskSignal). Priority-ordered; first match wins.",
+  "policy_version": "1.0.0",
+  "description": "Default policy: 4 decision types (reinforce, advance, intervene, pause). Priority-ordered; first match wins. Escalate conditions merged into intervene (high-risk path). Reroute conditions merged into pause. Recommend collapsed into advance.",
   "rules": [
-    {
-      "rule_id": "rule-escalate",
-      "condition": {
-        "all": [
-          { "field": "confidenceInterval", "operator": "lt", "value": 0.3 },
-          {
-            "any": [
-              { "field": "stabilityScore", "operator": "lt", "value": 0.3 },
-              { "field": "riskSignal", "operator": "gt", "value": 0.8 }
-            ]
-          }
-        ]
-      },
-      "decision_type": "escalate"
-    },
-    {
-      "rule_id": "rule-pause",
-      "condition": {
-        "all": [
-          { "field": "confidenceInterval", "operator": "lt", "value": 0.3 },
-          { "field": "stabilityScore", "operator": "lt", "value": 0.5 }
-        ]
-      },
-      "decision_type": "pause"
-    },
-    {
-      "rule_id": "rule-reroute",
-      "condition": {
-        "all": [
-          { "field": "riskSignal", "operator": "gt", "value": 0.7 },
-          { "field": "stabilityScore", "operator": "lt", "value": 0.5 },
-          { "field": "confidenceInterval", "operator": "gte", "value": 0.3 }
-        ]
-      },
-      "decision_type": "reroute"
-    },
     {
       "rule_id": "rule-intervene",
       "condition": {
-        "all": [
-          { "field": "stabilityScore", "operator": "lt", "value": 0.4 },
-          { "field": "confidenceInterval", "operator": "gte", "value": 0.3 }
+        "any": [
+          {
+            "all": [
+              { "field": "confidenceInterval", "operator": "lt", "value": 0.3 },
+              {
+                "any": [
+                  { "field": "stabilityScore", "operator": "lt", "value": 0.3 },
+                  { "field": "riskSignal", "operator": "gt", "value": 0.8 }
+                ]
+              }
+            ]
+          },
+          {
+            "all": [
+              { "field": "stabilityScore", "operator": "lt", "value": 0.4 },
+              { "field": "confidenceInterval", "operator": "gte", "value": 0.3 }
+            ]
+          }
         ]
       },
       "decision_type": "intervene"
     },
     {
-      "rule_id": "rule-reinforce",
+      "rule_id": "rule-pause",
       "condition": {
-        "all": [
-          { "field": "stabilityScore", "operator": "lt", "value": 0.7 },
-          { "field": "timeSinceReinforcement", "operator": "gt", "value": 86400 }
+        "any": [
+          {
+            "all": [
+              { "field": "confidenceInterval", "operator": "lt", "value": 0.3 },
+              { "field": "stabilityScore", "operator": "lt", "value": 0.5 }
+            ]
+          },
+          {
+            "all": [
+              { "field": "riskSignal", "operator": "gt", "value": 0.7 },
+              { "field": "stabilityScore", "operator": "lt", "value": 0.5 },
+              { "field": "confidenceInterval", "operator": "gte", "value": 0.3 }
+            ]
+          }
         ]
       },
-      "decision_type": "reinforce"
+      "decision_type": "pause"
     },
     {
       "rule_id": "rule-advance",
@@ -72,14 +62,14 @@
       "decision_type": "advance"
     },
     {
-      "rule_id": "rule-recommend",
+      "rule_id": "rule-reinforce",
       "condition": {
         "all": [
-          { "field": "riskSignal", "operator": "gte", "value": 0.5 },
-          { "field": "stabilityScore", "operator": "gte", "value": 0.7 }
+          { "field": "stabilityScore", "operator": "lt", "value": 0.7 },
+          { "field": "timeSinceReinforcement", "operator": "gt", "value": 86400 }
         ]
       },
-      "decision_type": "recommend"
+      "decision_type": "reinforce"
     }
   ],
   "default_decision_type": "reinforce"

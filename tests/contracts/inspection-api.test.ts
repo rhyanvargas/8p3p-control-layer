@@ -414,7 +414,7 @@ describe('Inspection API Contract Tests', () => {
         timeSinceReinforcement: 100000,
       });
       expect(d.output_metadata).toBeDefined();
-      expect(d.output_metadata.priority).toBe(5); // rule-reinforce is 5th in default policy
+      expect(d.output_metadata.priority).toBe(4); // rule-reinforce is 4th in default policy
     });
   });
 
@@ -433,7 +433,7 @@ describe('Inspection API Contract Tests', () => {
         trace: {
           state_id: 'test-org:learner-123:v1',
           state_version: 1,
-          policy_version: '2.0.0',
+          policy_version: '1.0.0',
           matched_rule_id: 'rule-reinforce',
           state_snapshot: {},
           matched_rule: null,

@@ -6,7 +6,7 @@
 
 This spec turns the solo-dev playbook's Phase 2 sketch into an implementable deployment specification. The goal is to deploy the existing control-layer pipeline (signals → state → decisions) to AWS with zero business logic changes. The deployment uses serverless-only services (API Gateway + Lambda + DynamoDB) to keep costs near-zero during development and scale automatically under pilot load.
 
-**Key principle:** The deployed system must pass the same 343+ contract tests that pass locally. If the tests pass, the deployment is correct. The repository extraction plan (`.cursor/plans/repository-extraction.plan.md`) is a prerequisite — it abstracts SQLite behind interfaces so DynamoDB adapters can slot in mechanically.
+**Key principle:** The deployed system must pass the same contract tests that pass locally (462+ as of v1). If the tests pass, the deployment is correct. All four repository interfaces (Decision, State, Signal Log, Idempotency) are already extracted; DynamoDB adapters can slot in mechanically. See `.cursor/plans/` for completed extraction plans.
 
 ---
 
@@ -72,13 +72,14 @@ All estimates assume on-demand DynamoDB pricing, no provisioned capacity, and La
 
 | Prerequisite | Source | Status |
 |-------------|--------|--------|
-| Repository extraction (DecisionRepository) | `.cursor/plans/repository-extraction.plan.md` | Pending |
-| StateRepository interface extraction | `docs/specs/state-engine.md` §Phase 2 | Not yet planned |
-| SignalLogRepository interface extraction | `docs/specs/signal-log.md` DEF-SIGLOG-001 | Not yet planned |
-| IdempotencyRepository interface extraction | — | Not yet planned |
+| DecisionRepository interface + SQLite adapter | `src/decision/repository.ts`, `src/decision/store.ts` | **Complete** — `.cursor/plans/` (Decision Store extraction done in v1) |
+| StateRepository interface + SQLite adapter | `docs/specs/state-engine.md` §Phase 2, `src/state/repository.ts`, `src/state/store.ts` | **Complete** — `.cursor/plans/state-repository-extraction.plan.md` |
+| SignalLogRepository interface + SQLite adapter | `docs/specs/signal-log.md` DEF-SIGLOG-001, `src/signalLog/repository.ts`, `src/signalLog/store.ts` | **Complete** — `.cursor/plans/signal-log-repository-extraction.plan.md` |
+| IdempotencyRepository interface + SQLite adapter | `src/ingestion/idempotency.ts` (or equivalent), repository interface | **Complete** — `.cursor/plans/idempotency-repository-extraction.plan.md` |
+| Ingestion Log (queryable) | `docs/specs/inspection-api.md` §1, `src/inspection/` or equivalent | **Complete** — implemented in v1 |
 | AWS account with CLI configured | — | Manual prerequisite |
 
-**Critical dependency:** All four repository interfaces must be extracted before DynamoDB adapters can be implemented. The Decision Repository plan is written; the other three should follow the same pattern.
+All four repository interfaces are extracted; the next step is implementing DynamoDB adapters and the SAM template.
 
 ---
 
@@ -375,7 +376,7 @@ Set up via Route 53 + ACM + API Gateway custom domain mapping. The domain should
 - [ ] DynamoDB tables created with correct schema and GSIs
 - [ ] API Gateway enforces API key requirement on all `/v1/*` routes
 - [ ] `/health` and `/docs` do not require API key
-- [ ] All 343+ contract tests pass against deployed endpoints
+- [ ] All 462+ contract tests pass against deployed endpoints
 - [ ] Infrastructure is defined in SAM template (no manual AWS console configuration)
 - [ ] Deploy is a single command (`sam deploy`)
 
@@ -419,12 +420,12 @@ Set up via Route 53 + ACM + API Gateway custom domain mapping. The domain should
 
 | Dependency | Source Document | Status |
 |------------|----------------|--------|
-| `DecisionRepository` interface | `.cursor/plans/repository-extraction.plan.md` | Planned (pending) |
-| `StateRepository` interface | `docs/specs/state-engine.md` §Phase 2 | Defined in spec, extraction not planned |
-| `SignalLogRepository` interface | `docs/specs/signal-log.md` DEF-SIGLOG-001 | Deferred item, not planned |
-| `IdempotencyRepository` interface | — | **GAP** — not defined in any spec |
-| Inspection API endpoints | `docs/specs/inspection-api.md` | Spec'd (not yet implemented) |
-| Tenant provisioning + API keys | `docs/specs/tenant-provisioning.md` | Spec'd (not yet implemented) |
+| `DecisionRepository` interface | `src/decision/repository.ts` | **Complete** — SqliteDecisionRepository in store.ts |
+| `StateRepository` interface | `src/state/repository.ts` | **Complete** — state-repository-extraction.plan.md |
+| `SignalLogRepository` interface | `src/signalLog/repository.ts` | **Complete** — signal-log-repository-extraction.plan.md |
+| `IdempotencyRepository` interface | Idempotency module repository | **Complete** — idempotency-repository-extraction.plan.md |
+| Inspection API endpoints | `docs/specs/inspection-api.md` | **Complete** — GET /v1/state, /v1/ingestion, etc. implemented in v1 |
+| Tenant provisioning + API keys | `docs/specs/tenant-provisioning.md` | Spec'd — implementation follows AWS deployment |
 
 ### Provides to Other Specs
 
@@ -444,7 +445,7 @@ No new error codes. Deployment infrastructure does not introduce application-lev
 
 ## Contract Tests as Deployment Guard
 
-The existing 343+ tests are the primary deployment verification mechanism. After deploy:
+The existing contract tests (462+ as of v1) are the primary deployment verification mechanism. After deploy:
 
 ```bash
 API_BASE_URL=https://api.8p3p.dev npm test
@@ -503,7 +504,7 @@ Implementation is complete when:
 - [ ] All `/v1/*` endpoints respond correctly via API Gateway
 - [ ] API key enforcement works (403 without key, 200 with valid key)
 - [ ] DynamoDB tables have correct schema and GSIs
-- [ ] All 343+ contract tests pass against the deployed endpoint
+- [ ] All 462+ contract tests pass against the deployed endpoint
 - [ ] Custom domain resolves and serves the API
 - [ ] Cold start < 1 second (measured via CloudWatch)
 - [ ] Monthly cost < $50 during development
@@ -515,18 +516,17 @@ Implementation is complete when:
 ## Implementation Order
 
 ```
-1. Repository extraction (Decision) ← already planned
-2. Repository extraction (State, Signal Log, Idempotency) ← new plans needed
-3. Handler refactoring (extract core logic from Fastify wrappers)
-4. SAM template + DynamoDB table definitions
-5. DynamoDB adapters for each repository
-6. Lambda handler files
-7. Deploy + contract test verification
-8. Custom domain + DNS
-9. CI/CD pipeline
+1. Repository extractions (Decision, State, Signal Log, Idempotency) — COMPLETE
+2. Handler refactoring (extract core logic from Fastify wrappers)
+3. SAM template + DynamoDB table definitions
+4. DynamoDB adapters for each repository
+5. Lambda handler files
+6. Deploy + contract test verification
+7. Custom domain + DNS
+8. CI/CD pipeline
 ```
 
-Steps 1–3 are local-only changes (no AWS required). Steps 4–9 are AWS-specific.
+Steps 1 is done. Steps 2–4 are local/build changes (handler refactor, adapters). Steps 5–8 are AWS-specific (Lambda, deploy, domain, CI/CD).
 
 ---
 
@@ -540,10 +540,12 @@ Steps 1–3 are local-only changes (no AWS required). Steps 4–9 are AWS-specif
 
 ## Next Steps
 
-1. Complete repository extraction for Decision Store (`.cursor/plans/repository-extraction.plan.md`)
-2. Plan repository extraction for State, Signal Log, and Idempotency stores
-3. Run `/plan-impl docs/specs/aws-deployment.md` to create the deployment implementation plan
+1. **Handler refactoring** — Extract framework-agnostic core from Fastify handlers (`ingestion/handler.ts`, `decision/handler.ts`, signal log, state, inspection) so Lambda handlers can call the same logic.
+2. **SAM template** — Add `infra/template.yaml` with API Gateway, Lambda functions, and DynamoDB tables (signals, learner_state, decisions, ingestion_log, tenants/api_keys per tenant-provisioning.md).
+3. **DynamoDB adapters** — Implement `DynamoDbDecisionRepository`, `DynamoDbStateRepository`, `DynamoDbSignalLogRepository`, `DynamoDbIdempotencyRepository`, `DynamoDbIngestionLogRepository` (or equivalent) and wire them in Lambda init.
+4. **Lambda handlers** — Add `src/lambda/ingest.ts`, `query.ts`, `inspect.ts`; deploy and run contract tests against deployed URL.
+5. Run `/plan-impl docs/specs/aws-deployment.md` to generate a detailed implementation plan with tasks and acceptance criteria.
 
 ---
 
-*Spec created: 2026-02-19 | Depends on: repository-extraction.plan.md, state-engine.md, signal-log.md, tenant-provisioning.md*
+*Spec created: 2026-02-19 | Updated: 2026-03-01 (prerequisites: all four repository extractions complete). Depends on: state-engine.md, signal-log.md, inspection-api.md, tenant-provisioning.md*

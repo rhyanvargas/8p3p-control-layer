@@ -1,13 +1,19 @@
 # IT Pilot Positioning — Alignment Assessment
 
-**Date:** 2026-02-24  
-**Purpose:** Evidence-based assessment of suggested IT/cybersecurity pilot positioning against current implementation and roadmap. Shareable with CEO for sales/investor language.
+**Date:** 2026-02-24 (updated with CEO directive)  
+**Purpose:** Evidence-based assessment of IT/cybersecurity pilot positioning against current implementation and roadmap. Shareable with CEO for sales/investor language.
 
 ---
 
-## Source Statement
+## CEO Directive (2026-02-24)
 
-> When it comes to IT departments, we don't force any rip and replace. We are simply providing an API. Cybersecurity will be something that we will need to look into with each IT department to ensure we are aligned. The way I believe we keep this low-risk for regulated companies when piloting, we don't need names, emails, birthdays, or anything personal. We can use anonymous IDs only (like "user-123"), so no PII is required. Access is locked down with an API key, and tenant separation is enforced on the server so one customer can't ever see another customer's data. All data is encrypted while it moves over the internet and while it's stored, and every decision we make has an audit trail ("receipt") showing what happened and why. If the customer prefers maximum control, we can deploy the pilot inside their own AWS/VPC so they control the network and encryption keys. And AI is optional. The pilot can run fully deterministic with zero LLM/model calls so there's no "AI risk" in the decision engine.
+> For the pilot we will operate using pseudonymous IDs and we will configure receipts to exclude PII. Any inbound PII fields are rejected or stripped.
+
+---
+
+## Canonical Pilot Description
+
+> 8P3P is API-only and does not require rip-and-replace. For a pilot, we can operate with pseudonymous IDs only — no PII required — and we enforce access with API keys and server-side tenant isolation. Decisions are deterministic and come with receipts that show exactly why each decision occurred. In deployed environments we use TLS, and our AWS deployment provides encryption at rest by default. AI is optional; the pilot can run with zero model calls.
 
 ---
 
@@ -16,28 +22,28 @@
 | Claim | Status | Evidence |
 |-------|--------|----------|
 | No rip/replace; API-only | **Aligned** | API-first control layer; optional inspection UI at `/inspect` |
-| No PII required (anonymous IDs) | **Intent aligned; not enforced** | `learner_reference` can be `user-123`; receipts currently snapshot full STATE (may include partner-sent fields) |
+| Pseudonymous IDs; no PII required | **Done** | `learner_reference` accepts any string (e.g., `user-123`). PII keys rejected at ingestion (`src/ingestion/forbidden-keys.ts` — DEF-DEC-008-PII). Receipt `state_snapshot` canonical-only (`src/decision/engine.ts` — DEF-DEC-007). |
 | API key + tenant separation | **Aligned** | `src/auth/api-key-middleware.ts`; `API_KEY_ORG_ID` overrides org server-side |
 | Encryption in transit | **Aligned (deployed)** | TLS via ACM + API Gateway in v1.1 AWS spec; local dev is HTTP |
-| Encryption at rest | **Not yet** | v1 uses SQLite (plaintext); v1.1 DynamoDB has AWS-managed encryption by default |
+| Encryption at rest | **v1.1** | v1 uses SQLite (plaintext); v1.1 DynamoDB has AWS-managed encryption by default |
 | Every decision has receipt | **Aligned** | `Decision.trace` required; `GET /v1/receipts` exists; legacy rows backfilled with placeholders |
-| Deploy in customer AWS/VPC | **Not in roadmap** | v1.1 is *our* AWS deployment; customer-hosted VPC is future option |
+| Deploy in customer AWS/VPC | **Future option** | v1.1 is *our* AWS deployment; customer-hosted VPC is a post-pilot enterprise offering |
 | AI optional; fully deterministic | **Aligned** | Decision engine is deterministic policy evaluation; zero LLM calls |
 
 ---
 
-## Recommended CEO-Safe Phrasing
+## Implementation Gap (v1 — Pilot Hardening) — Resolved
 
-Lead with: **API-only, anonymous IDs, deterministic, receipts.** Then:
-
-- **"TLS in deployed environments; at-rest encryption comes with the v1.1 AWS deployment."**
-- **"Customer VPC deployment is a future/optional enterprise offering"** — not a v1 promise.
+DEF-DEC-007 (canonical `state_snapshot`) and DEF-DEC-008-PII (PII forbidden keys at ingestion) are implemented. See `docs/foundation/roadmap.md` and `docs/reports/2026-02-20-pilot-readiness-v1-v1.1.md` for status.
 
 ---
 
 ## References
 
 - `docs/specs/api-key-middleware.md` — API key + org override
+- `docs/specs/signal-ingestion.md` — PII forbidden keys (added 2026-02-24)
+- `docs/specs/inspection-api.md` — Canonical receipt snapshot (updated 2026-02-24)
+- `docs/specs/decision-engine.md` — DEF-DEC-007, DEF-DEC-008-PII deferred items
 - `docs/specs/aws-deployment.md` — TLS, DynamoDB, v1.1 scope
 - `docs/guides/deployment-checklist.md` — pilot security gates
-- `docs/reports/2026-02-24-ceo-statement-fact-check.md` — receipt canonicalization gap (state_snapshot PII)
+- `docs/foundation/ip-defensibility-and-value-proposition.md` — PII posture (updated 2026-02-24)

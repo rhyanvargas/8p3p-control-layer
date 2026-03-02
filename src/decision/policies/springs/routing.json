@@ -1,0 +1,8 @@
+{
+  "source_system_map": {
+    "canvas-lms": "learner",
+    "internal-lms": "learner",
+    "hr-training": "staff"
+  },
+  "default_policy_key": "learner"
+}

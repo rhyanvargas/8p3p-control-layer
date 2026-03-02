@@ -13,6 +13,7 @@ import type {
   ConditionNode,
   PolicyDefinition,
   PolicyEvaluationResult,
+  PolicyRoutingConfig,
   EvaluatedField,
   MatchedRule,
 } from '../shared/types.js';
@@ -35,6 +36,9 @@ const VALID_OPERATORS: readonly ConditionLeaf['operator'][] = [
 ] as const;
 
 let cachedPolicy: PolicyDefinition | null = null;
+
+/** Per-context cache keyed on `${orgId}:${userType}` */
+const contextPolicyCache = new Map<string, PolicyDefinition>();
 
 function isConditionLeaf(node: ConditionNode): node is ConditionLeaf {
   return 'field' in node && 'operator' in node && 'value' in node;
@@ -246,6 +250,54 @@ function evaluateConditionCollecting(
   return false;
 }
 
+/** Per-org routing config cache keyed on orgId */
+const routingConfigCache = new Map<string, PolicyRoutingConfig | null>();
+
+/**
+ * Loads and caches the routing config for an org from `policies/{orgId}/routing.json`.
+ * Returns null if no routing file exists (caller falls through to default_policy_key "learner").
+ * Silently swallows parse errors so a malformed routing.json degrades gracefully.
+ */
+export function loadRoutingConfigForOrg(orgId: string): PolicyRoutingConfig | null {
+  if (routingConfigCache.has(orgId)) return routingConfigCache.get(orgId) ?? null;
+
+  const routingPath = path.join(process.cwd(), 'src/decision/policies', orgId, 'routing.json');
+  if (!fs.existsSync(routingPath)) {
+    routingConfigCache.set(orgId, null);
+    return null;
+  }
+
+  try {
+    const content = fs.readFileSync(routingPath, 'utf-8');
+    const raw = JSON.parse(content) as PolicyRoutingConfig;
+    routingConfigCache.set(orgId, raw);
+    return raw;
+  } catch {
+    routingConfigCache.set(orgId, null);
+    return null;
+  }
+}
+
+/**
+ * Resolves a policy key (e.g. "learner" | "staff") from an org's routing config.
+ * Resolution order:
+ *   1. `policies/{orgId}/routing.json` source_system_map[sourceSystem]
+ *   2. `policies/{orgId}/routing.json` default_policy_key
+ *   3. Hard fallback: "learner"
+ */
+export function resolveUserTypeFromSourceSystem(orgId: string, sourceSystem: string): string {
+  const config = loadRoutingConfigForOrg(orgId);
+  if (!config) return 'learner';
+  return config.source_system_map[sourceSystem] ?? config.default_policy_key;
+}
+
+/**
+ * Clears the routing config cache. Intended for tests only.
+ */
+export function clearRoutingConfigCache(): void {
+  routingConfigCache.clear();
+}
+
 /**
  * Loads policy from JSON file, validates structure, and caches it.
  * Default path: DECISION_POLICY_PATH env or cwd/src/decision/policies/default.json.
@@ -277,6 +329,58 @@ export function loadPolicy(policyPath?: string): PolicyDefinition {
   validatePolicyStructure(raw);
   cachedPolicy = raw;
   return cachedPolicy;
+}
+
+/**
+ * Loads and caches a policy for a given org + userType context.
+ * Resolution order (first file found wins):
+ *   1. src/decision/policies/{orgId}/{userType}.json
+ *   2. src/decision/policies/{orgId}/default.json
+ *   3. src/decision/policies/default.json
+ *
+ * Results are cached by `${orgId}:${userType}` key. Bypasses env override to keep
+ * context resolution deterministic.
+ *
+ * @throws Error with code policy_not_found if none of the candidate files exist
+ */
+export function loadPolicyForContext(orgId: string, userType: string): PolicyDefinition {
+  const cacheKey = `${orgId}:${userType}`;
+  const cached = contextPolicyCache.get(cacheKey);
+  if (cached !== undefined) return cached;
+
+  const policiesRoot = path.join(process.cwd(), 'src/decision/policies');
+  const candidates = [
+    path.join(policiesRoot, orgId, `${userType}.json`),
+    path.join(policiesRoot, orgId, 'default.json'),
+    path.join(policiesRoot, 'default.json'),
+  ];
+
+  for (const candidate of candidates) {
+    if (!fs.existsSync(candidate)) continue;
+    let content: string;
+    try {
+      content = fs.readFileSync(candidate, 'utf-8');
+    } catch (err) {
+      const nodeErr = err as { code?: string };
+      if (nodeErr?.code === 'ENOENT') continue;
+      throw err;
+    }
+    let raw: unknown;
+    try {
+      raw = JSON.parse(content);
+    } catch {
+      throwPolicyError(ErrorCodes.INVALID_FORMAT, `Policy file is not valid JSON: ${candidate}`);
+    }
+    validatePolicyStructure(raw);
+    contextPolicyCache.set(cacheKey, raw);
+    return raw;
+  }
+
+  const e = new Error(
+    `No policy found for org='${orgId}' userType='${userType}'. Tried: ${candidates.join(', ')}`
+  ) as Error & { code: string };
+  e.code = ErrorCodes.POLICY_NOT_FOUND;
+  throw e;
 }
 
 /**

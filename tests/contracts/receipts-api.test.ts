@@ -33,7 +33,7 @@ describe('Receipts API Contract Tests', () => {
       trace: {
         state_id: 'test-org:learner-123:v1',
         state_version: 1,
-        policy_version: '2.0.0',
+        policy_version: '1.0.0',
         matched_rule_id: 'rule-reinforce',
         state_snapshot: { progress: 0.5 },
         matched_rule: {
@@ -236,7 +236,7 @@ describe('Receipts API Contract Tests', () => {
         trace: {
           state_id: 'test-org:learner-123:v1',
           state_version: 1,
-          policy_version: '2.0.0',
+          policy_version: '1.0.0',
           matched_rule_id: 'rule-advance',
           state_snapshot: { score: 85, level: 3 },
           matched_rule: {

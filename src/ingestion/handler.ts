@@ -20,6 +20,7 @@ import { appendSignal } from '../signalLog/store.js';
 import { appendIngestionOutcome } from './ingestion-log-store.js';
 import { applySignals, type ApplySignalsOutcome } from '../state/engine.js';
 import { evaluateState } from '../decision/engine.js';
+import { resolveUserTypeFromSourceSystem } from '../decision/policy-loader.js';
 
 /**
  * Log ingestion outcome to the ingestion log. Must not fail signal acceptance (spec §1.4).
@@ -211,12 +212,14 @@ export async function handleSignalIngestion(
   // On rejection or throw we log and continue — ingestion must not fail due to decision evaluation.
   if (applyOutcome?.ok) {
     try {
+      const userType = resolveUserTypeFromSourceSystem(signal.org_id, signal.source_system);
       const evalRequest: EvaluateStateForDecisionRequest = {
         org_id: signal.org_id,
         learner_reference: signal.learner_reference,
         state_id: applyOutcome.result.state_id,
         state_version: applyOutcome.result.new_state_version,
         requested_at: new Date().toISOString(),
+        user_type: userType,
       };
       const decisionOutcome = evaluateState(evalRequest);
       if (!decisionOutcome.ok) {

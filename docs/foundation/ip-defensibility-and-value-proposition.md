@@ -171,6 +171,7 @@ The **business** computes them. 8P3P does not interpret domain-specific metrics.
 - **Domain knowledge lives with the business.** How to derive `stabilityScore` from `mathMastery`, `currentStreak`, and `gradeLevel` is a pedagogical decision, not an infrastructure decision. Different tenants may define "stability" differently.
 - **8P3P is a decision boundary, not a transformation layer.** The control layer receives, stores, evaluates, and emits. It does not interpret what the numbers mean.
 - **Vendor-agnosticism requires this separation.** If 8P3P had to transform every tenant's raw metrics into canonical fields, it would need domain-specific logic per tenant — breaking the core architectural principle.
+- **PII is never required.** The control layer identifies learners by `learner_reference` — a pseudonymous ID (e.g., `user-123`). Personal identifiers (`firstName`, `email`, `ssn`, etc.) are forbidden in signal payloads and rejected at ingestion (see `docs/specs/signal-ingestion.md` §Forbidden Semantic Keys). Receipt `state_snapshot` includes only canonical fields, not the full STATE object, ensuring no PII leaks into audit records.
 
 ### Phase 2: Tenant-Scoped Field Mappings (DEF-DEC-006)
 

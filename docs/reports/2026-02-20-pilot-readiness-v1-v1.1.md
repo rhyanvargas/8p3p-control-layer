@@ -30,6 +30,7 @@ This framing is correct and governs every scoping decision below.
 | 7 | **Seeded demo dataset** — pre-loaded learners with demo narrative anchored on `reinforce` + `intervene` | Repeatable demo script: two primary decisions narrated in walkthrough; other 5 types supported but not narrated *(amended 2026-02-23 per CEO approval)* | QA vectors exist (vec-8a through vec-8g), need packaging as a seed script |
 | 8 | **API Key Middleware** — single key per deployment, org resolved server-side, client org_id ignored/overridden | Prevents open-endpoint security objection from blocking the deal. Not full tenant provisioning; enough to keep the environment controlled. | **Done** *(amended 2026-02-23)* — `src/auth/api-key-middleware.ts`, AUTH-001 through AUTH-007 passing |
 | 9 | **Pilot Integration Guide** — customer-facing onboarding doc (signals → decisions) | Removes integration ambiguity: how to map customer events to canonical fields, how to retry safely, and how to consume decisions. | **Done** *(added 2026-02-23)* — `docs/guides/pilot-integration-guide.md` |
+| 10 | **PII Hardening** — (a) Add PII keys to forbidden-keys list (reject at ingestion), (b) Canonicalize `state_snapshot` in receipts (include only policy-evaluated fields, exclude non-canonical/PII) | CEO directive (2026-02-24): pilot operates with pseudonymous IDs only; receipts must exclude PII. Required for enterprise trust positioning. | **Done** — DEF-DEC-007, DEF-DEC-008-PII implemented |
 
 ### What's Already Proven (Not Re-Work)
 

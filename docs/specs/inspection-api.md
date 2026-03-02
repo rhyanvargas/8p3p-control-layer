@@ -263,7 +263,7 @@ Extend the `trace` object in the Decision record with three new fields: `state_s
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `trace.state_snapshot` | object | Frozen copy of the full `state` object at evaluation time. Enables audit without state store lookup. |
+| `trace.state_snapshot` | object | Frozen copy of the **canonical** state fields at evaluation time. Per CEO directive (2026-02-24), receipts must exclude PII. The snapshot includes only the fields the policy actually evaluates (e.g., `stabilityScore`, `masteryScore`, `timeSinceReinforcement`, `confidenceInterval`, `riskSignal`) plus `learner_reference` (pseudonymous ID) and versioning metadata (`state_id`, `state_version`). Non-canonical or PII fields from STATE are excluded. Enables audit without state store lookup and without exposing personal data. |
 | `trace.matched_rule` | object or null | The complete rule that fired. `null` when `matched_rule_id` is `null` (default path). |
 | `trace.matched_rule.rule_id` | string | Same as `matched_rule_id` (denormalized for convenience) |
 | `trace.matched_rule.decision_type` | string | The decision type this rule produces |

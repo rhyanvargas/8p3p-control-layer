@@ -5,7 +5,7 @@
  * automatic decision evaluation → GET /v1/decisions chain at the HTTP level
  * with 3 realistic learner payloads (Maya K, Jordan 3rd, Aisha 5th).
  *
- * Validates the default policy end-to-end (POC v2, policy_version 2.0.0).
+ * Validates the default policy end-to-end (POC v2, policy_version 1.0.0).
  *
  * Plan: .cursor/plans/poc-v1-e2e-validation.plan.md (TASK-001)
  */
@@ -42,12 +42,11 @@ import { loadPolicy } from '../../src/decision/policy-loader.js';
 // =============================================================================
 
 /**
- * Maya — Kindergarten, age 5
+ * Learner K (Kindergarten cohort, age 5)
  * stabilityScore 0.28 (< 0.7) and timeSinceReinforcement 90000 (> 86400)
  * → Both conditions met → rule-reinforce fires
  */
 const MAYA_PAYLOAD = {
-  firstName: 'Maya',
   gradeLevel: 'K',
   age: 5,
   subjects: ['math', 'science'],
@@ -77,12 +76,11 @@ const MAYA_PAYLOAD = {
 };
 
 /**
- * Jordan — 3rd grade, age 8
+ * Learner 3rd (3rd grade cohort, age 8)
  * stabilityScore 0.52 (< 0.7 ✓) but timeSinceReinforcement 3600 (NOT > 86400 ✗)
  * → Default path (reinforcement too recent) → matched_rule_id: null
  */
 const JORDAN_PAYLOAD = {
-  firstName: 'Jordan',
   gradeLevel: '3',
   age: 8,
   subjects: ['math', 'reading', 'science'],
@@ -114,12 +112,11 @@ const JORDAN_PAYLOAD = {
 };
 
 /**
- * Aisha — 5th grade, age 10
+ * Learner 5th (5th grade cohort, age 10)
  * stabilityScore 0.78 (NOT < 0.7 ✗) and timeSinceReinforcement 172800 (> 86400 ✓)
  * → Default path (stability too high) → matched_rule_id: null
  */
 const AISHA_PAYLOAD = {
-  firstName: 'Aisha',
   gradeLevel: '5',
   age: 10,
   subjects: ['math', 'reading', 'science', 'social_studies'],
@@ -289,8 +286,8 @@ describe('E2E: Signal → State → Decision (POC v2)', () => {
         // 4. Assert trace.matched_rule_id
         expect(decision.trace.matched_rule_id).toBe(expectedMatchedRuleId);
 
-        // 5. Assert trace.policy_version = 2.0.0
-        expect(decision.trace.policy_version).toBe('2.0.0');
+        // 5. Assert trace.policy_version = 3.0.0
+        expect(decision.trace.policy_version).toBe('1.0.0');
 
         // 6. Assert trace.state_id and trace.state_version present
         expect(decision.trace.state_id).toBeDefined();
@@ -339,8 +336,7 @@ describe('E2E: Signal → State → Decision (POC v2)', () => {
 
       const storedSignal = getBody.signals[0];
 
-      // External data fields preserved in signal payload
-      expect(storedSignal.payload.firstName).toBe('Maya');
+      // Non-canonical, non-PII context fields are preserved in signal payload
       expect(storedSignal.payload.gradeLevel).toBe('K');
       expect(storedSignal.payload.age).toBe(5);
       expect(storedSignal.payload.subjects).toEqual(['math', 'science']);

@@ -9,6 +9,7 @@
 
 import * as crypto from 'crypto';
 import type {
+  ConditionNode,
   Decision,
   EvaluateStateForDecisionRequest,
   EvaluateDecisionOutcome,
@@ -17,7 +18,7 @@ import type {
 } from '../shared/types.js';
 import { ErrorCodes } from '../shared/error-codes.js';
 import { validateEvaluateRequest, validateDecisionContext } from './validator.js';
-import { getLoadedPolicy, getLoadedPolicyVersion, evaluatePolicy } from './policy-loader.js';
+import { loadPolicyForContext, evaluatePolicy } from './policy-loader.js';
 import { getState } from '../state/store.js';
 import { saveDecision } from './store.js';
 
@@ -34,6 +35,46 @@ function buildRationale(evalResult: PolicyEvaluationResult, policy: PolicyDefini
     return `Rule ${evalResult.matched_rule_id} fired: ${parts.join(' AND ')}`;
   }
   return `No rules matched. Default decision: ${policy.default_decision_type}`;
+}
+
+/**
+ * Recursively collect all field names referenced in a condition tree.
+ * Only leaf nodes (field/operator/value) carry field names.
+ */
+function collectPolicyFields(node: ConditionNode, fields: Set<string>): void {
+  if ('field' in node) {
+    fields.add(node.field);
+  } else if ('all' in node) {
+    for (const child of node.all) {
+      collectPolicyFields(child, fields);
+    }
+  } else if ('any' in node) {
+    for (const child of node.any) {
+      collectPolicyFields(child, fields);
+    }
+  }
+}
+
+/**
+ * Build a canonical receipt snapshot: only the fields the policy actually evaluates.
+ * Prevents non-canonical and PII fields from leaking into Decision.trace.state_snapshot.
+ * Per CEO directive (2026-02-24): receipts must exclude PII.
+ */
+export function extractCanonicalSnapshot(
+  state: Record<string, unknown>,
+  policy: PolicyDefinition
+): Record<string, unknown> {
+  const fields = new Set<string>();
+  for (const rule of policy.rules) {
+    collectPolicyFields(rule.condition, fields);
+  }
+  const snapshot: Record<string, unknown> = {};
+  for (const field of fields) {
+    if (Object.prototype.hasOwnProperty.call(state, field)) {
+      snapshot[field] = state[field];
+    }
+  }
+  return snapshot;
 }
 
 /**
@@ -92,31 +133,21 @@ export function evaluateState(request: EvaluateStateForDecisionRequest): Evaluat
     };
   }
 
-  // Step 4: Load cached policy
-  const policy = getLoadedPolicy();
-  if (policy === null) {
-    return {
-      ok: false,
-      errors: [
-        {
-          code: ErrorCodes.POLICY_NOT_FOUND,
-          message: 'No policy loaded. Call loadPolicy before evaluateState.',
-          field_path: undefined,
-        },
-      ],
-    };
-  }
-
+  // Step 4: Resolve policy for org + userType context
+  const userType = request.user_type ?? 'learner';
+  let policy: PolicyDefinition;
   let policyVersion: string;
   try {
-    policyVersion = getLoadedPolicyVersion();
-  } catch {
+    policy = loadPolicyForContext(request.org_id, userType);
+    policyVersion = policy.policy_version;
+  } catch (err) {
+    const e = err as { code?: string; message?: string };
     return {
       ok: false,
       errors: [
         {
-          code: ErrorCodes.POLICY_NOT_FOUND,
-          message: 'No policy loaded. Call loadPolicy before evaluateState.',
+          code: e.code ?? ErrorCodes.POLICY_NOT_FOUND,
+          message: e.message ?? 'Policy could not be loaded for this context.',
           field_path: undefined,
         },
       ],
@@ -126,8 +157,9 @@ export function evaluateState(request: EvaluateStateForDecisionRequest): Evaluat
   // Step 5: Evaluate policy rules against state
   const evalResult = evaluatePolicy(currentState.state, policy);
 
-  // Step 6: Build state_snapshot (frozen copy of state at evaluation time)
-  const stateSnapshot = JSON.parse(JSON.stringify(currentState.state)) as Record<string, unknown>;
+  // Step 6: Build canonical state_snapshot — only policy-evaluated fields (DEF-DEC-007).
+  // Excludes non-canonical and PII fields; prevents personal data from leaking into receipts.
+  const stateSnapshot = extractCanonicalSnapshot(currentState.state, policy);
 
   // Step 7: Build rationale string
   const rationale = buildRationale(evalResult, policy);

@@ -265,6 +265,15 @@ export interface PolicyRule {
   decision_type: DecisionType;
 }
 
+/**
+ * Per-org routing config loaded from `policies/{orgId}/routing.json`.
+ * Maps source_system values to policy keys (e.g. "learner" | "staff").
+ */
+export interface PolicyRoutingConfig {
+  source_system_map: Record<string, string>;
+  default_policy_key: string;
+}
+
 /** Policy definition loaded from JSON */
 export interface PolicyDefinition {
   policy_id: string;
@@ -274,11 +283,11 @@ export interface PolicyDefinition {
   default_decision_type: DecisionType;
 }
 
-/** Closed set of 7 decision types */
-export type DecisionType = 'reinforce' | 'advance' | 'intervene' | 'pause' | 'escalate' | 'recommend' | 'reroute';
+/** Closed set of 4 decision types */
+export type DecisionType = 'reinforce' | 'advance' | 'intervene' | 'pause';
 
 /** Runtime constant for decision type validation */
-export const DECISION_TYPES: readonly DecisionType[] = ['reinforce', 'advance', 'intervene', 'pause', 'escalate', 'recommend', 'reroute'] as const;
+export const DECISION_TYPES: readonly DecisionType[] = ['reinforce', 'advance', 'intervene', 'pause'] as const;
 
 /** Single leaf comparison result for trace (field, operator, threshold, actual value) */
 export interface EvaluatedField {
@@ -344,6 +353,8 @@ export interface EvaluateStateForDecisionRequest {
   state_id: string;
   state_version: number;
   requested_at: string;
+  /** Org-defined user category (e.g. "learner" | "staff"). Defaults to "learner". */
+  user_type?: string;
   evaluation_context?: Record<string, unknown>;
 }
 

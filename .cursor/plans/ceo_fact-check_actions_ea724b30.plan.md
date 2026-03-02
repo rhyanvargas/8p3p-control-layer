@@ -1,6 +1,6 @@
 ---
 name: CEO Fact-Check Actions
-overview: Track and implement the four recommended actions from the CEO statement fact-check report so contract discipline and narrative alignment are not forgotten.
+overview: Track and implement recommended actions from CEO statement fact-check and CEO pilot positioning directive (2026-02-24). Original 4 actions complete; 2 PII hardening tasks added per CEO directive.
 todos:
   - id: glossary
     content: Add terminology glossary to foundation docs (Signal = event; pipeline wording)
@@ -13,6 +13,12 @@ todos:
     status: completed
   - id: receipts-endpoint
     content: Consider and implement GET /v1/receipts (or equivalent) for compliance/audit
+    status: completed
+  - id: pii-forbidden-keys
+    content: "DEF-DEC-008-PII: Add PII keys (firstName, email, ssn, birthdate, etc.) to forbidden-keys list in src/ingestion/forbidden-keys.ts"
+    status: completed
+  - id: canonical-snapshot
+    content: "DEF-DEC-007: Canonicalize state_snapshot in src/decision/engine.ts — include only policy-evaluated fields, exclude non-canonical/PII fields"
     status: completed
 isProject: false
 ---
@@ -69,9 +75,40 @@ These actions address the valid concerns from the CEO fact-check while leaving t
 
 ---
 
+---
+
+## 5. PII forbidden keys (DEF-DEC-008-PII) — v1 pilot hardening
+
+**Goal:** Reject inbound PII at ingestion so personal data never enters STATE or receipts.
+
+**Source:** CEO directive (2026-02-24): "Any inbound PII fields are rejected or stripped."
+
+- In [src/ingestion/forbidden-keys.ts](src/ingestion/forbidden-keys.ts): add a new PII category to `FORBIDDEN_KEYS`:
+`firstName, lastName, first_name, last_name, fullName, full_name, email, emailAddress, email_address, phone, phoneNumber, phone_number, ssn, social_security, socialSecurity, birthdate, birthday, birth_date, date_of_birth, dateOfBirth, dob, address, streetAddress, street_address, zipCode, zip_code, postalCode, postal_code`
+- **Note:** Bare `name` intentionally excluded — too generic and would produce false positives on legitimate payload keys (e.g., skill name, assessment name). Covered variants `firstName`, `lastName`, `fullName`, `full_name` catch PII usage.
+- Existing `forbidden_semantic_key_detected` error code applies — no new error codes needed.
+- Update tests in `tests/unit/forbidden-keys.test.ts` to cover PII keys.
+- Spec: `docs/specs/signal-ingestion.md` §Forbidden Semantic Keys — PII Keys.
+
+---
+
+## 6. Canonical receipt snapshot (DEF-DEC-007) — v1 pilot hardening
+
+**Goal:** Receipt `state_snapshot` includes only canonical fields that the policy evaluates, not the full STATE object. Prevents PII leakage.
+
+**Source:** CEO directive (2026-02-24): "We will configure receipts to exclude PII."
+
+- In [src/decision/engine.ts](src/decision/engine.ts) Step 6 (~line 130): instead of `JSON.parse(JSON.stringify(currentState.state))`, build a snapshot containing only the canonical fields used by the loaded policy's rules (extract field names from `policy.rules[].condition` tree) plus `learner_reference`, `state_id`, `state_version`.
+- Helper function: `extractCanonicalSnapshot(state, policy)` — walks the policy condition tree to collect referenced field names, then picks only those from state.
+- Update contract tests that assert `state_snapshot` content to expect canonical-only fields.
+- Spec: `docs/specs/inspection-api.md` §3.1 (updated 2026-02-24).
+
+---
+
 ## Dependency order
 
-- **1** can be done immediately (docs only).
-- **2** is independent (schema + engine).
-- **3** is a larger feature (tenant config + validation).
-- **4** can follow after 1 and 2; may depend on product decision to expose receipts as a separate resource.
+- **1–4** are complete (glossary, trace required, tenant mappings, receipts endpoint).
+- **5** (PII forbidden keys) is independent — can be implemented immediately.
+- **6** (canonical snapshot) is independent — can be implemented immediately.
+- **5 and 6 together** close the PII gap required by CEO directive before pilot handoff.
+

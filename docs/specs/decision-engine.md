@@ -23,7 +23,7 @@ These decisions were resolved before implementation (ISS-DGE series) and are **b
 
 | ISS ID | Decision | Rationale |
 |--------|----------|-----------|
-| ISS-DGE-001 | **Full 7-type closed set** (`reinforce \| advance \| intervene \| pause \| escalate \| recommend \| reroute`) | Defined in OpenAPI, Contract Test Matrix, Component Interface Contracts §0.3 |
+| ISS-DGE-001 | **4-type closed set** (`reinforce \| advance \| intervene \| pause`) | Locked to 4 types per 2026-02-27 policy directive. `escalate`, `recommend`, `reroute` removed: conditions merged into `intervene` (high-risk path) and `pause` (hold/reroute). Defined in OpenAPI, JSON Schema, and implementation. |
 | ISS-DGE-002 | **JSON policy files** with compound condition support, loaded at runtime, versioned. | Runtime-loaded JSON keeps policy separate from code. Compound conditions (`all`/`any`) enable multi-field evaluation while remaining declarative and data-driven. |
 | ISS-DGE-003 | **Embedded trace** in Decision record (Phase 1). Trace includes `policy_version`. Evolve to separate trace store later if auditing needs grow. | Aligns with OpenAPI `Decision.trace` schema. Minimizes storage complexity. |
 | ISS-DGE-004 | **Keep "Decision Engine"** everywhere (code: `src/decision/`, routes, specs). "Decision Governance" used only in doctrine/rationale docs. | Avoids rename tax across 10+ artifacts. |
@@ -34,24 +34,30 @@ These decisions were resolved before implementation (ISS-DGE series) and are **b
 
 ### 4.1 Decision
 
-The canonical decision object. Matches the OpenAPI `Decision` schema with the addition of `policy_version` and `matched_rule_id` in trace.
+The canonical decision object. Matches the OpenAPI `Decision` schema. Trace includes core fields plus enriched fields for v1 pilot (state_snapshot, matched_rule, rationale); see DEF-DEC-007 and `docs/specs/inspection-api.md` for receipt semantics.
 
 ```json
 {
   "org_id": "string",
   "decision_id": "string",
   "learner_reference": "string",
-  "decision_type": "reinforce | advance | intervene | pause | escalate | recommend | reroute",
+  "decision_type": "reinforce | advance | intervene | pause",
   "decided_at": "string (RFC3339)",
   "decision_context": {},
   "trace": {
     "state_id": "string",
     "state_version": "integer",
     "policy_version": "string",
-    "matched_rule_id": "string | null"
-  }
+    "matched_rule_id": "string | null",
+    "state_snapshot": {},
+    "matched_rule": {} | null,
+    "rationale": "string"
+  },
+  "output_metadata": {}
 }
 ```
+
+`output_metadata` is optional; when present it may include `priority`, `ttl_seconds`, `downstream_targets` for downstream routing (see OpenAPI).
 
 #### Field Descriptions
 
@@ -60,13 +66,17 @@ The canonical decision object. Matches the OpenAPI `Decision` schema with the ad
 | `org_id` | string | Tenant identifier (1–128 characters) |
 | `decision_id` | string | Unique identifier for this decision (UUID) |
 | `learner_reference` | string | Learner identifier (1–256 characters) |
-| `decision_type` | string | One of 7 closed-set types (see §4.5) |
+| `decision_type` | string | One of 4 closed-set types (see §4.5) |
 | `decided_at` | string | When the decision was made (RFC3339) |
 | `decision_context` | object | Opaque, downstream-neutral context (no domain semantics) |
 | `trace.state_id` | string | ID of the state snapshot used for evaluation |
 | `trace.state_version` | integer | Version of the state snapshot used for evaluation |
 | `trace.policy_version` | string | Version of the policy used to produce this decision |
 | `trace.matched_rule_id` | string or null | ID of the policy rule that fired. `null` when `default_decision_type` was used (no rule matched). Enables per-rule traceability. |
+| `trace.state_snapshot` | object | (Enriched trace) Canonical state fields at evaluation time; only policy-evaluated fields, excludes PII. See DEF-DEC-007. |
+| `trace.matched_rule` | object or null | (Enriched trace) Full matched rule with evaluated_fields. |
+| `trace.rationale` | string | (Enriched trace) Human-readable rationale. |
+| `output_metadata` | object (optional) | Downstream metadata: `priority`, `ttl_seconds`, `downstream_targets`. See OpenAPI. |
 
 ### 4.2 EvaluateStateForDecisionRequest (Internal Invocation)
 
@@ -183,19 +193,16 @@ From Component Interface Contracts §5.
 
 ### 4.5 Decision Types (Closed Set)
 
-Seven types only. No additions without spec revision.
+Four types only. No additions without spec revision. `escalate`, `recommend`, and `reroute` were removed (2026-02-27): their conditions were merged into `intervene` (high-risk path) and `pause` (hold/reroute).
 
 | Decision Type | Description |
 |--------------|-------------|
-| `reinforce` | Continue current learning path |
-| `advance` | Progress to next level |
-| `intervene` | Require assistance |
-| `pause` | Temporary hold |
-| `escalate` | Elevate to human review |
-| `recommend` | Suggest content |
-| `reroute` | Change learning path |
+| `reinforce` | Continue current path; prevent decay |
+| `advance` | Progress to next level or content |
+| `intervene` | Require immediate assistance (highest-risk path) |
+| `pause` | Temporary hold; reroute or compliance block |
 
-Runtime constant: `DECISION_TYPES = ['reinforce', 'advance', 'intervene', 'pause', 'escalate', 'recommend', 'reroute']`
+Runtime constant: `DECISION_TYPES = ['reinforce', 'advance', 'intervene', 'pause']`
 
 ### 4.6 PolicyDefinition
 
@@ -210,10 +217,10 @@ Schema for JSON policy files (ISS-DGE-002). Supports compound conditions via rec
     {
       "rule_id": "string (unique within policy)",
       "condition": "ConditionNode (see below)",
-      "decision_type": "string (one of 7 types)"
+      "decision_type": "string (one of 4 types)"
     }
   ],
-  "default_decision_type": "string (one of 7 types)"
+  "default_decision_type": "string (one of 4 types)"
 }
 ```
 
@@ -225,8 +232,8 @@ Schema for JSON policy files (ISS-DGE-002). Supports compound conditions via rec
 | `rules` | array | Ordered list of condition→decision mappings. First match wins. |
 | `rules[].rule_id` | string | Unique identifier for this rule within the policy. Recorded in `trace.matched_rule_id`. |
 | `rules[].condition` | ConditionNode | Condition tree to evaluate against state (see §4.6.1) |
-| `rules[].decision_type` | string | Decision type to emit if condition matches |
-| `default_decision_type` | string | Fallback decision type when no rules match. `trace.matched_rule_id` is `null` in this case. |
+| `rules[].decision_type` | string | Decision type to emit if condition matches (one of 4 types) |
+| `default_decision_type` | string | Fallback decision type when no rules match (one of 4 types). `trace.matched_rule_id` is `null` in this case. |
 
 #### 4.6.1 ConditionNode (Recursive)
 
@@ -303,13 +310,13 @@ The default policy evaluates against these canonical state fields. All numeric s
 
 ### Closed Type Set
 
-- Only the 7 types in §4.5 are valid
+- Only the 4 types in §4.5 are valid
 - Any other type → `invalid_decision_type` rejection
 - No runtime extension of the set
 
 ### Trace Required
 
-- Every decision **must** include `trace` with `state_id`, `state_version`, `policy_version`, and `matched_rule_id`
+- Every decision **must** include `trace` with `state_id`, `state_version`, `policy_version`, `matched_rule_id`, and (for v1 pilot) `state_snapshot`, `matched_rule`, `rationale`
 - Trace binds the decision to the exact state snapshot, policy, and rule that produced it
 - `matched_rule_id` is the `rule_id` of the first matching rule, or `null` when `default_decision_type` was used
 - Missing trace → `missing_trace` rejection
@@ -488,10 +495,14 @@ Validate decision-related inputs:
 
 ### 4. Policy Loader (`src/decision/policy-loader.ts`)
 
-Load and evaluate JSON policy files:
+Load and evaluate JSON policy files. Supports both a single default policy (legacy/env override) and **org-scoped policy resolution** with source-system → policy key routing (see §Policy Routing and Org-Scoped Policies).
+
 - `loadPolicy(policyPath?: string): PolicyDefinition` — Load and validate a JSON policy file. Default path resolved via `process.env.DECISION_POLICY_PATH ?? path.join(process.cwd(), 'src/decision/policies/default.json')`. This follows the existing DB path pattern (e.g., `process.env.STATE_STORE_DB_PATH ?? './data/state.db'`). Using `process.cwd()` instead of source-relative paths ensures correct resolution regardless of whether code runs from `src/` or compiled `dist/`.
-- `evaluatePolicy(state: Record<string, unknown>, policy: PolicyDefinition): { decision_type: DecisionType; matched_rule_id: string | null }` — Walk rules in order, recursively evaluate each rule's condition tree against state. Return first matching rule's `decision_type` and `rule_id`, or `{ decision_type: default_decision_type, matched_rule_id: null }` if no rules match.
-- `getLoadedPolicyVersion(): string` — Return current policy version for trace recording
+- `loadPolicyForContext(orgId: string, userType: string): PolicyDefinition` — Resolve policy for `(org_id, policy_key)` using the resolution order `policies/{orgId}/{userType}.json` → `policies/{orgId}/default.json` → `policies/default.json`. Cached by `{orgId}:{userType}`. Throws with `policy_not_found` if no candidate file exists.
+- `loadRoutingConfigForOrg(orgId: string): PolicyRoutingConfig | null` — Load `policies/{orgId}/routing.json`; returns `null` if missing or invalid. Cached per org.
+- `resolveUserTypeFromSourceSystem(orgId: string, sourceSystem: string): string` — Return policy key for the given org and source system (routing config → default_policy_key → `"learner"`).
+- `evaluatePolicy(state: Record<string, unknown>, policy: PolicyDefinition): PolicyEvaluationResult` — Walk rules in order, recursively evaluate each rule's condition tree against state. Return first matching rule's `decision_type`, `matched_rule_id`, and (for enriched trace) `matched_rule` with `evaluated_fields`; or default decision with `matched_rule_id: null`.
+- `getLoadedPolicyVersion(): string` — Return current policy version for trace recording (singleton cache from `loadPolicy()`; context-loaded policies use the version from the resolved policy).
 
 **Validation (at load time):**
 - Policy file must parse as valid JSON
@@ -510,12 +521,13 @@ Load and evaluate JSON policy files:
 
 ### 5. Decision JSON Schema (`src/contracts/schemas/decision.json`)
 
-JSON Schema for `Decision` object matching the updated OpenAPI schema (including `policy_version` and `matched_rule_id` in trace):
+JSON Schema for `Decision` object matching the updated OpenAPI schema:
 - All required fields: `org_id`, `decision_id`, `learner_reference`, `decision_type`, `decided_at`, `decision_context`, `trace`
-- `decision_type` enum with all 7 values
-- `trace` with required `state_id`, `state_version`, `policy_version`, `matched_rule_id`
+- `decision_type` enum with all 4 values
+- `trace` with required `state_id`, `state_version`, `policy_version`, `matched_rule_id`, and (enriched) `state_snapshot`, `matched_rule`, `rationale`
 - `matched_rule_id` typed as `string | null`
 - `decision_context` as object type
+- Optional `output_metadata` (priority, ttl_seconds, downstream_targets)
 - `additionalProperties: false` on trace
 
 ### 6. Decision Ajv Validator (`src/contracts/validators/decision.ts`)
@@ -603,7 +615,7 @@ EvaluateStateForDecisionRequest
          │
          ▼
 ┌──────────────────┐
-│ Load Policy      │ ← Get current policy (cached from startup)
+│ Load Policy      │ ← Get policy for context: resolveUserTypeFromSourceSystem(org_id, source_system) then loadPolicyForContext(org_id, userType). Fallback: loadPolicy() singleton.
 │                  │ ← No policy → policy_not_found
 └────────┬─────────┘
          │
@@ -644,26 +656,36 @@ JSON files stored at `src/decision/policies/`. Loaded at startup, versioned via 
 
 **Default policy (`src/decision/policies/default.json`):**
 
-> **POC v2 policy: full 7-rule policy (priority-ordered, first match wins).** Expands from the single REINFORCE rule to an explicit rule for every decision type in the closed set. Rules use only the canonical state fields (§4.7). The highest-risk decisions are evaluated first; safe fallbacks remain `reinforce`.
+> **4-rule policy (priority-ordered, first match wins).** Locked to 4 decision types. `escalate`/`reroute`/`recommend` conditions merged into `intervene` and `pause`. Rules use only the canonical state fields (§4.7). Highest-risk decisions evaluated first; safe fallback: `reinforce`.
 
 ```json
 {
   "policy_id": "default",
-  "policy_version": "2.0.0",
-  "description": "POC v2 policy: 7 rules covering all decision types. Uses canonical state fields (stabilityScore, masteryScore, timeSinceReinforcement, confidenceInterval, riskSignal). Priority-ordered; first match wins.",
+  "policy_version": "1.0.0",
+  "description": "Default policy: 4 decision types (reinforce, advance, intervene, pause). Priority-ordered; first match wins. Escalate/reroute/recommend conditions merged into intervene/pause.",
   "rules": [
     {
-      "rule_id": "rule-escalate",
+      "rule_id": "rule-intervene",
       "condition": {
-        "all": [
-          { "field": "confidenceInterval", "operator": "lt", "value": 0.3 },
-          { "any": [
-            { "field": "stabilityScore", "operator": "lt", "value": 0.3 },
-            { "field": "riskSignal", "operator": "gt", "value": 0.8 }
-          ]}
+        "any": [
+          {
+            "all": [
+              { "field": "confidenceInterval", "operator": "lt", "value": 0.3 },
+              { "any": [
+                { "field": "stabilityScore", "operator": "lt", "value": 0.3 },
+                { "field": "riskSignal", "operator": "gt", "value": 0.8 }
+              ]}
+            ]
+          },
+          {
+            "all": [
+              { "field": "stabilityScore", "operator": "lt", "value": 0.4 },
+              { "field": "confidenceInterval", "operator": "gte", "value": 0.3 }
+            ]
+          }
         ]
       },
-      "decision_type": "escalate"
+      "decision_type": "intervene"
     },
     {
       "rule_id": "rule-pause",
@@ -674,37 +696,6 @@ JSON files stored at `src/decision/policies/`. Loaded at startup, versioned via 
         ]
       },
       "decision_type": "pause"
-    },
-    {
-      "rule_id": "rule-reroute",
-      "condition": {
-        "all": [
-          { "field": "riskSignal", "operator": "gt", "value": 0.7 },
-          { "field": "stabilityScore", "operator": "lt", "value": 0.5 },
-          { "field": "confidenceInterval", "operator": "gte", "value": 0.3 }
-        ]
-      },
-      "decision_type": "reroute"
-    },
-    {
-      "rule_id": "rule-intervene",
-      "condition": {
-        "all": [
-          { "field": "stabilityScore", "operator": "lt", "value": 0.4 },
-          { "field": "confidenceInterval", "operator": "gte", "value": 0.3 }
-        ]
-      },
-      "decision_type": "intervene"
-    },
-    {
-      "rule_id": "rule-reinforce",
-      "condition": {
-        "all": [
-          { "field": "stabilityScore", "operator": "lt", "value": 0.7 },
-          { "field": "timeSinceReinforcement", "operator": "gt", "value": 86400 }
-        ]
-      },
-      "decision_type": "reinforce"
     },
     {
       "rule_id": "rule-advance",
@@ -719,21 +710,21 @@ JSON files stored at `src/decision/policies/`. Loaded at startup, versioned via 
       "decision_type": "advance"
     },
     {
-      "rule_id": "rule-recommend",
+      "rule_id": "rule-reinforce",
       "condition": {
         "all": [
-          { "field": "riskSignal", "operator": "gte", "value": 0.5 },
-          { "field": "stabilityScore", "operator": "gte", "value": 0.7 }
+          { "field": "stabilityScore", "operator": "lt", "value": 0.7 },
+          { "field": "timeSinceReinforcement", "operator": "gt", "value": 86400 }
         ]
       },
-      "decision_type": "recommend"
+      "decision_type": "reinforce"
     }
   ],
   "default_decision_type": "reinforce"
 }
 ```
 
-> **Rule priority rationale (highest → lowest danger):** `escalate` → `pause` → `reroute` → `intervene` → `reinforce` → `advance` → `recommend` → default (`reinforce`). This ordering ensures that low-confidence / high-risk situations are handled before “growth” or “suggestion” decisions. The `escalate` rule intentionally nests `any` inside `all` to exercise compound condition evaluation (ISS-DGE-002).
+> **Rule priority rationale (highest → lowest danger):** `intervene` → `pause` → `advance` → `reinforce` → default (`reinforce`). `intervene` absorbs former `escalate` conditions (low-confidence + extreme risk). `pause` absorbs former `reroute` conditions (high risk + sufficient confidence). `advance` collapses former `recommend`. Compound `any` in `rule-intervene` exercises ISS-DGE-002 nested condition evaluation.
 
 ### Policy Evaluation Semantics
 
@@ -762,6 +753,49 @@ JSON files stored at `src/decision/policies/`. Loaded at startup, versioned via 
 - Old decisions retain their original policy version in trace (immutable)
 - Enables reproducibility: given `(state_id, state_version, policy_version)`, the decision can be re-derived
 
+### Policy Routing and Org-Scoped Policies
+
+For multi-tenant and pilot deployments, the engine supports **org-scoped policy resolution** and **source-system → policy key routing**. This allows different orgs (and within an org, different source systems such as learner LMS vs. staff training) to use different policy files without code changes.
+
+**Behavior:**
+
+1. **Context resolution:** When evaluating a decision, the engine resolves a *policy key* (e.g. `"learner"` or `"staff"`) from the request context. For the sync trigger, the key is derived from the signal’s `source_system` via the org’s routing config (see below). If no routing config exists or the source system is unknown, the key defaults to `"learner"`.
+2. **Policy file resolution (per org + key):** The loader resolves the policy file for `(org_id, policy_key)` using **resolution order** (first file found wins):
+   - `src/decision/policies/{orgId}/{policyKey}.json`
+   - `src/decision/policies/{orgId}/default.json`
+   - `src/decision/policies/default.json`
+3. **Caching:** Resolved policies are cached by `{orgId}:{policyKey}` so repeated evaluations for the same org and key do not re-read the filesystem. Routing configs are cached per org.
+
+**Routing config (optional per org):**  
+A file at `src/decision/policies/{orgId}/routing.json` can map `source_system` values to policy keys and define a default key when the source system is not in the map.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `source_system_map` | object | Map from `source_system` string (e.g. `"canvas-lms"`, `"hr-training"`) to policy key (e.g. `"learner"`, `"staff"`) |
+| `default_policy_key` | string | Policy key used when `source_system` is not in `source_system_map` (e.g. `"learner"`) |
+
+**Example (`src/decision/policies/springs/routing.json`):**
+
+```json
+{
+  "source_system_map": {
+    "canvas-lms": "learner",
+    "internal-lms": "learner",
+    "hr-training": "staff"
+  },
+  "default_policy_key": "learner"
+}
+```
+
+With this config, signals with `source_system: "canvas-lms"` or `"internal-lms"` are evaluated against `springs/learner.json`; signals with `source_system: "hr-training"` use `springs/staff.json`. Unrecognized source systems fall back to `default_policy_key` (`"learner"`).
+
+**Implementation:**  
+- `loadPolicyForContext(orgId: string, userType: string): PolicyDefinition` — resolves and caches policy for the given org and policy key; throws with `policy_not_found` if no candidate file exists.  
+- `loadRoutingConfigForOrg(orgId: string): PolicyRoutingConfig | null` — loads and caches `policies/{orgId}/routing.json`; returns `null` if the file is missing or invalid (parse errors are swallowed so a bad routing file does not break evaluation).  
+- `resolveUserTypeFromSourceSystem(orgId: string, sourceSystem: string): string` — returns the policy key for the given org and source system (routing config lookup, then `default_policy_key`, then hard fallback `"learner"`).
+
+The ingestion path passes `source_system` from the signal into the evaluation request so the engine can call `resolveUserTypeFromSourceSystem(org_id, source_system)` and then `loadPolicyForContext(org_id, userType)`. See `docs/guides/pilot-integration-guide.md` §12 for integration details.
+
 ## Contract Tests
 
 Implement all tests from the Contract Test Matrix §5 (Decision Engine) and §6 (Output Interfaces):
@@ -779,21 +813,21 @@ Implement all tests from the Contract Test Matrix §5 (Decision Engine) and §6 
 | DEC-007 | Trace-State Mismatch | Trace references different `state_version` than request | rejected, `trace_state_mismatch` |
 | DEC-008 | Traceability per decision type (parameterized, 9 cases — POC v2) | State with canonical fields tuned to trigger each decision type plus default paths (see table below) | Decision with correct `decision_type`, `trace.matched_rule_id` matching the expected rule (or `null` for default), and correct `trace.policy_version` |
 
-**DEC-008 test vectors (POC v2 — all 7 types + default paths):**
+**DEC-008 test vectors (POC v2 — all 4 types + default paths):**
 
 | Case | State Fields | Expected `decision_type` | Expected `matched_rule_id` |
 |------|--------------|-------------------------|---------------------------|
-| 8a | `stabilityScore: 0.2, confidenceInterval: 0.2, riskSignal: 0.9` | `escalate` | `rule-escalate` |
+| 8a | `stabilityScore: 0.2, confidenceInterval: 0.2, riskSignal: 0.9` | `intervene` | `rule-intervene` |
 | 8b | `stabilityScore: 0.4, confidenceInterval: 0.2` | `pause` | `rule-pause` |
-| 8c | `stabilityScore: 0.4, confidenceInterval: 0.5, riskSignal: 0.8` | `reroute` | `rule-reroute` |
+| 8c | `stabilityScore: 0.4, confidenceInterval: 0.5, riskSignal: 0.8` | `pause` | `rule-pause` |
 | 8d | `stabilityScore: 0.3, confidenceInterval: 0.5` | `intervene` | `rule-intervene` |
 | 8e | `stabilityScore: 0.5, timeSinceReinforcement: 100000` | `reinforce` | `rule-reinforce` |
 | 8f | `stabilityScore: 0.9, masteryScore: 0.9, riskSignal: 0.1, confidenceInterval: 0.8` | `advance` | `rule-advance` |
-| 8g | `stabilityScore: 0.8, riskSignal: 0.6` | `recommend` | `rule-recommend` |
+| 8g | `stabilityScore: 0.85, masteryScore: 0.82, riskSignal: 0.2, confidenceInterval: 0.75` | `advance` | `rule-advance` |
 | 8h | `stabilityScore: 0.9, timeSinceReinforcement: 1000` | `reinforce` | `null` (default) |
 | 8i | `stabilityScore: 0.6, timeSinceReinforcement: 1000, confidenceInterval: 0.8` | `reinforce` | `null` (default) |
 
-> **DEC-008 rationale:** DEC-001 validates a single happy path. DEC-008 is a parameterized sweep proving traceability for every decision type in the closed set, including nested compound conditions (`rule-escalate`) and explicit default fall-through (`matched_rule_id: null`).
+> **DEC-008 rationale:** DEC-001 validates a single happy path. DEC-008 is a parameterized sweep proving traceability for every decision type in the 4-type closed set, including nested compound conditions (`rule-intervene` using `any`-inside-`all`) and explicit default fall-through (`matched_rule_id: null`).
 
 > **Testing strategy note:** DEC-001, DEC-006, DEC-007, and DEC-008 test the full `evaluateState()` flow end-to-end. DEC-002–DEC-005 test the validator functions directly (e.g., `validateDecisionType`, `validateDecisionContext`, Ajv schema validator), since the engine produces valid decisions by construction — these edge cases cannot be triggered through normal `evaluateState()` execution. This ensures the safety-net validators are exercised even though the engine won't produce invalid output.
 
@@ -845,11 +879,16 @@ src/
 │   ├── repository.ts                  # DecisionRepository interface
 │   ├── store.ts                       # SqliteDecisionRepository + module-level delegation
 │   ├── validator.ts                   # Request/decision validation
-│   ├── policy-loader.ts              # Policy loading and evaluation
+│   ├── policy-loader.ts              # Policy loading and evaluation (incl. org-scoped + routing)
 │   ├── handler.ts                     # GET /decisions route handler
 │   ├── routes.ts                      # Fastify route registration
 │   └── policies/
-│       └── default.json               # Default Phase 1 policy
+│       ├── default.json               # Default Phase 1 policy (fallback for all orgs)
+│       └── {orgId}/                   # Optional: org-scoped policies and routing
+│           ├── routing.json           # source_system → policy key map (optional)
+│           ├── learner.json           # e.g. learner policy for this org
+│           ├── staff.json             # e.g. staff policy for this org
+│           └── default.json           # Org-level default (overrides global default when present)
 ├── contracts/
 │   ├── schemas/
 │   │   └── decision.json              # Decision JSON Schema
@@ -876,7 +915,7 @@ tests/
 Implementation is complete when:
 
 - [ ] `evaluateState()` evaluates state against policy and returns a Decision
-- [ ] Decision type is from the 7-type closed set only
+- [ ] Decision type is from the 4-type closed set only
 - [ ] Decision includes trace with `state_id`, `state_version`, `policy_version`, `matched_rule_id`
 - [ ] Deterministic: same `(state_id, state_version, policy_version)` → same decision
 - [ ] `decision_context` validated for forbidden semantic keys
@@ -888,7 +927,7 @@ Implementation is complete when:
 - [ ] `GET /v1/decisions` returns valid `GetDecisionsResponse`
 - [ ] Time-range and pagination validation on GetDecisions
 - [ ] All DEC-001 through DEC-008 contract tests pass
-- [ ] Traceability validated for all 7 decision types + default paths (DEC-008, 9 cases — POC v2)
+- [ ] Traceability validated for all 4 decision types + default paths (DEC-008, 9 cases — POC v2)
 - [ ] All OUT-API-001 through OUT-API-003 output API tests pass
 - [ ] Existing STATE Engine and Signal Log tests still pass (no regression)
 
@@ -958,5 +997,7 @@ This supports the two access patterns: write by `(org_id, decision_id)` and quer
 | DEF-DEC-002 | Extract `DecisionRepository` interface for DI | ISS-DGE-002, Playbook Phase 2 | **Partially Resolved** — interface + SqliteDecisionRepository done; DynamoDB adapter deferred |
 | DEF-DEC-003 | Separate decision trace store (if auditing needs grow) | ISS-DGE-003 | Future |
 | DEF-DEC-004 | Data-driven policy engine (replace simple JSON rules) | ISS-DGE-002 | **Resolved** — compound condition schema (`all`/`any` combinators) provides data-driven evaluation in Phase 1 |
-| DEF-DEC-005 | Policy rules for all 7 decision types | ISS-DGE-001 | **Resolved** — default policy expanded to 7 rules (POC v2, `policy_version: "2.0.0"`), with DEC-008 vectors covering all types. |
+| DEF-DEC-005 | Policy rules for all 4 decision types | ISS-DGE-001 | **Resolved** — default policy is a 4-rule policy (POC v2, `policy_version: "1.0.0"`), with DEC-008 vectors covering all 4 types. |
 | DEF-DEC-006 | Signal normalization layer: tenant-scoped field mappings from vendor payloads to canonical state fields. Phase 1 assumes identity mapping (signals produce canonical fields directly). | Policy-suggestion analysis, architectural decision | Phase 2 |
+| DEF-DEC-007 | **Canonical receipt snapshot**: `state_snapshot` in `Decision.trace` must include only canonical fields evaluated by policy (e.g., `stabilityScore`, `masteryScore`, `timeSinceReinforcement`, `confidenceInterval`, `riskSignal`) — not the full STATE object. Prevents PII leakage into receipts. Per CEO directive (2026-02-24). | CEO pilot positioning, `docs/specs/inspection-api.md` §3.1 | **v1 — pilot hardening** |
+| DEF-DEC-008-PII | **PII forbidden keys**: add PII-category keys (`firstName`, `lastName`, `email`, `ssn`, `birthdate`, etc.) to the forbidden-keys list in `src/ingestion/forbidden-keys.ts`. Rejects inbound PII at ingestion. Per CEO directive (2026-02-24). | CEO pilot positioning, `docs/specs/signal-ingestion.md` §Forbidden Semantic Keys | **v1 — pilot hardening** |

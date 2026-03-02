@@ -1,0 +1,49 @@
+{
+  "policy_id": "springs:staff",
+  "policy_version": "1.0.0",
+  "description": "Springs Charter School — staff policy. Evaluates staff training compliance signals (complianceScore, daysOverdue, certificationValid, trainingScore) against 4 decision types. Priority-ordered; first match wins.",
+  "rules": [
+    {
+      "rule_id": "rule-intervene",
+      "condition": {
+        "all": [
+          { "field": "complianceScore", "operator": "lt", "value": 0.5 },
+          { "field": "daysOverdue", "operator": "gt", "value": 14 }
+        ]
+      },
+      "decision_type": "intervene"
+    },
+    {
+      "rule_id": "rule-pause",
+      "condition": { "field": "certificationValid", "operator": "eq", "value": false },
+      "decision_type": "pause"
+    },
+    {
+      "rule_id": "rule-advance",
+      "condition": {
+        "all": [
+          { "field": "complianceScore", "operator": "gte", "value": 0.9 },
+          { "field": "trainingScore", "operator": "gte", "value": 0.85 },
+          { "field": "daysOverdue", "operator": "eq", "value": 0 }
+        ]
+      },
+      "decision_type": "advance"
+    },
+    {
+      "rule_id": "rule-reinforce",
+      "condition": {
+        "any": [
+          {
+            "all": [
+              { "field": "complianceScore", "operator": "lt", "value": 0.8 },
+              { "field": "daysOverdue", "operator": "gt", "value": 0 }
+            ]
+          },
+          { "field": "trainingScore", "operator": "lt", "value": 0.7 }
+        ]
+      },
+      "decision_type": "reinforce"
+    }
+  ],
+  "default_decision_type": "reinforce"
+}

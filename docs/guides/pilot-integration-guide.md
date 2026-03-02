@@ -140,14 +140,14 @@ In the pilot narrative, we anchor on:
 - **`reinforce`**: prevent decay / prevent future failure before it happens
 - **`intervene`**: high-risk now; take action immediately
 
-These map directly to enterprise pain (waste + risk). The other 5 types are fully supported and may appear in the Decision Stream; we simply don't lead with them unless asked.
+These map directly to enterprise pain (waste + risk). The other two types (`advance`, `pause`) are fully supported and may appear in the Decision Stream; we simply don't lead with them unless asked.
 
-### All 7 types may occur
+### All 4 types may occur
 
-The system can return any of the 7 decision types:
-`reinforce`, `advance`, `intervene`, `pause`, `escalate`, `recommend`, `reroute`.
+The system returns exactly four decision types:
+`reinforce`, `advance`, `intervene`, `pause`.
 
-**Integration recommendation:** Implement handling for all 7 (even if some are no-ops initially), so the system never feels “surprising” in pilot.
+**Integration recommendation:** Implement handling for all 4, so the system never feels “surprising” in pilot.
 
 ### Traceability (why enterprises trust it)
 
@@ -186,8 +186,162 @@ The response includes `rejection_reason.code` and `field_path`. Common causes:
 - [ ] Implement canonical field mapping + normalization (0.0–1.0)
 - [ ] Send signals to `POST /v1/signals` with `x-api-key`
 - [ ] Poll decisions from `GET /v1/decisions`
-- [ ] Implement handling for all 7 decision types (even if some are initially no-ops)
+- [ ] Implement handling for all 4 decision types (`reinforce`, `advance`, `intervene`, `pause`)
 - [ ] Use `/docs` as schema reference during implementation
+
+---
+
+## 9) Webhook Integration Pattern (Option A)
+
+Use this pattern when your LMS (Canvas or equivalent) supports outbound webhooks and you want to forward events to the control layer in real time rather than batching.
+
+### How it works
+
+```
+Canvas/LMS  →  Your webhook receiver  →  POST /v1/signals  →  Control Layer
+```
+
+1. Canvas fires a webhook to an endpoint you control when a learner completes an assignment, quiz, or module.
+2. Your receiver maps the Canvas event payload to the `SignalEnvelope` schema.
+3. Your receiver calls `POST /v1/signals` with the mapped payload.
+
+You own the receiver; the control layer never calls Canvas directly.
+
+### Mapping a Canvas assignment-completion event
+
+Canvas `submission` webhook fields → `SignalEnvelope` fields:
+
+| Canvas field | SignalEnvelope field | Notes |
+|---|---|---|
+| `body.submission.user_id` | `learner_reference` | Use `"user-{canvas_user_id}"` to namespace by source system |
+| `body.submission.id` (or assignment_id + user_id hash) | `signal_id` | Must be stable and unique — safe for retries |
+| `body.submission.submitted_at` | `timestamp` | RFC3339; ensure timezone is included |
+| _(your Canvas domain / integration name)_ | `source_system` | Use `"canvas-lms"` |
+| _(from your org config)_ | `org_id` | Hardcode to your pilot org id; the server overrides with `API_KEY_ORG_ID` |
+| `"v1"` | `schema_version` | Always `"v1"` for pilot |
+| _(computed from submission score / rubric)_ | `payload` | See canonical field mapping below |
+
+### Canonical field mapping from Canvas submission
+
+```json
+{
+  "stabilityScore":           "<score / possible_points, normalized 0.0–1.0>",
+  "masteryScore":             "<same or rubric-derived, 0.0–1.0>",
+  "timeSinceReinforcement":   "<seconds since previous submission or feedback event>",
+  "confidenceInterval":       0.8,
+  "riskSignal":               "<derive from late flag or low score, 0.0–1.0; omit if unknown>"
+}
+```
+
+Rules:
+- Include only canonical fields in `payload`. Do not include Canvas-specific fields (`submission_type`, `grader_id`, etc.); they will be rejected as forbidden keys.
+- Omit optional fields rather than sending `null` — the engine treats absent fields as neutral.
+
+### Example: POST /v1/signals from a Canvas webhook receiver
+
+```bash
+curl -sS -X POST "https://<host>/v1/signals" \
+  -H "content-type: application/json" \
+  -H "x-api-key: <your_key>" \
+  -d '{
+    "org_id": "springs-charter",
+    "signal_id": "canvas-sub-98234",
+    "source_system": "canvas-lms",
+    "learner_reference": "user-40512",
+    "timestamp": "2026-03-01T14:22:00Z",
+    "schema_version": "v1",
+    "payload": {
+      "stabilityScore": 0.78,
+      "masteryScore": 0.82,
+      "timeSinceReinforcement": 86400,
+      "confidenceInterval": 0.80,
+      "riskSignal": 0.15
+    }
+  }'
+```
+
+### Idempotency note for webhooks
+
+Canvas may deliver the same webhook more than once (retries on 5xx). Use a stable `signal_id` (e.g., `"canvas-sub-{submission_id}"`) so the control layer deduplicates automatically and returns `status: duplicate` on repeat delivery without double-applying.
+
+---
+
+## 10) Identity Resolution (learner_reference as canonical key)
+
+The control layer uses `learner_reference` as the **persistent merge key** for all signals from a given org. If the same person exists in multiple systems (Canvas `user_id: 40512`, Internal LMS `user_id: STU-1234`), you must resolve to a single canonical ID before sending signals. All signals for that person — regardless of `source_system` — must carry the same `learner_reference`.
+
+### Recommended strategy: SIS/HR primary key
+
+| User type | Canonical ID source | Example `learner_reference` |
+|-----------|--------------------|-----------------------------|
+| Students | SIS student ID | `"stu-10042"` |
+| Staff | HR employee ID | `"emp-00831"` |
+
+You own this mapping. The control layer never calls your SIS or HR system directly. You map at the point of sending the signal.
+
+### Why it works across 3 LMS systems
+
+All three LMS systems (Canvas, Internal LMS, third LMS) have some mapping back to a shared SIS/HR record. Emerson's team controls this cross-reference. Once you adopt a canonical `learner_reference`, every signal from any system updates the same STATE record for that person — this is how the cross-system intelligence is unified.
+
+```
+Canvas submission (user 40512)     →  learner_reference: "stu-10042"  ─┐
+Internal LMS activity (STU-1234)   →  learner_reference: "stu-10042"  ─┤─→ Single STATE → Single Decision
+Third LMS event (LMS-9988)         →  learner_reference: "stu-10042"  ─┘
+```
+
+---
+
+## 11) Multi-LMS Integration
+
+All three LMS systems use the same `POST /v1/signals` endpoint. Differentiate by `source_system`:
+
+| LMS | `source_system` value | Integration pattern |
+|-----|-----------------------|---------------------|
+| Canvas | `"canvas-lms"` | Webhook receiver (see §9) |
+| Internal LMS | `"internal-lms"` | Direct API call from your application |
+| Third LMS | `"lms-3"` (or your chosen name) | Same pattern — adapt field mapping |
+
+The control layer is source-system agnostic. The same `SignalEnvelope` schema applies to all three.
+
+**Which policy runs?** Policy routing is configured per org (see §12). `source_system` determines which policy evaluates the signal.
+
+---
+
+## 12) Policy Routing (org-scoped, config-driven)
+
+The control layer uses a declarative routing config at `policies/{orgId}/routing.json` to map `source_system` values to policy keys (e.g. `"learner"` or `"staff"`). You do not need to specify a policy in the signal — routing is resolved automatically from `source_system`.
+
+### How it works
+
+```
+signal.source_system  →  routing.json lookup  →  policy key  →  loadPolicyForContext(orgId, key)
+                                               ↓ (miss)
+                                          default_policy_key
+```
+
+### Springs example (`policies/springs/routing.json`)
+
+```json
+{
+  "source_system_map": {
+    "canvas-lms":    "learner",
+    "internal-lms":  "learner",
+    "hr-training":   "staff"
+  },
+  "default_policy_key": "learner"
+}
+```
+
+With this config:
+- Canvas and Internal LMS signals → evaluated against `springs:learner` policy (student progress thresholds: `stabilityScore`, `masteryScore`, `timeSinceReinforcement`)
+- HR training signals → evaluated against `springs:staff` policy (staff compliance thresholds: `complianceScore`, `daysOverdue`, `certificationValid`)
+- Any unrecognized `source_system` → falls back to `"learner"` policy
+
+**Policy file resolution order (first found wins):**
+
+1. `policies/{orgId}/{policyKey}.json`
+2. `policies/{orgId}/default.json`
+3. `policies/default.json`
 
 ---
 

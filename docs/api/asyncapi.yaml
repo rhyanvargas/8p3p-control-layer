@@ -161,9 +161,6 @@ components:
             - advance
             - intervene
             - pause
-            - escalate
-            - recommend
-            - reroute
         decided_at:
           type: string
           description: RFC3339

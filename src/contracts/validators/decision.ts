@@ -72,7 +72,7 @@ function getErrorMessage(error: {
     case 'type':
       return `Field '${field}' has invalid type`;
     case 'enum':
-      return `Field 'decision_type' must be one of: reinforce, advance, intervene, pause, escalate, recommend, reroute`;
+      return `Field 'decision_type' must be one of: reinforce, advance, intervene, pause`;
     default:
       return message || `Validation error on field '${field}'`;
   }
