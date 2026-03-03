@@ -1,7 +1,9 @@
 {
   "source_system_map": {
     "canvas-lms": "learner",
+    "blackboard-lms": "learner",
     "internal-lms": "learner",
+    "absorb-lms": "staff",
     "hr-training": "staff"
   },
   "default_policy_key": "learner"

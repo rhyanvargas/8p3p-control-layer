@@ -21,6 +21,7 @@
     "validate:api": "redocly lint docs/api/openapi.yaml",
     "generate:api-key": "node scripts/generate-api-key.mjs",
     "seed:demo": "node scripts/seed-demo.mjs",
+    "seed:springs-demo": "node scripts/seed-springs-demo.mjs",
     "lint": "eslint src tests",
     "typecheck": "tsc --noEmit",
     "check": "npm run build && npm run validate:schemas && npm run validate:contracts && npm run validate:api && npm run lint && npm test"

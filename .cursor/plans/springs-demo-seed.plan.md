@@ -14,19 +14,19 @@ overview: |
 todos:
   - id: TASK-001
     content: Update springs/routing.json to add absorb-lms + blackboard-lms source systems
-    status: pending
+    status: completed
   - id: TASK-002
     content: Design + validate all 7 signal scenarios against policy rules
-    status: pending
+    status: completed
   - id: TASK-003
     content: Create scripts/seed-springs-demo.mjs
-    status: pending
+    status: completed
   - id: TASK-004
     content: Create docs/guides/springs-demo-walkthrough.md
-    status: pending
+    status: completed
   - id: TASK-005
     content: Add seed:springs-demo npm script + verify end-to-end
-    status: pending
+    status: completed
 isProject: false
 ---
 
