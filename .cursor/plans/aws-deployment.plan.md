@@ -115,7 +115,8 @@ Before starting implementation:
 - **Action**: Modify
 - **Details**:
   - Add `@aws-sdk/client-dynamodb` and `@aws-sdk/lib-dynamodb` (v3 document client) as production dependencies.
-  - Pin to latest stable. Use `npm install @aws-sdk/client-dynamodb @aws-sdk/lib-dynamodb`.
+  - Add `@types/aws-lambda` as a devDependency — required for `APIGatewayProxyEvent` and `APIGatewayProxyResult` types used in TASK-012–014.
+  - Pin to latest stable. Use `npm install @aws-sdk/client-dynamodb @aws-sdk/lib-dynamodb && npm install -D @types/aws-lambda`.
   - No code changes — just dependency addition to confirm tree-shaking is compatible with `"type": "module"` ESM build.
 - **Depends on**: none
 - **Verification**: `npm install` completes; `npm run build` succeeds with no new type errors
@@ -235,7 +236,7 @@ Implement `StateRepository` interface from `src/state/repository.ts`.
   - `getState`: `QueryCommand` on `org_learner`, descending, `Limit: 1` → latest version
   - `getStateByVersion`: `GetCommand` with exact `org_learner` + `state_version`
   - `saveState`: `PutCommand`
-  - `saveStateWithAppliedSignals`: `TransactWriteCommand` — `PutItem` for state + `PutItem` for each `applied_signals` entry (separate table or GSI; use `{org_learner}#applied` sort key prefix in StateTable or a dedicated `AppliedSignalsTable` — match spec schema)
+  - `saveStateWithAppliedSignals`: `TransactWriteCommand` — `PutItem` for state record (sort key `STATE#{state_version}`) + `PutItem` for each applied signal record (sort key `APPLIED#{signal_id}`) in the same `StateTable`. No separate table needed; single-table design keeps the TransactWriteItems within one partition.
   - Optimistic locking: `ConditionExpression: "attribute_not_exists(state_version)"` on state write
   - `isSignalApplied`: `GetCommand` on applied-signals item
   - `recordAppliedSignals`: `TransactWriteCommand` with `ConditionExpression: "attribute_not_exists(signal_id)"` (INSERT OR IGNORE semantic)
@@ -586,15 +587,15 @@ Handles `GET /v1/state`, `GET /v1/state/list`, `GET /v1/ingestion` by routing on
 ## Risks
 
 
-| Risk                                                                           | Impact | Mitigation                                                                                                                                                                     |
-| ------------------------------------------------------------------------------ | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| DynamoDB TransactWriteItems 25-item limit                                      | Medium | `saveStateWithAppliedSignals` — signal batches are small (1 signal per request); document limit                                                                                |
-| DynamoDB FilterExpression doesn't reduce RCU (outcome filter on ingestion log) | Low    | Acceptable at pilot volume; document trade-off; add GSI on `outcome` if needed at scale                                                                                        |
-| Lambda cold start > 1s with full AWS SDK import                                | Medium | Use ESM tree-shaking; import only needed SDK clients; `arm64` + 256MB keeps cold starts < 500ms                                                                                |
-| Fastify handler refactoring breaks existing tests                              | High   | Refactor is pure extraction (no logic change); run `npm test` after each TASK-003/004/005 before continuing                                                                    |
-| API Gateway REST API domain requires edge-optimized ACM cert in us-east-1      | Low    | Template already targets us-east-1; cert must be in same region                                                                                                                |
-| SAM local invoke requires DynamoDB Local for adapter testing                   | Medium | Use `docker run -p 8000:8000 amazon/dynamodb-local` for local integration tests before deploy                                                                                  |
-| org_id extraction in Lambda context (API key → org_id mapping)                 | High   | API Gateway usage plans are keyed to org_id; inject `x-org-id` via Gateway mapping template or request body field (already present in signal envelope); decide before TASK-012 |
+| Risk                                                                           | Impact | Mitigation                                                                                                                                                                                                                                                                                                                                                                                         |
+| ------------------------------------------------------------------------------ | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| DynamoDB TransactWriteItems 25-item limit                                      | Medium | `saveStateWithAppliedSignals` — signal batches are small (1 signal per request); document limit                                                                                                                                                                                                                                                                                                    |
+| DynamoDB FilterExpression doesn't reduce RCU (outcome filter on ingestion log) | Low    | Acceptable at pilot volume; document trade-off; add GSI on `outcome` if needed at scale                                                                                                                                                                                                                                                                                                            |
+| Lambda cold start > 1s with full AWS SDK import                                | Medium | Use ESM tree-shaking; import only needed SDK clients; `arm64` + 256MB keeps cold starts < 500ms                                                                                                                                                                                                                                                                                                    |
+| Fastify handler refactoring breaks existing tests                              | High   | Refactor is pure extraction (no logic change); run `npm test` after each TASK-003/004/005 before continuing                                                                                                                                                                                                                                                                                        |
+| API Gateway REST API domain requires edge-optimized ACM cert in us-east-1      | Low    | Template already targets us-east-1; cert must be in same region                                                                                                                                                                                                                                                                                                                                    |
+| SAM local invoke requires DynamoDB Local for adapter testing                   | Medium | Use `docker run -p 8000:8000 amazon/dynamodb-local` for local integration tests before deploy                                                                                                                                                                                                                                                                                                      |
+| org_id extraction in Lambda context (API key → org_id mapping)                 | High   | **Resolved**: IngestFunction reads `org_id` from POST body (already in signal envelope). QueryFunction/InspectFunction read `org_id` from query params. API key → org_id enforcement is deferred to tenant-provisioning.md Phase 2 — Phase 1 trusts `org_id` in the request, mirroring local Fastify behavior. If `API_KEY_ORG_ID` env override is needed, add it as a Lambda env var in TASK-011. |
 
 
 ---
@@ -610,7 +611,7 @@ Handles `GET /v1/state`, `GET /v1/state/list`, `GET /v1/ingestion` by routing on
 - `sam deploy` creates stack without errors
 - All 462+ contract tests pass against deployed endpoint
 - `/health` returns 200 without API key
-- `/v1/*` returns 403 without API key
+- `/v1/`* returns 403 without API key
 - Cold start < 1s (CloudWatch Logs)
 - Local dev unchanged (`npm run dev` uses SQLite)
 - Matches spec requirements (`docs/specs/aws-deployment.md`)

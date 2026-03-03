@@ -22,6 +22,8 @@ servers:
     description: Base path (version prefix applied per route)
 
 tags:
+  - name: Health
+    description: Liveness and readiness checks.
   - name: Signal
     description: Signal log query operations.
   - name: Ingest
@@ -32,6 +34,25 @@ tags:
     description: Decision output query operations.
 
 paths:
+  /health:
+    get:
+      tags: [Health]
+      operationId: getHealth
+      summary: Health check
+      description: |
+        **What it does:** Returns a simple liveness/readiness payload. No authentication required.
+
+        **When to use:** Use for load balancer health checks, container orchestration (e.g. Kubernetes liveness/readiness), or monitoring to confirm the API is up.
+
+        **How:** GET with no query parameters or headers. Returns 200 with `{ "status": "ok" }`.
+      security: []
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
   /v1/signals:
     post:
       tags: [Ingest]
@@ -537,6 +558,18 @@ components:
         API key for pilot access (required when API_KEY env is set).
         Endpoints are locked until you click Authorize and enter a valid key; without it, requests return 401. When authorized, lock icons turn green to show you have access.
   schemas:
+    # ---------------------------------------------------------------------------
+    # Health (GET /health)
+    # ---------------------------------------------------------------------------
+    HealthResponse:
+      type: object
+      required: [status]
+      additionalProperties: false
+      properties:
+        status:
+          type: string
+          enum: [ok]
+          description: Indicates the service is up and responding.
     # ---------------------------------------------------------------------------
     # Signal Ingestion (POST /v1/signals)
     # Aligned with src/contracts/schemas/signal-envelope.json
