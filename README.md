@@ -194,6 +194,8 @@ Common business use-cases and integration workflows (built from the existing API
 | Guide | Description |
 |------|-------------|
 | [Guides Index](docs/guides/README.md) | Entry point for integration workflows |
+| [Customer Onboarding Quick Start](docs/guides/customer-onboarding-quickstart.md) | First 15 minutes: real data and meaningful API output |
+| [FAQ (Pilot)](docs/guides/faq.md) | Common questions: payload, state, policy, decisions, identity |
 | [Pilot Integration Guide (v1)](docs/guides/pilot-integration-guide.md) | “Send signals → consume decisions” |
 | [Get all learner decisions from my org](docs/guides/get-all-learner-decisions-from-org.md) | Org-wide decision export (list learners → fetch decisions per learner) |
 | [Pilot Deployment Checklist (v1)](docs/guides/deployment-checklist.md) | Pre-deployment gates (requires `API_KEY_ORG_ID`) |

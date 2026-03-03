@@ -40,6 +40,8 @@ If the key is missing or invalid, you will receive **401** with `api_key_require
 
 ## 3) Quick start (curl)
 
+For a minimal first-run (verify access → send one signal → read one decision), see [Customer Onboarding Quick Start](customer-onboarding-quickstart.md). Below is the same flow inline.
+
 ### Health check (no key required)
 
 ```bash
