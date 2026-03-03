@@ -132,6 +132,11 @@ const swaggerBrandThemeCss = `
     background: var(--brand-bg);
     color: var(--brand-text);
     font-family: Inter, sans-serif;
+    line-height: 2;
+  }
+  .swagger-ui .information-container.wrapper,
+  .swagger-ui .info .description {
+    line-height: 2;
   }
   .swagger-ui .topbar {
     background: var(--brand-topbar-bg);
@@ -196,6 +201,14 @@ const swaggerBrandThemeCss = `
   .swagger-ui .authorization__btn[aria-label="authorization button locked"] svg {
     fill: #49cc90 !important;
     opacity: 1;
+  }
+  .swagger-ui .renderedMarkdown code {
+    padding: 0.25em 0.5em;
+    background: var(--brand-accent);
+    border-radius: 4px;
+    font-family: var(--font-mono);
+    font-size: 0.875em;
+    line-height: 1.5;
   }
 `;
 

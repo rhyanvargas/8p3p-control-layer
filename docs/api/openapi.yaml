@@ -38,10 +38,11 @@ paths:
       operationId: ingestSignal
       summary: Ingest a signal
       description: |
-        Accept externally emitted signals. Validates structure and enforces a minimal semantic ruleset
-        (timestamp format/timezone, schema_version pattern, forbidden semantic keys), enforces idempotency
-        by (org_id, signal_id), and forwards accepted signals
-        to the Signal Log. See docs/specs/signal-ingestion.md.
+        **What it does:** Accepts a single learning-event signal from your system. Validates structure and semantic rules (timestamp format, schema_version, forbidden keys), enforces idempotency by (org_id, signal_id), then appends to the Signal Log and triggers the STATE → Decision pipeline.
+
+        **When to use:** Send every learning event (LMS activity, assessment, compliance checkpoint, etc.) to 8P3P as it happens. Use this as the primary integration point from your systems into the control layer. Safe to retry — duplicate signal_id returns 200 with status `duplicate` and does not create a second decision.
+
+        **How:** One signal per request; include org_id, signal_id, source_system, learner_reference, timestamp, schema_version, and payload. See docs/specs/signal-ingestion.md.
       requestBody:
         required: true
         content:
@@ -87,8 +88,11 @@ paths:
       operationId: querySignals
       summary: Query the signal log
       description: |
-        Read-only query for a learner's signals within a time range. Immutable,
-        append-only evidence stream. See docs/specs/signal-log.md.
+        **What it does:** Returns the immutable, append-only list of signals stored for a learner within a time range. This is the raw evidence stream — what was sent and accepted — not the derived state or decisions.
+
+        **When to use:** When you need to see exactly which events were ingested for a learner (e.g. debugging integration, auditing what data fed into state, or rebuilding your own view of the evidence). Use GET /v1/decisions when you need the control layer's decisions; use GET /v1/state when you need the accumulated state.
+
+        **How:** Supply org_id, learner_reference, from_time, and to_time (RFC3339). Paginate with page_token and page_size. See docs/specs/signal-log.md.
       parameters:
         - name: org_id
           in: query
@@ -167,8 +171,11 @@ paths:
       operationId: getIngestionOutcomes
       summary: Query ingestion outcomes
       description: |
-        Read-only query over all ingestion attempts (accepted, rejected, duplicate),
-        including validation failures. Inspection API. See docs/specs/inspection-api.md §1.
+        **What it does:** Returns a log of all ingestion attempts for your org — accepted, rejected, and duplicate — with optional filter by outcome. Includes validation failure details for rejected signals.
+
+        **When to use:** Debugging integration issues (why a signal was rejected), monitoring ingestion health, or auditing what arrived and what failed. This is an inspection/debug endpoint, not the primary path for consuming decisions. For decision output, use GET /v1/decisions or GET /v1/receipts.
+
+        **How:** Supply org_id; optionally limit, outcome (accepted | rejected | duplicate), and cursor for pagination. Results are most recent first. See docs/specs/inspection-api.md §1.
       parameters:
         - name: org_id
           in: query
@@ -232,8 +239,11 @@ paths:
       operationId: getState
       summary: Get learner state
       description: |
-        Read-only query for a learner's current or historical state.
-        Inspection API. See docs/specs/inspection-api.md §2.
+        **What it does:** Returns a single learner's current STATE (or a specific version by version number). STATE is the control layer's accumulated view of that learner — merged from all applied signals — and is the input to the decision engine.
+
+        **When to use:** When you need to inspect or reason about the learner's current state (e.g. dashboards, support tools, or verifying what the engine "sees"). Use GET /v1/decisions to get the decisions produced from this state; use GET /v1/signals to see the raw signal stream that built it.
+
+        **How:** Supply org_id and learner_reference; omit version for latest, or set version for a historical snapshot. See docs/specs/inspection-api.md §2.
       parameters:
         - name: org_id
           in: query
@@ -296,8 +306,11 @@ paths:
       operationId: listLearners
       summary: List learners for an org
       description: |
-        Lightweight listing of learners with state. Paginated.
-        Inspection API. See docs/specs/inspection-api.md §2.2.
+        **What it does:** Returns a paginated list of learner_reference values that have at least one state record in your org, with each learner's latest state_version and updated_at.
+
+        **When to use:** When you need to enumerate learners (e.g. to fan out and fetch decisions per learner via GET /v1/decisions, or to build org-wide reports). Use GET /v1/state when you need the full state for a specific learner.
+
+        **How:** Supply org_id; optionally limit (1–500) and cursor for pagination. See docs/specs/inspection-api.md §2.2 and docs/guides/get-all-learner-decisions-from-org.md for the fan-out pattern.
       parameters:
         - name: org_id
           in: query
@@ -354,9 +367,11 @@ paths:
       operationId: getDecisions
       summary: Get decisions for a learner
       description: |
-        Decision output API. Returns decisions for a learner within a time range.
-        From Component Interface Contracts (Output Interfaces). Same STATE (id+version)
-        yields same decision outcome.
+        **What it does:** Returns the full decision records for a learner within a time range. Each decision includes org_id, decision_id, learner_reference, decision_type, decided_at, decision_context, trace (state snapshot, matched rule, rationale), and output_metadata.
+
+        **When to use:** When your application needs the complete decision object — e.g. to drive workflows, dashboards, or downstream systems that use decision_context or output_metadata. Use GET /v1/receipts when you only need the audit/compliance view (what was decided, when, and why) with a smaller payload.
+
+        **How:** Supply org_id, learner_reference, from_time, and to_time (RFC3339). Paginate with page_token and page_size. Same query semantics as GET /v1/receipts; only the response shape differs.
       parameters:
         - name: org_id
           in: query
@@ -435,9 +450,11 @@ paths:
       operationId: getReceipts
       summary: Get receipts for a learner (compliance/audit)
       description: |
-        Compliance/audit query surface. Returns receipts (projection of decision trace:
-        decision_id, decision_type, decided_at, trace). Same query params and pagination
-        as GET /v1/decisions. See docs/specs/receipts-api.md.
+        **What it does:** Returns a lightweight, compliance-oriented projection of the decision log for a learner: each item includes only decision_id, decision_type, decided_at, and trace (state snapshot, matched rule, rationale). Omits decision_context and output_metadata.
+
+        **When to use:** When you need the audit trail — what decision was made, when, and why — without the full decision payload. Ideal for compliance exports, trace-only consumers, or smaller responses. Use GET /v1/decisions when you need the full decision record including decision_context and output_metadata.
+
+        **How:** Same query parameters and pagination as GET /v1/decisions (org_id, learner_reference, from_time, to_time, page_token, page_size). See docs/specs/receipts-api.md.
       parameters:
         - name: org_id
           in: query
