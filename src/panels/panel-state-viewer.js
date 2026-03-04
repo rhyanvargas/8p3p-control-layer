@@ -2,13 +2,18 @@
  * 8P3P Inspection Panels — Panel 2: State Viewer
  * Spec: docs/specs/inspection-panels.md
  * Plan: .cursor/plans/inspection-panels.plan.md (TASK-006)
+ *
+ * Canonical Fields: Rendered from the actual state object keys so the section
+ * always matches Full State (JSON). Supports multi-policy orgs (e.g. staff
+ * fields like complianceScore, trainingScore) as well as learner fields.
  */
 
 (function () {
   'use strict';
 
   const CONTAINER_ID = 'panel-state';
-  const CANONICAL_FIELDS = ['stabilityScore', 'masteryScore', 'confidenceInterval', 'riskSignal', 'timeSinceReinforcement'];
+  // Optional: known learner field order for display when present; other keys follow
+  const KNOWN_FIELDS_ORDER = ['stabilityScore', 'masteryScore', 'confidenceInterval', 'riskSignal', 'timeSinceReinforcement', 'complianceScore', 'trainingScore', 'daysOverdue', 'certificationValid'];
 
   let learnersNextCursor = null;
   let learnersList = [];
@@ -17,6 +22,17 @@
 
   function getContainer() {
     return document.getElementById(CONTAINER_ID);
+  }
+
+  /**
+   * Return state keys for the "Canonical Fields" section: known fields first (in order),
+   * then any other keys from state, sorted.
+   */
+  function getCanonicalFieldKeys(stateObj) {
+    const keys = Object.keys(stateObj || {});
+    const known = KNOWN_FIELDS_ORDER.filter((k) => keys.includes(k));
+    const rest = keys.filter((k) => !KNOWN_FIELDS_ORDER.includes(k)).sort();
+    return [...known, ...rest];
   }
 
   function renderLearnerList(learners) {
@@ -59,11 +75,16 @@
         <div class="canonical-fields">
     `;
 
-    for (const f of CANONICAL_FIELDS) {
-      const val = stateObj[f];
-      const present = val !== undefined && val !== null;
-      const cls = present ? 'canonical-field present' : 'canonical-field missing';
-      html += `<div class="${cls}">${esc(f)}: ${present ? esc(String(val)) : '—'}</div>`;
+    const fieldKeys = getCanonicalFieldKeys(stateObj);
+    if (fieldKeys.length === 0) {
+      html += '<div class="canonical-field missing">(no fields in state)</div>';
+    } else {
+      for (const f of fieldKeys) {
+        const val = stateObj[f];
+        const present = val !== undefined && val !== null;
+        const cls = present ? 'canonical-field present' : 'canonical-field missing';
+        html += `<div class="${cls}">${esc(f)}: ${present ? esc(String(val)) : '—'}</div>`;
+      }
     }
     html += '</div>';
 

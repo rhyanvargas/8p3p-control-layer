@@ -153,7 +153,7 @@ Proves persistent learning memory exists outside tools. Shows the accumulated le
 | Section | Fields | Notes |
 |---------|--------|-------|
 | Header | `state_id`, `state_version`, `updated_at` | |
-| Canonical Fields | `stabilityScore`, `masteryScore`, `confidenceInterval`, `riskSignal`, `timeSinceReinforcement` | Extracted from `state` object. Highlighted if present, grayed if missing. |
+| Canonical Fields | Keys present in `state` object | Rendered from actual state keys so this section always matches Full State (JSON). Supports learner fields (e.g. `stabilityScore`, `masteryScore`) and staff/multi-policy fields (e.g. `complianceScore`, `trainingScore`, `daysOverdue`, `certificationValid`). Highlighted if value present, grayed if missing. Empty state shows "(no fields in state)". |
 | Provenance | `provenance.last_signal_id`, `provenance.last_signal_timestamp` | |
 | Full State | `state` (raw JSON) | Collapsible JSON viewer |
 | Version Selector | Version buttons/slider | Navigate between historical versions |
@@ -172,11 +172,13 @@ Proves persistent learning memory exists outside tools. Shows the accumulated le
 
 ### Purpose
 
-Proves decision authority exists and operates continuously. Shows a live feed of decisions with their types, rules, and priority.
+Proves decision authority exists and operates continuously. Shows a live feed of receipts (decision_type, rule, policy) for the audit trail.
 
 ### Data Source
 
-`GET /v1/decisions?org_id={org}&learner_reference={ref}&from_time={t}&to_time={t}`
+`GET /v1/receipts?org_id={org}&learner_reference={ref}&from_time={t}&to_time={t}`
+
+Same query parameters and pagination as `GET /v1/decisions`. Receipts are the compliance/audit projection; the Pri column shows "—" because receipts omit `output_metadata`.
 
 ### Layout
 
@@ -207,15 +209,15 @@ Proves decision authority exists and operates continuously. Shows a live feed of
 | Time | `decided_at` | Formatted as HH:MM:SS |
 | Decision | `decision_type` | Color-coded by type (red=escalate, amber=pause, blue=reinforce, green=advance, etc.) |
 | Rule | `trace.matched_rule_id` | Truncated. "(default)" when null. |
-| Priority | `output_metadata.priority` | Numeric. "—" when default path. |
-| Policy | `trace.policy_version` | |
+| Priority | — | Receipts omit `output_metadata`; column shows "—". Use `GET /v1/decisions` for priority. |
+| Policy | `trace.policy_id` (name), `trace.policy_version` | When `policy_id` present: "name (version)"; else version only (legacy). |
 | Learner | `learner_reference` | |
 
 ### Interactions
 
-- **Filter by org_id and learner:** Text inputs (org required, learner required — `GET /v1/decisions` requires `learner_reference` by design; for org-wide decisions use the fan-out pattern via `GET /v1/state/list`, see `docs/guides/get-all-learner-decisions-from-org.md`)
+- **Filter by org_id and learner:** Text inputs (org required, learner required — `GET /v1/receipts` requires `learner_reference`; for org-wide receipts use the fan-out pattern via `GET /v1/state/list`, see `docs/guides/get-all-learner-decisions-from-org.md`)
 - **Time range:** From/to date-time pickers
-- **Click row:** Navigate to Panel 4 (Decision Trace) for the selected decision
+- **Click row:** Navigate to Panel 4 (Decision Trace) for the selected receipt
 - **Color legend:** Hover on decision type for description
 - **Refresh:** Manual button, optional auto-poll
 
@@ -229,7 +231,9 @@ Proves explainability, governance, and auditability. This is the enterprise trus
 
 ### Data Source
 
-`GET /v1/decisions?org_id={org}&learner_reference={ref}&from_time={t}&to_time={t}` (single decision, selected from Panel 3 or by decision_id)
+`GET /v1/decisions?org_id={org}&learner_reference={ref}&from_time={t}&to_time={t}` (single decision/receipt, selected from Panel 3 or by decision_id)
+
+Panel 3 loads receipts via `GET /v1/receipts`; the selected row passes receipt data (plus learner_reference) to Panel 4. Panel 4 renders the receipt trace (rationale, thresholds, state snapshot, rule condition). Priority shows "—" when viewing a receipt.
 
 ### Layout
 
@@ -293,7 +297,7 @@ Proves explainability, governance, and auditability. This is the enterprise trus
 
 | Section | Source Fields | Notes |
 |---------|-------------|-------|
-| Decision Header | `decision_type`, `decided_at`, `learner_reference`, `trace.policy_version`, `trace.matched_rule_id`, `output_metadata.priority` | Top-level summary |
+| Decision Header | `decision_type`, `decided_at`, `learner_reference`, `trace.policy_id` (name), `trace.policy_version`, `trace.matched_rule_id`, `output_metadata.priority` | Top-level summary; policy shows name + version when present. |
 | Rationale | `trace.rationale` | Rendered as monospaced text block. Each field comparison on its own line with pass/fail indicator. |
 | Evaluated Thresholds | `trace.matched_rule.evaluated_fields[]` | Table showing field, operator, threshold, actual value, and pass/fail per comparison |
 | State Snapshot | `trace.state_snapshot` | Collapsible JSON viewer with canonical fields highlighted at top |
@@ -328,7 +332,7 @@ Proves explainability, governance, and auditability. This is the enterprise trus
 
 - Given a running control-layer server with POC v2 data, when an enterprise user navigates to `/inspect`, then all four panels are accessible via tabs
 - Given a rejected signal in the ingestion log, when Panel 1 is viewed, then the rejected entry is visible with red color coding and the rejection reason code
-- Given a learner with state, when Panel 2 is viewed and the learner is selected, then all canonical fields (stabilityScore, masteryScore, etc.) are displayed with their current values
+- Given a learner with state, when Panel 2 is viewed and the learner is selected, then the Canonical Fields section shows the same keys as Full State (JSON), with current values (supports multi-policy orgs e.g. staff fields)
 - Given multiple decisions in the system, when Panel 3 is viewed, then decisions appear in reverse chronological order with correct color coding per type
 - Given a decision with an enriched trace, when Panel 4 is viewed for that decision, then the rationale, threshold table, frozen state snapshot, and rule condition are all visible
 
@@ -366,7 +370,8 @@ Proves explainability, governance, and auditability. This is the enterprise trus
 | `GET /v1/ingestion` | `docs/specs/inspection-api.md` §1 | Implemented |
 | `GET /v1/state` | `docs/specs/inspection-api.md` §2 | Implemented |
 | `GET /v1/state/list` | `docs/specs/inspection-api.md` §2.2 | Implemented |
-| `GET /v1/decisions` (with enriched trace) | `docs/specs/inspection-api.md` §3 | Implemented |
+| `GET /v1/receipts` (Panel 3 stream) | `docs/specs/receipts-api.md` | Implemented |
+| Enriched `trace` on Decision (Panel 4) | `docs/specs/inspection-api.md` §3 | Implemented |
 | `output_metadata` on Decision | `docs/specs/inspection-api.md` §4 | Implemented |
 | Existing `GET /v1/signals` | `docs/specs/signal-log.md` | Implemented |
 | Existing `GET /v1/decisions` | `docs/specs/decision-engine.md` | Implemented |
