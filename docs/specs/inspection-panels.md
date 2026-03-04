@@ -210,7 +210,7 @@ Same query parameters and pagination as `GET /v1/decisions`. Receipts are the co
 | Decision | `decision_type` | Color-coded by type (red=escalate, amber=pause, blue=reinforce, green=advance, etc.) |
 | Rule | `trace.matched_rule_id` | Truncated. "(default)" when null. |
 | Priority | — | Receipts omit `output_metadata`; column shows "—". Use `GET /v1/decisions` for priority. |
-| Policy | `trace.policy_id` (name), `trace.policy_version` | When `policy_id` present: "name (version)"; else version only (legacy). |
+| Policy | `trace.policy_id` (name), `trace.policy_version` | "name (version)" (e.g. springs:staff (1.0.0)). |
 | Learner | `learner_reference` | |
 
 ### Interactions

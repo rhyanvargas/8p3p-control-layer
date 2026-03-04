@@ -66,6 +66,7 @@ function buildEnvelope(signalId, sourceSystem, learnerRef, timestamp, payload) {
 }
 
 // 14 signals: 5 "history" signals first (multi-version staff traces), then original 9. Chronological order.
+// expectPolicyId: springs:learner for canvas-lms/blackboard-lms, springs:staff for absorb-lms (per policies/springs/routing.json)
 const SIGNALS = [
   // --- Staff multi-version history (earlier timestamps for longer trace in Panel 2/3/4) ---
   // staff-0201: 3 signals = reinforce → intervene → intervene (compliance decline, days overdue growth)
@@ -78,6 +79,7 @@ const SIGNALS = [
     signalId: 'staff-0201-absorb-002',
     expectStatus: 'accepted',
     expectDecision: 'reinforce',
+    expectPolicyId: 'springs:staff',
   },
   {
     ...buildEnvelope('staff-0201-absorb-003', 'absorb-lms', 'staff-0201', TS.t0b, {
@@ -88,6 +90,7 @@ const SIGNALS = [
     signalId: 'staff-0201-absorb-003',
     expectStatus: 'accepted',
     expectDecision: 'intervene',
+    expectPolicyId: 'springs:staff',
   },
   // staff-0403: 3 signals = reinforce → reinforce → advance (training improvement to model compliance)
   {
@@ -100,6 +103,7 @@ const SIGNALS = [
     signalId: 'staff-0403-absorb-002',
     expectStatus: 'accepted',
     expectDecision: 'reinforce',
+    expectPolicyId: 'springs:staff',
   },
   {
     ...buildEnvelope('staff-0403-absorb-003', 'absorb-lms', 'staff-0403', TS.t0d, {
@@ -111,6 +115,7 @@ const SIGNALS = [
     signalId: 'staff-0403-absorb-003',
     expectStatus: 'accepted',
     expectDecision: 'reinforce',
+    expectPolicyId: 'springs:staff',
   },
   // teacher-7890 (Absorb): 2 signals = reinforce → reinforce (longer staff trace for cross-system demo)
   {
@@ -123,6 +128,7 @@ const SIGNALS = [
     signalId: 'teacher-7890-absorb-002',
     expectStatus: 'accepted',
     expectDecision: 'reinforce',
+    expectPolicyId: 'springs:staff',
   },
   // --- Original 9 scenarios ---
   {
@@ -134,6 +140,7 @@ const SIGNALS = [
     signalId: 'stu-10042-canvas-001',
     expectStatus: 'accepted',
     expectDecision: 'advance',
+    expectPolicyId: 'springs:learner',
   },
   {
     ...buildEnvelope('stu-10042-bb-001', 'blackboard-lms', 'stu-10042', TS.t2, {
@@ -144,6 +151,7 @@ const SIGNALS = [
     signalId: 'stu-10042-bb-001',
     expectStatus: 'accepted',
     expectDecision: 'advance',
+    expectPolicyId: 'springs:learner',
   },
   {
     ...buildEnvelope('stu-20891-canvas-001', 'canvas-lms', 'stu-20891', TS.t3, {
@@ -154,6 +162,7 @@ const SIGNALS = [
     signalId: 'stu-20891-canvas-001',
     expectStatus: 'accepted',
     expectDecision: 'intervene',
+    expectPolicyId: 'springs:learner',
   },
   {
     ...buildEnvelope('stu-30456-bb-001', 'blackboard-lms', 'stu-30456', TS.t4, {
@@ -163,6 +172,7 @@ const SIGNALS = [
     signalId: 'stu-30456-bb-001',
     expectStatus: 'accepted',
     expectDecision: 'reinforce',
+    expectPolicyId: 'springs:learner',
   },
   {
     ...buildEnvelope('staff-0201-absorb-001', 'absorb-lms', 'staff-0201', TS.t5, {
@@ -173,6 +183,7 @@ const SIGNALS = [
     signalId: 'staff-0201-absorb-001',
     expectStatus: 'accepted',
     expectDecision: 'intervene',
+    expectPolicyId: 'springs:staff',
   },
   {
     ...buildEnvelope('staff-0302-absorb-001', 'absorb-lms', 'staff-0302', TS.t6, {
@@ -183,6 +194,7 @@ const SIGNALS = [
     signalId: 'staff-0302-absorb-001',
     expectStatus: 'accepted',
     expectDecision: 'pause',
+    expectPolicyId: 'springs:staff',
   },
   {
     ...buildEnvelope('staff-0403-absorb-001', 'absorb-lms', 'staff-0403', TS.t7, {
@@ -194,6 +206,7 @@ const SIGNALS = [
     signalId: 'staff-0403-absorb-001',
     expectStatus: 'accepted',
     expectDecision: 'advance',
+    expectPolicyId: 'springs:staff',
   },
   {
     ...buildEnvelope('teacher-7890-canvas-001', 'canvas-lms', 'teacher-7890', TS.t8, {
@@ -203,6 +216,7 @@ const SIGNALS = [
     signalId: 'teacher-7890-canvas-001',
     expectStatus: 'accepted',
     expectDecision: 'reinforce',
+    expectPolicyId: 'springs:learner',
   },
   {
     ...buildEnvelope('teacher-7890-absorb-001', 'absorb-lms', 'teacher-7890', TS.t9, {
@@ -214,11 +228,12 @@ const SIGNALS = [
     signalId: 'teacher-7890-absorb-001',
     expectStatus: 'accepted',
     expectDecision: 'reinforce',
+    expectPolicyId: 'springs:staff',
   },
 ];
 
 function toPayload(sig, org) {
-  const { signalId, expectStatus, expectDecision, ...rest } = sig;
+  const { signalId, expectStatus, expectDecision, expectPolicyId, ...rest } = sig;
   return { ...rest, org_id: org };
 }
 
@@ -274,15 +289,20 @@ async function main() {
       const outcome = status === 'accepted' ? 'accepted' : status === 'duplicate' ? 'duplicate' : 'rejected';
 
       let actualDecision = null;
+      let actualPolicyId = null;
       let decisionMatch = true;
-      if (outcome === 'accepted' && sig.expectDecision) {
+      let policyMatch = true;
+      if (outcome === 'accepted' && (sig.expectDecision || sig.expectPolicyId)) {
         await sleep(50);
         const latest = await getLatestDecisionForLearner(base, apiKey, org, sig.learner_reference);
         actualDecision = latest?.decision_type ?? null;
-        decisionMatch = actualDecision === sig.expectDecision;
+        actualPolicyId = latest?.trace?.policy_id ?? null;
+        decisionMatch = sig.expectDecision ? actualDecision === sig.expectDecision : true;
+        policyMatch = sig.expectPolicyId ? actualPolicyId === sig.expectPolicyId : true;
       } else if (outcome === 'duplicate') {
         actualDecision = '(duplicate)';
         decisionMatch = true;
+        policyMatch = true;
       }
 
       results.push({
@@ -290,22 +310,27 @@ async function main() {
         status: res.status,
         outcome,
         actualDecision,
+        actualPolicyId,
         expectedDecision: sig.expectDecision,
+        expectPolicyId: sig.expectPolicyId,
         expectStatus: sig.expectStatus,
         statusMatch: outcome === sig.expectStatus || (outcome === 'duplicate' && sig.expectStatus === 'accepted'),
         decisionMatch,
+        policyMatch,
       });
 
-      const icon = outcome === 'rejected' ? '✗' : outcome === 'duplicate' ? '○' : decisionMatch ? '✓' : '✗';
+      const icon = outcome === 'rejected' ? '✗' : outcome === 'duplicate' ? '○' : decisionMatch && policyMatch ? '✓' : '✗';
       const detail =
         outcome === 'accepted'
-          ? ` → ${actualDecision ?? '?'}`
+          ? ` → ${actualDecision ?? '?'}${actualPolicyId ? ` [${actualPolicyId}]` : ''}`
           : outcome === 'rejected' && body.rejection_reason?.code
             ? ` (${body.rejection_reason.code})`
             : '';
       const expectNote =
         outcome === 'accepted' && !decisionMatch ? ` expected ${sig.expectDecision}` : '';
-      console.log(`  ${icon} ${sig.signalId}: ${outcome}${detail}${expectNote}`);
+      const policyNote =
+        outcome === 'accepted' && !policyMatch && sig.expectPolicyId ? ` expected policy ${sig.expectPolicyId}` : '';
+      console.log(`  ${icon} ${sig.signalId}: ${outcome}${detail}${expectNote}${policyNote}`);
     } catch (err) {
       if (err.cause?.code === 'ECONNREFUSED') {
         console.error('\nConnection refused — is the server running at', base, '?');
@@ -317,15 +342,16 @@ async function main() {
     if (i < SIGNALS.length - 1) await sleep(DELAY_MS);
   }
 
-  const allMatch = results.every((r) => r.statusMatch && r.decisionMatch);
-  const passed = results.filter((r) => r.statusMatch && r.decisionMatch).length;
+  const allMatch = results.every((r) => r.statusMatch && r.decisionMatch && r.policyMatch);
+  const passed = results.filter((r) => r.statusMatch && r.decisionMatch && r.policyMatch).length;
 
   console.log('\n--- Summary ---');
   console.log(`  Sent: ${results.length} | Expected outcomes matched: ${passed}/${results.length}`);
-  results.filter((r) => !r.statusMatch || !r.decisionMatch).forEach((r) => {
+  results.filter((r) => !r.statusMatch || !r.decisionMatch || !r.policyMatch).forEach((r) => {
     const parts = [];
     if (!r.statusMatch) parts.push(`status ${r.outcome} (expected ${r.expectStatus})`);
     if (!r.decisionMatch) parts.push(`decision ${r.actualDecision ?? '?'} (expected ${r.expectedDecision})`);
+    if (!r.policyMatch) parts.push(`policy_id ${r.actualPolicyId ?? '?'} (expected ${r.expectPolicyId})`);
     console.log(`  Mismatch: ${r.signalId} — ${parts.join('; ')}`);
   });
 
@@ -334,6 +360,7 @@ async function main() {
     if (r.actualDecision && r.actualDecision !== '(duplicate)') byType[r.actualDecision] = (byType[r.actualDecision] ?? 0) + 1;
   }
   console.log('  Decisions by type: advance %d, intervene %d, pause %d, reinforce %d', byType.advance, byType.intervene, byType.pause, byType.reinforce);
+  console.log('  Policy IDs: springs:learner (canvas/blackboard), springs:staff (absorb). All decisions include trace.policy_id.');
   console.log('  Cross-system identity: teacher-7890 appears in Canvas + Absorb → 2 decisions, 1 learner.');
   console.log('  Multi-version staff (longer trace): staff-0201 and staff-0403 have 3 signals each; teacher-7890 has 3 (2 Absorb + 1 Canvas).');
   console.log(`\nInspection panels: ${base}/inspect/`);

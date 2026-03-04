@@ -333,8 +333,8 @@ export interface Decision {
   trace: {
     state_id: string;
     state_version: number;
-    /** Policy name (e.g. springs:learner, springs:staff) — distinguishes policies with same version */
-    policy_id?: string;
+    /** Policy identifier — required; each policy is unique and referenced by this id across services. */
+    policy_id: string;
     policy_version: string;
     matched_rule_id: string | null;
     /** Frozen state at evaluation time (enriched trace) */

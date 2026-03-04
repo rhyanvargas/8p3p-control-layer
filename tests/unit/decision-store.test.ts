@@ -34,6 +34,7 @@ function createDecision(overrides: Partial<Decision> = {}): Decision {
     trace: {
       state_id: 'test-org:learner-1:v1',
       state_version: 1,
+      policy_id: 'test-policy',
       policy_version: '1.0.0',
       matched_rule_id: 'rule-1',
       state_snapshot: {},

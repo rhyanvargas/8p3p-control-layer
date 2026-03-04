@@ -989,6 +989,7 @@ components:
       required:
         - state_id
         - state_version
+        - policy_id
         - policy_version
         - matched_rule_id
         - state_snapshot
@@ -1002,7 +1003,8 @@ components:
           type: integer
         policy_id:
           type: string
-          description: Policy name (e.g. springs:learner, springs:staff) that produced this decision; optional for legacy data
+          minLength: 1
+          description: Policy identifier (e.g. springs:learner, springs:staff). Required — each policy is unique and referenced by this id across services.
         policy_version:
           type: string
           pattern: '^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+(\.[a-zA-Z0-9]+)*)?(\+[a-zA-Z0-9]+(\.[a-zA-Z0-9]+)*)?$'

@@ -320,15 +320,13 @@ function rowToDecision(row: DecisionRow): Decision {
     state_id: row.trace_state_id,
     state_version: row.trace_state_version,
     policy_version: row.trace_policy_version,
+    policy_id: row.trace_policy_id ?? 'default',
     matched_rule_id: row.trace_matched_rule_id,
     // Required enriched receipt fields (legacy rows may have NULLs).
     state_snapshot: {},
     matched_rule: null,
     rationale: 'legacy decision: rationale unavailable',
   };
-  if (row.trace_policy_id) {
-    trace.policy_id = row.trace_policy_id;
-  }
   if (row.trace_state_snapshot) {
     trace.state_snapshot = JSON.parse(row.trace_state_snapshot) as Record<string, unknown>;
   }
