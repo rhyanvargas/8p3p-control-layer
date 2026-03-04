@@ -9,8 +9,9 @@ overview: |
   accumulates into a single STATE record and canonical decision history; (3) org-wide
   decision history as a reliable foundation for smart IT apps. Covers 7 learner/staff
   scenarios across all 4 decision types (intervene, pause, reinforce, advance) plus one
-  cross-system identity "showstopper" scenario. Requires updating springs/routing.json to
-  register absorb-lms and blackboard-lms source systems.
+  cross-system identity "showstopper" scenario. Script sends 14 signals (5 multi-version
+  staff history + 9 core scenarios) for longer state/receipt traces in panels. Requires
+  updating springs/routing.json to register absorb-lms and blackboard-lms source systems.
 todos:
   - id: TASK-001
     content: Update springs/routing.json to add absorb-lms + blackboard-lms source systems
@@ -67,15 +68,15 @@ Springs Charter Schools is a K-12 + workforce training organization that operate
 ## Design Decisions
 
 
-| Decision                 | Choice                                       | Rationale                                                                                                                        |
-| ------------------------ | -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| org_id                   | `springs`                                    | Matches existing integration test suite; uses real org policy files                                                              |
-| Source systems           | `canvas-lms`, `blackboard-lms`, `absorb-lms` | Real names Spring IT would recognize in their systems                                                                            |
-| Script format            | Standalone `.mjs` (ES module)                | Matches `seed-demo.mjs` pattern; runs with `node` directly                                                                       |
-| Idempotent re-runs       | Fixed `signal_id` values per run             | Re-runs produce duplicates, not double data                                                                                      |
-| Scenario count           | 7 scenarios (not all learners)               | Enough to hit all 4 decision types + cross-system demo without overwhelming panels                                               |
-| Cross-system showstopper | `teacher-7890` in Canvas + Absorb            | Teacher as both course participant AND staff trainee — same canonical identity, 2 different policy evaluations per signal source |
-| Fixed timestamps         | 2026-03-02T09:00:00Z through ...T09:12:00Z   | Predictable ordering in panels; clearly labeled as demo data                                                                     |
+| Decision                 | Choice                                       | Rationale                                                                                                         |
+| ------------------------ | -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| org_id                   | `springs`                                    | Matches existing integration test suite; uses real org policy files                                               |
+| Source systems           | `canvas-lms`, `blackboard-lms`, `absorb-lms` | Real names Spring IT would recognize in their systems                                                             |
+| Script format            | Standalone `.mjs` (ES module)                | Matches `seed-demo.mjs` pattern; runs with `node` directly                                                        |
+| Idempotent re-runs       | Fixed `signal_id` values per run             | Re-runs produce duplicates, not double data                                                                       |
+| Scenario count           | 7 scenarios (not all learners)               | Enough to hit all 4 decision types + cross-system demo without overwhelming panels                                |
+| Cross-system showstopper | `teacher-7890` in Canvas + Absorb            | Teacher as both course participant AND staff trainee — same canonical identity; 3 decisions (2 Absorb + 1 Canvas) |
+| Fixed timestamps         | 2026-03-02T08:50:00Z through ...T09:16:00Z   | Predictable ordering; earlier timestamps for multi-version staff history                                          |
 
 
 ---
@@ -172,16 +173,17 @@ Springs Charter Schools is a K-12 + workforce training organization that operate
 
 | Signal                    | Source System | Payload                                                                              | Policy            | Expected Decision                                                     |
 | ------------------------- | ------------- | ------------------------------------------------------------------------------------ | ----------------- | --------------------------------------------------------------------- |
+| `teacher-7890-absorb-002` | `absorb-lms`  | complianceScore: 0.68, trainingScore: 0.62, daysOverdue: 5, certificationValid: true | `springs:staff`   | `reinforce` (rule-reinforce: trainingScore < 0.7 ✓)                   |
 | `teacher-7890-canvas-001` | `canvas-lms`  | stabilityScore: 0.48, timeSinceReinforcement: 95000                                  | `springs:learner` | `reinforce` (rule-reinforce: stability < 0.65 ✓, timeSince > 86400 ✓) |
 | `teacher-7890-absorb-001` | `absorb-lms`  | complianceScore: 0.72, trainingScore: 0.60, daysOverdue: 3, certificationValid: true | `springs:staff`   | `reinforce` (rule-reinforce: trainingScore < 0.7 ✓)                   |
 
 
 **Demo point**:
 
-- GET `/v1/decisions?org_id=springs&learner_reference=teacher-7890` returns **2 decisions**
-- `teacher-7890-canvas-001` decision: `trace.policy_version` from `springs:learner`, `state_snapshot` has `stabilityScore`
-- `teacher-7890-absorb-001` decision: `trace.policy_version` from `springs:staff`, `state_snapshot` has `complianceScore`
-- Both are canonical decisions for `teacher-7890` — one person, one decision history, two policy evaluations
+- GET `/v1/decisions?org_id=springs&learner_reference=teacher-7890` returns **3 decisions**
+- `teacher-7890-absorb-002` and `teacher-7890-absorb-001`: `trace.policy_version` from `springs:staff`, `state_snapshot` has `complianceScore`
+- `teacher-7890-canvas-001`: `trace.policy_version` from `springs:learner`, `state_snapshot` has `stabilityScore`
+- All are canonical decisions for `teacher-7890` — one person, one decision history, two policies (learner + staff) applied per source
 
 ---
 
@@ -265,7 +267,7 @@ Walk through each scenario against policy rule priority order and confirm no ina
   - **teacher-7890 (Canvas)**: stability 0.48 — skips intervene/pause, skips advance (mastery not set → undefined, < 0.8), matches reinforce (0.48 < 0.65 AND timeSince 95000 > 86400) ✓
   - **teacher-7890 (Absorb)**: no intervene (compliance 0.72 ≥ 0.5), no pause (cert valid), no advance (training 0.60 < 0.85), matches reinforce (trainingScore 0.60 < 0.7) ✓
 - **Depends on**: TASK-001
-- **Verification**: All 9 expected decisions match policy rules on paper
+- **Verification**: All 14 expected decisions (9 core + 5 history) match policy rules on paper
 
 ---
 
@@ -276,28 +278,30 @@ Walk through each scenario against policy rule priority order and confirm no ina
 - **Details**:
 Same structure as `scripts/seed-demo.mjs` — ES module, CLI args, fetch-based, idempotent:
   - CLI: `--host` (default `http://localhost:3000`), `--api-key` (default `API_KEY` env), `--org` (default `springs`)
-  - Fixed timestamps (2026-03-02T09:00:00Z through T09:12:00Z, 2min apart)
-  - Signal array: 9 signals in order (L1a, L1b, L2, L3, S1, S2, S3, X1a, X1b)
+  - Fixed timestamps (2026-03-02T08:50:00Z through T09:16:00Z; 5 earlier for multi-version staff, then 9 core)
+  - Signal array: 14 signals in chronological order (5 staff history: staff-0201×2, staff-0403×2, teacher-7890×1; then L1a, L1b, L2, L3, S1, S2, S3, X1a, X1b)
   - Output: per-signal result line (`✓`/`✗`/`○`) + expected vs actual
   - Summary block with:
     - Counts by decision type (advance, intervene, pause, reinforce)
-    - Cross-system identity note: "teacher-7890 appears in Canvas + Absorb → 2 decisions, 1 learner"
+    - Cross-system identity note: "teacher-7890 appears in Canvas + Absorb → 3 decisions, 1 learner"
+    - Multi-version staff note: staff-0201 and staff-0403 have 3 signals each
     - Panel URL: `${base}/inspect/`
   - Error handling: ECONNREFUSED, 401, malformed response
-  - Idempotency: all `signal_id` values are fixed strings — re-runs produce `duplicate` outcomes
-  Signal ID scheme:
+  - Idempotency: all `signal_id` values are fixed strings — re-runs produce `duplicate` outcomes (duplicate counts as success when expected accepted)
+  Signal ID scheme (14 signals):
 
 ```
-  stu-10042-canvas-001     stu-10042-bb-001
-  stu-20891-canvas-001     stu-30456-bb-001
-  staff-0201-absorb-001    staff-0302-absorb-001    staff-0403-absorb-001
-  teacher-7890-canvas-001  teacher-7890-absorb-001
+  staff-0201-absorb-002   staff-0201-absorb-003   staff-0403-absorb-002   staff-0403-absorb-003   teacher-7890-absorb-002
+  stu-10042-canvas-001    stu-10042-bb-001
+  stu-20891-canvas-001    stu-30456-bb-001
+  staff-0201-absorb-001   staff-0302-absorb-001    staff-0403-absorb-001
+  teacher-7890-canvas-001 teacher-7890-absorb-001
   
 
 ```
 
 - **Depends on**: TASK-001, TASK-002
-- **Verification**: `node scripts/seed-springs-demo.mjs` completes with 0 exit code; all 9 outcomes match expected; no unexpected rejections
+- **Verification**: `node scripts/seed-springs-demo.mjs` completes with 0 exit code; all 14 outcomes match expected (accepted or duplicate on re-run); no unexpected rejections
 
 ---
 
@@ -308,7 +312,7 @@ Same structure as `scripts/seed-demo.mjs` — ES module, CLI args, fetch-based, 
 - **Details**:
 Structured as a 3-minute demo script targeting a Springs IT director or CTO audience.
 **Narrative arc** — "One school, two populations, three LMS systems, one decision record per person":
-  1. **Setup** (30s): Run `npm run seed:springs-demo`. Show clean output — 9 signals, all outcomes match.
+  1. **Setup** (30s): Run `npm run seed:springs-demo`. Show clean output — 14 signals, all outcomes match.
   2. **Panel 1 — Signal Intake** (30s): Enter org_id `springs`. Show signals from `canvas-lms`, `blackboard-lms`, `absorb-lms` — all accepted. Point out: "Signals arrive from your three LMS platforms. 8P3P sees all of them."
   3. **Panel 2 — State Viewer** (30s): Select `stu-10042`. Show state record — both Canvas and Blackboard signals contributed. State has fields from both signals merged. "One state record for this student, regardless of which LMS sent the data. This is the single source of truth."
   4. **Panel 3 — Decision Stream** (45s): Filter by `springs`. Show advance decisions for `stu-10042` (from both LMS sources). Show intervene for `stu-20891`. Show pause for `staff-0302`. "Every decision is logged with which rule fired and why. IT can query this programmatically."
@@ -320,7 +324,7 @@ Structured as a 3-minute demo script targeting a Springs IT director or CTO audi
   - Panel 4: "Policy is tenant-specific and per user type. Students and staff get evaluated on the fields that matter for them — but the decision history lives in one place."
   Total demo time target: 3 minutes with narration, 90 seconds fast-paced.
 - **Depends on**: TASK-002
-- **Verification**: Can be followed end-to-end against seeded data; reaches `teacher-7890` dual-decision demo point without dead ends
+  - **Verification**: Can be followed end-to-end against seeded data; reaches `teacher-7890` multi-decision demo point (3 decisions) and optional staff-0201/staff-0403 multi-version trace without dead ends
 
 ---
 
@@ -332,13 +336,14 @@ Structured as a 3-minute demo script targeting a Springs IT director or CTO audi
 Add `"seed:springs-demo": "node scripts/seed-springs-demo.mjs"` to `scripts` in `package.json`.
 End-to-end verification checklist:
   - `npm run dev` running (background)
-  - `npm run seed:springs-demo` exits 0, all 9 expected outcomes match
-  - Panel 1: 9+ rows showing signals from `canvas-lms`, `blackboard-lms`, `absorb-lms`
+  - `npm run seed:springs-demo` exits 0, all 14 expected outcomes match (accepted on first run; duplicate on re-run counts as match)
+  - Panel 1: 14+ rows showing signals from `canvas-lms`, `blackboard-lms`, `absorb-lms`
   - Panel 2: `stu-10042` state record shows merged data from 2 LMS sources
   - Panel 2: `teacher-7890` state record shows both `stabilityScore` (from Canvas) and `complianceScore` (from Absorb)
-  - Panel 3: Decisions include `advance` (stu-10042, staff-0403), `intervene` (stu-20891, staff-0201), `pause` (staff-0302), `reinforce` (stu-30456, teacher-7890 x2)
-  - Panel 4: `teacher-7890` shows 2 decisions with different `policy_id` values in trace — `springs:learner` and `springs:staff`
-  - Re-run produces 9 duplicates (idempotent)
+  - Panel 2 (optional): `staff-0201` or `staff-0403` show multiple state versions (v1 → v2 → v3)
+  - Panel 3: Decisions include `advance` (stu-10042, staff-0403), `intervene` (stu-20891, staff-0201), `pause` (staff-0302), `reinforce` (stu-30456, teacher-7890×3); staff-0201 and staff-0403 have 3 decisions each
+  - Panel 4: `teacher-7890` shows 3 decisions with `springs:learner` and `springs:staff` in trace
+  - Re-run produces 14 duplicates (idempotent)
 - **Depends on**: TASK-003, TASK-004
 - **Verification**: All checklist items pass; walkthrough can be completed in < 3 minutes
 
@@ -349,10 +354,10 @@ End-to-end verification checklist:
 ### To Create
 
 
-| File                                      | Task     | Purpose                                                               |
-| ----------------------------------------- | -------- | --------------------------------------------------------------------- |
-| `scripts/seed-springs-demo.mjs`           | TASK-003 | Springs-specific seed script (9 signals, 3 LMS sources, 2 user types) |
-| `docs/guides/springs-demo-walkthrough.md` | TASK-004 | IT-director demo script (~3 min)                                      |
+| File                                      | Task     | Purpose                                                                                                |
+| ----------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------ |
+| `scripts/seed-springs-demo.mjs`           | TASK-003 | Springs-specific seed script (14 signals, 5 multi-version staff + 9 core, 3 LMS sources, 2 user types) |
+| `docs/guides/springs-demo-walkthrough.md` | TASK-004 | IT-director demo script (~3 min)                                                                       |
 
 
 ### To Modify
@@ -369,15 +374,15 @@ End-to-end verification checklist:
 ## Test Plan
 
 
-| Test ID          | Type   | Description                                                                                    | Task     |
-| ---------------- | ------ | ---------------------------------------------------------------------------------------------- | -------- |
-| SPRINGS-SEED-001 | manual | Script runs without error; 9/9 outcomes match expected                                         | TASK-003 |
-| SPRINGS-SEED-002 | manual | Re-run produces 9 duplicates (idempotent)                                                      | TASK-003 |
-| SPRINGS-SEED-003 | manual | Panel 2 shows `stu-10042` state with merged Canvas + Blackboard data                           | TASK-005 |
-| SPRINGS-SEED-004 | manual | Panel 3 shows both `springs:learner` and `springs:staff` policy decisions                      | TASK-005 |
-| SPRINGS-SEED-005 | manual | Panel 4: `teacher-7890` has 2 decisions — `springs:learner` trace and `springs:staff` trace    | TASK-005 |
-| SPRINGS-SEED-006 | manual | `npm test` still passes (routing.json change doesn't break existing springs integration tests) | TASK-001 |
-| SPRINGS-SEED-007 | manual | Demo walkthrough completes in < 3 minutes from Panel 1 → Panel 4                               | TASK-004 |
+| Test ID          | Type   | Description                                                                                            | Task     |
+| ---------------- | ------ | ------------------------------------------------------------------------------------------------------ | -------- |
+| SPRINGS-SEED-001 | manual | Script runs without error; 14/14 outcomes match expected (accepted or duplicate on re-run)             | TASK-003 |
+| SPRINGS-SEED-002 | manual | Re-run produces 14 duplicates (idempotent)                                                             | TASK-003 |
+| SPRINGS-SEED-003 | manual | Panel 2 shows `stu-10042` state with merged Canvas + Blackboard data                                   | TASK-005 |
+| SPRINGS-SEED-004 | manual | Panel 3 shows both `springs:learner` and `springs:staff` policy decisions                              | TASK-005 |
+| SPRINGS-SEED-005 | manual | Panel 4: `teacher-7890` has 3 decisions — `springs:learner` trace and `springs:staff` trace (2 Absorb) | TASK-005 |
+| SPRINGS-SEED-006 | manual | `npm test` still passes (routing.json change doesn't break existing springs integration tests)         | TASK-001 |
+| SPRINGS-SEED-007 | manual | Demo walkthrough completes in < 3 minutes from Panel 1 → Panel 4                                       | TASK-004 |
 
 
 ---
@@ -403,7 +408,7 @@ End-to-end verification checklist:
 - Re-run produces only duplicates (idempotent)
 - `npm test` passes (no regression to springs-pilot.test.ts)
 - All 4 panels render Springs data correctly
-- `teacher-7890` shows 2 decisions — one per source system — with different `policy_id` in trace
+- `teacher-7890` shows 3 decisions — one Canvas (springs:learner), two Absorb (springs:staff) — with different `policy_id` in trace
 - Demo walkthrough completes in < 3 minutes
 
 ---
