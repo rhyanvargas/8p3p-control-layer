@@ -295,6 +295,16 @@ describe('Inspection Panels Integration', () => {
     const decisionsBody = decisionsRes.json();
     expect(Array.isArray(decisionsBody.decisions)).toBe(true);
     expect(decisionsBody.decisions.length).toBeGreaterThan(0);
+
+    const receiptsRes = await app.inject({
+      method: 'GET',
+      url: `/v1/receipts?org_id=test-org&learner_reference=${learnerRef}&from_time=2020-01-01T00:00:00Z&to_time=2030-12-31T23:59:59Z`,
+      headers: { 'x-api-key': TEST_API_KEY },
+    });
+    expect(receiptsRes.statusCode).toBe(200);
+    const receiptsBody = receiptsRes.json();
+    expect(Array.isArray(receiptsBody.receipts)).toBe(true);
+    expect(receiptsBody.receipts.length).toBe(decisionsBody.decisions.length);
   });
 
   // ---------------------------------------------------------------------------

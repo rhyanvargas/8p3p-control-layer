@@ -3,7 +3,10 @@
  * Spec: docs/specs/inspection-panels.md
  * Plan: .cursor/plans/inspection-panels.plan.md (TASK-007)
  *
- * Note: GET /v1/decisions requires learner_reference. When empty, panel shows prompt.
+ * Data source: GET /v1/receipts (compliance/audit projection). Same query params as
+ * GET /v1/decisions; receipts omit decision_context and output_metadata. Pri column
+ * shows "—" because receipts do not include priority.
+ * Note: learner_reference is required for the API; when empty, panel shows prompt.
  */
 
 (function () {
@@ -41,8 +44,8 @@
     return 'decision-reinforce';
   }
 
-  function encodeDecision(decision) {
-    return encodeURIComponent(JSON.stringify(decision));
+  function encodeDecision(receipt, learnerRef) {
+    return encodeURIComponent(JSON.stringify({ ...receipt, learner_reference: learnerRef }));
   }
 
   function decodeDecision(encoded) {
@@ -74,7 +77,7 @@
           <label>To: <input type="datetime-local" id="decisions-to" title="Default: 2030-12-31T23:59:59Z when empty"></label>
           <button type="button" id="decisions-load" class="primary">Load</button>
         </div>
-        <div class="empty-state">Enter learner reference and click Load to fetch decisions. Open <a href="#state">State Viewer</a> to copy learner IDs.</div>
+        <div class="empty-state">Enter learner reference and click Load to fetch receipts. Open <a href="#state">State Viewer</a> to copy learner IDs.</div>
       `;
       document.getElementById('decisions-learner')?.focus();
       document.getElementById('decisions-load')?.addEventListener('click', refresh);
@@ -88,7 +91,7 @@
       const from = fromEl?.value ? new Date(fromEl.value).toISOString() : '2020-01-01T00:00:00Z';
       const to = toEl?.value ? new Date(toEl.value).toISOString() : '2030-12-31T23:59:59Z';
 
-      const res = await window.API.fetch('/v1/decisions', {
+      const res = await window.API.fetch('/v1/receipts', {
         org_id: org,
         learner_reference: learner,
         from_time: from,
@@ -96,14 +99,15 @@
         page_size: 50,
       });
 
-      const decisions = res.decisions || [];
+      const receipts = res.receipts || [];
+      const learnerRef = res.learner_reference || learner;
       let nextToken = res.next_page_token;
 
       const esc = window.UI.escapeHtml;
       const fmt = window.UI.formatTime;
 
       let html = `
-        <h2>DECISION STREAM</h2>
+        <h2>DECISION STREAM (Receipts)</h2>
         <div class="controls" style="margin-bottom:12px">
           <label>Learner: <input type="text" id="decisions-learner" value="${esc(learner)}" placeholder="learner_reference"></label>
           <label>From: <input type="datetime-local" id="decisions-from" value="${fromEl?.value || ''}" title="Default: 2020-01-01T00:00:00Z when empty"></label>
@@ -112,8 +116,8 @@
         </div>
       `;
 
-      if (decisions.length === 0) {
-        html += '<div class="empty-state">No decisions for this learner in the selected time range.</div>';
+      if (receipts.length === 0) {
+        html += '<div class="empty-state">No receipts for this learner in the selected time range.</div>';
       } else {
         html += `
           <table>
@@ -123,22 +127,21 @@
             <tbody>
         `;
 
-        for (const d of decisions) {
-          const trace = d.trace || {};
-          const meta = d.output_metadata || {};
+        for (const r of receipts) {
+          const trace = r.trace || {};
           const ruleId = trace.matched_rule_id != null ? esc(String(trace.matched_rule_id)) : '(default)';
-          const priority = meta.priority != null ? meta.priority : '—';
-          const policy = esc(trace.policy_version || '—');
-          const cls = decisionClass(d.decision_type);
-          const encodedDecision = encodeDecision(d);
+          const policy = trace.policy_id
+            ? esc(trace.policy_id) + (trace.policy_version ? ' / ' + esc(trace.policy_version) : '')
+            : esc(trace.policy_version || '—');
+          const cls = decisionClass(r.decision_type);
 
-          html += `<tr class="clickable" data-decision="${encodedDecision}">`;
-          html += `<td>${fmt(d.decided_at)}</td>`;
-          html += `<td class="${cls}" title="${decisionTooltip(d.decision_type)}">${esc(d.decision_type || '—')}</td>`;
+          html += `<tr class="clickable" data-decision="${encodeDecision(r, learnerRef)}">`;
+          html += `<td>${fmt(r.decided_at)}</td>`;
+          html += `<td class="${cls}" title="${decisionTooltip(r.decision_type)}">${esc(r.decision_type || '—')}</td>`;
           html += `<td>${ruleId}</td>`;
-          html += `<td>${esc(String(priority))}</td>`;
+          html += `<td>—</td>`;
           html += `<td>${policy}</td>`;
-          html += `<td>${esc(d.learner_reference || '—')}</td>`;
+          html += `<td>${esc(learnerRef)}</td>`;
           html += '</tr>';
         }
 
@@ -167,7 +170,7 @@
       document.getElementById('decisions-load-more')?.addEventListener('click', async () => {
         if (!nextToken) return;
         const org = window.API.getOrgId();
-        const res2 = await window.API.fetch('/v1/decisions', {
+        const res2 = await window.API.fetch('/v1/receipts', {
           org_id: org,
           learner_reference: learner,
           from_time: from,
@@ -175,21 +178,22 @@
           page_size: 50,
           page_token: nextToken,
         });
-        const more = res2.decisions || [];
+        const more = res2.receipts || [];
         const tbody = container.querySelector('tbody');
         const fmt2 = window.UI.formatTime;
         const esc2 = window.UI.escapeHtml;
-        for (const d of more) {
-          const trace = d.trace || {};
-          const meta = d.output_metadata || {};
+        const learnerRef2 = res2.learner_reference || learner;
+        for (const r of more) {
+          const trace = r.trace || {};
           const ruleId = trace.matched_rule_id != null ? esc2(String(trace.matched_rule_id)) : '(default)';
-          const priority = meta.priority != null ? meta.priority : '—';
-          const policy = esc2(trace.policy_version || '—');
-          const cls = decisionClass(d.decision_type);
+          const policy = trace.policy_id
+            ? esc2(trace.policy_id) + (trace.policy_version ? ' / ' + esc2(trace.policy_version) : '')
+            : esc2(trace.policy_version || '—');
+          const cls = decisionClass(r.decision_type);
           const row = document.createElement('tr');
           row.className = 'clickable';
-          row.setAttribute('data-decision', encodeDecision(d));
-          row.innerHTML = `<td>${fmt2(d.decided_at)}</td><td class="${cls}" title="${decisionTooltip(d.decision_type)}">${esc2(d.decision_type || '—')}</td><td>${ruleId}</td><td>${esc2(String(priority))}</td><td>${policy}</td><td>${esc2(d.learner_reference || '—')}</td>`;
+          row.setAttribute('data-decision', encodeDecision(r, learnerRef2));
+          row.innerHTML = `<td>${fmt2(r.decided_at)}</td><td class="${cls}" title="${decisionTooltip(r.decision_type)}">${esc2(r.decision_type || '—')}</td><td>${ruleId}</td><td>—</td><td>${policy}</td><td>${esc2(learnerRef2)}</td>`;
           row.addEventListener('click', () => {
             const encoded = row.getAttribute('data-decision');
             const decision = decodeDecision(encoded);
@@ -205,7 +209,7 @@
         if (!nextToken && loadMoreBtn) loadMoreBtn.remove();
       });
     } catch (err) {
-      window.UI.showError(container, err.message || 'Failed to load decisions');
+      window.UI.showError(container, err.message || 'Failed to load receipts');
     }
   }
 

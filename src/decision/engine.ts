@@ -191,6 +191,7 @@ export function evaluateState(request: EvaluateStateForDecisionRequest): Evaluat
     trace: {
       state_id: currentState.state_id,
       state_version: currentState.state_version,
+      policy_id: policy.policy_id,
       policy_version: policyVersion,
       matched_rule_id: evalResult.matched_rule_id,
       state_snapshot: stateSnapshot,

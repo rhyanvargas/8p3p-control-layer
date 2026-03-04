@@ -55,6 +55,10 @@
           "type": "integer",
           "description": "State version used for evaluation"
         },
+        "policy_id": {
+          "type": "string",
+          "description": "Policy name (e.g. springs:learner, springs:staff) that produced this decision"
+        },
         "policy_version": {
           "type": "string",
           "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9]+(\\.[a-zA-Z0-9]+)*)?(\\+[a-zA-Z0-9]+(\\.[a-zA-Z0-9]+)*)?$",

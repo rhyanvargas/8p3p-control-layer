@@ -1000,6 +1000,9 @@ components:
           type: string
         state_version:
           type: integer
+        policy_id:
+          type: string
+          description: Policy name (e.g. springs:learner, springs:staff) that produced this decision; optional for legacy data
         policy_version:
           type: string
           pattern: '^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+(\.[a-zA-Z0-9]+)*)?(\+[a-zA-Z0-9]+(\.[a-zA-Z0-9]+)*)?$'

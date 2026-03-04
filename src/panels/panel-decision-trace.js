@@ -48,7 +48,7 @@
         <tr><td>type</td><td>${esc(decision.decision_type || '—')}</td></tr>
         <tr><td>decided_at</td><td>${esc(decision.decided_at || '—')}</td></tr>
         <tr><td>learner</td><td>${esc(decision.learner_reference || '—')}</td></tr>
-        <tr><td>policy</td><td>${esc(trace.policy_version || '—')}</td></tr>
+        <tr><td>policy</td><td>${esc(trace.policy_id ? trace.policy_id + ' (' + (trace.policy_version || '') + ')' : (trace.policy_version || '—'))}</td></tr>
         <tr><td>rule</td><td>${esc(trace.matched_rule_id != null ? String(trace.matched_rule_id) : '—')}</td></tr>
         <tr><td>priority</td><td>${meta.priority != null ? esc(String(meta.priority)) : '—'}</td></tr>
       </table>

@@ -34,6 +34,7 @@ export class SqliteDecisionRepository implements DecisionRepository {
         decision_context TEXT NOT NULL,
         trace_state_id TEXT NOT NULL,
         trace_state_version INTEGER NOT NULL,
+        trace_policy_id TEXT,
         trace_policy_version TEXT NOT NULL,
         trace_matched_rule_id TEXT,
         trace_state_snapshot TEXT,
@@ -45,6 +46,7 @@ export class SqliteDecisionRepository implements DecisionRepository {
     `);
     this.migrateAddOutputMetadata();
     this.migrateAddEnrichedTraceColumns();
+    this.migrateAddTracePolicyId();
     this.db.exec(`
       CREATE INDEX IF NOT EXISTS idx_decisions_query
       ON decisions(org_id, learner_reference, decided_at)
@@ -75,14 +77,22 @@ export class SqliteDecisionRepository implements DecisionRepository {
     }
   }
 
+  /** Migration: add trace_policy_id if missing (existing DBs) */
+  private migrateAddTracePolicyId(): void {
+    const info = this.db.pragma('table_info(decisions)') as Array<{ name: string }>;
+    if (!info.some((c) => c.name === 'trace_policy_id')) {
+      this.db.exec('ALTER TABLE decisions ADD COLUMN trace_policy_id TEXT');
+    }
+  }
+
   saveDecision(decision: Decision): void {
     const stmt = this.db.prepare(`
       INSERT INTO decisions (
         org_id, decision_id, learner_reference, decision_type, decided_at,
-        decision_context, trace_state_id, trace_state_version, trace_policy_version, trace_matched_rule_id,
+        decision_context, trace_state_id, trace_state_version, trace_policy_id, trace_policy_version, trace_matched_rule_id,
         trace_state_snapshot, trace_matched_rule, trace_rationale, output_metadata
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     stmt.run(
       decision.org_id,
@@ -93,6 +103,7 @@ export class SqliteDecisionRepository implements DecisionRepository {
       JSON.stringify(decision.decision_context),
       decision.trace.state_id,
       decision.trace.state_version,
+      decision.trace.policy_id ?? null,
       decision.trace.policy_version,
       decision.trace.matched_rule_id,
       JSON.stringify(decision.trace.state_snapshot),
@@ -112,7 +123,7 @@ export class SqliteDecisionRepository implements DecisionRepository {
 
     const stmt = this.db.prepare(`
       SELECT id, org_id, decision_id, learner_reference, decision_type, decided_at,
-             decision_context, trace_state_id, trace_state_version, trace_policy_version, trace_matched_rule_id,
+             decision_context, trace_state_id, trace_state_version, trace_policy_id, trace_policy_version, trace_matched_rule_id,
              trace_state_snapshot, trace_matched_rule, trace_rationale, output_metadata
       FROM decisions
       WHERE org_id = ?
@@ -153,7 +164,7 @@ export class SqliteDecisionRepository implements DecisionRepository {
   getDecisionById(orgId: string, decisionId: string): Decision | null {
     const stmt = this.db.prepare(`
       SELECT id, org_id, decision_id, learner_reference, decision_type, decided_at,
-             decision_context, trace_state_id, trace_state_version, trace_policy_version, trace_matched_rule_id,
+             decision_context, trace_state_id, trace_state_version, trace_policy_id, trace_policy_version, trace_matched_rule_id,
              trace_state_snapshot, trace_matched_rule, trace_rationale, output_metadata
       FROM decisions
       WHERE org_id = ? AND decision_id = ?
@@ -295,6 +306,7 @@ interface DecisionRow {
   decision_context: string;
   trace_state_id: string;
   trace_state_version: number;
+  trace_policy_id: string | null;
   trace_policy_version: string;
   trace_matched_rule_id: string | null;
   trace_state_snapshot: string | null;
@@ -314,6 +326,9 @@ function rowToDecision(row: DecisionRow): Decision {
     matched_rule: null,
     rationale: 'legacy decision: rationale unavailable',
   };
+  if (row.trace_policy_id) {
+    trace.policy_id = row.trace_policy_id;
+  }
   if (row.trace_state_snapshot) {
     trace.state_snapshot = JSON.parse(row.trace_state_snapshot) as Record<string, unknown>;
   }
