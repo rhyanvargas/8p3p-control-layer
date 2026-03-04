@@ -57,6 +57,25 @@
     }
   }
 
+  /** Fetch learner_reference list for current org from GET /v1/state/list (for dropdown). */
+  async function fetchLearnersForOrg() {
+    const org = window.API.getOrgId();
+    const res = await window.API.fetch('/v1/state/list', { org_id: org, limit: 200 });
+    const learners = res.learners || [];
+    return learners.map((l) => (l && l.learner_reference) || '').filter(Boolean);
+  }
+
+  /** Build <select> markup for learner dropdown; options = [empty] + learnerRefs. */
+  function buildLearnerSelectOptions(learnerRefs, selectedLearner) {
+    const esc = window.UI.escapeHtml;
+    let opts = '<option value="">Select learner...</option>';
+    for (const ref of learnerRefs) {
+      const sel = ref === selectedLearner ? ' selected' : '';
+      opts += `<option value="${esc(ref)}"${sel}>${esc(ref)}</option>`;
+    }
+    return opts;
+  }
+
   async function refresh() {
     const container = getContainer();
     if (!container) return;
@@ -67,19 +86,26 @@
 
     const learner = learnerEl?.value?.trim() || '';
     const orgDisplay = (document.getElementById('org-id')?.value?.trim()) || '—';
+
     if (!learner) {
+      let learnerRefs = [];
+      try {
+        learnerRefs = await fetchLearnersForOrg();
+      } catch (_) {
+        learnerRefs = [];
+      }
+      const opts = buildLearnerSelectOptions(learnerRefs, '');
       container.innerHTML = `
         <h2>DECISION STREAM</h2>
         <div class="controls" style="margin-bottom:12px">
           <label>Org: <span class="org-display">${window.UI.escapeHtml(orgDisplay)}</span></label>
-          <label>Learner: <input type="text" id="decisions-learner" placeholder="learner_reference (required)"></label>
+          <label>Learner: <select id="decisions-learner" title="Select a learner with state in this org">${opts}</select></label>
           <label>From: <input type="datetime-local" id="decisions-from" title="Default: 2020-01-01T00:00:00Z when empty"></label>
           <label>To: <input type="datetime-local" id="decisions-to" title="Default: 2030-12-31T23:59:59Z when empty"></label>
           <button type="button" id="decisions-load" class="primary">Load</button>
         </div>
-        <div class="empty-state">Enter learner reference and click Load to fetch receipts. Open <a href="#state">State Viewer</a> to copy learner IDs.</div>
+        <div class="empty-state">Select a learner from the dropdown and click Load to fetch receipts. Learners are loaded from State Viewer data. Open <a href="#state">State Viewer</a> to see state per learner.</div>
       `;
-      document.getElementById('decisions-learner')?.focus();
       document.getElementById('decisions-load')?.addEventListener('click', refresh);
       return;
     }
@@ -90,6 +116,13 @@
       const org = window.API.getOrgId();
       const from = fromEl?.value ? new Date(fromEl.value).toISOString() : '2020-01-01T00:00:00Z';
       const to = toEl?.value ? new Date(toEl.value).toISOString() : '2030-12-31T23:59:59Z';
+
+      let learnerRefs = [];
+      try {
+        learnerRefs = await fetchLearnersForOrg();
+      } catch (_) {
+        learnerRefs = [];
+      }
 
       const res = await window.API.fetch('/v1/receipts', {
         org_id: org,
@@ -105,11 +138,12 @@
 
       const esc = window.UI.escapeHtml;
       const fmt = window.UI.formatTime;
+      const learnerSelectOpts = buildLearnerSelectOptions(learnerRefs, learner);
 
       let html = `
         <h2>DECISION STREAM (Receipts)</h2>
         <div class="controls" style="margin-bottom:12px">
-          <label>Learner: <input type="text" id="decisions-learner" value="${esc(learner)}" placeholder="learner_reference"></label>
+          <label>Learner: <select id="decisions-learner" title="Select a learner">${learnerSelectOpts}</select></label>
           <label>From: <input type="datetime-local" id="decisions-from" value="${fromEl?.value || ''}" title="Default: 2020-01-01T00:00:00Z when empty"></label>
           <label>To: <input type="datetime-local" id="decisions-to" value="${toEl?.value || ''}" title="Default: 2030-12-31T23:59:59Z when empty"></label>
           <button type="button" id="decisions-load" class="primary">Load</button>

@@ -215,7 +215,7 @@ Same query parameters and pagination as `GET /v1/decisions`. Receipts are the co
 
 ### Interactions
 
-- **Filter by org_id and learner:** Text inputs (org required, learner required — `GET /v1/receipts` requires `learner_reference`; for org-wide receipts use the fan-out pattern via `GET /v1/state/list`, see `docs/guides/get-all-learner-decisions-from-org.md`)
+- **Filter by org_id and learner:** Org read-only; learner is a **dropdown** prefilled from `GET /v1/state/list` (learners with state in the org). Select learner then click Load to fetch `GET /v1/receipts`. For org-wide receipts use the fan-out pattern via `GET /v1/state/list`, see `docs/guides/get-all-learner-decisions-from-org.md`)
 - **Time range:** From/to date-time pickers
 - **Click row:** Navigate to Panel 4 (Decision Trace) for the selected receipt
 - **Color legend:** Hover on decision type for description

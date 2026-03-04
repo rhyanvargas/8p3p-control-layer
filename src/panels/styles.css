@@ -97,6 +97,17 @@ body {
   min-width: 120px;
 }
 
+.controls select {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 6px 10px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  min-width: 160px;
+  cursor: pointer;
+}
+
 .controls input:focus {
   outline: 1px solid var(--accent-reinforce);
 }
