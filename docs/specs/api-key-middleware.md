@@ -294,13 +294,12 @@ Implementation is complete when:
 
 ---
 
-## Reference Documents
+## Related Specs
 
-| Document | Path | Relevance |
-|----------|------|-----------|
-| CTO Response — CEO Scope & Timeline | `docs/reports/2026-02-22-cto-response-ceo-scope-timeline.md` | Rationale for v1 API key scope |
-| Pilot Readiness v1 | `docs/reports/2026-02-20-pilot-readiness-v1-v1.1.md` | Artifact #8, Week 1 deliverable |
-| Tenant Provisioning (v1.1) | `docs/specs/tenant-provisioning.md` | Full key management; supersedes this for v1.1 |
+| Document | Relevance |
+|----------|-----------|
+| [`docs/specs/tenant-provisioning.md`](tenant-provisioning.md) | Full key management for v1.1 (multi-tenant); supersedes this spec |
+| [`docs/api/openapi.yaml`](../api/openapi.yaml) | 401/403 response contracts |
 
 ---
 

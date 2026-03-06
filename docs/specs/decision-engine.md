@@ -978,7 +978,7 @@ This supports the two access patterns: write by `(org_id, decision_id)` and quer
 
 **Resolved (DEF-DEC-002):** The module now uses `setDecisionRepository()` for injection. Phase 2 migration is mechanical: create `DynamoDbDecisionRepository`, call `setDecisionRepository(new DynamoDbDecisionRepository(config))` instead of `initDecisionStore(dbPath)`.
 
-**Tracking**: The operational migration checklist and storage preparation steps live in `docs/archive/playbooks/solo-dev-execution-playbook.md` under Phase 2.
+**Phase 2 scope:** Create `DynamoDbDecisionRepository`, call `setDecisionRepository(new DynamoDbDecisionRepository(config))` in place of `initDecisionStore(dbPath)`. No Decision Engine business logic changes required.
 
 ## Out of Scope
 

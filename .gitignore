@@ -1,6 +1,9 @@
 # OS metadata
 .DS_Store
 
+# Internal docs (investor, demo, pilot — not for public repo)
+internal-docs/
+
 # Data
 data/
 *.db

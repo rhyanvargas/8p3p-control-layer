@@ -37,19 +37,16 @@ All score-like fields use a **0.0–1.0 scale**. See `docs/specs/decision-engine
 
 ## Decision Types
 
-Closed set of 7 values. Priority-ordered in the default policy (first match wins).
+Closed set of 4 values (see `src/contracts/schemas/decision.json`). Priority-ordered in the default policy (first match wins).
 
 | Type | Meaning | Demo Anchor? |
 |------|---------|-------------|
-| `escalate` | Extreme risk or low confidence — requires human review | |
-| `pause` | Insufficient confidence to act — hold | |
-| `reroute` | High risk with moderate confidence — change learning path | |
-| `intervene` | High-risk now; take action immediately | **Primary** |
 | `reinforce` | Prevent decay / prevent future failure before it happens | **Primary** |
 | `advance` | Strong mastery and stability — progress to next level | |
-| `recommend` | Moderate risk with stable performance — suggest supplementary content | |
+| `intervene` | High-risk now; take action immediately | **Primary** |
+| `pause` | Insufficient confidence to act — hold | |
 
-Demo narrative anchors on **reinforce** and **intervene** per CEO approval (`docs/reports/2026-02-23-ceo-scope-approval.md`).
+The recommended demo narrative anchors on **reinforce** and **intervene** as the primary decision types.
 
 ---
 
@@ -64,4 +61,4 @@ Demo narrative anchors on **reinforce** and **intervene** per CEO approval (`doc
 
 ---
 
-*Created: 2026-02-24 | Source: CEO fact-check action #1 (`docs/reports/2026-02-24-ceo-statement-fact-check.md`)*
+*Created: 2026-02-24 | Version: 1.0.0*

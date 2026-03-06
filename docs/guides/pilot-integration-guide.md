@@ -354,5 +354,4 @@ With this config:
 - `docs/specs/decision-engine.md` (§4.7 canonical state fields)
 - `docs/specs/api-key-middleware.md`
 - `docs/specs/inspection-api.md` (enriched receipts, inspection endpoints — v1 scope)
-- `docs/reports/2026-02-23-ceo-scope-approval.md` (demo anchors REINFORCE + INTERVENE)
 

@@ -180,7 +180,7 @@ IngestFunction:
 
 #### DynamoDB Tables
 
-Table designs are inherited from the archived solo-dev playbook (`docs/archive/playbooks/solo-dev-execution-playbook.md` §DynamoDB Table Design) with additions for the ingestion log and tenant tables.
+Table designs cover all v1 storage needs: signals, state, decisions, idempotency, ingestion log, and (v1.1) tenants.
 
 ```yaml
 SignalsTable:

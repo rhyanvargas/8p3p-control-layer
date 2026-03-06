@@ -132,7 +132,7 @@ curl -G "https://<host>/v1/decisions" \
 | Field | Type | Description |
 |-------|------|-------------|
 | `decisions[].decision_id` | string | Stable, unique decision identifier — use as your de-duplication key |
-| `decisions[].decision_type` | string | One of `reinforce`, `advance`, `intervene`, `pause`, `escalate`, `recommend`, `reroute` |
+| `decisions[].decision_type` | string | One of `reinforce`, `advance`, `intervene`, `pause` |
 | `decisions[].trace` | object | Full audit trail: state version, policy version, matched rule |
 | `next_page_token` | string \| null | Pass as `page_token` on the next request; `null` means no more pages |
 

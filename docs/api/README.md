@@ -39,11 +39,3 @@ If you're integrating the API for a business workflow (export, analytics, onboar
 - [`docs/guides/get-all-learner-decisions-from-org.md`](../guides/get-all-learner-decisions-from-org.md) — org-wide decision export (fan-out pattern)
 - [`docs/guides/deployment-checklist.md`](../guides/deployment-checklist.md) — pilot deployment gates (includes required `API_KEY_ORG_ID`)
 
-## Historical reviews
-
-Historical `/review` outputs and other narrative review artifacts are archived under:
-
-- [`docs/archive/reviews/`](../archive/reviews/)
-
-They are preserved for traceability but **may be stale** vs the current implementation.
-

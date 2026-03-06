@@ -570,7 +570,7 @@ Store implementations must surface optimistic-lock conflicts as a vendor-neutral
 
 Dependency injection is now in place at the store boundary via `setStateRepository(repo)`. Phase 2 can swap `SqliteStateRepository` with `DynamoDbStateRepository` without changing STATE Engine business logic or downstream module imports.
 
-**Tracking**: The operational migration checklist and storage preparation steps live in `docs/archive/playbooks/solo-dev-execution-playbook.md` under Phase 2.
+**Phase 2 scope:** Swap `SqliteStateRepository` with `DynamoDbStateRepository` via the existing `setStateRepository()` injection point. No STATE Engine business logic changes required.
 
 ## Out of Scope
 

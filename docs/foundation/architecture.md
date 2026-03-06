@@ -1,6 +1,6 @@
 # 8P3P Control Layer Architecture
 
-**Roadmap entry point:** [`docs/foundation/roadmap.md`](roadmap.md) (links to the latest dated roadmap snapshot + active plans).
+**Related:** [`docs/foundation/terminology.md`](terminology.md) | [`docs/api/openapi.yaml`](../api/openapi.yaml)
 
 ## System Architecture Diagram
 

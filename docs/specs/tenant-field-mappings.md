@@ -3,7 +3,7 @@
 ## Overview
 Phase 2 introduces an **opt-in, per-tenant payload normalization + enforcement layer** during signal ingestion. The goal is to allow stricter payload semantics per tenant (required fields, alias normalization, primitive type checks) **without breaking vendor-agnosticism** or changing the `POST /v1/signals` contract shape.
 
-This is explicitly scoped in `docs/foundation/ip-defensibility-and-value-proposition.md` under “Phase 2: Tenant-Scoped Field Mappings (DEF-DEC-006)”.
+This feature addresses the Phase 2 tenant field mapping scope (DEF-DEC-006): declarative per-tenant normalization without domain logic embedded in the control layer.
 
 ## Requirements
 
@@ -38,7 +38,7 @@ This is explicitly scoped in `docs/foundation/ip-defensibility-and-value-proposi
 | Dependency | Source Document | Status |
 |------------|-----------------|--------|
 | `POST /v1/signals` ingestion pipeline ordering + behavior | `docs/specs/signal-ingestion.md` | Defined ✓ |
-| DEF-DEC-006 motivation and scope | `docs/foundation/ip-defensibility-and-value-proposition.md` | Defined ✓ |
+| DEF-DEC-006 motivation and scope | `docs/specs/tenant-field-mappings.md` (this spec) | Defined ✓ |
 | Canonical error codes | `src/shared/error-codes.ts` | Defined ✓ |
 
 ### Provides to Other Specs

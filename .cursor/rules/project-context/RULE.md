@@ -59,7 +59,7 @@ npm run seed:springs-demo  # Seed springs org (Canvas + Blackboard + Absorb, 14 
 
 ## Planning Entry Point
 
-- **Roadmap (living anchor):** `docs/foundation/roadmap.md`
+- **Roadmap (living anchor):** `internal-docs/foundation/roadmap.md`
 - **Execution plans:** `.cursor/plans/`
 - **Rule of thumb:** specs define *what*, plans define *how*, reports define *why/when*.
 
@@ -149,7 +149,7 @@ Use the spec-driven workflow (detailed workflow instructions live in `.cursor/sk
 5. `/review` - Post-implementation quality check
 
 For exploring existing code, use `/extract-spec`.
-Canonical reference: `docs/foundation/definitive-workflow.md`.
+Canonical reference: `internal-docs/foundation/definitive-workflow.md`.
 
 ## Instruction Ownership (No Redundancy)
 
@@ -165,9 +165,9 @@ Do not duplicate detailed workflow instructions in rules or commands.
 |------|---------|
 | `docs/foundation/architecture.md` | System architecture overview |
 | `docs/foundation/setup.md` | Environment setup guide |
-| `docs/foundation/roadmap.md` | Planning entry point (latest roadmap snapshot + execution plans) |
-| `docs/foundation/[POC Playbook]...Interface Contracts.md` | JSON schemas for all interfaces |
-| `docs/foundation/[POC Playbook]...Contract Test Matrix.md` | Required contract tests |
-| `docs/foundation/[POC Playbook]...Validation Ruleset.md` | Validation rules and forbidden keys |
-| `docs/archive/playbooks/solo-dev-execution-playbook.md` | Development workflow guide (archived) |
+| `internal-docs/foundation/roadmap.md` | Planning entry point (latest roadmap snapshot + execution plans) |
+| `internal-docs/foundation/poc-playbooks/Component Interface Contracts.md` | JSON schemas for all interfaces |
+| `internal-docs/foundation/poc-playbooks/Contract Test Matrix.md` | Required contract tests |
+| `internal-docs/foundation/poc-playbooks/Interface Validation Ruleset.md` | Validation rules and forbidden keys |
+| `internal-docs/archive/playbooks/solo-dev-execution-playbook.md` | Development workflow guide (archived) |
 | `docs/specs/` | Generated specification files |

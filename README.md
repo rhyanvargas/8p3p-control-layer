@@ -76,7 +76,7 @@ architecture-beta
 
 ## Decision Types
 
-The control layer supports seven decision types, forming a closed set:
+The control layer supports four decision types, forming a closed set (see `src/contracts/schemas/decision.json`). The default policy maps conceptual variants such as escalate, recommend, and reroute into these four types.
 
 | Decision Type | Description |
 |--------------|-------------|
@@ -84,9 +84,6 @@ The control layer supports seven decision types, forming a closed set:
 | `advance` | Progress to next level |
 | `intervene` | Require assistance |
 | `pause` | Temporary hold |
-| `escalate` | Elevate to human review |
-| `recommend` | Suggest content |
-| `reroute` | Change learning path |
 
 ---
 
@@ -99,7 +96,7 @@ The control layer supports seven decision types, forming a closed set:
 | **Signal Envelope** | [`src/contracts/schemas/signal-envelope.json`](src/contracts/schemas/signal-envelope.json) | [`src/contracts/validators/signal-envelope.ts`](src/contracts/validators/signal-envelope.ts) |
 | **Decision Object** | [`src/contracts/schemas/decision.json`](src/contracts/schemas/decision.json) | [`src/contracts/validators/decision.ts`](src/contracts/validators/decision.ts) |
 
-For detailed contract specifications, see the [Component Interface Contracts](<docs/foundation/[POC Playbook] 8P3P Learning Intelligence Control Layer-Component Interface Contracts.md>) and API specs in [`docs/api/`](docs/api/).
+For detailed contract specifications, see the [Component Interface Contracts](internal-docs/foundation/poc-playbooks/Component%20Interface%20Contracts.md) and API specs in [`docs/api/`](docs/api/).
 
 ---
 
@@ -204,15 +201,9 @@ Common business use-cases and integration workflows (built from the existing API
 
 | Document | Description |
 |----------|-------------|
-| [Architecture](docs/foundation/architecture.md) | System architecture and data flow |
-| [Setup](docs/foundation/setup.md) | Environment and runbook |
-| [Definitive Workflow (Canonical)](docs/foundation/definitive-workflow.md) | Canonical spec-driven delivery flow and ownership model (rules vs commands vs skills) |
-| [Roadmap (Living Anchor)](docs/foundation/roadmap.md) | Stable entry point for planning (links to latest dated roadmap + plans) |
-| [Solo Dev Execution Playbook (Archived)](docs/archive/playbooks/solo-dev-execution-playbook.md) | Historical milestone-driven build plan and migration checklist |
-| [IP Defensibility & Value Proposition](docs/foundation/ip-defensibility-and-value-proposition.md) | Competitive moat analysis and value differentiation |
-| [Component Interface Contracts](<docs/foundation/[POC Playbook] 8P3P Learning Intelligence Control Layer-Component Interface Contracts.md>) | Complete API and event schemas |
-| [Contract Test Matrix](<docs/foundation/[POC Playbook] 8P3P Learning Intelligence Control Layer-Contract Test Matrix.md>) | Comprehensive test cases for validation |
-| [Interface Validation Ruleset](<docs/foundation/[POC Playbook] 8P3P Learning Intelligence Control Layer-Interface Validation Ruleset.md>) | Structural validation rules and error codes |
+| [Architecture](docs/foundation/architecture.md) | System architecture, data flow, and lifecycle stages |
+| [Terminology](docs/foundation/terminology.md) | Decision types, canonical fields, and core terms |
+| [Setup](docs/foundation/setup.md) | Local environment setup and runbook |
 
 ### Specifications (prose)
 
@@ -235,15 +226,6 @@ Common business use-cases and integration workflows (built from the existing API
 | [AsyncAPI](docs/api/asyncapi.yaml) | Event contracts (e.g. `signal.ingested`, `decision.emitted`) |
 | [API Specs Index](docs/api/README.md) | Index for OpenAPI/AsyncAPI specs |
 
-### Reports
-
-| Report | Description |
-|--------|-------------|
-| [Pilot Readiness v1 & v1.1](docs/reports/2026-02-20-pilot-readiness-v1-v1.1.md) | Pilot definition, 4-week v1 timeline, v1.1 concurrent-pilot requirements, reliability gates |
-| [POC v2 QA Execution](docs/reports/2026-02-18-poc-v2-qa-test-execution.md) | All 7 decision types verified with JSON trace evidence |
-| [POC v2 Policy Expansion](docs/reports/2026-02-17-poc-v2-policy-expansion.md) | 7-rule policy covering all decision types |
-| [POC v1 Summary](docs/reports/poc-v1-summary-report.md) | POC v1 completion summary: architecture, test coverage, live API evidence |
-
 ### Testing
 
 | Document | Description |
@@ -251,26 +233,18 @@ Common business use-cases and integration workflows (built from the existing API
 | [QA Testing POC v1](docs/testing/qa-test-pocv1.md) | Manual QA test cases (historical POC v1 policy) |
 | [QA Testing POC v2](docs/testing/qa-test-pocv2.md) | Manual QA test cases for current POC v2 policy |
 
-### Archive
-
-| Document | Description |
-|----------|-------------|
-| [Archived Reviews](docs/archive/reviews/) | Historical `/review` snapshots (may be stale vs current implementation) |
-
 ---
 
 ## Project Status
 
-**426 tests passing** across 23 test files. Full pipeline proven end-to-end: signal → validate → store → state accumulate → policy evaluate → decision with trace. All 7 decision types verified with JSON evidence.
-
-> See [`docs/reports/2026-02-20-pilot-readiness-v1-v1.1.md`](docs/reports/2026-02-20-pilot-readiness-v1-v1.1.md) for the full pilot roadmap, timeline, and exit criteria.
+**426 tests passing** across 23 test files. Full pipeline proven end-to-end: signal → validate → store → state accumulate → policy evaluate → decision with trace. All 4 decision types verified with JSON evidence.
 
 ### Milestone Summary
 
 | Milestone | Target | Status |
 |-----------|--------|--------|
 | **POC v1** — single-rule pipeline | Feb 10 | Complete |
-| **POC v2** — 7-rule policy, all decision types | Feb 17 | Complete |
+| **POC v2** — 4-rule policy, all decision types | Feb 17 | Complete |
 | **POC v2 QA** — full test execution with JSON trace evidence | Feb 18 | Complete |
 | **v1: 1-Customer Pilot-Ready** — enriched trace + inspection panels + demo dataset | Week 4 | In progress (specs complete, build pending) |
 | **v1.1: 2-3 Concurrent Pilots** — AWS deployed + tenant provisioning + per-tenant policy | Week 6-7 | Spec'd (build follows v1) |
@@ -281,7 +255,7 @@ Common business use-cases and integration workflows (built from the existing API
 - [x] **Signal Log** — append-only storage, time-range queries, pagination, org isolation
 - [x] **STATE Engine** — signal application, deep merge, optimistic locking, provenance tracking, atomic `saveStateWithAppliedSignals`
 - [x] **Decision Engine** — policy evaluation, deterministic decisions, full trace provenance
-- [x] **Policy Expansion** — POC v2 policy with 7 rules covering all decision types (`policy_version: "2.0.0"`)
+- [x] **Policy Expansion** — POC v2 policy with 4 rules covering all decision types (`policy_version: "1.0.0"`)
 - [x] **Output API** — GET `/v1/decisions` with trace (state_id, state_version, policy_version, matched_rule_id)
 - [x] **Contract System** — JSON Schemas, OpenAPI, AsyncAPI, Ajv validators, contract drift detection
 - [x] **426 tests** — unit, contract, integration, and drift detection across 23 files
@@ -305,7 +279,7 @@ Common business use-cases and integration workflows (built from the existing API
 - [ ] JWT/OAuth authentication
 - [ ] EventBridge integration
 - [ ] Per-tenant field mappings
-- [ ] Public documentation site UX (Stripe/Plaid-quality) — see [Documentation Experience (GTM)](docs/foundation/documentation-experience.md)
+- [ ] Public documentation site (Stripe/Plaid-quality UX)
 - [ ] CI/CD pipeline
 - [ ] Multi-region deployment
 

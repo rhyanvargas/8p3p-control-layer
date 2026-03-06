@@ -1,7 +1,7 @@
 # Setup Local Dev
 How to set up, scaffold, run, test, and validate the 8P3P Control Layer locally.
 
-**Roadmap entry point:** [`docs/foundation/roadmap.md`](roadmap.md).
+**Related:** [`docs/foundation/architecture.md`](architecture.md) | [`docs/foundation/terminology.md`](terminology.md)
 
 ---
 
@@ -510,4 +510,4 @@ Once scaffolding is complete, proceed to **Phase 1** implementation:
 4. **Session 5**: Implement Decision Engine (DEC-* tests)
 5. **Session 6**: Implement Output (OUT-API-* tests)
 
-Refer to `docs/archive/playbooks/solo-dev-execution-playbook.md` for historical implementation guidance.
+For implementation order, follow the test naming convention: SIGLOG-* → STATE-* → DEC-* → OUT-API-*.

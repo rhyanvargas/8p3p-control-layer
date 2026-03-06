@@ -226,4 +226,4 @@ Per CEO scope, demo narrative anchors on **REINFORCE** and **INTERVENE**. To ver
 - [ ] Failures documented with environment (with/without API_KEY), request, and response.
 - [ ] Build and automated tests already passing: `npm run build`, `npm test`, `npm run lint`, `npm run typecheck`.
 
-**Reference — Next steps after QA:** `docs/reports/2026-02-23-post-repository-extraction-next-steps.md`
+**After QA passes:** proceed to pilot deployment using `docs/guides/deployment-checklist.md`.
