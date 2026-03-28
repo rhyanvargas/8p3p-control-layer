@@ -22,8 +22,8 @@ npm run dev
 
 ### Authentication (panels)
 
-- If **`API_KEY`** is set, all panel requests to `/v1/*` require the key. In the panels UI, enter the key in the **API Key** field in the header; it is stored in `sessionStorage` and sent as `x-api-key` on each request.
-- If **`API_KEY`** is unset (typical local dev), leave the API Key field empty; requests succeed without a header.
+- If `**API_KEY**` is set, all panel requests to `/v1/*` require the key. In the panels UI, enter the key in the **API Key** field in the header; it is stored in `sessionStorage` and sent as `x-api-key` on each request.
+- If `**API_KEY`** is unset (typical local dev), leave the API Key field empty; requests succeed without a header.
 
 **Generate a key:** `npm run generate:api-key` — add the printed line to `.env`. Do not commit `.env`.
 
@@ -38,8 +38,8 @@ npm run dev
 **Steps:**
 
 1. Open the URL in a browser.
-2. Confirm the page loads with terminal-style styling (monospace, dark background).
-3. Confirm four tabs are visible: **Signal Intake**, **State**, **Decisions**, **Trace**.
+2. **Confirm the page loads with terminal-style styling (monospace, dark background).**
+3. **Confirm four tabs are visible: Signal Intake**, **State**, **Decisions**, **Trace**.
 4. Click each tab and confirm the corresponding panel content is shown (no console errors).
 
 **Expected:** Page loads; all four tabs switch without full reload; hash updates to `#signal`, `#state`, `#decisions`, `#trace` as appropriate.
@@ -184,26 +184,28 @@ npm run dev
 
 ## Summary Table
 
-| ID         | Area           | Action                          | Expected                          |
-|------------|----------------|----------------------------------|-----------------------------------|
-| QA-IN-001  | Shell          | Load /inspect/, switch tabs      | All tabs render, hash routing     |
-| QA-IN-002  | Signal Intake  | org_id + Refresh                 | Ingestion table with outcomes      |
-| QA-IN-003  | Signal Intake  | Filter by outcome                | Filtered rows                      |
-| QA-IN-004  | State Viewer   | org_id, select learner           | List + state detail               |
-| QA-IN-005  | State Viewer   | Version selector                 | State updates by version           |
-| QA-IN-006  | Decision Stream| org_id, learner, time, Refresh   | Decision table populated           |
-| QA-IN-007  | Trace          | Click row → Trace → Back         | Trace for decision, back to stream |
-| QA-IN-008  | Trace          | Open #trace with no selection    | Placeholder message                |
-| QA-IN-009  | Auth           | Without/with API key (API_KEY set)| 401 then success with key        |
-| QA-IN-010  | General        | All tabs + refresh, DevTools     | No console errors, styles applied |
+
+| ID        | Area            | Action                             | Expected                           |
+| --------- | --------------- | ---------------------------------- | ---------------------------------- |
+| QA-IN-001 | Shell           | Load /inspect/, switch tabs        | All tabs render, hash routing      |
+| QA-IN-002 | Signal Intake   | org_id + Refresh                   | Ingestion table with outcomes      |
+| QA-IN-003 | Signal Intake   | Filter by outcome                  | Filtered rows                      |
+| QA-IN-004 | State Viewer    | org_id, select learner             | List + state detail                |
+| QA-IN-005 | State Viewer    | Version selector                   | State updates by version           |
+| QA-IN-006 | Decision Stream | org_id, learner, time, Refresh     | Decision table populated           |
+| QA-IN-007 | Trace           | Click row → Trace → Back           | Trace for decision, back to stream |
+| QA-IN-008 | Trace           | Open #trace with no selection      | Placeholder message                |
+| QA-IN-009 | Auth            | Without/with API key (API_KEY set) | 401 then success with key          |
+| QA-IN-010 | General         | All tabs + refresh, DevTools       | No console errors, styles applied  |
+
 
 ---
 
 ## Sign-Off
 
-- [X] All QA-IN-001 through QA-IN-010 executed.
-- [X] Failures documented with environment (with/without API_KEY), steps, and screenshot or console/network detail.
-- [X] Automated tests passing: `npm test` (includes `tests/integration/inspection-panels.test.ts`).
+- All QA-IN-001 through QA-IN-010 executed.
+- Failures documented with environment (with/without API_KEY), steps, and screenshot or console/network detail.
+- Automated tests passing: `npm test` (includes `tests/integration/inspection-panels.test.ts`).
 
 **Plan:** `.cursor/plans/inspection-panels.plan.md`  
 **Spec:** `docs/specs/inspection-panels.md`

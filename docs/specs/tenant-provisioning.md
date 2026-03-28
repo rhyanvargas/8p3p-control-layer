@@ -269,7 +269,7 @@ These are enforced at the API Gateway level — zero Lambda code required. When 
 - **No key value storage** — the full API key value is shown once at creation and never stored. Only the key ID and prefix are persisted.
 - **No custom authorizer Lambda** — API Gateway built-in key validation is sufficient. Custom authorizer adds cold-start latency and cost.
 - **No JWT/OAuth** — API keys are the simplest auth mechanism for machine-to-machine pilot integrations. JWT/OAuth is deferred to production.
-- **No admin API** — tenant management is CLI-only. Admin API is out of scope.
+- **Admin API is separate** — tenant lifecycle (provision, rotate keys) remains CLI or operator tooling for v1.1. **Policy** and **field-mapping** configuration for tenants is handled by the Policy Management API and mapping admin API (`docs/specs/policy-management-api.md`, `docs/specs/tenant-field-mappings.md`), authenticated with `ADMIN_API_KEY`, not tenant keys.
 - **Org override, not trust** — the system never trusts the caller's self-declared org_id. The API key is the source of truth.
 
 ---
@@ -277,7 +277,6 @@ These are enforced at the API Gateway level — zero Lambda code required. When 
 ## Out of Scope
 
 - Self-serve tenant registration portal
-- Admin dashboard for tenant management
 - JWT / OAuth / OIDC authentication
 - Multi-key per tenant (Phase 1: one active key per tenant)
 - Per-endpoint permissions (all keys have access to all endpoints for their org)
@@ -294,8 +293,8 @@ These are enforced at the API Gateway level — zero Lambda code required. When 
 
 | Dependency | Source Document | Status |
 |------------|----------------|--------|
-| API Gateway deployment | `docs/specs/aws-deployment.md` | Spec'd (not yet implemented) |
-| DynamoDB tables (tenants, api_keys) | `docs/specs/aws-deployment.md` | Spec'd (not yet implemented) |
+| API Gateway deployment | `docs/specs/aws-deployment.md` | Spec'd — AWS CDK (not yet implemented) |
+| DynamoDB tables (tenants, api_keys, policies, field_mappings) | `docs/specs/aws-deployment.md` | Spec'd (not yet implemented) |
 | Lambda handler layer | `docs/specs/aws-deployment.md` | Spec'd (not yet implemented) |
 
 ### Provides to Other Specs

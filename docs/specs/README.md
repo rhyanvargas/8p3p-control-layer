@@ -15,12 +15,15 @@ Specifications in this folder are the **single source of truth for requirements 
 - [`inspection-api.md`](inspection-api.md) — ingestion outcome log, state query API, enriched decision receipts
 - [`inspection-panels.md`](inspection-panels.md) — 4 read-only inspection panels at `/inspect`
 - [`receipts-api.md`](receipts-api.md) — `GET /v1/receipts` compliance/audit query surface (implemented)
-- [`tenant-field-mappings.md`](tenant-field-mappings.md) — Phase 2 per-tenant payload normalization (DEF-DEC-006; implemented)
+- [`tenant-field-mappings.md`](tenant-field-mappings.md) — Phase 2 per-tenant payload normalization (DEF-DEC-006; implemented). **v1.1 extension:** computed transforms, DynamoDB-backed config, Canvas mapper — see same spec.
 
 ## v1.1 (2–3 concurrent pilots) — spec’d
 
 - [`tenant-provisioning.md`](tenant-provisioning.md) — API keys, usage plans, org enforcement, rate limits
-- [`aws-deployment.md`](aws-deployment.md) — API Gateway + Lambda + DynamoDB deployment via SAM
+- [`aws-deployment.md`](aws-deployment.md) — API Gateway + Lambda + DynamoDB deployment via **AWS CDK**
+- [`policy-storage.md`](policy-storage.md) — DynamoDB `PoliciesTable`, resolution order, cache, soft `status` (active \| disabled)
+- [`policy-inspection-api.md`](policy-inspection-api.md) — `GET /v1/policies` (tenant read-only policy inspection)
+- [`policy-management-api.md`](policy-management-api.md) — Admin policy CRUD + `PATCH` status (soft enable/disable), `ADMIN_API_KEY`
 
 ---
 

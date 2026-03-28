@@ -4,9 +4,11 @@
 
 ## Overview
 
-This spec turns the solo-dev playbook's Phase 2 sketch into an implementable deployment specification. The goal is to deploy the existing control-layer pipeline (signals → state → decisions) to AWS with zero business logic changes. The deployment uses serverless-only services (API Gateway + Lambda + DynamoDB) to keep costs near-zero during development and scale automatically under pilot load.
+Deploy the existing control-layer pipeline (signals → state → decisions) to AWS with zero business logic changes. Serverless-only services (API Gateway + Lambda + DynamoDB) keep costs near-zero during development and scale automatically under pilot load.
 
 **Key principle:** The deployed system must pass the same contract tests that pass locally (462+ as of v1). If the tests pass, the deployment is correct. All four repository interfaces (Decision, State, Signal Log, Idempotency) are already extracted; DynamoDB adapters can slot in mechanically. See `.cursor/plans/` for completed extraction plans.
+
+**Budget context:** $900 AWS credits, 90-day pilot, 1 part-time senior engineer. Target ~$50/month development, ~$100/month during active pilot. See Cost Estimate table below.
 
 ---
 
@@ -38,7 +40,7 @@ This spec turns the solo-dev playbook's Phase 2 sketch into an implementable dep
      ┌─────────────────────────────────────────────────────┐
      │                    DynamoDB                          │
      │  signals │ learner_state │ decisions │ ingestion_log │
-     │  tenants │ api_keys                                  │
+     │  tenants │ api_keys │ policies │ field_mappings      │
      └─────────────────────────────────────────────────────┘
 ```
 
@@ -53,6 +55,8 @@ This spec turns the solo-dev playbook's Phase 2 sketch into an implementable dep
 | Decision Store | DynamoDB (on-demand) | Same | Append-only decisions with GSI for time-range queries. |
 | Ingestion Log | DynamoDB (on-demand) | Same | New table for inspection API outcomes. |
 | Tenant/Key Store | DynamoDB (on-demand) | Same | Tenant metadata and API key → org_id mapping. See `docs/specs/tenant-provisioning.md`. |
+| Policies Store | DynamoDB (on-demand) | Same | Policy definitions with status field. See `docs/specs/policy-storage.md`. |
+| Field Mappings Store | DynamoDB (on-demand) | Same | Per-tenant computed transforms for raw LMS payload → canonical fields. See `docs/specs/tenant-field-mappings.md`. |
 | DNS | Route 53 | $0.50/hosted zone | Custom domain for pilot customers. |
 | TLS | ACM | Free | Auto-renewed certificates for custom domain. |
 
@@ -79,55 +83,50 @@ All estimates assume on-demand DynamoDB pricing, no provisioned capacity, and La
 | Ingestion Log (queryable) | `docs/specs/inspection-api.md` §1, `src/inspection/` or equivalent | **Complete** — implemented in v1 |
 | AWS account with CLI configured | — | Manual prerequisite |
 
-All four repository interfaces are extracted; the next step is implementing DynamoDB adapters and the SAM template.
+All four repository interfaces are extracted; the next step is implementing DynamoDB adapters and the CDK stack.
 
 ---
 
 ## Infrastructure as Code
 
-### Tool Choice: AWS SAM
+### Tool Choice: AWS CDK
 
 | Option | Pros | Cons | Decision |
 |--------|------|------|----------|
-| AWS SAM | Native Lambda/API Gateway support, `sam local` for testing, minimal config | Less flexible than CDK for complex infra | **Selected** |
-| AWS CDK | Full programming language, composable constructs | Heavier setup, overkill for serverless-only | Deferred |
+| AWS CDK | TypeScript-native (same language as the codebase), composable constructs, full programming-language flexibility for growing infra (PoliciesTable, FieldMappingsTable, AdminFunction, future services) | Heavier initial setup than SAM | **Selected** |
+| AWS SAM | Simple YAML template, `sam local` for testing | Insufficient flexibility for policy management API, admin endpoints, and DynamoDB-backed config tables; growing infra complexity exceeds YAML ergonomics | Deferred |
 | Serverless Framework | Popular, many plugins | Vendor lock-in to SLS Inc., v4 license changes | Rejected |
 | Terraform | Multi-cloud, mature | HCL learning curve, no local invoke | Rejected |
 
-SAM is the right fit: it's AWS-native, supports `sam local invoke` for testing Lambda functions against local DynamoDB, and the template is declarative YAML — easy to review and version.
+CDK is the right fit for v1.1: the infrastructure now includes multiple DynamoDB tables (PoliciesTable, FieldMappingsTable), an admin Lambda function, and tenant provisioning — complexity that benefits from TypeScript constructs, IDE autocomplete, and programmatic composition. Local testing uses `cdk synth` + DynamoDB Local.
 
-### Template Structure
+### CDK Project Structure
 
 ```
 infra/
-├── template.yaml              # SAM template (API Gateway, Lambdas, DynamoDB)
-├── samconfig.toml              # Environment-specific deploy config
-└── params/
-    ├── dev.json                # Dev stage parameters
-    └── prod.json               # Prod stage parameters (future)
+├── bin/
+│   └── control-layer.ts          # CDK app entry point
+├── lib/
+│   └── control-layer-stack.ts    # Main stack (API Gateway, Lambdas, DynamoDB)
+├── cdk.json                      # CDK configuration
+└── tsconfig.json                 # CDK TypeScript config (separate from app)
 ```
 
-### SAM Template: Key Resources
+### CDK Stack: Key Resources
 
 #### API Gateway
 
-```yaml
-ApiGateway:
-  Type: AWS::Serverless::Api
-  Properties:
-    StageName: !Ref Stage
-    Auth:
-      ApiKeyRequired: true
-      UsagePlan:
-        CreateUsagePlan: PER_API
-        Throttle:
-          BurstLimit: 50
-          RateLimit: 20
-    Domain:
-      DomainName: !Sub "api.${DomainName}"
-      CertificateArn: !Ref Certificate
-      Route53:
-        HostedZoneId: !Ref HostedZoneId
+```typescript
+const api = new apigateway.RestApi(this, 'ControlLayerApi', {
+  restApiName: '8p3p-control-layer',
+  deployOptions: { stageName: props.stage },
+  apiKeySourceType: apigateway.ApiKeySourceType.HEADER,
+  defaultMethodOptions: { apiKeyRequired: true },
+});
+
+const plan = api.addUsagePlan('PilotPlan', {
+  throttle: { burstLimit: 50, rateLimit: 20 },
+});
 ```
 
 API key requirement is enforced at the gateway level — requests without a valid `x-api-key` header are rejected before reaching Lambda. See `docs/specs/tenant-provisioning.md` for key management.
@@ -139,93 +138,86 @@ Three Lambda functions, grouped by access pattern:
 | Function | Routes | Purpose |
 |----------|--------|---------|
 | `IngestFunction` | `POST /v1/signals` | Write-path: ingestion + state update + decision |
-| `QueryFunction` | `GET /v1/signals`, `GET /v1/decisions` | Read-path: signal log and decision queries |
-| `InspectFunction` | `GET /v1/state`, `GET /v1/state/list`, `GET /v1/ingestion` | Read-path: inspection API |
+| `QueryFunction` | `GET /v1/signals`, `GET /v1/decisions`, `GET /v1/receipts` | Read-path: signal log, decision, and receipt queries |
+| `InspectFunction` | `GET /v1/state`, `GET /v1/state/list`, `GET /v1/ingestion`, `GET /v1/policies` | Read-path: inspection + policy inspection API |
+| `AdminFunction` | `PUT/PATCH/DELETE /v1/admin/policies`, `PUT/GET /v1/admin/mappings` | Admin write-path: policy management + field mapping management (ADMIN_API_KEY auth) |
 
 Separating write and read paths allows independent scaling and IAM scoping (IngestFunction gets read-write DynamoDB access; QueryFunction and InspectFunction get read-only).
 
-```yaml
-IngestFunction:
-  Type: AWS::Serverless::Function
-  Properties:
-    Handler: dist/lambda/ingest.handler
-    Runtime: nodejs22.x
-    Architectures: [arm64]
-    MemorySize: 256
-    Timeout: 10
-    Environment:
-      Variables:
-        STAGE: !Ref Stage
-        SIGNALS_TABLE: !Ref SignalsTable
-        STATE_TABLE: !Ref StateTable
-        DECISIONS_TABLE: !Ref DecisionsTable
-        INGESTION_LOG_TABLE: !Ref IngestionLogTable
-    Policies:
-      - DynamoDBCrudPolicy:
-          TableName: !Ref SignalsTable
-      - DynamoDBCrudPolicy:
-          TableName: !Ref StateTable
-      - DynamoDBCrudPolicy:
-          TableName: !Ref DecisionsTable
-      - DynamoDBCrudPolicy:
-          TableName: !Ref IngestionLogTable
-    Events:
-      IngestSignal:
-        Type: Api
-        Properties:
-          RestApiId: !Ref ApiGateway
-          Path: /v1/signals
-          Method: POST
+```typescript
+const ingestFn = new lambda.Function(this, 'IngestFunction', {
+  runtime: lambda.Runtime.NODEJS_22_X,
+  architecture: lambda.Architecture.ARM_64,
+  handler: 'dist/lambda/ingest.handler',
+  memorySize: 256,
+  timeout: cdk.Duration.seconds(10),
+  environment: {
+    STAGE: props.stage,
+    SIGNALS_TABLE: signalsTable.tableName,
+    STATE_TABLE: stateTable.tableName,
+    DECISIONS_TABLE: decisionsTable.tableName,
+    INGESTION_LOG_TABLE: ingestionLogTable.tableName,
+    POLICIES_TABLE: policiesTable.tableName,
+    FIELD_MAPPINGS_TABLE: fieldMappingsTable.tableName,
+  },
+});
+signalsTable.grantReadWriteData(ingestFn);
+stateTable.grantReadWriteData(ingestFn);
+decisionsTable.grantReadWriteData(ingestFn);
+ingestionLogTable.grantReadWriteData(ingestFn);
+policiesTable.grantReadData(ingestFn);
+fieldMappingsTable.grantReadData(ingestFn);
+
+api.root.addResource('v1').addResource('signals').addMethod('POST',
+  new apigateway.LambdaIntegration(ingestFn));
 ```
 
 #### DynamoDB Tables
 
 Table designs cover all v1 storage needs: signals, state, decisions, idempotency, ingestion log, and (v1.1) tenants.
 
-```yaml
-SignalsTable:
-  Type: AWS::DynamoDB::Table
-  Properties:
-    BillingMode: PAY_PER_REQUEST
-    KeySchema:
-      - AttributeName: org_id
-        KeyType: HASH
-      - AttributeName: signal_id
-        KeyType: RANGE
-    GlobalSecondaryIndexes:
-      - IndexName: gsi1-learner-time
-        KeySchema:
-          - AttributeName: org_id
-            KeyType: HASH
-          - AttributeName: learner_timestamp
-            KeyType: RANGE
+```typescript
+const signalsTable = new dynamodb.Table(this, 'SignalsTable', {
+  billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+  partitionKey: { name: 'org_id', type: dynamodb.AttributeType.STRING },
+  sortKey: { name: 'signal_id', type: dynamodb.AttributeType.STRING },
+});
+signalsTable.addGlobalSecondaryIndex({
+  indexName: 'gsi1-learner-time',
+  partitionKey: { name: 'org_id', type: dynamodb.AttributeType.STRING },
+  sortKey: { name: 'learner_timestamp', type: dynamodb.AttributeType.STRING },
+});
 
-StateTable:
-  Type: AWS::DynamoDB::Table
-  Properties:
-    BillingMode: PAY_PER_REQUEST
-    KeySchema:
-      - AttributeName: org_learner
-        KeyType: HASH
-      - AttributeName: state_version
-        KeyType: RANGE
+const stateTable = new dynamodb.Table(this, 'StateTable', {
+  billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+  partitionKey: { name: 'org_learner', type: dynamodb.AttributeType.STRING },
+  sortKey: { name: 'state_version', type: dynamodb.AttributeType.NUMBER },
+});
 
-DecisionsTable:
-  Type: AWS::DynamoDB::Table
-  Properties:
-    BillingMode: PAY_PER_REQUEST
-    KeySchema:
-      - AttributeName: org_id
-        KeyType: HASH
-      - AttributeName: decision_id
-        KeyType: RANGE
-    GlobalSecondaryIndexes:
-      - IndexName: gsi1-learner-time
-        KeySchema:
-          - AttributeName: org_id
-            KeyType: HASH
-          - AttributeName: learner_decided_at
-            KeyType: RANGE
+const decisionsTable = new dynamodb.Table(this, 'DecisionsTable', {
+  billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+  partitionKey: { name: 'org_id', type: dynamodb.AttributeType.STRING },
+  sortKey: { name: 'decision_id', type: dynamodb.AttributeType.STRING },
+});
+decisionsTable.addGlobalSecondaryIndex({
+  indexName: 'gsi1-learner-time',
+  partitionKey: { name: 'org_id', type: dynamodb.AttributeType.STRING },
+  sortKey: { name: 'learner_decided_at', type: dynamodb.AttributeType.STRING },
+});
+
+// PoliciesTable — defined in docs/specs/policy-storage.md
+const policiesTable = new dynamodb.Table(this, 'PoliciesTable', {
+  billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+  partitionKey: { name: 'org_id', type: dynamodb.AttributeType.STRING },
+  sortKey: { name: 'policy_key', type: dynamodb.AttributeType.STRING },
+});
+
+// FieldMappingsTable — defined in docs/specs/tenant-field-mappings.md
+const fieldMappingsTable = new dynamodb.Table(this, 'FieldMappingsTable', {
+  billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+  partitionKey: { name: 'org_id', type: dynamodb.AttributeType.STRING },
+  sortKey: { name: 'source_system', type: dynamodb.AttributeType.STRING },
+});
 ```
 
 ---
@@ -313,15 +305,43 @@ Each store needs a DynamoDB adapter implementing the same repository interface:
 
 ---
 
+## Signal Ordering Guarantees
+
+### Why Synchronous Lambda (Not SQS FIFO)
+
+An earlier architectural proposal used SQS FIFO with `MessageGroupId = orgId#learnerId` to guarantee per-learner signal ordering. This spec uses synchronous Lambda processing instead. The rationale:
+
+| Concern | SQS FIFO Approach | Synchronous Lambda Approach |
+|---------|-------------------|----------------------------|
+| Ordering guarantee | FIFO queue serializes per message group | Optimistic locking on `state_version` prevents stale writes; DynamoDB `ConditionExpression` rejects concurrent writes atomically |
+| Concurrent writes | Impossible (serialized by queue) | Rare at pilot volume (~70 signals/hour avg); on conflict, client gets error and retries — data integrity is never at risk |
+| API response | 202 Accepted (async) — client must poll for result | 200 with full result (synchronous) — simpler client integration |
+| Operational overhead | Queue + DLQ + worker service + replay tooling | None — Lambda is the only compute |
+| Failure model | DLQ monitoring, manual replay for stuck messages | Standard Lambda error + CloudWatch; no DLQ to manage |
+| Cost | SQS FIFO + additional Lambda/ECS worker | Lambda only |
+
+At pilot volume (1 customer, ~50K signals/month), the probability of two concurrent signals for the **same learner** is negligible. Optimistic locking + idempotency ensures correctness regardless.
+
+### When to Add SQS FIFO
+
+SQS FIFO becomes the right choice when:
+
+- A customer sends high-frequency, bursty signals for the same learner (e.g., real-time LMS event streams at >1K signals/hour per learner)
+- Intake latency must be decoupled from processing latency (return 202 immediately, process later)
+- Multiple consumers need to process the same ordered stream
+
+**Migration path:** The repository interfaces and `handler-core.ts` extraction make this a bounded change. Adding SQS means: (1) modify the Lambda ingest handler to enqueue instead of process, (2) add a worker Lambda that calls the same `ingestSignalCore()` function. Zero business logic changes. This is a scale optimization for a future engineering hire, not a pilot requirement.
+
+---
+
 ## Deployment Pipeline
 
 ### Manual Deploy (Phase 1 — solo dev)
 
 ```bash
 npm run build
-sam build
-sam deploy --guided          # first time (creates samconfig.toml)
-sam deploy                   # subsequent deploys
+cd infra && npx cdk diff       # preview changes
+cd infra && npx cdk deploy     # deploy stack
 ```
 
 ### CI/CD (Phase 2 — when pilot customers are active)
@@ -346,10 +366,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: aws-actions/setup-sam@v2
       - uses: aws-actions/configure-aws-credentials@v4
       - run: npm ci && npm run build
-      - run: sam build && sam deploy --no-confirm-changeset
+      - run: cd infra && npm ci && npx cdk deploy --require-approval never
 ```
 
 **Gate:** Deploy only happens if all tests pass. Contract tests are the deployment guardrail.
@@ -377,15 +396,15 @@ Set up via Route 53 + ACM + API Gateway custom domain mapping. The domain should
 - [ ] API Gateway enforces API key requirement on all `/v1/*` routes
 - [ ] `/health` and `/docs` do not require API key
 - [ ] All 462+ contract tests pass against deployed endpoints
-- [ ] Infrastructure is defined in SAM template (no manual AWS console configuration)
-- [ ] Deploy is a single command (`sam deploy`)
+- [ ] Infrastructure is defined in CDK stack (`infra/lib/control-layer-stack.ts`, no manual AWS console configuration)
+- [ ] Deploy is a single command (`cdk deploy`)
 
 ### Acceptance Criteria
 
 - Given a deployed stack, when `POST /v1/signals` is called with a valid API key and signal, then the response matches the local behavior exactly
 - Given a deployed stack, when any `/v1/*` endpoint is called without an API key, then API Gateway returns 403 Forbidden before Lambda is invoked
 - Given a deployed stack, when `npm test` is run against the deployed URL, then all contract tests pass
-- Given a `sam deploy`, when the template is applied, then all DynamoDB tables, Lambda functions, and API Gateway routes are created/updated without manual intervention
+- Given a `cdk deploy`, when the stack is applied, then all DynamoDB tables (including PoliciesTable and FieldMappingsTable), Lambda functions (including AdminFunction), and API Gateway routes are created/updated without manual intervention
 
 ---
 
@@ -401,16 +420,21 @@ Set up via Route 53 + ACM + API Gateway custom domain mapping. The domain should
 
 ---
 
-## Out of Scope
+## Out of Scope (with Rationale)
 
-- Multi-region deployment
-- WAF (Web Application Firewall) — deferred until production
-- Custom authorizer Lambda (API Gateway native API keys are sufficient for pilot)
-- CloudWatch dashboards and alarms (basic Lambda metrics are sufficient)
-- Blue/green or canary deployments
-- Inspection panels hosting (panels are static files; can be served from S3+CloudFront or kept on the Fastify server for demos)
-- VPC configuration
-- Secrets Manager integration (API keys are managed via API Gateway, not application secrets)
+| Item | Rationale | Revisit When |
+|------|-----------|-------------|
+| SQS FIFO ordering queue | Synchronous Lambda + optimistic locking provides ordering guarantees at pilot volume. See §Signal Ordering Guarantees. | Customer sends >1K signals/hour per learner |
+| Customer-facing dashboard | Inspection panels (`/inspect`) + Swagger UI (`/docs`) cover pilot debugging, demos, and integration needs. The core IP is the decision engine, not a CRUD dashboard. | 2+ paying customers request self-service API key management and usage visibility |
+| Cognito / user auth | API Gateway native API keys are sufficient for pilot. No user-level auth needed without a dashboard. | Dashboard is built |
+| WAF (Web Application Firewall) | API Gateway API keys + rate limits provide baseline protection. WAF is overhead for trusted pilot traffic. | Before opening API to untrusted/public traffic |
+| Secrets Manager | API keys are managed by API Gateway natively, not application secrets. No credentials to rotate at pilot scale. | When application-level secrets (DB creds, third-party API keys) are introduced |
+| Multi-region deployment | Single region (`us-east-1`) is sufficient for pilot. | Production / SLA > 99.9% required |
+| Custom authorizer Lambda | API Gateway native API keys are sufficient for pilot. | Need user-level or JWT-based auth |
+| CloudWatch dashboards and alarms | Basic Lambda metrics are sufficient for one engineer monitoring one customer. | 2+ customers or operational incidents requiring faster triage |
+| Blue/green or canary deployments | Manual `cdk deploy` is acceptable at current deploy frequency. | Deploy frequency > 1x/week or second engineer joins |
+| Inspection panels hosting (S3/CloudFront) | Panels are static files served by Fastify locally; not needed on AWS for pilot. | Panels need public access independent of the API |
+| VPC configuration | Lambda runs in default networking. No NAT Gateway costs. | Need to access private resources (RDS, ElastiCache) |
 
 ---
 
@@ -426,13 +450,19 @@ Set up via Route 53 + ACM + API Gateway custom domain mapping. The domain should
 | `IdempotencyRepository` interface | Idempotency module repository | **Complete** — idempotency-repository-extraction.plan.md |
 | Inspection API endpoints | `docs/specs/inspection-api.md` | **Complete** — GET /v1/state, /v1/ingestion, etc. implemented in v1 |
 | Tenant provisioning + API keys | `docs/specs/tenant-provisioning.md` | Spec'd — implementation follows AWS deployment |
+| Policy storage (PoliciesTable) | `docs/specs/policy-storage.md` | Spec update pending (TASK-002 in alignment plan) |
+| Policy management API (AdminFunction) | `docs/specs/policy-management-api.md` | Spec creation pending (TASK-004 in alignment plan) |
+| Field mappings (FieldMappingsTable) | `docs/specs/tenant-field-mappings.md` | Spec update pending (TASK-016 in alignment plan) |
 
 ### Provides to Other Specs
 
 | Capability | Used By |
 |-----------|---------|
 | Deployed API Gateway endpoint | Tenant provisioning (API key validation) |
-| DynamoDB tables | All repository adapters |
+| DynamoDB tables (signals, state, decisions, ingestion_log, tenants) | All repository adapters |
+| PoliciesTable | Policy storage, policy management API, policy inspection API |
+| FieldMappingsTable | Tenant field mappings (Canvas data mapper) |
+| AdminFunction Lambda | Policy management API, field mapping admin API |
 | Custom domain | Pilot customers |
 
 ---
@@ -462,17 +492,19 @@ Tests must be parameterizable to run against either `http://localhost:3000` or t
 
 ```
 infra/
-├── template.yaml                    # SAM template
-├── samconfig.toml                   # Deploy configuration
-└── params/
-    ├── dev.json                     # Dev parameters
-    └── pilot.json                   # Pilot parameters
+├── bin/
+│   └── control-layer.ts             # CDK app entry point
+├── lib/
+│   └── control-layer-stack.ts       # Main stack definition
+├── cdk.json                         # CDK configuration
+└── tsconfig.json                    # CDK TypeScript config
 
 src/
 ├── lambda/
 │   ├── ingest.ts                    # Lambda handler: POST /v1/signals
 │   ├── query.ts                     # Lambda handler: GET queries
-│   └── inspect.ts                   # Lambda handler: inspection endpoints
+│   ├── inspect.ts                   # Lambda handler: inspection + policy inspection endpoints
+│   └── admin.ts                     # Lambda handler: admin policy + mapping management
 ├── decision/
 │   ├── repository.ts                # DecisionRepository interface (from extraction plan)
 │   ├── store.ts                     # SqliteDecisionRepository (local)
@@ -498,9 +530,9 @@ src/
 
 ## Success Criteria
 
-Implementation is complete when:
+### Implementation Complete
 
-- [ ] `sam deploy` creates all resources without errors
+- [ ] `cdk deploy` creates all resources without errors
 - [ ] All `/v1/*` endpoints respond correctly via API Gateway
 - [ ] API key enforcement works (403 without key, 200 with valid key)
 - [ ] DynamoDB tables have correct schema and GSIs
@@ -509,7 +541,22 @@ Implementation is complete when:
 - [ ] Cold start < 1 second (measured via CloudWatch)
 - [ ] Monthly cost < $50 during development
 - [ ] Local development still works unchanged (`npm run dev` uses SQLite)
-- [ ] `sam local invoke` works for local Lambda testing against DynamoDB Local
+- [ ] `cdk synth` + DynamoDB Local works for local Lambda testing
+
+### 90-Day Pilot Success
+
+Measurable outcomes defining a successful pilot. Each has a clear pass/fail at day 90.
+
+| # | Criterion | Measurement | Pass Definition |
+|---|-----------|-------------|-----------------|
+| 1 | Signal processing correctness | Contract tests against deployed endpoint | 100% of 462+ tests pass on every deploy |
+| 2 | Data integrity under concurrent load | Optimistic locking conflict rate in CloudWatch Logs | Zero stale-write data corruption; conflicts resolved via retry |
+| 3 | Signal reliability | Lambda error rate metric | < 0.1% invocation errors over 90 days |
+| 4 | Tenant data isolation | Cross-tenant query test using different API keys | Zero cases of Org A data accessible via Org B API key |
+| 5 | API uptime | API Gateway 5xx rate | > 99.5% successful responses over 90 days |
+| 6 | Intake latency | API Gateway + Lambda p99 latency | < 500ms p99 for POST /v1/signals |
+| 7 | Budget adherence | AWS Cost Explorer at day 90 | Total spend under $300 for full 90-day pilot |
+| 8 | Zero-touch operation | Alert count requiring manual intervention | < 5 manual interventions over 90 days |
 
 ---
 
@@ -518,9 +565,9 @@ Implementation is complete when:
 ```
 1. Repository extractions (Decision, State, Signal Log, Idempotency) — COMPLETE
 2. Handler refactoring (extract core logic from Fastify wrappers)
-3. SAM template + DynamoDB table definitions
+3. CDK stack + DynamoDB table definitions (including PoliciesTable, FieldMappingsTable)
 4. DynamoDB adapters for each repository
-5. Lambda handler files
+5. Lambda handler files (ingest, query, inspect, admin)
 6. Deploy + contract test verification
 7. Custom domain + DNS
 8. CI/CD pipeline
@@ -533,19 +580,22 @@ Steps 1 is done. Steps 2–4 are local/build changes (handler refactor, adapters
 ## Notes
 
 - **Why not Fastify-in-Lambda?** Wrapping Fastify in a Lambda handler (via `@fastify/aws-lambda`) adds ~200ms cold start overhead and pulls in the full Fastify dependency. Direct handler invocation is leaner and makes the Lambda functions independently testable.
-- **DynamoDB Local for testing:** `sam local invoke` + DynamoDB Local allows running the full DynamoDB-backed stack locally before deploying. This is how we validate DynamoDB adapters without incurring AWS costs.
+- **DynamoDB Local for testing:** `cdk synth` generates a CloudFormation template that can be used alongside DynamoDB Local for local validation of DynamoDB adapters without incurring AWS costs.
 - **Why REST API, not HTTP API?** API Gateway REST APIs support usage plans and API keys natively. HTTP APIs are cheaper but require a custom authorizer Lambda for key validation — more code, more complexity, more cost at low volume.
+- **Why shared tables, not table-per-tenant?** Shared DynamoDB tables with `org_id` as partition key are simpler to manage (one CDK stack, one set of GSIs) and provide sufficient isolation for pilot. Table-per-tenant requires dynamic table name resolution, per-tenant IAM policies, and a provisioning step for each new org. If hard isolation is required later (e.g., compliance), the repository interfaces make per-tenant tables a bounded migration.
+- **Why CDK, not SAM?** v1.1 infrastructure now includes PoliciesTable, FieldMappingsTable, AdminFunction Lambda, and admin API routes — complexity that exceeds SAM's YAML ergonomics. CDK provides TypeScript-native construct composition, IDE autocomplete, and programmatic patterns (e.g., `table.grantReadWriteData(fn)`) that reduce IAM boilerplate. SAM was the right choice for initial serverless-only infra; CDK is the right choice now that the stack has grown.
+- **Stack flexibility for future team:** The repository pattern (4 extracted interfaces) + handler-core extraction means the business logic is portable across: Fastify (local dev), Lambda (pilot), ECS/Fargate (scale), or any other compute. SQS FIFO, Aurora, CDK, dashboards — all are additive changes that slot in without rewriting core logic.
 
 ---
 
 ## Next Steps
 
 1. **Handler refactoring** — Extract framework-agnostic core from Fastify handlers (`ingestion/handler.ts`, `decision/handler.ts`, signal log, state, inspection) so Lambda handlers can call the same logic.
-2. **SAM template** — Add `infra/template.yaml` with API Gateway, Lambda functions, and DynamoDB tables (signals, learner_state, decisions, ingestion_log, tenants/api_keys per tenant-provisioning.md).
+2. **CDK stack** — Add `infra/lib/control-layer-stack.ts` with API Gateway, Lambda functions (Ingest, Query, Inspect, Admin), and DynamoDB tables (signals, learner_state, decisions, ingestion_log, tenants/api_keys, policies, field_mappings).
 3. **DynamoDB adapters** — Implement `DynamoDbDecisionRepository`, `DynamoDbStateRepository`, `DynamoDbSignalLogRepository`, `DynamoDbIdempotencyRepository`, `DynamoDbIngestionLogRepository` (or equivalent) and wire them in Lambda init.
-4. **Lambda handlers** — Add `src/lambda/ingest.ts`, `query.ts`, `inspect.ts`; deploy and run contract tests against deployed URL.
+4. **Lambda handlers** — Add `src/lambda/ingest.ts`, `query.ts`, `inspect.ts`, `admin.ts`; deploy and run contract tests against deployed URL.
 5. Run `/plan-impl docs/specs/aws-deployment.md` to generate a detailed implementation plan with tasks and acceptance criteria.
 
 ---
 
-*Spec created: 2026-02-19 | Updated: 2026-03-01 (prerequisites: all four repository extractions complete). Depends on: state-engine.md, signal-log.md, inspection-api.md, tenant-provisioning.md*
+*Spec created: 2026-02-19 | Updated: 2026-03-28 (SAM → CDK throughout; added PoliciesTable, FieldMappingsTable, AdminFunction; added policy-management-api.md and tenant-field-mappings.md dependencies). Depends on: state-engine.md, signal-log.md, inspection-api.md, tenant-provisioning.md, policy-storage.md, policy-management-api.md, tenant-field-mappings.md*

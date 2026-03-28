@@ -10,7 +10,7 @@ Practical guides for integrating the 8P3P Control Layer API. Each guide covers a
 
 | Guide | Audience | Use-case |
 | ----- | -------- | -------- |
-| [Customer Onboarding Quick Start](customer-onboarding-quickstart.md) | New customers | **First 15 minutes** — verify access, send one signal, read one decision |
+| [Customer Onboarding Quick Start](customer-onboarding-quickstart.md) | New customers | **First 15 minutes** — verify access, send one signal, read one decision; **Step 4 (v1.1):** view active policies via `GET /v1/policies` |
 | [Pilot Integration Guide (v1)](pilot-integration-guide.md) | Integration engineers | End-to-end: signals → decisions, canonical fields, idempotency, identity, policy routing |
 | [FAQ](faq.md) | Pilot customers | Common questions: payload structure, state accumulation, policy customization, decisions, identity, access |
 | [Get all learner decisions from org](get-all-learner-decisions-from-org.md) | Integration / analytics engineers | Export decisions for **all learners** in an org (fan-out: `state/list` → decisions per learner) |

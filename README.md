@@ -216,7 +216,11 @@ Common business use-cases and integration workflows (built from the existing API
 | [Inspection API](docs/specs/inspection-api.md) | v1 — spec'd | Read-only query endpoints: ingestion log, state query, enriched decision trace |
 | [Inspection Panels](docs/specs/inspection-panels.md) | v1 — spec'd | 4 read-only panels: Signal Intake, State Viewer, Decision Stream, Decision Trace |
 | [Tenant Provisioning](docs/specs/tenant-provisioning.md) | v1.1 — spec'd | API key issuance, tenant onboarding, rate limits via API Gateway usage plans |
-| [AWS Deployment](docs/specs/aws-deployment.md) | v1.1 — spec'd | API Gateway + Lambda + DynamoDB serverless deployment (SAM) |
+| [AWS Deployment](docs/specs/aws-deployment.md) | v1.1 — spec'd | API Gateway + Lambda + DynamoDB serverless deployment (AWS CDK) |
+| [Policy Storage](docs/specs/policy-storage.md) | v1.1 — spec'd | DynamoDB PoliciesTable, resolution, cache, soft enable/disable |
+| [Policy Inspection API](docs/specs/policy-inspection-api.md) | v1.1 — spec'd | `GET /v1/policies` — tenant read-only policy inspection |
+| [Policy Management API](docs/specs/policy-management-api.md) | v1.1 — spec'd | Admin policy CRUD + PATCH status; `ADMIN_API_KEY` |
+| [Tenant Field Mappings](docs/specs/tenant-field-mappings.md) | v1 + v1.1 — spec'd | Alias normalization (v1); computed transforms + DynamoDB + Canvas mapper (v1.1) |
 
 ### API specifications (machine-readable)
 

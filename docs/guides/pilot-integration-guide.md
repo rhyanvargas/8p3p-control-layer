@@ -157,6 +157,30 @@ Each decision includes a `trace` object (state_id/state_version, policy_version,
 
 ---
 
+## View your active policies (v1.1)
+
+After v1.1 deployment, you can **read** the policy configuration 8P3P applies to your org (thresholds, rule order, default decision) without asking an operator for a file export. Writes remain admin-only; see `docs/specs/policy-management-api.md`.
+
+**List policies for your org** (requires tenant `x-api-key`; returns metadata and active keys):
+
+```bash
+curl -sS "https://<host>/v1/policies" \
+  -H "x-api-key: <your_key>"
+```
+
+**Fetch one policy by key** (e.g. `learner`, `default`, or org routing target from `docs/specs/decision-engine.md`):
+
+```bash
+curl -sS "https://<host>/v1/policies/learner" \
+  -H "x-api-key: <your_key>"
+```
+
+Typical response body includes `policy_id`, `policy_version`, `rules[]` with `rule_id`, `condition`, `decision_type`, and `default_decision_type`. Use this to align your LMS mapping with the thresholds your integration will hit in production.
+
+**Spec:** `docs/specs/policy-inspection-api.md`
+
+---
+
 ## 7) Troubleshooting and common errors
 
 ### 401 Unauthorized

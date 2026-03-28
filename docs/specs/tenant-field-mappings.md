@@ -1,96 +1,155 @@
-# Tenant-Scoped Payload Field Mappings (DEF-DEC-006)
+# Tenant-Scoped Payload Field Mappings (DEF-DEC-006 + v1.1)
 
 ## Overview
-Phase 2 introduces an **opt-in, per-tenant payload normalization + enforcement layer** during signal ingestion. The goal is to allow stricter payload semantics per tenant (required fields, alias normalization, primitive type checks) **without breaking vendor-agnosticism** or changing the `POST /v1/signals` contract shape.
 
-This feature addresses the Phase 2 tenant field mapping scope (DEF-DEC-006): declarative per-tenant normalization without domain logic embedded in the control layer.
+This spec defines an **opt-in, per-tenant payload normalization + enforcement layer** during signal ingestion. v1 (implemented) adds alias normalization, required-field enforcement, and primitive type checks **without** changing the `POST /v1/signals` contract shape.
+
+**v1.1 extension (pilot — Canvas):** Pilot customers need to POST **raw LMS payloads** (e.g. Canvas webhook JSON) and have 8P3P derive canonical fields (`stabilityScore`, `masteryScore`, `timeSinceReinforcement`, etc.). v1.1 adds:
+
+1. **Declarative computed transforms** — safe arithmetic expressions over source fields (no arbitrary code).
+2. **DynamoDB-backed mapping config** — `FieldMappingsTable`, keyed by `org_id` + `source_system`, with in-memory cache + TTL (same pattern as policy cache).
+3. **Admin API** — upload/list mappings with `ADMIN_API_KEY` (same auth model as `docs/specs/policy-management-api.md`).
+4. **Local-dev fallback** — `TENANT_FIELD_MAPPINGS_PATH` static JSON remains supported when DynamoDB mapping is absent or for offline dev.
+
+Domain knowledge stays **tenant-owned**; the control layer executes mappings it does not invent. See `internal-docs/foundation/ip-defensibility-and-value-proposition.md` §Canonical Fields.
+
+---
+
+## Access Patterns (FieldMappingsTable)
+
+Per [DynamoDB modeling guidance](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/bp-modeling-nosql.html).
+
+| # | Access Pattern | DynamoDB Operation |
+|---|----------------|-------------------|
+| 1 | Load mapping for org + `source_system` at ingestion | `GetItem(PK=org_id, SK=source_system)` |
+| 2 | List all mappings for one org (admin) | `Query(PK=org_id)` |
+| 3 | Admin upsert mapping for one source system | `PutItem` with `ConditionExpression` optional for version |
+| 4 | Operator list all orgs’ mappings (optional pilot shortcut) | `Scan` on `FieldMappingsTable` (admin-only, low frequency) |
+
+Table is defined in `docs/specs/aws-deployment.md` (`FieldMappingsTable`).
+
+---
+
+## Ingestion Pipeline Order
+
+1. Structural validation (`SignalEnvelope`).
+2. Forbidden semantic key detection (PII / UI keys).
+3. **Tenant mapping** (this spec):  
+   a. Resolve config: DynamoDB `GetItem(org_id, source_system)` → on miss, try file `TENANT_FIELD_MAPPINGS_PATH` for `org_id` → on miss, skip mapping (Phase 1 behavior).  
+   b. Alias normalization (copy alias → canonical key; non-destructive).  
+   c. **Computed transforms** (v1.1): evaluate each transform in order; write `target` keys into payload.  
+   d. Required-field enforcement.  
+   e. Primitive type enforcement.
+4. Idempotency persistence and remainder of ingestion.
+
+Transforms run **after** aliases, **before** required fields, so a transform may produce a required canonical field.
+
+---
 
 ## Requirements
 
-### Functional
-- [ ] **Opt-in per tenant**: Enforcement MUST apply only when a payload mapping exists for the incoming `org_id`. When absent, ingestion behavior remains Phase 1 (payload is opaque except structural validation + forbidden key scan).
-- [ ] **Pipeline placement**: Tenant mapping normalization/validation MUST run after structural schema validation and forbidden semantic key detection, and before idempotency persistence.
-- [ ] **Alias normalization**: If a canonical field is missing and exactly one alias candidate is present, the system MUST copy the alias value into the canonical field path.
-- [ ] **No destructive edits**: Normalization MUST NOT delete alias fields; it may only add canonical fields.
-- [ ] **Required field enforcement**: After normalization, all configured required canonical payload fields MUST be present (non-null; strings must be non-blank) or ingestion MUST reject.
-- [ ] **Primitive type enforcement**: When configured, fields MUST match expected primitive types (`string`, `number`, `boolean`, `object`) or ingestion MUST reject.
-- [ ] **Config loading**: When `TENANT_FIELD_MAPPINGS_PATH` is set at runtime and points to a valid JSON file, the server MUST load it at startup. If the file is missing/invalid, the server MUST **fail open** (start normally) and log a warning.
+### Functional (v1 — existing)
 
-### Acceptance Criteria
-- Given a tenant mapping that requires `payload.stabilityScore`, when a signal arrives without `stabilityScore` and without any configured alias present, then ingestion returns `rejected` with `missing_required_field` and `field_path=payload.stabilityScore`.
-- Given a tenant mapping with `aliases.stabilityScore = ["stability_score"]` and `required=["stabilityScore"]`, when a signal arrives with `payload.stability_score=0.5`, then ingestion returns `accepted` and the stored payload includes both `stability_score` and `stabilityScore`.
-- Given a tenant mapping with `aliases.stabilityScore = ["a","b"]`, when a signal arrives with both `payload.a` and `payload.b` present and `payload.stabilityScore` absent, then ingestion returns `rejected` with `invalid_format` and `field_path=payload.stabilityScore`.
-- Given a tenant mapping with `types.level="number"`, when a signal arrives with `payload.level="5"`, then ingestion returns `rejected` with `invalid_type` and `field_path=payload.level`.
+- [x] **Opt-in per tenant**: When no mapping exists for `org_id` (and v1.1: no DynamoDB item and no file entry), ingestion behaves as Phase 1 (opaque payload except structural + forbidden keys).
+- [x] **Pipeline placement**: As above.
+- [x] **Alias normalization**: If canonical missing and exactly one alias candidate present → copy into canonical path; do not remove alias keys.
+- [x] **Required field enforcement**: After normalization/transforms, configured required fields must be present (non-null; strings non-blank) or `rejected` / `missing_required_field`.
+- [x] **Primitive type enforcement**: Configured `types` must match or `rejected` / `invalid_type`.
+- [x] **File config**: `TENANT_FIELD_MAPPINGS_PATH` — load at startup; missing/invalid → fail open + warning.
 
-## Constraints
-- Tenant mappings MUST remain **declarative** and must not embed domain logic (e.g., computed transforms such as dividing by 100).
-- Enforcement MUST preserve Phase 1 contract stability: no route renames, no changes to the `SignalEnvelope` schema shape.
-- The system MUST remain vendor-agnostic: mappings are tenant-owned configuration, not hardcoded partner logic.
+### Functional (v1.1 — new)
 
-## Out of Scope
-- Transform functions (e.g., “map `mathMastery` to `stabilityScore` via `value/100`”).
-- Remote configuration stores (DynamoDB/S3/etc.) and dynamic reload; Phase 2 uses a static file load via env var.
-- Per-tenant OpenAPI schema generation (payload remains “object” in Phase 2).
+- [ ] **Computed transforms**: For each rule in `transforms[]`, read `source` from payload (dot-path allowed, e.g. `submission.score`), evaluate `expression` in a restricted grammar, write result to `target` (top-level canonical key unless spec says otherwise).
+- [ ] **DynamoDB config**: If `FIELD_MAPPINGS_TABLE` env is set and `GetItem` returns an item, use embedded mapping document; merge semantics = DynamoDB wins over file for same org+source_system when both exist (implementation: try DynamoDB first).
+- [ ] **Cache**: In-memory cache per `(org_id, source_system)` with TTL (default 300s, configurable); invalidate on admin `PUT` success for that key.
+- [ ] **Admin API**: `PUT /v1/admin/mappings/:org_id/:source_system` (body: full mapping JSON), `GET /v1/admin/mappings/:org_id` (list SKs + metadata for that org). Auth: `ADMIN_API_KEY` only. Routed via `AdminFunction` (`docs/specs/aws-deployment.md`).
+- [ ] **Expression validation at upload**: Invalid expression → 400 at `PUT` time (admin API), never at runtime-only failure for pilot.
 
-## Dependencies
+### Acceptance Criteria (v1 — unchanged)
 
-### Required from Other Specs
-| Dependency | Source Document | Status |
-|------------|-----------------|--------|
-| `POST /v1/signals` ingestion pipeline ordering + behavior | `docs/specs/signal-ingestion.md` | Defined ✓ |
-| DEF-DEC-006 motivation and scope | `docs/specs/tenant-field-mappings.md` (this spec) | Defined ✓ |
-| Canonical error codes | `src/shared/error-codes.ts` | Defined ✓ |
+- Given mapping requires `stabilityScore`, signal without it and without alias → `rejected`, `missing_required_field`, `field_path=payload.stabilityScore`.
+- Given alias `stability_score` → `stabilityScore`, payload has alias only → `accepted`; stored payload has both.
+- Given two aliases for same canonical without canonical → `rejected`, `invalid_format`.
+- Given `types.level=number` and `level="5"` → `rejected`, `invalid_type`.
 
-### Provides to Other Specs
-| Function | Used By |
-|----------|---------|
-| `normalizeAndValidateTenantPayload()` | Signal Ingestion (Stage 1) |
+### Acceptance Criteria (v1.1)
 
-## Error Codes
+- Given DynamoDB mapping with transform `target=stabilityScore`, `source=raw_score`, `expression=value/100`, payload `{ "raw_score": 65 }` → after mapping, `stabilityScore===0.65` and signal accepted if other requirements pass.
+- Given admin `PUT` with expression `eval('process')` or forbidden token → 400 with validation error (SIG-API-017).
+- Given DynamoDB item for `springs` + `canvas-lms`, ingestion with `source_system=canvas-lms` uses DynamoDB mapping (SIG-API-018).
+- Given DynamoDB unreachable (simulated) and valid file mapping for org → fallback to file mapping; log warning (SIG-API-019).
 
-### Existing (reuse)
-| Code | Source |
-|------|--------|
-| `missing_required_field` | Signal Ingestion |
-| `invalid_type` | Signal Ingestion |
-| `invalid_format` | Signal Ingestion |
-| `payload_not_object` | Signal Ingestion |
+---
 
-### New (add during implementation)
-| Code | Description |
-|------|-------------|
-| (none) | All errors are expressed via existing codes |
+## Restricted Transform Expression Grammar
 
-## Contract Tests
+Expressions are **not** arbitrary JavaScript. Implementations MUST use a whitelist approach (e.g. small parser or `expr-eval`-style AST with only allowed nodes).
 
-| Test ID | Description | Input | Expected |
-|---------|-------------|-------|----------|
-| SIG-API-012 | Required canonical field enforced | Mapping requires `stabilityScore`, payload missing it | `rejected`, `missing_required_field`, `field_path=payload.stabilityScore` |
-| SIG-API-013 | Alias normalization satisfies required canonical | Mapping aliases `stabilityScore <- stability_score`, payload has alias | `accepted`; stored payload includes both keys |
-| SIG-API-014 | Alias conflict rejected | Canonical missing; multiple alias candidates present | `rejected`, `invalid_format`, `field_path=payload.stabilityScore` |
-| SIG-API-015 | Type enforcement rejected | Mapping types `level=number`, payload `level="5"` | `rejected`, `invalid_type`, `field_path=payload.level` |
+**Allowed:**
 
-> **Test strategy note:** These are contract-level HTTP tests over `POST /v1/signals` with store-side assertions for normalization side effects. Unit tests for the mapping function are optional defense-in-depth and do not replace these.
+- Literals: numbers.
+- Variable: `value` — bound to the numeric (or coerced numeric) read from `source` path.
+- Operators: `+`, `-`, `*`, `/`, parentheses.
+- Functions: `Math.min`, `Math.max`, `Math.round` (fixed arity; no `Function`, no `import`, no property access on globals except `Math.*` listed).
 
-## Notes
+**Forbidden:** `eval`, `new`, identifiers other than `value` and `Math`, bracket access, strings except as documented edge cases, ternary optional in v1.1.1 if needed.
 
-### Configuration File Shape (v1)
-The tenant mappings file loaded by `TENANT_FIELD_MAPPINGS_PATH` is JSON:
+Each transform:
 
 ```json
 {
-  "version": 1,
+  "target": "stabilityScore",
+  "source": "submission.score",
+  "expression": "value / 100"
+}
+```
+
+`source` uses dot-path into the **payload** object (after envelope unwrap). Missing `source` at runtime → transform skipped or rejection per tenant config flag `strict_transforms` (default: reject with `missing_required_field` on target if required).
+
+---
+
+## DynamoDB Item Shape (FieldMappingsTable)
+
+| Attribute | Type | Description |
+|-----------|------|-------------|
+| `org_id` | S | PK |
+| `source_system` | S | SK — must match `SignalEnvelope.source_system` (e.g. `canvas-lms`) |
+| `mapping_version` | N | Optimistic locking / audit |
+| `mapping` | M | Nested map: `required`, `aliases`, `types`, `transforms` (same shape as file JSON below) |
+| `updated_at` | S | ISO 8601 |
+| `updated_by` | S | Admin key prefix |
+
+---
+
+## Configuration Shapes
+
+### File shape (`TENANT_FIELD_MAPPINGS_PATH`) — extended v1.1
+
+Top-level adds optional `source_system` per tenant entry when using file (for multi-source file); preferred v1.1 path is DynamoDB per `source_system` as SK.
+
+```json
+{
+  "version": 2,
   "tenants": {
     "org-A": {
-      "payload": {
-        "required": ["stabilityScore", "timeSinceReinforcement"],
-        "aliases": {
-          "stabilityScore": ["stability_score"],
-          "timeSinceReinforcement": ["time_since_reinforcement_seconds"]
-        },
-        "types": {
-          "stabilityScore": "number",
-          "timeSinceReinforcement": "number"
+      "canvas-lms": {
+        "payload": {
+          "required": ["stabilityScore", "timeSinceReinforcement"],
+          "aliases": {
+            "stabilityScore": ["stability_score"],
+            "timeSinceReinforcement": ["time_since_reinforcement_seconds"]
+          },
+          "types": {
+            "stabilityScore": "number",
+            "timeSinceReinforcement": "number"
+          },
+          "transforms": [
+            {
+              "target": "stabilityScore",
+              "source": "grade",
+              "expression": "value / 100"
+            }
+          ]
         }
       }
     }
@@ -98,3 +157,88 @@ The tenant mappings file loaded by `TENANT_FIELD_MAPPINGS_PATH` is JSON:
 }
 ```
 
+For backward compatibility, v1 shape `tenants.org-A.payload` without `source_system` nesting remains valid and applies to **all** `source_system` values for that org (implementation-defined: treat as `*` or default mapping).
+
+### Canvas proof-of-concept (illustrative)
+
+Canvas assignment / submission webhooks vary by account. Example mapping **illustration** (fields must be validated against real Canvas JSON from the pilot):
+
+| Canvas path (example) | Canonical target | Transform |
+|----------------------|------------------|-----------|
+| `assignment.points_possible` + `submission.score` | `masteryScore` | `value` = `submission.score / assignment.points_possible` (clamp 0–1) |
+| `submission.submitted_at` + server `now` | `timeSinceReinforcement` | `Math.round((now - submitted_at_ms) / 1000)` — may require two-source transform: v1.1.1 may add `expression` with multiple inputs or a `sources` array; **pilot MVP:** single `source` + expression only, or pre-normalize in receiver until multi-source is spec’d |
+
+> **Note:** Multi-field transforms (e.g. numerator/denominator from two paths) may need a follow-up micro-spec or `sources: { num: "a", den: "b" }` with `expression: "num / den"`. For TASK-016 minimum, document as **Out of Scope** if single-source only — plan said Canvas example; I'll add Out of Scope line for multi-source v1.1.2.
+
+---
+
+## Out of Scope
+
+- Per-tenant OpenAPI generation for payload (payload remains `object` in OpenAPI).
+- Arbitrary code / user-defined functions in transforms.
+- **Multi-source transforms** in v1.1.0 (two JSON paths in one expression) — defer to v1.1.1; pilot may use alias + single-source transform or thin receiver pre-normalization.
+- Real-time EventBridge-driven mapping reload (cache TTL is sufficient for pilot).
+
+---
+
+## Constraints
+
+- Mappings remain **declarative**; the platform does not embed Canvas-specific code — only tenant-stored config.
+- **Vendor-agnostic:** Table and APIs are generic; Canvas is the first **documented example**, not a hardcoded branch in application code.
+- **Contract stability:** No change to `SignalEnvelope` top-level shape; only `payload` contents are normalized.
+
+---
+
+## Dependencies
+
+| Dependency | Source | Status |
+|------------|--------|--------|
+| `POST /v1/signals` pipeline | `docs/specs/signal-ingestion.md` | Defined |
+| CDK stack + `FieldMappingsTable` | `docs/specs/aws-deployment.md` | Spec'd |
+| Admin auth model | `docs/specs/policy-management-api.md` | Spec'd |
+| DynamoDB patterns | `docs/specs/policy-storage.md` | Spec'd (reference) |
+
+### Provides to
+
+| Capability | Used By |
+|------------|---------|
+| `normalizeAndValidateTenantPayload()` extended | Signal ingestion |
+| Admin mapping routes | `AdminFunction` |
+
+---
+
+## Error Codes
+
+| Code | When |
+|------|------|
+| `missing_required_field` | Required canonical missing after aliases + transforms |
+| `invalid_type` | Type mismatch |
+| `invalid_format` | Alias conflict |
+| `invalid_mapping_expression` | (v1.1) Runtime guard if expression fails safe-eval (should be rare if admin validation is correct) |
+
+---
+
+## Contract Tests
+
+| Test ID | Description |
+|---------|-------------|
+| SIG-API-012 | Required canonical enforced |
+| SIG-API-013 | Alias normalization |
+| SIG-API-014 | Alias conflict |
+| SIG-API-015 | Type enforcement |
+| SIG-API-016 | Computed transform produces canonical field |
+| SIG-API-017 | Invalid expression rejected at admin `PUT` |
+| SIG-API-018 | DynamoDB mapping loaded for org + source_system |
+| SIG-API-019 | Fallback to file when DynamoDB miss/unavailable |
+
+---
+
+## Notes
+
+- **Cache TTL:** Default 300s; align with `policy-storage.md` cache discussion; document env override `FIELD_MAPPINGS_CACHE_TTL_MS`.
+- **Partition key:** `org_id` on `FieldMappingsTable` matches pilot scale; same caveats as `PoliciesTable` if cross-org listing grows.
+- **Security:** Admin mapping `PUT` must validate expression grammar server-side before `PutItem`.
+
+---
+
+*Spec updated: 2026-03-28 — v1.1 Canvas mapper, DynamoDB, transforms, admin API. Original DEF-DEC-006 v1 behavior retained.*

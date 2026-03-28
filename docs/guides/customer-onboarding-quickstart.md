@@ -105,6 +105,26 @@ That is **meaningful output** from the APIs: one signal → one decision with a 
 
 ---
 
+## Step 4: Check your active policy (v1.1, ~1 minute)
+
+Once v1.1 is live, list the rules and thresholds that apply to your org so your team can verify LMS mappings against real policy data:
+
+```bash
+curl -sS "https://<host>/v1/policies" \
+  -H "x-api-key: <your_key>"
+```
+
+For a single policy (often `learner` or `default`):
+
+```bash
+curl -sS "https://<host>/v1/policies/learner" \
+  -H "x-api-key: <your_key>"
+```
+
+Read `rules[].condition` for thresholds (e.g. `stabilityScore` compared to `0.65`) and `decision_type` for what fires first. **Spec:** `docs/specs/policy-inspection-api.md`
+
+---
+
 ## Optional: Inspection panels (if you have UI access)
 
 If 8P3P has given you access to the inspection UI:
