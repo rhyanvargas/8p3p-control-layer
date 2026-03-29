@@ -32,6 +32,11 @@ tags:
     description: Learner state inspection operations.
   - name: Decision
     description: Decision output query operations.
+  - name: AdminPolicy
+    description: |
+      Admin policy lifecycle management. Requires `x-admin-api-key` header on all endpoints.
+      Tenant `x-api-key` is **not** accepted — 401 is returned for tenant-key requests.
+      Endpoints create, replace, toggle, validate, delete, and list policies in DynamoDB PoliciesTable.
 
 paths:
   /health:
@@ -548,6 +553,237 @@ paths:
               schema:
                 $ref: '#/components/schemas/SignalLogError'
 
+  # ---------------------------------------------------------------------------
+  # Admin Policy Management
+  # POST /v1/admin/policies/validate must come before the parameterized route
+  # ---------------------------------------------------------------------------
+  /v1/admin/policies/validate:
+    post:
+      tags: [AdminPolicy]
+      operationId: validatePolicy
+      summary: Validate a policy JSON without writing to DynamoDB
+      description: |
+        **What it does:** Runs full structural validation on a `PolicyDefinition` body via `validatePolicyStructure`. No DynamoDB writes — pure in-process check.
+
+        **When to use:** Before uploading a policy, confirm it will be accepted by `PUT /v1/admin/policies/:org_id/:policy_key`.
+
+        **Auth:** Requires `x-admin-api-key` header.
+      security:
+        - AdminApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PolicyDefinition'
+      responses:
+        '200':
+          description: Policy is structurally valid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidatePolicyResponse'
+        '400':
+          description: Policy structure is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminErrorResponse'
+        '401':
+          description: Missing or invalid x-admin-api-key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminErrorResponse'
+
+  /v1/admin/policies/{org_id}/{policy_key}:
+    put:
+      tags: [AdminPolicy]
+      operationId: putPolicy
+      summary: Create or replace a policy
+      description: |
+        **What it does:** Validates the request body as a `PolicyDefinition`, then writes (or replaces) the item in DynamoDB `PoliciesTable`. Sets `status: "active"` and auto-increments `policy_version`. Stores `policy_json` as a DynamoDB Map (not a string).
+
+        **When to use:** Onboard new org policies or update existing ones. Without `If-Match`, the write is unconditional (last-writer-wins). Send `If-Match: <integer>` to enable optimistic locking — the write fails with 409 if the stored version differs.
+
+        **Auth:** Requires `x-admin-api-key` header.
+      security:
+        - AdminApiKeyAuth: []
+      parameters:
+        - name: org_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Organization ID (e.g. `springs`, `global`)
+        - name: policy_key
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Policy key (e.g. `learner`, `staff`, `default`)
+        - name: If-Match
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: Optimistic lock version. Write fails with 409 if current `policy_version` does not match.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PolicyDefinition'
+      responses:
+        '200':
+          description: Policy written successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PolicyWriteResponse'
+        '400':
+          description: Invalid policy structure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminErrorResponse'
+        '401':
+          description: Missing or invalid x-admin-api-key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminErrorResponse'
+        '409':
+          description: Optimistic lock conflict (If-Match version mismatch)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminErrorResponse'
+
+    patch:
+      tags: [AdminPolicy]
+      operationId: patchPolicyStatus
+      summary: Toggle policy status (active | disabled)
+      description: |
+        **What it does:** Updates only `status` on a policy (`"active"` or `"disabled"`). Does not overwrite `policy_json`. Returns 404 if the policy does not exist.
+
+        **When to use:** Soft-deactivate a policy without deleting it. After disabling, the resolution chain falls through to the next candidate. Re-enable with `status: "active"`. Cache TTL (default 5 min) applies before the change is visible in live traffic.
+
+        **Auth:** Requires `x-admin-api-key` header.
+      security:
+        - AdminApiKeyAuth: []
+      parameters:
+        - name: org_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: policy_key
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchPolicyStatusBody'
+      responses:
+        '200':
+          description: Status updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PatchPolicyStatusResponse'
+        '400':
+          description: Invalid status value
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminErrorResponse'
+        '401':
+          description: Missing or invalid x-admin-api-key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminErrorResponse'
+        '404':
+          description: Policy not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminErrorResponse'
+
+    delete:
+      tags: [AdminPolicy]
+      operationId: deletePolicy
+      summary: Permanently delete a policy
+      description: |
+        **What it does:** Removes the policy record from DynamoDB permanently. Returns 204 on success, 404 if the policy does not exist. For soft deactivation, use `PATCH status: "disabled"` instead.
+
+        **Auth:** Requires `x-admin-api-key` header.
+      security:
+        - AdminApiKeyAuth: []
+      parameters:
+        - name: org_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: policy_key
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Policy deleted
+        '401':
+          description: Missing or invalid x-admin-api-key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminErrorResponse'
+        '404':
+          description: Policy not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminErrorResponse'
+
+  /v1/admin/policies:
+    get:
+      tags: [AdminPolicy]
+      operationId: listPolicies
+      summary: List all policies
+      description: |
+        **What it does:** Returns all policy records. When `org_id` is provided, uses a DynamoDB `Query` on the partition key; otherwise performs a full table `Scan` (acceptable for pilot — low org count, admin-only, low frequency).
+
+        **Auth:** Requires `x-admin-api-key` header.
+      security:
+        - AdminApiKeyAuth: []
+      parameters:
+        - name: org_id
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Filter to a single org (uses Query instead of Scan)
+      responses:
+        '200':
+          description: List of policy records
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListPoliciesResponse'
+        '401':
+          description: Missing or invalid x-admin-api-key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminErrorResponse'
+
 components:
   securitySchemes:
     ApiKeyAuth:
@@ -557,6 +793,14 @@ components:
       description: |
         API key for pilot access (required when API_KEY env is set).
         Endpoints are locked until you click Authorize and enter a valid key; without it, requests return 401. When authorized, lock icons turn green to show you have access.
+    AdminApiKeyAuth:
+      type: apiKey
+      in: header
+      name: x-admin-api-key
+      description: |
+        Admin API key for policy lifecycle management (required on all `/v1/admin/*` endpoints).
+        Must match the `ADMIN_API_KEY` environment variable. A valid tenant `x-api-key` is **not** sufficient — admin endpoints exclusively validate this header.
+        When unset in the environment, all admin requests are rejected (fail-closed).
   schemas:
     # ---------------------------------------------------------------------------
     # Health (GET /health)
@@ -1021,3 +1265,156 @@ components:
         rationale:
           type: string
           description: Human-readable rationale (enriched trace)
+
+    # ---------------------------------------------------------------------------
+    # Admin Policy Management schemas
+    # ---------------------------------------------------------------------------
+
+    PolicyDefinition:
+      type: object
+      description: Policy definition JSON body — same structure validated by validatePolicyStructure
+      required:
+        - policy_id
+        - policy_version
+        - description
+        - rules
+        - default_decision_type
+      properties:
+        policy_id:
+          type: string
+          description: Unique policy identifier (e.g. springs:learner)
+        policy_version:
+          type: string
+          pattern: '^\d+\.\d+\.\d+(-[a-zA-Z0-9]+(\.[a-zA-Z0-9]+)*)?(\+[a-zA-Z0-9]+(\.[a-zA-Z0-9]+)*)?$'
+          description: Semver string (e.g. 1.0.0, 2.1.0-beta.1)
+        description:
+          type: string
+        rules:
+          type: array
+          items:
+            type: object
+            required: [rule_id, condition, decision_type]
+            properties:
+              rule_id:
+                type: string
+              condition:
+                type: object
+                description: Condition node (leaf with field/operator/value, or all/any compound)
+              decision_type:
+                type: string
+                enum: [reinforce, advance, intervene, pause]
+        default_decision_type:
+          type: string
+          enum: [reinforce, advance, intervene, pause]
+
+    PolicyWriteResponse:
+      type: object
+      description: Response body after a successful PUT /v1/admin/policies
+      required: [org_id, policy_key, status, policy_version, updated_at]
+      properties:
+        org_id:
+          type: string
+        policy_key:
+          type: string
+        status:
+          type: string
+          enum: [active, disabled]
+        policy_version:
+          type: integer
+          description: Monotonic integer auto-incremented on each PUT
+        updated_at:
+          type: string
+          description: ISO 8601 timestamp
+        updated_by:
+          type: string
+          description: Truncated admin key prefix (never full key)
+
+    PatchPolicyStatusBody:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [active, disabled]
+
+    PatchPolicyStatusResponse:
+      type: object
+      required: [org_id, policy_key, status, updated_at]
+      properties:
+        org_id:
+          type: string
+        policy_key:
+          type: string
+        status:
+          type: string
+          enum: [active, disabled]
+        policy_version:
+          type: integer
+        updated_at:
+          type: string
+          description: ISO 8601 timestamp
+        updated_by:
+          type: string
+
+    PolicyListEntry:
+      type: object
+      required: [org_id, policy_key, policy_version, status, updated_at]
+      properties:
+        org_id:
+          type: string
+        policy_key:
+          type: string
+        policy_version:
+          type: integer
+        status:
+          type: string
+          enum: [active, disabled]
+        updated_at:
+          type: string
+        updated_by:
+          type: string
+
+    ListPoliciesResponse:
+      type: object
+      required: [policies, count]
+      properties:
+        policies:
+          type: array
+          items:
+            $ref: '#/components/schemas/PolicyListEntry'
+        count:
+          type: integer
+
+    ValidatePolicyResponse:
+      type: object
+      required: [valid]
+      properties:
+        valid:
+          type: boolean
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+
+    AdminErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              enum:
+                - admin_key_required
+                - version_conflict
+                - invalid_status_value
+                - invalid_policy_structure
+                - policy_not_found
+                - invalid_format
+            message:
+              type: string

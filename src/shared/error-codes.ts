@@ -135,6 +135,28 @@ export const ErrorCodes = {
    * Logged as a structured warning — never returned to the caller.
    */
   POLICY_SKIPPED_DISABLED: 'policy_skipped_disabled',
+
+  // ==========================================================================
+  // Policy Management Admin API (v1.1)
+  // ==========================================================================
+
+  /** Admin endpoint called without a valid x-admin-api-key header (401) */
+  ADMIN_KEY_REQUIRED: 'admin_key_required',
+
+  /**
+   * Optimistic lock conflict: If-Match version does not match the current
+   * policy_version in DynamoDB (409).
+   */
+  VERSION_CONFLICT: 'version_conflict',
+
+  /** PATCH body status field is not "active" or "disabled" (400) */
+  INVALID_STATUS_VALUE: 'invalid_status_value',
+
+  /**
+   * PUT/POST validate body failed structural validation via validatePolicyStructure (400).
+   * Maps all validation throws from policy-loader to this single admin-facing code.
+   */
+  INVALID_POLICY_STRUCTURE: 'invalid_policy_structure',
 } as const;
 
 export type ErrorCode = typeof ErrorCodes[keyof typeof ErrorCodes];

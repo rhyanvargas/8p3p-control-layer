@@ -2,36 +2,36 @@
 name: Policy Management API
 overview: Implement the admin HTTP API for policy lifecycle (PUT replace, PATCH status, POST validate, DELETE, GET list) against DynamoDB PoliciesTable, with x-admin-api-key auth, optimistic If-Match on PUT, validation via policy-loader, CDK/IAM wiring for AdminFunction, thin CLI scripts, and contract tests POL-ADMIN-001–008.
 todos:
-  - id: "TASK-001"
-    content: "Add admin/policy HTTP error codes to shared ErrorCodes"
-    status: "pending"
-  - id: "TASK-002"
-    content: "Export policy validation for admin API (policy-loader)"
-    status: "pending"
-  - id: "TASK-003"
-    content: "Implement admin API key preHandler (x-admin-api-key)"
-    status: "pending"
-  - id: "TASK-004"
-    content: "Implement PoliciesTable DynamoDB repository (Put/Update/Delete/Scan/Query)"
-    status: "pending"
-  - id: "TASK-005"
-    content: "Implement Fastify admin policy routes and handlers"
-    status: "pending"
-  - id: "TASK-006"
-    content: "Wire admin routes into server (admin auth only for /v1/admin)"
-    status: "pending"
-  - id: "TASK-007"
-    content: "Document admin policy endpoints in OpenAPI"
-    status: "pending"
-  - id: "TASK-008"
-    content: "CDK AdminFunction handler, IAM, API routes, ADMIN_API_KEY env"
-    status: "pending"
-  - id: "TASK-009"
-    content: "Add thin CLI scripts upload-policy and validate-policy"
-    status: "pending"
-  - id: "TASK-010"
-    content: "Contract tests POL-ADMIN-001 through POL-ADMIN-008"
-    status: "pending"
+  - id: TASK-001
+    content: Add admin/policy HTTP error codes to shared ErrorCodes
+    status: completed
+  - id: TASK-002
+    content: Export policy validation for admin API (policy-loader)
+    status: completed
+  - id: TASK-003
+    content: Implement admin API key preHandler (x-admin-api-key)
+    status: completed
+  - id: TASK-004
+    content: Implement PoliciesTable DynamoDB repository (Put/Update/Delete/Scan/Query)
+    status: completed
+  - id: TASK-005
+    content: Implement Fastify admin policy routes and handlers
+    status: completed
+  - id: TASK-006
+    content: Wire admin routes into server (admin auth only for /v1/admin)
+    status: completed
+  - id: TASK-007
+    content: Document admin policy endpoints in OpenAPI
+    status: completed
+  - id: TASK-008
+    content: CDK AdminFunction handler, IAM, API routes, ADMIN_API_KEY env
+    status: completed
+  - id: TASK-009
+    content: Add thin CLI scripts upload-policy and validate-policy
+    status: completed
+  - id: TASK-010
+    content: Contract tests POL-ADMIN-001 through POL-ADMIN-008
+    status: completed
 isProject: false
 ---
 

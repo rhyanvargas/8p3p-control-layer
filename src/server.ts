@@ -25,7 +25,9 @@ import { initDecisionStore, closeDecisionStore } from './decision/store.js';
 import { loadPolicy } from './decision/policy-loader.js';
 import { registerDecisionRoutes } from './decision/routes.js';
 import { apiKeyPreHandler } from './auth/api-key-middleware.js';
+import { adminApiKeyPreHandler } from './auth/admin-api-key-middleware.js';
 import { loadTenantFieldMappingsFromFile } from './config/tenant-field-mappings.js';
+import { registerPolicyManagementRoutes } from './admin/policy-management-routes.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -259,6 +261,14 @@ server.register(async (v1) => {
   registerSignalLogRoutes(v1);
   registerDecisionRoutes(v1);
 }, { prefix: '/v1' });
+
+// Register /v1/admin routes — separate scope with admin-only auth.
+// adminApiKeyPreHandler runs exclusively here; the tenant apiKeyPreHandler
+// does NOT run for this scope, so valid tenant keys return 401 on admin paths.
+server.register(async (admin) => {
+  admin.addHook('preHandler', adminApiKeyPreHandler);
+  registerPolicyManagementRoutes(admin);
+}, { prefix: '/v1/admin' });
 
 // Graceful shutdown: close stores (reverse of init order)
 server.addHook('onClose', () => {

@@ -89,9 +89,15 @@ export class ControlLayerStack extends cdk.Stack {
       description: 'Read-only query Lambda — GET /v1/signals, /v1/decisions, /v1/state, /v1/receipts',
     } as lambda.FunctionProps);
 
+    // ADMIN_API_KEY is sourced from the ADMIN_API_KEY environment variable at deploy time.
+    // For production, pass this from SSM Parameter Store or Secrets Manager via a deployment
+    // script; for local CDK synth a placeholder value is acceptable.
+    const adminApiKey = process.env.ADMIN_API_KEY ?? '';
+
     this.adminFunction = new lambda.Function(this, 'AdminFunction', {
       ...commonLambdaProps,
       functionName: 'control-layer-admin',
+      // Placeholder handler — replaced with bundled src/lambda/admin-handler.ts in aws-deployment TASK-009
       code: lambda.Code.fromInline(`
         exports.handler = async () => ({
           statusCode: 503,
@@ -99,7 +105,13 @@ export class ControlLayerStack extends cdk.Stack {
         });
       `),
       handler: 'index.handler',
-      description: 'Admin Lambda — PUT/PATCH/DELETE /v1/admin/policies',
+      description: 'Admin Lambda — PUT/PATCH/DELETE/GET /v1/admin/policies',
+      environment: {
+        NODE_ENV: 'production',
+        LOG_LEVEL: 'info',
+        POLICIES_TABLE: this.policiesTable.tableName,
+        ADMIN_API_KEY: adminApiKey,
+      },
     } as lambda.FunctionProps);
 
     // -------------------------------------------------------------------------
@@ -133,6 +145,12 @@ export class ControlLayerStack extends cdk.Stack {
       value: this.policiesTable.tableArn,
       description: 'DynamoDB PoliciesTable ARN',
       exportName: 'ControlLayer-PoliciesTableArn',
+    });
+
+    new cdk.CfnOutput(this, 'AdminFunctionName', {
+      value: this.adminFunction.functionName,
+      description: 'AdminFunction Lambda name — handles PUT/PATCH/DELETE/GET /v1/admin/policies',
+      exportName: 'ControlLayer-AdminFunctionName',
     });
   }
 }

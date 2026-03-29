@@ -384,8 +384,9 @@ function validateConditionNode(node: unknown, pathPrefix: string): void {
 
 /**
  * Validates a loaded policy structure. Throws on invalid structure.
+ * Exported for admin API use — maps all thrown errors to `invalid_policy_structure`.
  */
-function validatePolicyStructure(raw: unknown): asserts raw is PolicyDefinition {
+export function validatePolicyStructure(raw: unknown): asserts raw is PolicyDefinition {
   if (raw === null || typeof raw !== 'object') {
     throwPolicyError(ErrorCodes.INVALID_TYPE, 'Policy must be a JSON object');
   }
