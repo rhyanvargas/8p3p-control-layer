@@ -74,6 +74,55 @@ export function deepMerge(
 }
 
 /**
+ * Compute delta companion fields for every top-level numeric field that changed.
+ * For each key F in `next`:
+ *   - Skip if prior[F] is absent (first-signal — no baseline to diff against).
+ *   - Skip if either value is non-numeric.
+ *   - Emit F_delta (numeric difference) and F_direction ("improving"|"declining"|"stable").
+ * Null-removal propagation: keys deleted by deepMerge null-semantics have their
+ * companion delta fields removed from the result.
+ * Does not mutate `next`; returns a new merged object.
+ *
+ * @param prior - Top-level state object before the current batch of signals
+ * @param next  - Top-level state object after deepMerge (before delta enrichment)
+ * @returns Copy of `next` merged with computed delta companion fields
+ */
+export function computeStateDeltas(
+  prior: Record<string, unknown>,
+  next: Record<string, unknown>
+): Record<string, unknown> {
+  const result: Record<string, unknown> = { ...next };
+
+  for (const key of Object.keys(next)) {
+    if (!(key in prior)) continue;
+
+    const nextVal = next[key];
+    const priorVal = prior[key];
+
+    if (typeof nextVal !== 'number') continue;
+    if (typeof priorVal !== 'number') {
+      console.debug(`[computeStateDeltas] skipping delta for '${key}': prior type '${typeof priorVal}', next is number`);
+      continue;
+    }
+
+    const delta = nextVal - priorVal;
+    result[`${key}_delta`] = delta;
+    result[`${key}_direction`] = delta > 0 ? 'improving' : delta < 0 ? 'declining' : 'stable';
+  }
+
+  // Null-removal propagation: keys absent in `next` (removed by deepMerge null semantics)
+  // must not retain stale companion delta fields.
+  for (const key of Object.keys(prior)) {
+    if (!(key in next)) {
+      delete result[`${key}_delta`];
+      delete result[`${key}_direction`];
+    }
+  }
+
+  return result;
+}
+
+/**
  * Compute new state by applying signal payloads in order (reducer pattern).
  * Starts with current state snapshot or {}; each signal payload is deep-merged in order.
  *
@@ -166,7 +215,12 @@ export function applySignals(request: ApplySignalsRequest): ApplySignalsOutcome 
 
   const current = stateStore.getState(orgId, learnerReference);
   const newState = computeNewState(current, signals);
-  const stateValidation = validateStateObject(newState);
+  const priorStateObj: Record<string, unknown> =
+    current?.state && typeof current.state === 'object' && !Array.isArray(current.state)
+      ? (current.state as Record<string, unknown>)
+      : {};
+  const newStateWithDeltas = computeStateDeltas(priorStateObj, newState);
+  const stateValidation = validateStateObject(newStateWithDeltas);
   if (!stateValidation.valid) {
     return { ok: false, errors: stateValidation.errors };
   }
@@ -186,7 +240,7 @@ export function applySignals(request: ApplySignalsRequest): ApplySignalsOutcome 
     last_signal_timestamp: lastSignal.accepted_at,
   };
 
-  let stateToSave: Record<string, unknown> = newState;
+  let stateToSave: Record<string, unknown> = newStateWithDeltas;
   const maxRetries = 2;
 
   for (let attempt = 0; attempt < maxRetries; attempt++) {
@@ -231,11 +285,16 @@ export function applySignals(request: ApplySignalsRequest): ApplySignalsOutcome 
       if (isVersionConflict && attempt < maxRetries - 1) {
         const refreshed = stateStore.getState(orgId, learnerReference);
         const recomputed = computeNewState(refreshed, signals);
-        const revalid = validateStateObject(recomputed);
+        const refreshedPriorObj: Record<string, unknown> =
+          refreshed?.state && typeof refreshed.state === 'object' && !Array.isArray(refreshed.state)
+            ? (refreshed.state as Record<string, unknown>)
+            : {};
+        const recomputedWithDeltas = computeStateDeltas(refreshedPriorObj, recomputed);
+        const revalid = validateStateObject(recomputedWithDeltas);
         if (!revalid.valid) {
           return { ok: false, errors: revalid.errors };
         }
-        stateToSave = recomputed;
+        stateToSave = recomputedWithDeltas;
         continue;
       }
       if (isVersionConflict) {

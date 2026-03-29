@@ -18,7 +18,7 @@ import {
   getState,
   getStateStoreDatabase,
 } from '../../src/state/store.js';
-import { computeNewState, deepMerge, applySignals } from '../../src/state/engine.js';
+import { computeNewState, deepMerge, applySignals, computeStateDeltas } from '../../src/state/engine.js';
 import type { LearnerState, SignalRecord } from '../../src/shared/types.js';
 import type { SignalEnvelope } from '../../src/shared/types.js';
 import { ErrorCodes } from '../../src/shared/error-codes.js';
@@ -160,6 +160,72 @@ describe('STATE Engine', () => {
       ];
       const state = computeNewState(null, signals);
       expect(state).toEqual({ a: 1 });
+    });
+  });
+
+  describe('computeStateDeltas', () => {
+    // DELTA-001: declining numeric field
+    it('DELTA-001: prior stabilityScore:0.55 → new 0.28 produces _delta:-0.27 and _direction:"declining"', () => {
+      const result = computeStateDeltas(
+        { stabilityScore: 0.55 },
+        { stabilityScore: 0.28 }
+      );
+      expect(result.stabilityScore).toBeCloseTo(0.28, 10);
+      expect(result.stabilityScore_delta as number).toBeCloseTo(-0.27, 10);
+      expect(result.stabilityScore_direction).toBe('declining');
+    });
+
+    // DELTA-002: improving numeric field
+    it('DELTA-002: prior masteryScore:0.40 → new 0.65 produces _delta:0.25 and _direction:"improving"', () => {
+      const result = computeStateDeltas(
+        { masteryScore: 0.40 },
+        { masteryScore: 0.65 }
+      );
+      expect(result.masteryScore_delta as number).toBeCloseTo(0.25, 10);
+      expect(result.masteryScore_direction).toBe('improving');
+    });
+
+    // DELTA-003: no prior state (first signal) — no delta fields
+    it('DELTA-003: empty prior produces no _delta or _direction for any field', () => {
+      const result = computeStateDeltas(
+        {},
+        { stabilityScore: 0.40 }
+      );
+      expect(result).not.toHaveProperty('stabilityScore_delta');
+      expect(result).not.toHaveProperty('stabilityScore_direction');
+      expect(result.stabilityScore).toBe(0.40);
+    });
+
+    // DELTA-004: non-numeric field — no delta companions
+    it('DELTA-004: non-numeric field produces no level_delta or level_direction', () => {
+      const result = computeStateDeltas(
+        { level: 'beginner' },
+        { level: 'intermediate' }
+      );
+      expect(result).not.toHaveProperty('level_delta');
+      expect(result).not.toHaveProperty('level_direction');
+      expect(result.level).toBe('intermediate');
+    });
+
+    // DELTA-006: unchanged numeric field → _delta:0 and _direction:"stable"
+    it('DELTA-006: unchanged numeric field produces _delta:0 and _direction:"stable"', () => {
+      const result = computeStateDeltas(
+        { stabilityScore: 0.55 },
+        { stabilityScore: 0.55 }
+      );
+      expect(result.stabilityScore_delta).toBe(0);
+      expect(result.stabilityScore_direction).toBe('stable');
+    });
+
+    // DELTA-007: null-removal — companion delta fields are removed when canonical field is deleted
+    it('DELTA-007: null-removal of canonical field removes _delta and _direction from result', () => {
+      const prior = { stabilityScore: 0.55, stabilityScore_delta: -0.1, stabilityScore_direction: 'declining' };
+      // deepMerge with { stabilityScore: null } already removed the key before computeStateDeltas is called
+      const next: Record<string, unknown> = {};
+      const result = computeStateDeltas(prior, next);
+      expect(result).not.toHaveProperty('stabilityScore');
+      expect(result).not.toHaveProperty('stabilityScore_delta');
+      expect(result).not.toHaveProperty('stabilityScore_direction');
     });
   });
 
@@ -413,6 +479,49 @@ describe('STATE Engine', () => {
         expect(outcome.errors).toHaveLength(1);
         expect(outcome.errors[0].code).toBe(ErrorCodes.STATE_VERSION_CONFLICT);
       }
+    });
+  });
+
+  describe('delta fields in applySignals (integration)', () => {
+    it('second signal on learner changes numeric field → getState contains _delta and _direction', () => {
+      const s1 = appendTestSignal({ payload: { stabilityScore: 0.55 } });
+      applySignals({
+        org_id: 'org-A',
+        learner_reference: 'learner-1',
+        signal_ids: [s1.signal_id],
+        requested_at: s1.accepted_at,
+      });
+
+      const s2 = appendTestSignal({ payload: { stabilityScore: 0.28 } });
+      const outcome = applySignals({
+        org_id: 'org-A',
+        learner_reference: 'learner-1',
+        signal_ids: [s2.signal_id],
+        requested_at: s2.accepted_at,
+      });
+
+      expect(outcome.ok).toBe(true);
+      const state = getState('org-A', 'learner-1');
+      expect(state).not.toBeNull();
+      const s = state!.state as Record<string, unknown>;
+      expect(s.stabilityScore).toBeCloseTo(0.28, 10);
+      expect(s.stabilityScore_delta as number).toBeCloseTo(-0.27, 10);
+      expect(s.stabilityScore_direction).toBe('declining');
+    });
+
+    it('first signal on new learner → no _delta or _direction in state', () => {
+      const s1 = appendTestSignal({ payload: { stabilityScore: 0.55 } });
+      applySignals({
+        org_id: 'org-A',
+        learner_reference: 'learner-1',
+        signal_ids: [s1.signal_id],
+        requested_at: s1.accepted_at,
+      });
+
+      const state = getState('org-A', 'learner-1');
+      expect(state).not.toBeNull();
+      expect(state!.state).not.toHaveProperty('stabilityScore_delta');
+      expect(state!.state).not.toHaveProperty('stabilityScore_direction');
     });
   });
 });

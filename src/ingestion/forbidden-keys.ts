@@ -10,6 +10,11 @@ import type { ForbiddenKeyResult } from '../shared/types.js';
  * Two categories:
  * 1. Semantic/UI/workflow/LMS keys — indicate coupling to vendor concepts
  * 2. PII keys — personal data must never enter STATE or receipts (CEO directive 2026-02-24)
+ *
+ * Reserved suffixes (NOT forbidden): `_delta` and `_direction` are emitted by the
+ * state delta detection system (computeStateDeltas in state/engine.ts). These suffixes
+ * must never appear in this set — client-supplied fields sharing the suffix are silently
+ * overwritten by the engine's authoritative computed value.
  */
 export const FORBIDDEN_KEYS = new Set([
   // UI/Frontend keys
