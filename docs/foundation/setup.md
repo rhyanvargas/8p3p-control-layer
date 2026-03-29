@@ -441,10 +441,28 @@ npm run validate:api
 ### Before Committing
 
 ```bash
-npm run typecheck && npm run lint && npm test
+npm run check
 ```
 
-All checks must pass before committing.
+This runs the full gate: `build → validate:schemas → validate:contracts → validate:api → lint → test`. All checks must pass before committing.
+
+---
+
+## CI (GitHub Actions)
+
+A quality gate runs automatically on every push and pull request via `.github/workflows/ci.yml`.
+
+**What it runs:** `build → validate:schemas → validate:contracts → validate:api → lint → test`
+
+**Matrix:** Node.js 20 and 22 (both must pass).
+
+**No secrets required** — the workflow uses only local scripts and committed config. If a step fails, the same command can be run locally to reproduce:
+
+```bash
+npm run check   # equivalent to the full CI gate
+```
+
+Deploy automation (CDK + Lambda) is tracked separately as TASK-015 in `.cursor/plans/aws-deployment.plan.md` and will live in `.github/workflows/deploy.yml`.
 
 ---
 

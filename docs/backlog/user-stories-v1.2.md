@@ -1,8 +1,17 @@
 # User Stories — v1.2 Backlog
 
-> Approved user stories for features that build on the v1.1 infrastructure (CDK, DynamoDB, policy management API). These are **not yet spec'd** — each story should produce a spec in `docs/specs/` via `/draft-spec` before implementation planning.
+> Approved user stories for features that build on the v1.1 infrastructure. These are **not yet spec'd** — each story should produce a spec in `docs/specs/` via `/draft-spec` before implementation planning.
 
-*Created: 2026-02-24 | Source: architectural alignment review + pilot customer feedback*
+*Created: 2026-02-24 | Updated: 2026-03-28 | Source: architectural alignment review + pilot customer feedback*
+
+---
+
+> **Note — stories moved to v1.1 (spec'd):**
+> US-TRAJECTORY-001 and US-HANDOFF-001 have been promoted from this backlog to v1.1 and are now spec'd:
+> - `docs/specs/learner-trajectory-api.md` (from US-TRAJECTORY-001)
+> - `docs/specs/learner-summary-api.md` (from US-HANDOFF-001)
+>
+> US-SKILL-001 remains in v1.2 because the v1.1 trajectory and summary specs intentionally scope to flat fields only (no dot-path dependency).
 
 ---
 
@@ -30,83 +39,65 @@
 
 - None — can be implemented on v1.1 infrastructure or current v1.
 
----
+### Unlocks (post-US-SKILL-001)
 
-## US-TRAJECTORY-001: Learner state trajectory API
-
-**As an** educator reviewing a learner's progress over the semester,
-**I want to** retrieve a trajectory view showing how specific state fields (e.g., `stabilityScore`, `skills.fractions.masteryScore`) have changed across state versions over a time range,
-**so that** I can see whether the learner's understanding is improving, plateauing, or decaying — without manually diffing state snapshots.
-
-### Acceptance criteria
-
-1. `GET /v1/state/trajectory?org_id={org}&learner_reference={ref}&fields=stabilityScore,skills.fractions.masteryScore&from_version={v1}&to_version={v2}` returns an ordered array of `{ state_version, updated_at, values: { stabilityScore: 0.28, ... } }` for each version in range.
-2. Missing fields in earlier versions are returned as `null` (field didn't exist yet).
-3. Response includes `direction` per field: `"improving"`, `"declining"`, or `"stable"` based on simple first-to-last delta. Algorithm is pluggable — v1 uses simple delta, future versions may use linear regression or rolling average.
-4. Pagination supported via `page_token` for learners with many state versions.
-5. Respects tenant isolation — only returns data for the authenticated org.
-
-### Implementation notes
-
-- `getStateByVersion` already exists in `StateRepository`.
-- Requires: (a) new `getStateVersionRange(orgId, learnerRef, fromVersion, toVersion)` method, (b) new route handler, (c) field extraction with dot-path resolver (reuse from US-SKILL-001).
-
-### Dependencies
-
-- US-SKILL-001 (dot-path resolver for nested field extraction).
+- `learner-trajectory-api.md` dot-path extension (nested field trajectory)
+- `learner-summary-api.md` skill-level breakdown in `current_state.fields`
+- `state-delta-detection.md` dot-path delta fields
 
 ---
 
-## US-HANDOFF-001: Learner summary report for educator handoff
+## US-POLICY-BUILDER-001: AI-assisted policy generation
 
-**As a** 3rd-grade teacher receiving a student from 2nd grade,
-**I want to** retrieve a summary of the learner's record — their current skill-level standings, recent decision history, and trend direction for key metrics —
-**so that** I understand where this student's knowledge stands, which areas need attention, and what interventions have already been recommended, without reading raw API responses.
+**As an** 8P3P operator or school administrator,
+**I want to** describe intervention logic in plain language (e.g., "flag a student for intervention when their stability has been declining for two signals and falls below 40%"),
+**so that** the system produces a valid `PolicyDefinition` JSON that I can review and upload — without requiring me to hand-write JSON.
 
 ### Acceptance criteria
 
-1. `GET /v1/learners/:learner_reference/summary?org_id={org}` returns a structured JSON summary containing:
-   - `current_state`: latest state snapshot (full, with skill-level breakdown if present)
-   - `recent_decisions`: last N decisions (default 10) with `decision_type`, `matched_rule_id`, `decided_at`, and `rationale`
-   - `field_trajectories`: for each canonical field present in the state, the direction (`improving` / `declining` / `stable`) and the value at first and latest state versions
-   - `active_policy`: the policy currently applied to this learner (`policy_id`, `policy_version`, `description`)
-   - `signals_count`: total signals received and date range
-2. The summary does not include PII (inherits existing PII hardening — DEF-DEC-008-PII).
-3. Accessible via tenant API key (read-only; not admin-only).
-4. Response is a single JSON document suitable for rendering in a teacher dashboard or exporting as a PDF by the client.
+1. `POST /v1/admin/policies/generate` accepts `{ "description": "<natural language policy requirement>" }` and returns a `PolicyDefinition` JSON draft plus a confidence score and any clarification prompts.
+2. The generated policy passes `POST /v1/admin/policies/validate` with `{ "valid": true }` before being returned to the caller.
+3. If the LLM cannot produce a valid policy after internal retry, a `policy_generation_failed` error is returned with a human-readable explanation.
+4. The LLM call is made to an **external, decoupled policy generation service** — the core API delegates to this service via HTTP and does not embed LLM SDK code.
+5. The endpoint requires `x-admin-api-key`.
+6. The generated policy is not saved automatically — the operator must explicitly call `PUT /v1/admin/policies/:org_id/:policy_key` to commit it.
 
 ### Implementation notes
 
-- This is a **projection/aggregation endpoint** — reads from existing stores, introduces no new data.
-- Reuses: `GET /v1/state` (current state), `GET /v1/decisions` (decision history), trajectory logic from US-TRAJECTORY-001, policy inspection API from v1.1 alignment plan.
+- **LLM service is decoupled:** The policy generation service is a separate HTTP microservice (or Lambda function) that the core API calls. It is not bundled with the core API. This preserves vendor-neutrality and keeps the core infrastructure layer free of ML dependencies.
+- **Core API's responsibility:** validate the generated output via `validatePolicyStructure` before returning it to the caller. The LLM service is untrusted from the core API's perspective.
+- **Prompt engineering:** The LLM is given the `PolicyDefinition` JSON schema and the closed set of decision types (`reinforce`, `advance`, `intervene`, `pause`) as context. It is instructed to output valid JSON only.
+- The `POST /v1/admin/policies/validate` endpoint (already spec'd in `policy-management-api.md`) is the gate that ensures the generated policy is structurally correct before returning it.
+- Decoupled service contract (to be spec'd): `POST /policy-generation/generate` with body `{ description, policy_schema, decision_types }` → `{ policy: PolicyDefinition, confidence: number, clarification_needed: string[] }`.
 
 ### Dependencies
 
-- US-TRAJECTORY-001 (field trajectory logic).
-- v1.1 policy inspection API (`GET /v1/policies`).
+- `docs/specs/policy-management-api.md` — `POST /v1/admin/policies/validate` (gate for generated policy)
+- External LLM policy generation service (new — separate spec required: `policy-generation-service.md`)
 
 ---
 
 ## Sequencing
 
 ```
-US-SKILL-001  (dot-path resolver — prerequisite)
+US-SKILL-001  (dot-path resolver — prerequisite for nested field support)
      │
-     ├── US-TRAJECTORY-001  (trajectory API — depends on dot-path for nested fields)
-     │        │
-     │        └── US-HANDOFF-001  (summary report — depends on trajectory + decisions + state)
+     ├── learner-trajectory-api.md dot-path extension (nested fields in trajectory)
+     │
+     └── learner-summary-api.md skill-level breakdown
+
+US-POLICY-BUILDER-001  (independent — requires LLM service spec first)
+     │
+     └── policy-generation-service.md (separate service spec)
 ```
 
 ---
 
 ## Mission alignment
 
-These three stories directly address claims in the 8P3P value statement:
-
 | Story | Mission claim |
 |---|---|
-| US-SKILL-001 | "detecting **where** understanding is breaking down" |
-| US-TRAJECTORY-001 | "whether that knowledge is **improving or decaying**" |
-| US-HANDOFF-001 | "what the **next grade-level teacher** needs to know" |
+| US-SKILL-001 | "detecting **where** understanding is breaking down" (skill-level granularity) |
+| US-POLICY-BUILDER-001 | "turn vague educator needs into deterministic policies" (product capability, not services) |
 
-The v1.1 infrastructure (DynamoDB, CDK, policy management API, policy inspection API) provides the foundational architecture these stories build on. No data model changes are required — these extend the read path only.
+The v1.1 infrastructure (DynamoDB, CDK, policy management API, trajectory, summary) provides the foundational architecture these stories build on.

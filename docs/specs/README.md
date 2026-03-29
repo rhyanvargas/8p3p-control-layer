@@ -24,6 +24,10 @@ Specifications in this folder are the **single source of truth for requirements 
 - [`policy-storage.md`](policy-storage.md) — DynamoDB `PoliciesTable`, resolution order, cache, soft `status` (active \| disabled)
 - [`policy-inspection-api.md`](policy-inspection-api.md) — `GET /v1/policies` (tenant read-only policy inspection)
 - [`policy-management-api.md`](policy-management-api.md) — Admin policy CRUD + `PATCH` status (soft enable/disable), `ADMIN_API_KEY`
+- [`state-delta-detection.md`](state-delta-detection.md) — Automatic `_delta` / `_direction` companion fields per numeric state field; enables decay detection in policy rules
+- [`webhook-adapters.md`](webhook-adapters.md) — `POST /v1/webhooks/:source_system`; raw LMS webhook ingestion — no client-side `SignalEnvelope` construction required
+- [`learner-trajectory-api.md`](learner-trajectory-api.md) — `GET /v1/state/trajectory`; version-range field trend view (**depends on state-delta-detection**)
+- [`learner-summary-api.md`](learner-summary-api.md) — `GET /v1/learners/:ref/summary`; educator-readable aggregated view (**depends on trajectory**)
 
 ---
 

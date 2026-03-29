@@ -221,6 +221,10 @@ Common business use-cases and integration workflows (built from the existing API
 | [Policy Inspection API](docs/specs/policy-inspection-api.md) | v1.1 — spec'd | `GET /v1/policies` — tenant read-only policy inspection |
 | [Policy Management API](docs/specs/policy-management-api.md) | v1.1 — spec'd | Admin policy CRUD + PATCH status; `ADMIN_API_KEY` |
 | [Tenant Field Mappings](docs/specs/tenant-field-mappings.md) | v1 + v1.1 — spec'd | Alias normalization (v1); computed transforms + DynamoDB + Canvas mapper (v1.1) |
+| [State Delta Detection](docs/specs/state-delta-detection.md) | v1.1 — spec'd | Automatic `_delta` / `_direction` fields; decay detection in policy rules |
+| [Webhook Adapters](docs/specs/webhook-adapters.md) | v1.1 — spec'd | Raw LMS webhook ingestion — no client-side envelope construction required |
+| [Learner Trajectory API](docs/specs/learner-trajectory-api.md) | v1.1 — spec'd | `GET /v1/state/trajectory` — version-range field trend view |
+| [Learner Summary API](docs/specs/learner-summary-api.md) | v1.1 — spec'd | `GET /v1/learners/:ref/summary` — educator-readable aggregated handoff view |
 
 ### API specifications (machine-readable)
 
