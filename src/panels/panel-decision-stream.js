@@ -91,7 +91,7 @@
       let learnerRefs = [];
       try {
         learnerRefs = await fetchLearnersForOrg();
-      } catch (_) {
+      } catch {
         learnerRefs = [];
       }
       const opts = buildLearnerSelectOptions(learnerRefs, '');
@@ -120,7 +120,7 @@
       let learnerRefs = [];
       try {
         learnerRefs = await fetchLearnersForOrg();
-      } catch (_) {
+      } catch {
         learnerRefs = [];
       }
 

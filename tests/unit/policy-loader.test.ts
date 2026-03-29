@@ -3,7 +3,7 @@
  * Condition evaluation, policy loading, validation, and caching
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -13,6 +13,10 @@ import {
   loadRoutingConfigForOrg,
   resolveUserTypeFromSourceSystem,
   clearRoutingConfigCache,
+  clearDynamoContextCache,
+  warmupPolicyForContext,
+  warmupRoutingConfigForOrg,
+  _setDynamoClientForTesting,
   evaluateCondition,
   evaluatePolicy,
   getLoadedPolicyVersion,
@@ -709,6 +713,319 @@ describe('Policy Loader', () => {
       clearRoutingConfigCache();
       const config = loadRoutingConfigForOrg('springs');
       expect(config).not.toBeNull();
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // POL-S3: DynamoDB policy storage contract tests
+  // -----------------------------------------------------------------------
+
+  /**
+   * Builds a mock DynamoDB GetItemCommand response item for a given policy.
+   * Returns the structure that DynamoDB SDK returns (AttributeValue map).
+   */
+  function makeDynamoPolicyItem(
+    policy: Record<string, unknown>,
+    status = 'active'
+  ): Record<string, unknown> {
+    // Simulate DynamoDB AttributeValue map for an item with policy_json as a Map
+    // The unmarshall() call in policy-loader converts this back to a plain object.
+    // We build the AttributeValue shape manually to match what the SDK returns.
+    function toAttributeValue(val: unknown): unknown {
+      if (typeof val === 'string') return { S: val };
+      if (typeof val === 'number') return { N: String(val) };
+      if (typeof val === 'boolean') return { BOOL: val };
+      if (Array.isArray(val)) return { L: val.map(toAttributeValue) };
+      if (val !== null && typeof val === 'object') {
+        return {
+          M: Object.fromEntries(
+            Object.entries(val as Record<string, unknown>).map(([k, v]) => [k, toAttributeValue(v)])
+          ),
+        };
+      }
+      return { NULL: true };
+    }
+
+    return {
+      org_id: { S: 'springs' },
+      policy_key: { S: 'learner' },
+      status: { S: status },
+      policy_json: toAttributeValue(policy),
+      policy_version: { N: '1' },
+      updated_at: { S: new Date().toISOString() },
+      updated_by: { S: 'test' },
+    };
+  }
+
+  function makeDynamoRoutingItem(
+    routingConfig: Record<string, unknown>,
+    orgId = 'springs',
+    status = 'active'
+  ): Record<string, unknown> {
+    function toAttributeValue(val: unknown): unknown {
+      if (typeof val === 'string') return { S: val };
+      if (typeof val === 'number') return { N: String(val) };
+      if (typeof val === 'boolean') return { BOOL: val };
+      if (Array.isArray(val)) return { L: val.map(toAttributeValue) };
+      if (val !== null && typeof val === 'object') {
+        return {
+          M: Object.fromEntries(
+            Object.entries(val as Record<string, unknown>).map(([k, v]) => [k, toAttributeValue(v)])
+          ),
+        };
+      }
+      return { NULL: true };
+    }
+
+    return {
+      org_id: { S: orgId },
+      policy_key: { S: 'routing' },
+      status: { S: status },
+      routing_json: toAttributeValue(routingConfig),
+      updated_at: { S: new Date().toISOString() },
+    };
+  }
+
+  /** Creates a mock DynamoDB client that returns the given item for GetItem calls. */
+  function makeMockDynamoClient(
+    responses: Array<{ Item?: Record<string, unknown> } | Error>
+  ) {
+    let callIndex = 0;
+    return {
+      send: vi.fn(async () => {
+        const response = responses[callIndex] ?? responses[responses.length - 1]!;
+        callIndex++;
+        if (response instanceof Error) throw response;
+        return response;
+      }),
+    };
+  }
+
+  const DYNAMO_TABLE = 'test-policies-table';
+
+  describe('POL-S3: DynamoDB policy storage', () => {
+    beforeEach(() => {
+      process.env.POLICIES_TABLE = DYNAMO_TABLE;
+      clearDynamoContextCache();
+      clearRoutingConfigCache();
+    });
+
+    afterEach(() => {
+      delete process.env.POLICIES_TABLE;
+      _setDynamoClientForTesting(null);
+      clearDynamoContextCache();
+      clearRoutingConfigCache();
+    });
+
+    // POL-S3-001: DynamoDB active policy wins over bundled for org context
+    it('POL-S3-001: active DynamoDB policy is used over bundled for org context', async () => {
+      const dynamoPolicy = {
+        policy_id: 'springs:learner-dynamo',
+        policy_version: '2.0.0',
+        description: 'DynamoDB-sourced policy for springs learner',
+        rules: [
+          {
+            rule_id: 'dynamo-rule-1',
+            condition: { field: 'stabilityScore', operator: 'lt', value: 0.5 },
+            decision_type: 'intervene',
+          },
+        ],
+        default_decision_type: 'reinforce',
+      };
+
+      const item = makeDynamoPolicyItem(dynamoPolicy);
+      // Resolution chain: springs/learner → hit on first GetItem
+      const mockClient = makeMockDynamoClient([{ Item: item }]);
+      _setDynamoClientForTesting(mockClient as unknown as import('@aws-sdk/client-dynamodb').DynamoDBClient);
+
+      // Pre-warm cache (simulates Lambda init)
+      await warmupPolicyForContext('springs', 'learner');
+
+      // Sync call now returns DynamoDB policy, not bundled
+      const policy = loadPolicyForContext('springs', 'learner');
+      expect(policy.policy_id).toBe('springs:learner-dynamo');
+      expect(policy.policy_version).toBe('2.0.0');
+    });
+
+    // POL-S3-002: DynamoDB fallback to bundled on read failure
+    it('POL-S3-002: DynamoDB read failure → bundled default; policy_dynamo_degraded logged', async () => {
+      const mockClient = makeMockDynamoClient([
+        new Error('DynamoDB connection timeout'),
+        new Error('DynamoDB connection timeout'),
+        new Error('DynamoDB connection timeout'),
+      ]);
+      _setDynamoClientForTesting(mockClient as unknown as import('@aws-sdk/client-dynamodb').DynamoDBClient);
+
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+      // Warmup will fail for all three candidates
+      await warmupPolicyForContext('no-dynamo-org', 'learner');
+
+      // Cache miss + DynamoDB failed → filesystem fallback → bundled default
+      const policy = loadPolicyForContext('no-dynamo-org', 'learner');
+      expect(policy.policy_id).toBe('default');
+
+      // policy_dynamo_degraded must have been logged
+      const warnCalls = warnSpy.mock.calls.map((args) => {
+        try { return JSON.parse(args[0] as string) as Record<string, unknown>; } catch { return {}; }
+      });
+      const degradedLog = warnCalls.find((w) => w['code'] === 'policy_dynamo_degraded');
+      expect(degradedLog).toBeDefined();
+
+      warnSpy.mockRestore();
+    });
+
+    // POL-S3-003: After TTL, policy re-fetched from DynamoDB
+    it('POL-S3-003: after TTL expiry, policy is re-fetched from DynamoDB', async () => {
+      const policyV1 = {
+        policy_id: 'springs:learner-v1',
+        policy_version: '1.0.0',
+        description: 'v1',
+        rules: [],
+        default_decision_type: 'reinforce' as const,
+      };
+      const policyV2 = {
+        policy_id: 'springs:learner-v2',
+        policy_version: '2.0.0',
+        description: 'v2',
+        rules: [],
+        default_decision_type: 'advance' as const,
+      };
+
+      // Load v1 into cache
+      const mockClientV1 = makeMockDynamoClient([{ Item: makeDynamoPolicyItem(policyV1) }]);
+      _setDynamoClientForTesting(mockClientV1 as unknown as import('@aws-sdk/client-dynamodb').DynamoDBClient);
+      await warmupPolicyForContext('springs', 'learner');
+      expect(loadPolicyForContext('springs', 'learner').policy_id).toBe('springs:learner-v1');
+
+      // Simulate TTL expiry by clearing cache and loading v2
+      clearDynamoContextCache();
+      const mockClientV2 = makeMockDynamoClient([{ Item: makeDynamoPolicyItem(policyV2) }]);
+      _setDynamoClientForTesting(mockClientV2 as unknown as import('@aws-sdk/client-dynamodb').DynamoDBClient);
+
+      // Explicit warmup (simulates what background refresh does after TTL)
+      await warmupPolicyForContext('springs', 'learner');
+      expect(loadPolicyForContext('springs', 'learner').policy_id).toBe('springs:learner-v2');
+    });
+
+    // POL-S3-004: Malformed DynamoDB policy Map → graceful degradation
+    it('POL-S3-004: malformed DynamoDB policy → graceful degradation to bundled; policy_dynamo_degraded logged', async () => {
+      // policy_json has wrong shape (missing required fields) — validatePolicyStructure will throw
+      const malformedPolicyItem = {
+        org_id: { S: 'malformed-org' },
+        policy_key: { S: 'learner' },
+        status: { S: 'active' },
+        policy_json: {
+          M: {
+            broken: { S: 'not-a-valid-policy' },
+          },
+        },
+      };
+
+      const mockClient = makeMockDynamoClient([
+        { Item: malformedPolicyItem }, // malformed-org/learner → invalid (validation throws)
+        { Item: undefined },            // malformed-org/default → miss
+        { Item: undefined },            // global/default → miss
+      ]);
+      _setDynamoClientForTesting(mockClient as unknown as import('@aws-sdk/client-dynamodb').DynamoDBClient);
+
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+      // Warmup: malformed item encountered, all candidates fail → cache not populated
+      await warmupPolicyForContext('malformed-org', 'learner');
+
+      // Sync call → cache miss → filesystem fallback → bundled default
+      // 'malformed-org' has no filesystem policy so it reaches policies/default.json
+      const policy = loadPolicyForContext('malformed-org', 'learner');
+      expect(policy.policy_id).toBe('default');
+
+      // policy_dynamo_degraded must have been logged for the malformed item
+      const warnCalls = warnSpy.mock.calls.map((args) => {
+        try { return JSON.parse(args[0] as string) as Record<string, unknown>; } catch { return {}; }
+      });
+      const degradedLog = warnCalls.find((w) => w['code'] === 'policy_dynamo_degraded');
+      expect(degradedLog).toBeDefined();
+
+      warnSpy.mockRestore();
+    });
+
+    // POL-S3-005: Routing config loaded from DynamoDB drives userType resolution
+    it('POL-S3-005: routing config from DynamoDB drives correct userType resolution', async () => {
+      const dynamoRoutingConfig = {
+        source_system_map: {
+          'canvas-lms': 'learner',
+          'hr-training': 'staff',
+          'special-lms': 'admin',
+        },
+        default_policy_key: 'learner',
+      };
+
+      const mockClient = makeMockDynamoClient([
+        { Item: makeDynamoRoutingItem(dynamoRoutingConfig) },
+      ]);
+      _setDynamoClientForTesting(mockClient as unknown as import('@aws-sdk/client-dynamodb').DynamoDBClient);
+
+      // Pre-warm routing cache
+      await warmupRoutingConfigForOrg('springs');
+
+      const config = loadRoutingConfigForOrg('springs');
+      expect(config).not.toBeNull();
+      expect(config!.source_system_map['special-lms']).toBe('admin');
+      expect(config!.default_policy_key).toBe('learner');
+    });
+
+    // POL-S3-006: Disabled policy skipped; resolution falls through to global default
+    it('POL-S3-006: disabled org policy skipped; falls through to global default; policy_skipped_disabled logged', async () => {
+      const globalDefaultPolicy = {
+        policy_id: 'global:default',
+        policy_version: '1.0.0',
+        description: 'Global default policy',
+        rules: [],
+        default_decision_type: 'reinforce' as const,
+      };
+
+      // First call (springs/learner) → disabled
+      // Second call (springs/default) → not found
+      // Third call (global/default) → active global default
+      const mockClient = makeMockDynamoClient([
+        { Item: makeDynamoPolicyItem(globalDefaultPolicy, 'disabled') }, // springs/learner: disabled
+        { Item: undefined },                                              // springs/default: miss
+        { Item: {                                                         // global/default: active
+          org_id: { S: 'global' },
+          policy_key: { S: 'default' },
+          status: { S: 'active' },
+          policy_json: {
+            M: {
+              policy_id: { S: 'global:default' },
+              policy_version: { S: '1.0.0' },
+              description: { S: 'Global default policy' },
+              rules: { L: [] },
+              default_decision_type: { S: 'reinforce' },
+            },
+          },
+          policy_version: { N: '1' },
+          updated_at: { S: new Date().toISOString() },
+        } },
+      ]);
+      _setDynamoClientForTesting(mockClient as unknown as import('@aws-sdk/client-dynamodb').DynamoDBClient);
+
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+      await warmupPolicyForContext('springs', 'learner');
+
+      const policy = loadPolicyForContext('springs', 'learner');
+      expect(policy.policy_id).toBe('global:default');
+
+      // policy_skipped_disabled must have been logged for the disabled item
+      const warnCalls = warnSpy.mock.calls.map((args) => {
+        try { return JSON.parse(args[0] as string) as Record<string, unknown>; } catch { return {}; }
+      });
+      const skippedLog = warnCalls.find((w) => w['code'] === 'policy_skipped_disabled');
+      expect(skippedLog).toBeDefined();
+      expect(skippedLog!['event']).toBe('policy_skipped');
+      expect(skippedLog!['status']).toBe('disabled');
+
+      warnSpy.mockRestore();
     });
   });
 });

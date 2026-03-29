@@ -2,10 +2,26 @@
  * Policy Loader
  * Loads policy JSON, validates structure, and evaluates conditions against state.
  * Uses a module-level cached policy (singleton pattern).
+ *
+ * DynamoDB read path (v1.1):
+ *   When POLICIES_TABLE env var is set, loadPolicyForContext and loadRoutingConfigForOrg
+ *   attempt to resolve from DynamoDB first (three-candidate chain) before falling back to
+ *   bundled filesystem files. Resolved entries are cached in memory with a configurable TTL
+ *   (POLICY_CACHE_TTL_MS, default 5 minutes). On TTL expiry the cached (stale) value is
+ *   served immediately and a background refresh is fired so subsequent calls get the updated
+ *   policy. This keeps loadPolicyForContext synchronous — no changes to the decision engine.
+ *
+ *   To pre-warm the cache (Lambda cold-start or tests), call:
+ *     await warmupPolicyForContext(orgId, userType)
+ *     await warmupRoutingConfigForOrg(orgId)
+ *
+ *   For local development (POLICIES_TABLE unset) the filesystem path is unchanged.
  */
 
 import * as fs from 'fs';
 import * as path from 'path';
+import { DynamoDBClient, GetItemCommand } from '@aws-sdk/client-dynamodb';
+import { unmarshall } from '@aws-sdk/util-dynamodb';
 import type {
   ConditionAll,
   ConditionAny,
@@ -37,8 +53,255 @@ const VALID_OPERATORS: readonly ConditionLeaf['operator'][] = [
 
 let cachedPolicy: PolicyDefinition | null = null;
 
-/** Per-context cache keyed on `${orgId}:${userType}` */
+/** Per-context filesystem cache keyed on `${orgId}:${userType}` (no TTL — local dev only) */
 const contextPolicyCache = new Map<string, PolicyDefinition>();
+
+// =============================================================================
+// DynamoDB — TTL cache, client, and resolution helpers
+// =============================================================================
+
+const DEFAULT_POLICY_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+function getPolicyCacheTTLMs(): number {
+  const raw = process.env.POLICY_CACHE_TTL_MS;
+  if (!raw) return DEFAULT_POLICY_CACHE_TTL_MS;
+  const parsed = parseInt(raw, 10);
+  return Number.isNaN(parsed) || parsed <= 0 ? DEFAULT_POLICY_CACHE_TTL_MS : parsed;
+}
+
+interface DynamoPolicyCacheEntry {
+  policy: PolicyDefinition;
+  loadedAt: number;
+}
+
+interface DynamoRoutingCacheEntry {
+  config: PolicyRoutingConfig | null;
+  loadedAt: number;
+}
+
+/** In-memory TTL cache for DynamoDB-resolved policies. Key: `${orgId}:${userType}` */
+const dynamoContextCache = new Map<string, DynamoPolicyCacheEntry>();
+
+/** In-memory TTL cache for DynamoDB-resolved routing configs. Key: orgId */
+const dynamoRoutingCache = new Map<string, DynamoRoutingCacheEntry>();
+
+/** Tracks in-progress background refreshes to avoid duplicate concurrent calls */
+const policyRefreshInProgress = new Set<string>();
+const routingRefreshInProgress = new Set<string>();
+
+/** Lazily-created DynamoDB client (injectable for testing) */
+let _dynamoClient: DynamoDBClient | null = null;
+
+function getDynamoClient(): DynamoDBClient {
+  if (!_dynamoClient) {
+    _dynamoClient = new DynamoDBClient({});
+  }
+  return _dynamoClient;
+}
+
+/**
+ * Inject a DynamoDB client for testing.
+ * Pass null to reset to the default lazy-created client.
+ */
+export function _setDynamoClientForTesting(client: DynamoDBClient | null): void {
+  _dynamoClient = client;
+}
+
+/**
+ * Clears the DynamoDB TTL caches for policies and routing configs.
+ * Intended for tests only — simulates TTL expiry or cold-start state.
+ */
+export function clearDynamoContextCache(): void {
+  dynamoContextCache.clear();
+  dynamoRoutingCache.clear();
+}
+
+/**
+ * Attempts a single DynamoDB GetItem for one (org_id, policy_key) candidate.
+ * Returns:
+ *  - { policy } if item exists and status === "active"
+ *  - null if item not found, status !== "active", or DynamoDB error
+ *
+ * Side effects: logs structured warnings for degraded/disabled states.
+ */
+async function tryGetPolicyItemFromDynamo(
+  tableName: string,
+  orgId: string,
+  policyKey: string
+): Promise<PolicyDefinition | null> {
+  try {
+    const result = await getDynamoClient().send(
+      new GetItemCommand({
+        TableName: tableName,
+        Key: {
+          org_id: { S: orgId },
+          policy_key: { S: policyKey },
+        },
+      })
+    );
+
+    if (!result.Item) return null;
+
+    const item = unmarshall(result.Item) as Record<string, unknown>;
+
+    if (item['status'] !== 'active') {
+      console.warn(JSON.stringify({
+        event: 'policy_skipped',
+        code: ErrorCodes.POLICY_SKIPPED_DISABLED,
+        org_id: orgId,
+        policy_key: policyKey,
+        status: item['status'],
+      }));
+      return null;
+    }
+
+    const policyJson = item['policy_json'];
+    try {
+      validatePolicyStructure(policyJson);
+    } catch (validationErr) {
+      // Policy data from DynamoDB failed structural validation — treat as degraded
+      console.warn(JSON.stringify({
+        event: 'policy_dynamo_degraded',
+        code: ErrorCodes.POLICY_DYNAMO_DEGRADED,
+        org_id: orgId,
+        policy_key: policyKey,
+        error: validationErr instanceof Error ? validationErr.message : String(validationErr),
+      }));
+      return null;
+    }
+    return policyJson as PolicyDefinition;
+  } catch (err) {
+    // DynamoDB transport error — log degraded, let caller fall through to bundled
+    console.warn(JSON.stringify({
+      event: 'policy_dynamo_degraded',
+      code: ErrorCodes.POLICY_DYNAMO_DEGRADED,
+      org_id: orgId,
+      policy_key: policyKey,
+      error: err instanceof Error ? err.message : String(err),
+    }));
+    return null;
+  }
+}
+
+/**
+ * Attempts a single DynamoDB GetItem for routing config (policy_key = "routing").
+ */
+async function tryGetRoutingItemFromDynamo(
+  tableName: string,
+  orgId: string
+): Promise<PolicyRoutingConfig | null> {
+  try {
+    const result = await getDynamoClient().send(
+      new GetItemCommand({
+        TableName: tableName,
+        Key: {
+          org_id: { S: orgId },
+          policy_key: { S: 'routing' },
+        },
+      })
+    );
+
+    if (!result.Item) return null;
+
+    const item = unmarshall(result.Item) as Record<string, unknown>;
+
+    if (item['status'] !== 'active') {
+      console.warn(JSON.stringify({
+        event: 'policy_skipped',
+        code: ErrorCodes.POLICY_SKIPPED_DISABLED,
+        org_id: orgId,
+        policy_key: 'routing',
+        status: item['status'],
+      }));
+      return null;
+    }
+
+    const routingJson = item['routing_json'] ?? item['policy_json'];
+    if (!routingJson || typeof routingJson !== 'object') return null;
+    return routingJson as PolicyRoutingConfig;
+  } catch (err) {
+    console.warn(JSON.stringify({
+      event: 'policy_dynamo_degraded',
+      code: ErrorCodes.POLICY_DYNAMO_DEGRADED,
+      org_id: orgId,
+      policy_key: 'routing',
+      error: err instanceof Error ? err.message : String(err),
+    }));
+    return null;
+  }
+}
+
+/**
+ * Runs the three-candidate DynamoDB resolution chain for a given org + userType:
+ *   1. (org_id=orgId, policy_key=userType)
+ *   2. (org_id=orgId, policy_key="default")
+ *   3. (org_id="global", policy_key="default")
+ *
+ * Returns the first active PolicyDefinition found, or null if all candidates
+ * are absent, disabled, or DynamoDB is unreachable.
+ */
+async function resolvePolicyFromDynamo(
+  tableName: string,
+  orgId: string,
+  userType: string
+): Promise<PolicyDefinition | null> {
+  const candidates = [
+    { o: orgId, k: userType },
+    { o: orgId, k: 'default' },
+    { o: 'global', k: 'default' },
+  ];
+  for (const { o, k } of candidates) {
+    const result = await tryGetPolicyItemFromDynamo(tableName, o, k);
+    if (result !== null) return result;
+  }
+  return null;
+}
+
+/**
+ * Background refresh: re-fetches policy from DynamoDB and updates the TTL cache.
+ * No-ops if a refresh for the same key is already in progress.
+ * Exported for use in tests (allows awaiting the refresh explicitly).
+ */
+export async function warmupPolicyForContext(orgId: string, userType: string): Promise<void> {
+  const tableName = process.env.POLICIES_TABLE;
+  if (!tableName) return;
+
+  const cacheKey = `${orgId}:${userType}`;
+  if (policyRefreshInProgress.has(cacheKey)) return;
+  policyRefreshInProgress.add(cacheKey);
+
+  try {
+    const policy = await resolvePolicyFromDynamo(tableName, orgId, userType);
+    if (policy !== null) {
+      dynamoContextCache.set(cacheKey, { policy, loadedAt: Date.now() });
+    } else {
+      // All DynamoDB candidates were absent or disabled — remove stale entry
+      // so filesystem fallback is used on the next sync call
+      dynamoContextCache.delete(cacheKey);
+    }
+  } finally {
+    policyRefreshInProgress.delete(cacheKey);
+  }
+}
+
+/**
+ * Background refresh: re-fetches routing config from DynamoDB and updates the TTL cache.
+ * Exported for use in tests.
+ */
+export async function warmupRoutingConfigForOrg(orgId: string): Promise<void> {
+  const tableName = process.env.POLICIES_TABLE;
+  if (!tableName) return;
+
+  if (routingRefreshInProgress.has(orgId)) return;
+  routingRefreshInProgress.add(orgId);
+
+  try {
+    const config = await tryGetRoutingItemFromDynamo(tableName, orgId);
+    dynamoRoutingCache.set(orgId, { config, loadedAt: Date.now() });
+  } finally {
+    routingRefreshInProgress.delete(orgId);
+  }
+}
 
 function isConditionLeaf(node: ConditionNode): node is ConditionLeaf {
   return 'field' in node && 'operator' in node && 'value' in node;
@@ -254,11 +517,49 @@ function evaluateConditionCollecting(
 const routingConfigCache = new Map<string, PolicyRoutingConfig | null>();
 
 /**
- * Loads and caches the routing config for an org from `policies/{orgId}/routing.json`.
- * Returns null if no routing file exists (caller falls through to default_policy_key "learner").
- * Silently swallows parse errors so a malformed routing.json degrades gracefully.
+ * Loads and caches the routing config for an org.
+ *
+ * Resolution order:
+ *   1. DynamoDB TTL cache (when POLICIES_TABLE is set and cache entry is fresh)
+ *   2. DynamoDB GetItem (policy_key="routing") — stale-while-revalidate on TTL expiry
+ *   3. Filesystem: policies/{orgId}/routing.json
+ *   4. null (no routing config — caller falls through to "learner" default)
+ *
+ * Returns null if no routing config is found anywhere.
+ * Silently degrades on parse errors so a malformed config never breaks decisions.
  */
 export function loadRoutingConfigForOrg(orgId: string): PolicyRoutingConfig | null {
+  const tableName = process.env.POLICIES_TABLE;
+  const ttl = getPolicyCacheTTLMs();
+
+  if (tableName) {
+    const cached = dynamoRoutingCache.get(orgId);
+    if (cached !== undefined) {
+      if (Date.now() - cached.loadedAt < ttl) {
+        // Fresh cache hit — return (may be null if org has no routing config in DynamoDB)
+        if (cached.config !== null) return cached.config;
+        // null entry means DynamoDB had no routing for this org — fall through to filesystem
+      } else {
+        // TTL expired: serve stale while background refresh fires
+        void warmupRoutingConfigForOrg(orgId);
+        if (cached.config !== null) return cached.config;
+        // stale was null — fall through to filesystem
+      }
+    } else {
+      // Cache miss: fire background warmup, fall through to filesystem this request
+      void warmupRoutingConfigForOrg(orgId);
+    }
+  }
+
+  // Filesystem fallback (local dev or DynamoDB miss)
+  return loadRoutingConfigFromFs(orgId);
+}
+
+/**
+ * Internal filesystem-only routing config loader (unchanged from original).
+ * Silently swallows parse errors so a malformed routing.json degrades gracefully.
+ */
+function loadRoutingConfigFromFs(orgId: string): PolicyRoutingConfig | null {
   if (routingConfigCache.has(orgId)) return routingConfigCache.get(orgId) ?? null;
 
   const routingPath = path.join(process.cwd(), 'src/decision/policies', orgId, 'routing.json');
@@ -333,17 +634,53 @@ export function loadPolicy(policyPath?: string): PolicyDefinition {
 
 /**
  * Loads and caches a policy for a given org + userType context.
- * Resolution order (first file found wins):
- *   1. src/decision/policies/{orgId}/{userType}.json
- *   2. src/decision/policies/{orgId}/default.json
- *   3. src/decision/policies/default.json
  *
- * Results are cached by `${orgId}:${userType}` key. Bypasses env override to keep
- * context resolution deterministic.
+ * Resolution order:
+ *   1. DynamoDB TTL cache (when POLICIES_TABLE is set and cache entry is fresh)
+ *   2. DynamoDB GetItem chain (stale-while-revalidate on TTL expiry)
+ *      — tries (orgId, userType) → (orgId, "default") → ("global", "default")
+ *      — skips disabled items; logs policy_skipped_disabled per item skipped
+ *      — on read failure, logs policy_dynamo_degraded and falls through to filesystem
+ *   3. Filesystem: policies/{orgId}/{userType}.json → policies/{orgId}/default.json → policies/default.json
+ *
+ * The function is intentionally synchronous. DynamoDB reads happen in a background
+ * async refresh (stale-while-revalidate). For cold-start or test pre-warming, call
+ * `await warmupPolicyForContext(orgId, userType)` before the first sync call.
+ *
+ * @throws Error with code policy_not_found if no filesystem candidate exists (DynamoDB path
+ * never throws — it only degrades to the filesystem fallback)
+ */
+export function loadPolicyForContext(orgId: string, userType: string): PolicyDefinition {
+  const tableName = process.env.POLICIES_TABLE;
+  const ttl = getPolicyCacheTTLMs();
+
+  if (tableName) {
+    const cacheKey = `${orgId}:${userType}`;
+    const cached = dynamoContextCache.get(cacheKey);
+
+    if (cached !== undefined) {
+      if (Date.now() - cached.loadedAt < ttl) {
+        return cached.policy; // Fresh cache hit
+      }
+      // TTL expired: serve stale, trigger background refresh
+      void warmupPolicyForContext(orgId, userType);
+      return cached.policy;
+    }
+
+    // Cache miss: trigger background refresh, fall through to filesystem this request
+    void warmupPolicyForContext(orgId, userType);
+  }
+
+  return loadPolicyForContextFromFs(orgId, userType);
+}
+
+/**
+ * Internal filesystem-only resolution (original loadPolicyForContext logic).
+ * Results are cached in contextPolicyCache (no TTL — files don't change at runtime).
  *
  * @throws Error with code policy_not_found if none of the candidate files exist
  */
-export function loadPolicyForContext(orgId: string, userType: string): PolicyDefinition {
+function loadPolicyForContextFromFs(orgId: string, userType: string): PolicyDefinition {
   const cacheKey = `${orgId}:${userType}`;
   const cached = contextPolicyCache.get(cacheKey);
   if (cached !== undefined) return cached;

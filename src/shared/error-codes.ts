@@ -119,6 +119,22 @@ export const ErrorCodes = {
 
   /** limit parameter is 0, negative, or > 500 */
   LIMIT_OUT_OF_RANGE: 'limit_out_of_range',
+
+  // ==========================================================================
+  // Policy Storage — DynamoDB (v1.1)
+  // ==========================================================================
+
+  /**
+   * DynamoDB read failed for a policy item; fell back to bundled or cached policy.
+   * Logged as a structured warning — never returned to the caller.
+   */
+  POLICY_DYNAMO_DEGRADED: 'policy_dynamo_degraded',
+
+  /**
+   * Policy item found in DynamoDB but status === "disabled"; skipped in resolution chain.
+   * Logged as a structured warning — never returned to the caller.
+   */
+  POLICY_SKIPPED_DISABLED: 'policy_skipped_disabled',
 } as const;
 
 export type ErrorCode = typeof ErrorCodes[keyof typeof ErrorCodes];
