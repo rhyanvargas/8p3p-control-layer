@@ -23,6 +23,7 @@ import {
   clearStateStore,
 } from '../../src/state/store.js';
 import { ErrorCodes } from '../../src/shared/error-codes.js';
+import { contractHttp } from '../helpers/contract-http.js';
 
 describe('Signal Log Contract Tests', () => {
   let app: FastifyInstance;
@@ -47,7 +48,7 @@ describe('Signal Log Contract Tests', () => {
    * Post a signal through ingestion (helper)
    */
   async function postSignal(signal: Record<string, unknown>) {
-    return app.inject({
+    return contractHttp(app, {
       method: 'POST',
       url: '/v1/signals',
       payload: signal,
@@ -63,7 +64,7 @@ describe('Signal Log Contract Tests', () => {
       .map(([k, v]) => `${k}=${encodeURIComponent(String(v))}`)
       .join('&');
     
-    return app.inject({
+    return contractHttp(app, {
       method: 'GET',
       url: `/v1/signals?${queryString}`,
     });

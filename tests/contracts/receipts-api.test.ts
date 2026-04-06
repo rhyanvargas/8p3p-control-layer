@@ -15,6 +15,7 @@ import {
 } from '../../src/decision/store.js';
 import type { Decision } from '../../src/shared/types.js';
 import { ErrorCodes } from '../../src/shared/error-codes.js';
+import { contractHttp } from '../helpers/contract-http.js';
 
 describe('Receipts API Contract Tests', () => {
   let app: FastifyInstance;
@@ -56,7 +57,7 @@ describe('Receipts API Contract Tests', () => {
       .map(([k, v]) => `${k}=${encodeURIComponent(String(v))}`)
       .join('&');
 
-    return app.inject({
+    return contractHttp(app, {
       method: 'GET',
       url: `/v1/receipts?${queryString}`,
     });

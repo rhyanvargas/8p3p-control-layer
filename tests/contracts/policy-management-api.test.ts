@@ -33,6 +33,7 @@ import { marshall } from '@aws-sdk/util-dynamodb';
 import { adminApiKeyPreHandler } from '../../src/auth/admin-api-key-middleware.js';
 import { registerPolicyManagementRoutes } from '../../src/admin/policy-management-routes.js';
 import { _setPoliciesRepoClientForTesting } from '../../src/admin/policies-dynamodb.js';
+import { contractHttp } from '../helpers/contract-http.js';
 import { ErrorCodes } from '../../src/shared/error-codes.js';
 
 // ---------------------------------------------------------------------------
@@ -105,7 +106,10 @@ function updateItemResponse(status: 'active' | 'disabled' = 'active') {
 // Test suite
 // ---------------------------------------------------------------------------
 
-describe('Policy Management Admin API Contract Tests', () => {
+// Remote HTTP mode cannot use in-process DynamoDB mocks — skip (admin tests against real deploy are manual).
+const describePolicyAdmin = process.env.API_BASE_URL?.trim() ? describe.skip : describe;
+
+describePolicyAdmin('Policy Management Admin API Contract Tests', () => {
   let app: FastifyInstance;
   const savedEnv: Record<string, string | undefined> = {};
 
@@ -155,7 +159,7 @@ describe('Policy Management Admin API Contract Tests', () => {
       });
       _setPoliciesRepoClientForTesting(client);
 
-      const response = await app.inject({
+      const response = await contractHttp(app, {
         method: 'PUT',
         url: '/v1/admin/policies/springs/learner',
         headers: { 'x-admin-api-key': ADMIN_KEY, 'content-type': 'application/json' },
@@ -183,7 +187,7 @@ describe('Policy Management Admin API Contract Tests', () => {
       const { client, spy } = createMockClient(() => ({}));
       _setPoliciesRepoClientForTesting(client);
 
-      const response = await app.inject({
+      const response = await contractHttp(app, {
         method: 'PUT',
         url: '/v1/admin/policies/springs/learner',
         headers: { 'x-admin-api-key': ADMIN_KEY, 'content-type': 'application/json' },
@@ -207,7 +211,7 @@ describe('Policy Management Admin API Contract Tests', () => {
       const { client, spy } = createMockClient(() => ({}));
       _setPoliciesRepoClientForTesting(client);
 
-      const response = await app.inject({
+      const response = await contractHttp(app, {
         method: 'POST',
         url: '/v1/admin/policies/validate',
         headers: { 'x-admin-api-key': ADMIN_KEY, 'content-type': 'application/json' },
@@ -226,7 +230,7 @@ describe('Policy Management Admin API Contract Tests', () => {
       const { client } = createMockClient(() => ({}));
       _setPoliciesRepoClientForTesting(client);
 
-      const response = await app.inject({
+      const response = await contractHttp(app, {
         method: 'POST',
         url: '/v1/admin/policies/validate',
         headers: { 'x-admin-api-key': ADMIN_KEY, 'content-type': 'application/json' },
@@ -251,7 +255,7 @@ describe('Policy Management Admin API Contract Tests', () => {
       });
       _setPoliciesRepoClientForTesting(client);
 
-      const response = await app.inject({
+      const response = await contractHttp(app, {
         method: 'DELETE',
         url: '/v1/admin/policies/springs/learner',
         headers: { 'x-admin-api-key': ADMIN_KEY },
@@ -275,7 +279,7 @@ describe('Policy Management Admin API Contract Tests', () => {
       });
       _setPoliciesRepoClientForTesting(client);
 
-      const response = await app.inject({
+      const response = await contractHttp(app, {
         method: 'PATCH',
         url: '/v1/admin/policies/springs/learner',
         headers: { 'x-admin-api-key': ADMIN_KEY, 'content-type': 'application/json' },
@@ -303,7 +307,7 @@ describe('Policy Management Admin API Contract Tests', () => {
       });
       _setPoliciesRepoClientForTesting(client);
 
-      const response = await app.inject({
+      const response = await contractHttp(app, {
         method: 'PATCH',
         url: '/v1/admin/policies/springs/learner',
         headers: { 'x-admin-api-key': ADMIN_KEY, 'content-type': 'application/json' },
@@ -332,7 +336,7 @@ describe('Policy Management Admin API Contract Tests', () => {
       });
       _setPoliciesRepoClientForTesting(client);
 
-      const response = await app.inject({
+      const response = await contractHttp(app, {
         method: 'PATCH',
         url: '/v1/admin/policies/springs/nonexistent',
         headers: { 'x-admin-api-key': ADMIN_KEY, 'content-type': 'application/json' },
@@ -352,7 +356,7 @@ describe('Policy Management Admin API Contract Tests', () => {
   // -------------------------------------------------------------------------
   describe('POL-ADMIN-008: Tenant API key rejected on admin routes', () => {
     it('returns 401 admin_key_required when tenant x-api-key is sent (no x-admin-api-key)', async () => {
-      const response = await app.inject({
+      const response = await contractHttp(app, {
         method: 'GET',
         url: '/v1/admin/policies',
         headers: { 'x-api-key': 'tenant-key-value' },
@@ -364,7 +368,7 @@ describe('Policy Management Admin API Contract Tests', () => {
     });
 
     it('returns 401 admin_key_required when no header is sent', async () => {
-      const response = await app.inject({
+      const response = await contractHttp(app, {
         method: 'GET',
         url: '/v1/admin/policies',
       });
@@ -378,7 +382,7 @@ describe('Policy Management Admin API Contract Tests', () => {
       const { client } = createMockClient(() => ({ Items: [], Count: 0 }));
       _setPoliciesRepoClientForTesting(client);
 
-      const response = await app.inject({
+      const response = await contractHttp(app, {
         method: 'GET',
         url: '/v1/admin/policies',
         headers: { 'x-admin-api-key': ADMIN_KEY },
@@ -393,7 +397,7 @@ describe('Policy Management Admin API Contract Tests', () => {
   // -------------------------------------------------------------------------
   describe('PATCH invalid status value → 400', () => {
     it('returns 400 invalid_status_value for unrecognized status string', async () => {
-      const response = await app.inject({
+      const response = await contractHttp(app, {
         method: 'PATCH',
         url: '/v1/admin/policies/springs/learner',
         headers: { 'x-admin-api-key': ADMIN_KEY, 'content-type': 'application/json' },
@@ -423,7 +427,7 @@ describe('Policy Management Admin API Contract Tests', () => {
       });
       _setPoliciesRepoClientForTesting(client);
 
-      const response = await app.inject({
+      const response = await contractHttp(app, {
         method: 'PUT',
         url: '/v1/admin/policies/springs/learner',
         headers: {
@@ -456,7 +460,7 @@ describe('Policy Management Admin API Contract Tests', () => {
       });
       _setPoliciesRepoClientForTesting(client);
 
-      const response = await app.inject({
+      const response = await contractHttp(app, {
         method: 'DELETE',
         url: '/v1/admin/policies/springs/nonexistent',
         headers: { 'x-admin-api-key': ADMIN_KEY },
@@ -489,7 +493,7 @@ describe('Policy Management Admin API Contract Tests', () => {
       }));
       _setPoliciesRepoClientForTesting(client);
 
-      const response = await app.inject({
+      const response = await contractHttp(app, {
         method: 'GET',
         url: '/v1/admin/policies',
         headers: { 'x-admin-api-key': ADMIN_KEY },

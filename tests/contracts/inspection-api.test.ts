@@ -40,6 +40,7 @@ import {
 import { loadPolicy } from '../../src/decision/policy-loader.js';
 import { ErrorCodes } from '../../src/shared/error-codes.js';
 import type { LearnerState, Decision } from '../../src/shared/types.js';
+import { contractHttp } from '../helpers/contract-http.js';
 
 describe('Inspection API Contract Tests', () => {
   let app: FastifyInstance;
@@ -117,9 +118,9 @@ describe('Inspection API Contract Tests', () => {
   describe('INSP-001: Ingestion log captures accepted signal', () => {
     it('should show outcome accepted in GET /v1/ingestion after POST valid signal', async () => {
       const signal = validSignal();
-      await app.inject({ method: 'POST', url: '/v1/signals', payload: signal });
+      await contractHttp(app,{ method: 'POST', url: '/v1/signals', payload: signal });
 
-      const response = await app.inject({
+      const response = await contractHttp(app,{
         method: 'GET',
         url: '/v1/ingestion?org_id=test-org',
       });
@@ -136,13 +137,13 @@ describe('Inspection API Contract Tests', () => {
   // ---------------------------------------------------------------------------
   describe('INSP-002: Ingestion log captures rejected signal', () => {
     it('should show outcome rejected with rejection_reason.code in GET /v1/ingestion', async () => {
-      await app.inject({
+      await contractHttp(app,{
         method: 'POST',
         url: '/v1/signals',
         payload: { org_id: 'test-org', signal_id: 's1', learner_reference: '' }, // missing required
       });
 
-      const response = await app.inject({
+      const response = await contractHttp(app,{
         method: 'GET',
         url: '/v1/ingestion?org_id=test-org',
       });
@@ -161,10 +162,10 @@ describe('Inspection API Contract Tests', () => {
   describe('INSP-003: Ingestion log captures duplicate signal', () => {
     it('should show outcome duplicate in GET /v1/ingestion after duplicate POST', async () => {
       const signal = validSignal();
-      await app.inject({ method: 'POST', url: '/v1/signals', payload: signal });
-      await app.inject({ method: 'POST', url: '/v1/signals', payload: signal });
+      await contractHttp(app,{ method: 'POST', url: '/v1/signals', payload: signal });
+      await contractHttp(app,{ method: 'POST', url: '/v1/signals', payload: signal });
 
-      const response = await app.inject({
+      const response = await contractHttp(app,{
         method: 'GET',
         url: '/v1/ingestion?org_id=test-org',
       });
@@ -181,10 +182,10 @@ describe('Inspection API Contract Tests', () => {
   // ---------------------------------------------------------------------------
   describe('INSP-004: GET /v1/ingestion returns entries received_at DESC', () => {
     it('should return entries most recent first', async () => {
-      await app.inject({ method: 'POST', url: '/v1/signals', payload: validSignal() });
-      await app.inject({ method: 'POST', url: '/v1/signals', payload: validSignal() });
+      await contractHttp(app,{ method: 'POST', url: '/v1/signals', payload: validSignal() });
+      await contractHttp(app,{ method: 'POST', url: '/v1/signals', payload: validSignal() });
 
-      const response = await app.inject({
+      const response = await contractHttp(app,{
         method: 'GET',
         url: '/v1/ingestion?org_id=test-org',
       });
@@ -204,14 +205,14 @@ describe('Inspection API Contract Tests', () => {
   // ---------------------------------------------------------------------------
   describe('INSP-005: GET /v1/ingestion?outcome=rejected filters correctly', () => {
     it('should return only rejected entries when outcome=rejected', async () => {
-      await app.inject({
+      await contractHttp(app,{
         method: 'POST',
         url: '/v1/signals',
         payload: { org_id: 'test-org', signal_id: 's1' }, // invalid
       });
-      await app.inject({ method: 'POST', url: '/v1/signals', payload: validSignal() });
+      await contractHttp(app,{ method: 'POST', url: '/v1/signals', payload: validSignal() });
 
-      const response = await app.inject({
+      const response = await contractHttp(app,{
         method: 'GET',
         url: '/v1/ingestion?org_id=test-org&outcome=rejected',
       });
@@ -229,7 +230,7 @@ describe('Inspection API Contract Tests', () => {
       const state = createState();
       saveState(state);
 
-      const response = await app.inject({
+      const response = await contractHttp(app,{
         method: 'GET',
         url: '/v1/state?org_id=test-org&learner_reference=learner-123',
       });
@@ -271,7 +272,7 @@ describe('Inspection API Contract Tests', () => {
         })
       );
 
-      const response = await app.inject({
+      const response = await contractHttp(app,{
         method: 'GET',
         url: '/v1/state?org_id=test-org&learner_reference=learner-123&version=2',
       });
@@ -288,7 +289,7 @@ describe('Inspection API Contract Tests', () => {
   // ---------------------------------------------------------------------------
   describe('INSP-008: GET /v1/state for unknown learner returns 404', () => {
     it('should return 404 with state_not_found for unknown learner', async () => {
-      const response = await app.inject({
+      const response = await contractHttp(app,{
         method: 'GET',
         url: '/v1/state?org_id=test-org&learner_reference=unknown-learner',
       });
@@ -321,7 +322,7 @@ describe('Inspection API Contract Tests', () => {
         })
       );
 
-      const response = await app.inject({
+      const response = await contractHttp(app,{
         method: 'GET',
         url: '/v1/state/list?org_id=test-org',
       });
@@ -357,9 +358,9 @@ describe('Inspection API Contract Tests', () => {
       const state = createState({ state: payload });
       saveState(state);
       const signal = validSignal({ payload });
-      await app.inject({ method: 'POST', url: '/v1/signals', payload: signal });
+      await contractHttp(app,{ method: 'POST', url: '/v1/signals', payload: signal });
 
-      const decisionsRes = await app.inject({
+      const decisionsRes = await contractHttp(app,{
         method: 'GET',
         url: `/v1/decisions?org_id=test-org&learner_reference=learner-123&from_time=2026-01-01T00:00:00Z&to_time=2026-12-31T23:59:59Z`,
       });
@@ -442,7 +443,7 @@ describe('Inspection API Contract Tests', () => {
       };
       saveDecision(historicalDecision);
 
-      const response = await app.inject({
+      const response = await contractHttp(app,{
         method: 'GET',
         url: `/v1/decisions?org_id=test-org&learner_reference=learner-123&from_time=2026-01-01T00:00:00Z&to_time=2026-12-31T23:59:59Z`,
       });
@@ -464,13 +465,13 @@ describe('Inspection API Contract Tests', () => {
   // ---------------------------------------------------------------------------
   describe('INSP-015: Org isolation on GET /v1/ingestion', () => {
     it('should not return org B entries when querying org A', async () => {
-      await app.inject({
+      await contractHttp(app,{
         method: 'POST',
         url: '/v1/signals',
         payload: validSignal({ org_id: 'org-B', signal_id: 'sig-org-b' }),
       });
 
-      const response = await app.inject({
+      const response = await contractHttp(app,{
         method: 'GET',
         url: '/v1/ingestion?org_id=org-A',
       });
@@ -492,7 +493,7 @@ describe('Inspection API Contract Tests', () => {
         })
       );
 
-      const response = await app.inject({
+      const response = await contractHttp(app,{
         method: 'GET',
         url: '/v1/state?org_id=org-A&learner_reference=L1',
       });
@@ -514,9 +515,9 @@ describe('Inspection API Contract Tests', () => {
       const signal = validSignal({
         payload: { stabilityScore: 0.9, timeSinceReinforcement: 3600 },
       });
-      await app.inject({ method: 'POST', url: '/v1/signals', payload: signal });
+      await contractHttp(app,{ method: 'POST', url: '/v1/signals', payload: signal });
 
-      const decisionsRes = await app.inject({
+      const decisionsRes = await contractHttp(app,{
         method: 'GET',
         url: `/v1/decisions?org_id=test-org&learner_reference=learner-123&from_time=2026-01-01T00:00:00Z&to_time=2026-12-31T23:59:59Z`,
       });

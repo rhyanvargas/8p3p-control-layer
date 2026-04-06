@@ -31,6 +31,10 @@ import {
 } from '../../src/decision/store.js';
 import { loadPolicy } from '../../src/decision/policy-loader.js';
 import { ErrorCodes } from '../../src/shared/error-codes.js';
+import { contractHttp } from '../helpers/contract-http.js';
+
+// Remote mode hits API Gateway (403 without key) — these tests target in-process middleware only.
+const describeAuth = process.env.API_BASE_URL?.trim() ? describe.skip : describe;
 
 function validSignal(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
@@ -45,7 +49,7 @@ function validSignal(overrides: Record<string, unknown> = {}): Record<string, un
   };
 }
 
-describe('API Key Middleware Contract Tests', () => {
+describeAuth('API Key Middleware Contract Tests', () => {
   let app: FastifyInstance;
   const savedEnv: Record<string, string | undefined> = {};
 
@@ -102,7 +106,7 @@ describe('API Key Middleware Contract Tests', () => {
       process.env.API_KEY = 'key1';
       process.env.API_KEY_ORG_ID = 'org_pilot1';
 
-      const response = await app.inject({
+      const response = await contractHttp(app, {
         method: 'POST',
         url: '/v1/signals',
         headers: { 'x-api-key': 'key1' },
@@ -122,7 +126,7 @@ describe('API Key Middleware Contract Tests', () => {
       delete process.env.API_KEY_ORG_ID;
 
       const signal = validSignal({ org_id: 'org_pilot1' });
-      const response = await app.inject({
+      const response = await contractHttp(app, {
         method: 'POST',
         url: '/v1/signals',
         headers: { 'x-api-key': 'key1' },
@@ -140,7 +144,7 @@ describe('API Key Middleware Contract Tests', () => {
     it('returns 401 api_key_required when x-api-key header is absent', async () => {
       process.env.API_KEY = 'key1';
 
-      const response = await app.inject({
+      const response = await contractHttp(app, {
         method: 'POST',
         url: '/v1/signals',
         payload: validSignal(),
@@ -157,7 +161,7 @@ describe('API Key Middleware Contract Tests', () => {
     it('returns 401 api_key_invalid when x-api-key is wrong', async () => {
       process.env.API_KEY = 'key1';
 
-      const response = await app.inject({
+      const response = await contractHttp(app, {
         method: 'POST',
         url: '/v1/signals',
         headers: { 'x-api-key': 'wrong_value' },
@@ -176,7 +180,7 @@ describe('API Key Middleware Contract Tests', () => {
       delete process.env.API_KEY_ORG_ID;
 
       const signal = validSignal();
-      const response = await app.inject({
+      const response = await contractHttp(app, {
         method: 'POST',
         url: '/v1/signals',
         payload: signal,
@@ -194,7 +198,7 @@ describe('API Key Middleware Contract Tests', () => {
     it('returns 200 for GET /health without key when API_KEY is set', async () => {
       process.env.API_KEY = 'key1';
 
-      const response = await app.inject({
+      const response = await contractHttp(app, {
         method: 'GET',
         url: '/health',
       });
@@ -208,7 +212,7 @@ describe('API Key Middleware Contract Tests', () => {
     it('returns 200 or redirect for GET /docs without key when API_KEY is set', async () => {
       process.env.API_KEY = 'key1';
 
-      const response = await app.inject({
+      const response = await contractHttp(app, {
         method: 'GET',
         url: '/docs',
       });

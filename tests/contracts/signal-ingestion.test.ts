@@ -23,6 +23,7 @@ import {
   closeStateStore,
   clearStateStore,
 } from '../../src/state/store.js';
+import { contractHttp } from '../helpers/contract-http.js';
 
 describe('Signal Ingestion Contract Tests', () => {
   let app: FastifyInstance;
@@ -81,7 +82,7 @@ describe('Signal Ingestion Contract Tests', () => {
     it('should accept a valid signal envelope', async () => {
       const signal = validSignal();
       
-      const response = await app.inject({
+      const response = await contractHttp(app,{
         method: 'POST',
         url: '/v1/signals',
         payload: signal,
@@ -105,7 +106,7 @@ describe('Signal Ingestion Contract Tests', () => {
         },
       });
       
-      const response = await app.inject({
+      const response = await contractHttp(app,{
         method: 'POST',
         url: '/v1/signals',
         payload: signal,
@@ -120,7 +121,7 @@ describe('Signal Ingestion Contract Tests', () => {
         timestamp: '2026-01-30T10:00:00-05:00',
       });
       
-      const response = await app.inject({
+      const response = await contractHttp(app,{
         method: 'POST',
         url: '/v1/signals',
         payload: signal,
@@ -147,7 +148,7 @@ describe('Signal Ingestion Contract Tests', () => {
         const signal = validSignal();
         delete signal[field];
         
-        const response = await app.inject({
+        const response = await contractHttp(app,{
           method: 'POST',
           url: '/v1/signals',
           payload: signal,
@@ -167,7 +168,7 @@ describe('Signal Ingestion Contract Tests', () => {
     it('should reject when payload is an array', async () => {
       const signal = validSignal({ payload: [] });
       
-      const response = await app.inject({
+      const response = await contractHttp(app,{
         method: 'POST',
         url: '/v1/signals',
         payload: signal,
@@ -183,7 +184,7 @@ describe('Signal Ingestion Contract Tests', () => {
     it('should reject when payload is null', async () => {
       const signal = validSignal({ payload: null });
       
-      const response = await app.inject({
+      const response = await contractHttp(app,{
         method: 'POST',
         url: '/v1/signals',
         payload: signal,
@@ -198,7 +199,7 @@ describe('Signal Ingestion Contract Tests', () => {
     it('should reject when payload is a string', async () => {
       const signal = validSignal({ payload: 'not-an-object' });
       
-      const response = await app.inject({
+      const response = await contractHttp(app,{
         method: 'POST',
         url: '/v1/signals',
         payload: signal,
@@ -217,7 +218,7 @@ describe('Signal Ingestion Contract Tests', () => {
         timestamp: '2026-01-30 10:00:00Z',
       });
       
-      const response = await app.inject({
+      const response = await contractHttp(app,{
         method: 'POST',
         url: '/v1/signals',
         payload: signal,
@@ -235,7 +236,7 @@ describe('Signal Ingestion Contract Tests', () => {
         timestamp: 'January 30, 2026',
       });
       
-      const response = await app.inject({
+      const response = await contractHttp(app,{
         method: 'POST',
         url: '/v1/signals',
         payload: signal,
@@ -255,7 +256,7 @@ describe('Signal Ingestion Contract Tests', () => {
         timestamp: '2026-01-30T10:00:00',
       });
       
-      const response = await app.inject({
+      const response = await contractHttp(app,{
         method: 'POST',
         url: '/v1/signals',
         payload: signal,
@@ -277,7 +278,7 @@ describe('Signal Ingestion Contract Tests', () => {
       it(`should reject schema_version "${version}"`, async () => {
         const signal = validSignal({ schema_version: version });
         
-        const response = await app.inject({
+        const response = await contractHttp(app,{
           method: 'POST',
           url: '/v1/signals',
           payload: signal,
@@ -295,7 +296,7 @@ describe('Signal Ingestion Contract Tests', () => {
       for (const version of ['v1', 'v2', 'v10']) {
         const signal = validSignal({ schema_version: version });
         
-        const response = await app.inject({
+        const response = await contractHttp(app,{
           method: 'POST',
           url: '/v1/signals',
           payload: signal,
@@ -313,7 +314,7 @@ describe('Signal Ingestion Contract Tests', () => {
         payload: { ui: { screen: 'home' } },
       });
       
-      const response = await app.inject({
+      const response = await contractHttp(app,{
         method: 'POST',
         url: '/v1/signals',
         payload: signal,
@@ -332,7 +333,7 @@ describe('Signal Ingestion Contract Tests', () => {
         payload: { course: 'math-101' },
       });
       
-      const response = await app.inject({
+      const response = await contractHttp(app,{
         method: 'POST',
         url: '/v1/signals',
         payload: signal,
@@ -352,7 +353,7 @@ describe('Signal Ingestion Contract Tests', () => {
         payload: { x: { y: { workflow: { step: '1' } } } },
       });
       
-      const response = await app.inject({
+      const response = await contractHttp(app,{
         method: 'POST',
         url: '/v1/signals',
         payload: signal,
@@ -371,7 +372,7 @@ describe('Signal Ingestion Contract Tests', () => {
         payload: { results: { assessment: { score: 95 } } },
       });
       
-      const response = await app.inject({
+      const response = await contractHttp(app,{
         method: 'POST',
         url: '/v1/signals',
         payload: signal,
@@ -389,7 +390,7 @@ describe('Signal Ingestion Contract Tests', () => {
     it('should reject signal_id with spaces', async () => {
       const signal = validSignal({ signal_id: 'signal with spaces' });
       
-      const response = await app.inject({
+      const response = await contractHttp(app,{
         method: 'POST',
         url: '/v1/signals',
         payload: signal,
@@ -405,7 +406,7 @@ describe('Signal Ingestion Contract Tests', () => {
     it('should reject signal_id with special characters', async () => {
       const signal = validSignal({ signal_id: 'signal@#$%' });
       
-      const response = await app.inject({
+      const response = await contractHttp(app,{
         method: 'POST',
         url: '/v1/signals',
         payload: signal,
@@ -421,7 +422,7 @@ describe('Signal Ingestion Contract Tests', () => {
     it('should accept signal_id with allowed chars (A-Z, a-z, 0-9, ., _, :, -)', async () => {
       const signal = validSignal({ signal_id: 'Signal_123.test:abc-XYZ' });
       
-      const response = await app.inject({
+      const response = await contractHttp(app,{
         method: 'POST',
         url: '/v1/signals',
         payload: signal,
@@ -437,7 +438,7 @@ describe('Signal Ingestion Contract Tests', () => {
       const signal = validSignal({ signal_id: 'dup-test-001' });
       
       // First submission
-      const first = await app.inject({
+      const first = await contractHttp(app,{
         method: 'POST',
         url: '/v1/signals',
         payload: signal,
@@ -447,7 +448,7 @@ describe('Signal Ingestion Contract Tests', () => {
       expect(first.json().status).toBe('accepted');
       
       // Second submission (same org_id + signal_id)
-      const second = await app.inject({
+      const second = await contractHttp(app,{
         method: 'POST',
         url: '/v1/signals',
         payload: signal,
@@ -460,13 +461,13 @@ describe('Signal Ingestion Contract Tests', () => {
     it('should return original received_at for duplicate', async () => {
       const signal = validSignal({ signal_id: 'dup-test-002' });
       
-      const first = await app.inject({
+      const first = await contractHttp(app,{
         method: 'POST',
         url: '/v1/signals',
         payload: signal,
       });
       
-      const second = await app.inject({
+      const second = await contractHttp(app,{
         method: 'POST',
         url: '/v1/signals',
         payload: signal,
@@ -479,13 +480,13 @@ describe('Signal Ingestion Contract Tests', () => {
       const signalOrg1 = validSignal({ org_id: 'org-1', signal_id: 'shared-signal' });
       const signalOrg2 = validSignal({ org_id: 'org-2', signal_id: 'shared-signal' });
       
-      const first = await app.inject({
+      const first = await contractHttp(app,{
         method: 'POST',
         url: '/v1/signals',
         payload: signalOrg1,
       });
       
-      const second = await app.inject({
+      const second = await contractHttp(app,{
         method: 'POST',
         url: '/v1/signals',
         payload: signalOrg2,
@@ -505,14 +506,14 @@ describe('Signal Ingestion Contract Tests', () => {
       });
       
       // First rejection
-      const first = await app.inject({
+      const first = await contractHttp(app,{
         method: 'POST',
         url: '/v1/signals',
         payload: invalidSignal,
       });
       
       // Second rejection (same input)
-      const second = await app.inject({
+      const second = await contractHttp(app,{
         method: 'POST',
         url: '/v1/signals',
         payload: invalidSignal,
@@ -526,13 +527,13 @@ describe('Signal Ingestion Contract Tests', () => {
     it('should be deterministic for schema_version errors', async () => {
       const invalidSignal = validSignal({ schema_version: 'invalid' });
       
-      const first = await app.inject({
+      const first = await contractHttp(app,{
         method: 'POST',
         url: '/v1/signals',
         payload: invalidSignal,
       });
       
-      const second = await app.inject({
+      const second = await contractHttp(app,{
         method: 'POST',
         url: '/v1/signals',
         payload: invalidSignal,
@@ -547,13 +548,13 @@ describe('Signal Ingestion Contract Tests', () => {
         payload: { ui: 'forbidden' },
       });
       
-      const first = await app.inject({
+      const first = await contractHttp(app,{
         method: 'POST',
         url: '/v1/signals',
         payload: invalidSignal,
       });
       
-      const second = await app.inject({
+      const second = await contractHttp(app,{
         method: 'POST',
         url: '/v1/signals',
         payload: invalidSignal,
@@ -584,7 +585,7 @@ describe('Signal Ingestion Contract Tests', () => {
 
       const signal = validSignal({ payload: { level: 5 } });
 
-      const response = await app.inject({
+      const response = await contractHttp(app,{
         method: 'POST',
         url: '/v1/signals',
         payload: signal,
@@ -621,7 +622,7 @@ describe('Signal Ingestion Contract Tests', () => {
         payload: { stability_score: 0.5 },
       });
 
-      const response = await app.inject({
+      const response = await contractHttp(app,{
         method: 'POST',
         url: '/v1/signals',
         payload: signal,
@@ -660,7 +661,7 @@ describe('Signal Ingestion Contract Tests', () => {
         payload: { a: 1, b: 2 },
       });
 
-      const response = await app.inject({
+      const response = await contractHttp(app,{
         method: 'POST',
         url: '/v1/signals',
         payload: signal,
@@ -692,7 +693,7 @@ describe('Signal Ingestion Contract Tests', () => {
 
       const signal = validSignal({ payload: { level: '5' } });
 
-      const response = await app.inject({
+      const response = await contractHttp(app,{
         method: 'POST',
         url: '/v1/signals',
         payload: signal,
