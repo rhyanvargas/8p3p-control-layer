@@ -397,3 +397,17 @@ export interface GetReceiptsResponse {
   receipts: Receipt[];
   next_page_token: string | null;
 }
+
+// =============================================================================
+// Framework-agnostic handler result (used by handler-core.ts files + Lambda)
+// =============================================================================
+
+/**
+ * Framework-agnostic HTTP result returned by handler-core functions.
+ * Fastify wrappers call reply.status(statusCode) then return body.
+ * Lambda handlers JSON.stringify(body) and return statusCode directly.
+ */
+export interface HandlerResult<T> {
+  statusCode: number;
+  body: T;
+}

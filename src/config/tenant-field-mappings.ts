@@ -42,6 +42,36 @@ export function getTenantPayloadMapping(orgId: string): TenantPayloadMapping | n
   return tenantConfig?.tenants?.[orgId]?.payload ?? null;
 }
 
+/**
+ * Resolve mapping for ingestion: DynamoDB first (when FIELD_MAPPINGS_TABLE is set), then file fallback.
+ * Per docs/specs/tenant-field-mappings.md — Dynamo wins for same org+source_system.
+ */
+export async function resolveTenantPayloadMappingForIngest(
+  orgId: string,
+  sourceSystem: string
+): Promise<TenantPayloadMapping | null> {
+  const { getMappingFromDynamoDB } = await import('./field-mappings-dynamo.js');
+  const fromDynamo = await getMappingFromDynamoDB(orgId, sourceSystem);
+  if (fromDynamo) return fromDynamo;
+  return getTenantPayloadMapping(orgId);
+}
+
+/**
+ * Async normalization using DynamoDB-aware mapping resolution (Lambda / async paths).
+ */
+export async function normalizeAndValidateTenantPayloadAsync(args: {
+  orgId: string;
+  sourceSystem: string;
+  payload: unknown;
+}): Promise<{ ok: true; payload: Record<string, unknown> } | { ok: false; errors: RejectionReason[] }> {
+  const mapping = await resolveTenantPayloadMappingForIngest(args.orgId, args.sourceSystem);
+  return normalizeAndValidateTenantPayload({
+    orgId: args.orgId,
+    payload: args.payload,
+    mappingOverride: mapping,
+  });
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
@@ -88,8 +118,11 @@ function typeOfPrimitive(value: unknown): PrimitiveType | null {
 export function normalizeAndValidateTenantPayload(args: {
   orgId: string;
   payload: unknown;
+  /** When set (including null), skip file lookup and use this mapping; null = no tenant mapping. */
+  mappingOverride?: TenantPayloadMapping | null;
 }): { ok: true; payload: Record<string, unknown> } | { ok: false; errors: RejectionReason[] } {
-  const mapping = getTenantPayloadMapping(args.orgId);
+  const mapping =
+    args.mappingOverride !== undefined ? args.mappingOverride : getTenantPayloadMapping(args.orgId);
   if (!mapping) {
     if (!isRecord(args.payload)) {
       return {

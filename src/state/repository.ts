@@ -29,5 +29,14 @@ export interface StateRepository {
     learnerReference: string,
     entries: Array<{ signal_id: string; state_version: number; applied_at: string }>
   ): void;
+  /**
+   * List learners for an org with their latest state version.
+   * Keyset pagination. Returns empty array when not supported (DynamoDB requires GSI).
+   */
+  listLearners(
+    orgId: string,
+    limit: number,
+    cursor?: string
+  ): { learners: Array<{ learner_reference: string; state_version: number; updated_at: string }>; nextCursor: string | null };
   close(): void;
 }

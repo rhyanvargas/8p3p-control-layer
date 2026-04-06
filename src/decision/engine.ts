@@ -27,7 +27,7 @@ import { saveDecision } from './store.js';
  * Rule match: "Rule {rule_id} fired: {field} ({actual}) {op} {threshold} AND/OR ..."
  * Default: "No rules matched. Default decision: {default_decision_type}"
  */
-function buildRationale(evalResult: PolicyEvaluationResult, policy: PolicyDefinition): string {
+export function buildRationale(evalResult: PolicyEvaluationResult, policy: PolicyDefinition): string {
   if (evalResult.matched_rule_id && evalResult.evaluated_fields && evalResult.evaluated_fields.length > 0) {
     const parts = evalResult.evaluated_fields.map(
       (ef) => `${ef.field} (${JSON.stringify(ef.actual_value)}) ${ef.operator} ${JSON.stringify(ef.threshold)}`

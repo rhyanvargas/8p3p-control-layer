@@ -447,7 +447,7 @@ export function listLearners(
   limit: number,
   cursor?: string
 ): { learners: StateSummary[]; nextCursor: string | null } {
-  return requireSqliteRepository('listLearners').listLearners(orgId, limit, cursor);
+  return requireRepository().listLearners(orgId, limit, cursor);
 }
 
 /**
