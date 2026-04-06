@@ -10,12 +10,17 @@
 
 The 8P3P Control Layer is an enterprise-grade intelligence infrastructure that transforms learning signals into actionable decisions while maintaining complete separation from UI, workflows, and domain-specific implementations. Built on immutable principles and contract-first design, it provides the foundational intelligence layer for adaptive learning platforms at scale.
 
+Each governed learning decision — signal ingested → state updated → policy applied → decision produced — is one **Learning Intelligence Unit (LIU)**, the core billing metric for 8P3P's usage-based pricing model.
+
 ### Core Capabilities
 
 - **Signal Ingestion** — Accept learning events from any source system via API or event streams
 - **Immutable State Management** — Maintain append-only learner state with full provenance tracking
 - **Deterministic Decision Engine** — Generate consistent, traceable decisions from state
+- **State Delta Detection** — Automatic `_delta` / `_direction` fields for every numeric state field (decay detection)
 - **Multi-Tenant Architecture** — Built-in org-level isolation with zero cross-tenant leakage
+- **Policy Management** — Admin CRUD for policy lifecycle with validation, soft enable/disable, and versioning
+- **LIU Usage Metering** — Per-org monthly LIU consumption tracking for billing transparency
 - **Contract-First Design** — Comprehensive interface contracts with structural validation
 - **Vendor Neutrality** — No platform lock-in, no domain assumptions, pure intelligence layer
 
@@ -57,7 +62,7 @@ architecture-beta
 |-------|-----------|----------------|
 | **1** | Signal Ingestion | Receive, validate, and accept signals from external systems |
 | **2** | Signal Log | Store signals immutably with full provenance |
-| **3** | STATE Engine | Apply signals to learner state; single source of truth |
+| **3** | STATE Engine | Apply signals to learner state; compute delta/direction fields |
 | **4** | Decision Engine | Evaluate state and generate deterministic decisions |
 | **5** | Output Interfaces | Expose decisions via API and/or events |
 
@@ -96,7 +101,7 @@ The control layer supports four decision types, forming a closed set (see `src/c
 | **Signal Envelope** | [`src/contracts/schemas/signal-envelope.json`](src/contracts/schemas/signal-envelope.json) | [`src/contracts/validators/signal-envelope.ts`](src/contracts/validators/signal-envelope.ts) |
 | **Decision Object** | [`src/contracts/schemas/decision.json`](src/contracts/schemas/decision.json) | [`src/contracts/validators/decision.ts`](src/contracts/validators/decision.ts) |
 
-For detailed contract specifications, see the [Component Interface Contracts](internal-docs/foundation/poc-playbooks/Component%20Interface%20Contracts.md) and API specs in [`docs/api/`](docs/api/).
+For detailed contract specifications, see the API specs in [`docs/api/`](docs/api/).
 
 ---
 
@@ -109,9 +114,13 @@ For detailed contract specifications, see the [Component Interface Contracts](in
 | **@fastify/swagger** | OpenAPI spec serving |
 | **@fastify/swagger-ui** | Interactive API docs at `/docs` |
 | **Ajv** | JSON Schema validation |
-| **better-sqlite3** | SQLite database driver |
+| **better-sqlite3** | SQLite database driver (local dev) |
+| **@aws-sdk/client-dynamodb** | DynamoDB client (AWS deployment) |
+| **aws-lambda-fastify** | Lambda adapter bridge |
+| **AWS CDK** | Infrastructure as code (`infra/`) |
 | **Vitest** | Test framework |
 | **ESLint** | Code quality |
+| **Redocly CLI** | OpenAPI linting |
 
 > See [`package.json`](package.json) for current versions and all dependencies.
 
@@ -121,36 +130,58 @@ For detailed contract specifications, see the [Component Interface Contracts](in
 
 ```
 src/
-├── contracts/        # JSON schemas and validators
-│   ├── schemas/      # signal-envelope.json, decision.json
-│   └── validators/   # Ajv-based validation (signal-envelope.ts, decision.ts)
-├── ingestion/        # Signal ingestion layer
-│   ├── handler.ts    # Request handling
-│   ├── routes.ts     # API routes
+├── admin/               # Admin policy management
+│   ├── policies-dynamodb.ts        # DynamoDB PoliciesTable adapter
+│   └── policy-management-routes.ts # Admin policy CRUD handlers
+├── auth/                # Authentication middleware
+│   ├── admin-api-key-middleware.ts  # x-admin-api-key auth
+│   └── api-key-middleware.ts       # x-api-key tenant auth
+├── config/              # Tenant configuration
+│   └── tenant-field-mappings.ts    # Payload normalization + aliases
+├── contracts/           # JSON schemas and validators
+│   ├── schemas/         # signal-envelope.json, decision.json
+│   └── validators/      # Ajv-based validation
+├── ingestion/           # Signal ingestion layer
+│   ├── handler.ts / handler-core.ts  # Fastify wrapper + framework-agnostic core
 │   ├── forbidden-keys.ts
-│   └── idempotency.ts
-├── signalLog/        # Immutable signal storage
-│   ├── store.ts      # SQLite-backed storage
-│   ├── handler.ts    # Request handling
-│   ├── routes.ts     # GET /v1/signals routes
-│   └── validator.ts  # Query validation
-├── state/            # STATE engine
-│   ├── engine.ts     # Signal application logic (applySignals, computeNewState)
-│   ├── store.ts      # SQLite-backed learner state storage
-│   └── validator.ts  # Request and state validation
-├── decision/         # Decision engine
-│   ├── engine.ts     # evaluateState() — policy evaluation, decision construction
-│   ├── handler.ts    # Request handling
-│   ├── policy-loader.ts  # Policy loading, hot-reload, semver validation
-│   ├── routes.ts     # GET /v1/decisions routes
-│   ├── store.ts      # SQLite-backed decision storage
-│   ├── validator.ts  # Request validation
-│   └── policies/     # Policy definitions
-│       └── default.json
-├── shared/           # Shared types and error codes
+│   ├── idempotency.ts / idempotency-repository.ts
+│   ├── ingestion-log-store.ts / ingestion-log-handler.ts
+│   ├── dynamodb-idempotency-repository.ts
+│   └── dynamodb-ingestion-log-repository.ts
+├── signalLog/           # Immutable signal storage
+│   ├── handler.ts / handler-core.ts
+│   ├── store.ts / repository.ts
+│   └── dynamodb-repository.ts
+├── state/               # STATE engine + delta detection
+│   ├── engine.ts        # applySignals, computeStateDeltas
+│   ├── store.ts / repository.ts
+│   ├── handler.ts / handler-core.ts
+│   └── dynamodb-repository.ts
+├── decision/            # Decision engine
+│   ├── engine.ts        # evaluateState() — policy evaluation
+│   ├── policy-loader.ts # Policy loading, validation, DynamoDB resolution
+│   ├── handler.ts / handler-core.ts
+│   ├── store.ts / repository.ts
+│   ├── dynamodb-repository.ts
+│   └── policies/        # Policy definitions (default + per-org)
+├── lambda/              # AWS Lambda entrypoints
+│   ├── ingest.ts        # POST /v1/signals
+│   ├── query.ts         # GET /v1/signals, /v1/decisions, /v1/receipts
+│   ├── inspect.ts       # GET /v1/state, /v1/ingestion
+│   ├── admin.ts         # Admin policy + mapping management
+│   └── admin-handler.ts # Fastify-based admin Lambda bridge
+├── shared/              # Shared types and error codes
 │   ├── types.ts
 │   └── error-codes.ts
-└── server.ts         # Application entry point
+└── server.ts            # Application entry point
+
+infra/
+├── bin/
+│   └── control-layer.ts          # CDK app entry point
+├── lib/
+│   └── control-layer-stack.ts    # Main stack (API Gateway, Lambdas, DynamoDB)
+├── cdk.json
+└── tsconfig.json
 
 scripts/
 ├── validate-schemas.ts    # JSON Schema compilation check
@@ -164,20 +195,32 @@ tests/
 │   ├── state-engine.test.ts
 │   ├── decision-engine.test.ts
 │   ├── output-api.test.ts
-│   └── contract-drift.test.ts  # JSON Schema ↔ OpenAPI ↔ AsyncAPI drift detection
+│   ├── inspection-api.test.ts
+│   ├── policy-management-api.test.ts
+│   ├── receipts-api.test.ts
+│   ├── api-key-middleware.test.ts
+│   └── contract-drift.test.ts
 ├── integration/      # End-to-end integration tests
-│   └── e2e-signal-to-decision.test.ts
-└── unit/             # Unit tests
-    ├── forbidden-keys.test.ts
-    ├── idempotency.test.ts
-    ├── signal-log-store.test.ts
-    ├── state-engine.test.ts
-    ├── state-store.test.ts
-    ├── state-validator.test.ts
-    ├── decision-engine.test.ts
-    ├── decision-store.test.ts
-    ├── decision-validator.test.ts
-    └── policy-loader.test.ts
+│   ├── e2e-signal-to-decision.test.ts
+│   ├── springs-pilot.test.ts
+│   ├── inspection-panels.test.ts
+│   └── gateway-403.test.ts
+├── unit/             # Unit tests
+│   ├── forbidden-keys.test.ts
+│   ├── idempotency.test.ts
+│   ├── signal-log-store.test.ts
+│   ├── ingestion-log-store.test.ts
+│   ├── state-engine.test.ts
+│   ├── state-store.test.ts
+│   ├── state-validator.test.ts
+│   ├── decision-engine.test.ts
+│   ├── decision-store.test.ts
+│   ├── decision-validator.test.ts
+│   ├── policy-loader.test.ts
+│   ├── api-key-middleware.test.ts
+│   └── lambda/
+│       └── lambda-handlers.test.ts
+└── helpers/          # Shared test utilities
 ```
 
 ---
@@ -193,7 +236,7 @@ Common business use-cases and integration workflows (built from the existing API
 | [Guides Index](docs/guides/README.md) | Entry point for integration workflows |
 | [Customer Onboarding Quick Start](docs/guides/customer-onboarding-quickstart.md) | First 15 minutes: real data and meaningful API output |
 | [FAQ (Pilot)](docs/guides/faq.md) | Common questions: payload, state, policy, decisions, identity |
-| [Pilot Integration Guide (v1)](docs/guides/pilot-integration-guide.md) | “Send signals → consume decisions” |
+| [Pilot Integration Guide (v1)](docs/guides/pilot-integration-guide.md) | "Send signals → consume decisions" |
 | [Get all learner decisions from my org](docs/guides/get-all-learner-decisions-from-org.md) | Org-wide decision export (list learners → fetch decisions per learner) |
 | [Pilot Deployment Checklist (v1)](docs/guides/deployment-checklist.md) | Pre-deployment gates (requires `API_KEY_ORG_ID`) |
 
@@ -207,24 +250,27 @@ Common business use-cases and integration workflows (built from the existing API
 
 ### Specifications (prose)
 
-| Spec | Phase | Description |
-|------|-------|-------------|
-| [Signal Ingestion](docs/specs/signal-ingestion.md) | Implemented | Signal ingestion API, validation, idempotency |
-| [Signal Log](docs/specs/signal-log.md) | Implemented | Immutable signal storage, time-range queries, pagination |
-| [State Engine](docs/specs/state-engine.md) | Implemented | STATE engine, versioned learner state, optimistic locking |
-| [Decision Engine](docs/specs/decision-engine.md) | Implemented | Policy evaluation, deterministic decisions, trace provenance |
-| [Inspection API](docs/specs/inspection-api.md) | v1 — spec'd | Read-only query endpoints: ingestion log, state query, enriched decision trace |
-| [Inspection Panels](docs/specs/inspection-panels.md) | v1 — spec'd | 4 read-only panels: Signal Intake, State Viewer, Decision Stream, Decision Trace |
-| [Tenant Provisioning](docs/specs/tenant-provisioning.md) | v1.1 — spec'd | API key issuance, tenant onboarding, rate limits via API Gateway usage plans |
-| [AWS Deployment](docs/specs/aws-deployment.md) | v1.1 — spec'd | API Gateway + Lambda + DynamoDB serverless deployment (AWS CDK) |
-| [Policy Storage](docs/specs/policy-storage.md) | v1.1 — spec'd | DynamoDB PoliciesTable, resolution, cache, soft enable/disable |
-| [Policy Inspection API](docs/specs/policy-inspection-api.md) | v1.1 — spec'd | `GET /v1/policies` — tenant read-only policy inspection |
-| [Policy Management API](docs/specs/policy-management-api.md) | v1.1 — spec'd | Admin policy CRUD + PATCH status; `ADMIN_API_KEY` |
-| [Tenant Field Mappings](docs/specs/tenant-field-mappings.md) | v1 + v1.1 — spec'd | Alias normalization (v1); computed transforms + DynamoDB + Canvas mapper (v1.1) |
-| [State Delta Detection](docs/specs/state-delta-detection.md) | v1.1 — spec'd | Automatic `_delta` / `_direction` fields; decay detection in policy rules |
-| [Webhook Adapters](docs/specs/webhook-adapters.md) | v1.1 — spec'd | Raw LMS webhook ingestion — no client-side envelope construction required |
-| [Learner Trajectory API](docs/specs/learner-trajectory-api.md) | v1.1 — spec'd | `GET /v1/state/trajectory` — version-range field trend view |
-| [Learner Summary API](docs/specs/learner-summary-api.md) | v1.1 — spec'd | `GET /v1/learners/:ref/summary` — educator-readable aggregated handoff view |
+| Spec | Phase | Status |
+|------|-------|--------|
+| [Signal Ingestion](docs/specs/signal-ingestion.md) | v1 | **Implemented** |
+| [Signal Log](docs/specs/signal-log.md) | v1 | **Implemented** |
+| [State Engine](docs/specs/state-engine.md) | v1 | **Implemented** |
+| [Decision Engine](docs/specs/decision-engine.md) | v1 | **Implemented** |
+| [Inspection API](docs/specs/inspection-api.md) | v1 | **Implemented** |
+| [Inspection Panels](docs/specs/inspection-panels.md) | v1 | **Implemented** |
+| [API Key Middleware](docs/specs/api-key-middleware.md) | v1 | **Implemented** |
+| [Receipts API](docs/specs/receipts-api.md) | v1 | **Implemented** |
+| [State Delta Detection](docs/specs/state-delta-detection.md) | v1.1 | **Implemented** |
+| [Policy Storage](docs/specs/policy-storage.md) | v1.1 | **Implemented** |
+| [Policy Management API](docs/specs/policy-management-api.md) | v1.1 | **Implemented** |
+| [AWS Deployment](docs/specs/aws-deployment.md) | v1.1 | **In Progress** — CDK, Lambda, DynamoDB |
+| [Tenant Provisioning](docs/specs/tenant-provisioning.md) | v1.1 | Spec'd |
+| [Policy Inspection API](docs/specs/policy-inspection-api.md) | v1.1 | Spec'd |
+| [Tenant Field Mappings](docs/specs/tenant-field-mappings.md) | v1.1 | Spec'd |
+| [Webhook Adapters](docs/specs/webhook-adapters.md) | v1.1 | Spec'd |
+| [Learner Trajectory API](docs/specs/learner-trajectory-api.md) | v1.1 | Spec'd |
+| [Learner Summary API](docs/specs/learner-summary-api.md) | v1.1 | Spec'd |
+| [LIU Usage Meter](docs/specs/liu-usage-meter.md) | v1.1 | Spec'd |
 
 ### API specifications (machine-readable)
 
@@ -245,51 +291,86 @@ Common business use-cases and integration workflows (built from the existing API
 
 ## Project Status
 
-**426 tests passing** across 23 test files. Full pipeline proven end-to-end: signal → validate → store → state accumulate → policy evaluate → decision with trace. All 4 decision types verified with JSON evidence.
+**503 tests passing** across 27 test files. Full pipeline proven end-to-end: signal → validate → store → state accumulate → delta detect → policy evaluate → decision with trace. All 4 decision types verified with JSON evidence. Admin policy CRUD operational.
 
 ### Milestone Summary
 
-| Milestone | Target | Status |
-|-----------|--------|--------|
-| **POC v1** — single-rule pipeline | Feb 10 | Complete |
-| **POC v2** — 4-rule policy, all decision types | Feb 17 | Complete |
-| **POC v2 QA** — full test execution with JSON trace evidence | Feb 18 | Complete |
-| **v1: 1-Customer Pilot-Ready** — enriched trace + inspection panels + demo dataset | Week 4 | In progress (specs complete, build pending) |
-| **v1.1: 2-3 Concurrent Pilots** — AWS deployed + tenant provisioning + per-tenant policy | Week 6-7 | Spec'd (build follows v1) |
+| Milestone | Status |
+|-----------|--------|
+| **POC v1** — single-rule pipeline | **Complete** |
+| **POC v2** — 4-rule policy, all decision types | **Complete** |
+| **POC v2 QA** — full test execution with JSON trace evidence | **Complete** |
+| **v1: 1-Customer Pilot-Ready** — enriched trace, inspection panels, demo dataset, PII hardening | **Complete** |
+| **v1.1: Pre-Month 0** — AWS deployment, tenant provisioning, admin APIs, LIU metering, trajectory/summary | **In Progress** (specs complete, build underway) |
 
-### What's Built (POC v1 + v2)
+### What's Built (v1 — Complete)
 
 - [x] **Signal Ingestion** — POST `/v1/signals`, validation, forbidden key detection, idempotency
 - [x] **Signal Log** — append-only storage, time-range queries, pagination, org isolation
 - [x] **STATE Engine** — signal application, deep merge, optimistic locking, provenance tracking, atomic `saveStateWithAppliedSignals`
+- [x] **State Delta Detection** — automatic `_delta` / `_direction` companion fields for numeric state (decay detection)
 - [x] **Decision Engine** — policy evaluation, deterministic decisions, full trace provenance
-- [x] **Policy Expansion** — POC v2 policy with 4 rules covering all decision types (`policy_version: "1.0.0"`)
-- [x] **Output API** — GET `/v1/decisions` with trace (state_id, state_version, policy_version, matched_rule_id)
+- [x] **Policy Management API** — admin CRUD (PUT, PATCH, DELETE, validate), `x-admin-api-key` auth, DynamoDB PoliciesTable
+- [x] **Policy Storage** — DynamoDB-backed with status field, resolution chain, cache/TTL
+- [x] **Policy Expansion** — 4 rules covering all decision types, org-scoped policies with routing
+- [x] **Output API** — GET `/v1/decisions`, GET `/v1/receipts` with trace
+- [x] **Inspection API** — GET `/v1/state`, GET `/v1/state/list`, GET `/v1/ingestion`
+- [x] **Inspection Panels** — 4 read-only panels at `/inspect` (Signal Intake, State Viewer, Decision Stream, Decision Trace)
+- [x] **API Key Middleware** — org-level isolation, forbidden on `/v1/*`
+- [x] **PII Hardening** — forbidden keys (DEF-DEC-008-PII), canonical snapshot (DEF-DEC-007)
 - [x] **Contract System** — JSON Schemas, OpenAPI, AsyncAPI, Ajv validators, contract drift detection
-- [x] **426 tests** — unit, contract, integration, and drift detection across 23 files
+- [x] **Repository Interfaces** — Decision, State, Signal Log, Idempotency, Ingestion Log (vendor-agnostic)
+- [x] **DynamoDB Adapters** — all five repository implementations for AWS deployment
+- [x] **Lambda Handlers** — ingest, query, inspect, admin entrypoints
+- [x] **CDK Stack** — API Gateway + Lambda + DynamoDB table definitions
+- [x] **Demo Seed Script** — `npm run seed:demo`, Springs pilot data
+- [x] **503 tests** — unit, contract, integration, and drift detection across 27 files
 
-### v1: 1-Customer Pilot-Ready (4 weeks)
+### v1.1: Pre-Month 0 (In Progress)
 
-- [ ] Decision Repository Extraction — vendor-agnostic persistence interface ([plan](.cursor/plans/repository-extraction.plan.md))
-- [ ] Inspection API — ingestion log, state query, enriched decision trace, decision stream metadata ([spec](docs/specs/inspection-api.md))
-- [ ] Inspection Panels — 4 read-only panels at `/inspect` ([spec](docs/specs/inspection-panels.md))
-- [ ] Demo seed script + rehearsal
+The v1.1 milestone completes all requirements for starting Phase 1 of the [24-Month Product Roadmap](#roadmap-alignment).
 
-### v1.1: 2-3 Concurrent Pilots (+2-3 weeks after v1)
+- [x] State delta detection (`_delta` / `_direction` fields)
+- [x] Policy management API (admin CRUD + soft enable/disable)
+- [x] Policy storage (DynamoDB PoliciesTable)
+- [x] Handler-core extraction (framework-agnostic business logic)
+- [x] DynamoDB repository adapters (5 repositories)
+- [x] Lambda entrypoints (ingest, query, inspect, admin)
+- [x] CDK stack bootstrap (tables, API Gateway, Lambdas)
+- [ ] AWS deployment completion — custom domain, CI/CD ([plan](.cursor/plans/aws-deployment.plan.md))
+- [ ] Policy inspection API — tenant read-only policy view ([spec](docs/specs/policy-inspection-api.md))
+- [ ] Tenant field mappings — Canvas integration, computed transforms ([spec](docs/specs/tenant-field-mappings.md))
+- [ ] Webhook adapters — raw LMS webhook ingestion ([spec](docs/specs/webhook-adapters.md))
+- [ ] Learner trajectory API — version-range field trend view ([spec](docs/specs/learner-trajectory-api.md))
+- [ ] Learner summary API — educator-readable aggregated handoff view ([spec](docs/specs/learner-summary-api.md))
+- [ ] LIU usage meter — per-org monthly LIU metering ([spec](docs/specs/liu-usage-meter.md))
 
-- [ ] Remaining repository extractions — Idempotency ([plan](.cursor/plans/idempotency-repository-extraction.plan.md)), Signal Log ([plan](.cursor/plans/signal-log-repository-extraction.plan.md)), State ([plan](.cursor/plans/state-repository-extraction.plan.md))
-- [ ] Per-tenant policy lookup (`loadPolicy(orgId)` with default fallback)
-- [ ] AWS deployment — API Gateway + Lambda + DynamoDB ([spec](docs/specs/aws-deployment.md))
-- [ ] Tenant provisioning — API keys, rate limits, org enforcement ([spec](docs/specs/tenant-provisioning.md))
+### Roadmap Alignment
+
+The investor deck defines a 24-month product roadmap. The control layer's engineering milestones map to it:
+
+| Phase | Timeline | Control Layer Work |
+|-------|----------|-------------------|
+| **Pre-Phase 1** | Now | v1.1 completion — AWS deploy, metering, integrations |
+| **Phase 1** | 0–6 months | Repeatable deployments, decision visibility, school-system integrations |
+| **Phase 2** | 6–12 months | Standardized ingestion, multi-school onboarding, API foundations |
+| **Phase 3** | 12–18 months | Public API, Zapier, workflow automation |
+| **Phase 4** | 18–24 months | Developer SDK, partner embedding, B2B2C |
+
+### v1.2 Backlog
+
+User stories approved, specs deferred: [`docs/backlog/user-stories-v1.2.md`](docs/backlog/user-stories-v1.2.md)
+
+- US-SKILL-001: Skill-level signal ingestion + dot-path policy evaluation
+- US-POLICY-BUILDER-001: AI-assisted policy generation (decoupled LLM service)
 
 ### Deferred (Full Contract / Production)
 
 - [ ] JWT/OAuth authentication
 - [ ] EventBridge integration
-- [ ] Per-tenant field mappings
 - [ ] Public documentation site (Stripe/Plaid-quality UX)
-- [ ] CI/CD pipeline
 - [ ] Multi-region deployment
+- [ ] Usage-based rate limiting (per-LIU throttling)
 
 ---
 
