@@ -44,3 +44,6 @@ jobs:
 
       - name: Test
         run: npm test
+
+      - name: CDK synth (IaC validation)
+        run: npm run cdk:synth

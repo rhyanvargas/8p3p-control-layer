@@ -1,0 +1,152 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      stage:
+        description: 'Deployment stage (prod | dev)'
+        required: false
+        default: 'prod'
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: '22'
+  AWS_REGION: us-east-1
+
+jobs:
+  # ─── Test gate ──────────────────────────────────────────────────────────────
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit + contract tests
+        run: npm test
+
+  # ─── Build ──────────────────────────────────────────────────────────────────
+  build:
+    name: Build
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build TypeScript
+        run: npm run build
+
+      - name: Upload dist artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          retention-days: 1
+
+  # ─── CDK synth validation ────────────────────────────────────────────────────
+  cdk-synth:
+    name: CDK Synth
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Download dist
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install infra dependencies
+        run: cd infra && npm ci
+
+      - name: CDK synth (validate template)
+        run: cd infra && npx cdk synth
+        env:
+          STAGE: ${{ github.event.inputs.stage || 'prod' }}
+
+  # ─── Deploy ─────────────────────────────────────────────────────────────────
+  deploy:
+    name: Deploy to AWS
+    needs: cdk-synth
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.stage || 'prod' }}
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Download dist
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install infra dependencies
+        run: cd infra && npm ci
+
+      - name: CDK deploy
+        run: cd infra && npx cdk deploy --require-approval never
+        env:
+          STAGE: ${{ github.event.inputs.stage || 'prod' }}
+          ADMIN_API_KEY: ${{ secrets.ADMIN_API_KEY }}
+          CUSTOM_DOMAIN: ${{ secrets.CUSTOM_DOMAIN }}
+          HOSTED_ZONE_ID: ${{ secrets.HOSTED_ZONE_ID }}
+          HOSTED_ZONE_NAME: ${{ secrets.HOSTED_ZONE_NAME }}
+
+      - name: Post-deploy contract + gateway tests
+        if: ${{ secrets.CONTRACT_TEST_API_URL != '' }}
+        run: npm run test:contracts && npx vitest run tests/integration/gateway-403.test.ts
+        env:
+          API_BASE_URL: ${{ secrets.CONTRACT_TEST_API_URL }}
+          CONTRACT_TEST_API_KEY: ${{ secrets.CONTRACT_TEST_API_KEY }}
+          API_KEY: ${{ secrets.CONTRACT_TEST_API_KEY }}
