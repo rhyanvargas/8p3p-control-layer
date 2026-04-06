@@ -394,7 +394,7 @@ export class ControlLayerStack extends cdk.Stack {
     // Set props.customDomain to enable, e.g. "api-dev.8p3p.dev" or "api.8p3p.dev"
     // -------------------------------------------------------------------------
 
-    const customDomain = props.customDomain ?? process.env.CUSTOM_DOMAIN;
+    const customDomain = props.customDomain;
     const hostedZoneId = process.env.HOSTED_ZONE_ID;
     const hostedZoneName = process.env.HOSTED_ZONE_NAME;
 

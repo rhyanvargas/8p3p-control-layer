@@ -13,11 +13,26 @@ import { DynamoDbDecisionRepository } from '../decision/dynamodb-repository.js';
 import { DynamoDbIngestionLogRepository } from '../ingestion/dynamodb-ingestion-log-repository.js';
 import { loadPolicy } from '../decision/policy-loader.js';
 
+const REQUIRED_ENV_VARS = [
+  'IDEMPOTENCY_TABLE',
+  'SIGNALS_TABLE',
+  'STATE_TABLE',
+  'APPLIED_SIGNALS_TABLE',
+  'DECISIONS_TABLE',
+  'INGESTION_LOG_TABLE',
+] as const;
+
 let initialized = false;
 let ports: DynamoIngestionPorts;
 
 function init(): void {
   if (initialized) return;
+
+  for (const key of REQUIRED_ENV_VARS) {
+    if (!process.env[key]) {
+      throw new Error(`Missing required environment variable: ${key}`);
+    }
+  }
 
   ports = {
     idempotency: new DynamoDbIdempotencyRepository(process.env.IDEMPOTENCY_TABLE!),

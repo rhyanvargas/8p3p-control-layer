@@ -345,6 +345,24 @@ The v1.1 milestone completes all requirements for starting Phase 1 of the [24-Mo
 - [ ] Learner summary API — educator-readable aggregated handoff view ([spec](docs/specs/learner-summary-api.md))
 - [ ] LIU usage meter — per-org monthly LIU metering ([spec](docs/specs/liu-usage-meter.md))
 
+### GitHub Environment Secrets (CI/CD)
+
+The `deploy.yml` pipeline authenticates to AWS via OIDC and requires the following secrets configured in the **`prod`** (and optionally `dev`) GitHub environment:
+
+| Secret | Required | Description |
+|--------|----------|-------------|
+| `AWS_DEPLOY_ROLE_ARN` | ✅ | IAM role ARN the OIDC provider assumes (`arn:aws:iam::<account>:role/<role>`) |
+| `ADMIN_API_KEY` | ✅ | Admin API key injected into the Lambda environment at deploy time |
+| `CUSTOM_DOMAIN` | Optional | API custom domain, e.g. `api.8p3p.dev` — triggers ACM + Route 53 provisioning |
+| `HOSTED_ZONE_ID` | If `CUSTOM_DOMAIN` set | Route 53 hosted zone ID for the custom domain |
+| `HOSTED_ZONE_NAME` | If `CUSTOM_DOMAIN` set | Route 53 zone name, e.g. `8p3p.dev` |
+| `CONTRACT_TEST_API_URL` | Optional | Base URL for post-deploy contract tests — skipped if unset |
+| `CONTRACT_TEST_API_KEY` | If above set | API key passed to contract tests |
+
+Set secrets via: **GitHub → repo → Settings → Environments → prod → Add secret**
+
+The OIDC trust policy on the IAM role must allow `token.actions.githubusercontent.com` as the identity provider and scope to this repo.
+
 ### Roadmap Alignment
 
 The investor deck defines a 24-month product roadmap. The control layer's engineering milestones map to it:

@@ -95,7 +95,8 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
   const params = (event.queryStringParameters ?? {}) as Record<string, string | undefined>;
   const path = event.path ?? '';
 
-  // Public /docs (API Gateway proxy) — no Swagger UI bundle in Lambda; point integrators to repo OpenAPI.
+  // Public /docs — no Swagger UI bundle in Lambda.
+  // TASK-015: serve a static redirect to a hosted Redoc/Swagger page or bundle the YAML for CDN rendering.
   if (path === '/docs' || path.endsWith('/docs') || path.includes('/docs/')) {
     return {
       statusCode: 200,
