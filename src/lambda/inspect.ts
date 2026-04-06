@@ -7,6 +7,8 @@
 import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { DynamoDbStateRepository } from '../state/dynamodb-repository.js';
 import { DynamoDbIngestionLogRepository } from '../ingestion/dynamodb-ingestion-log-repository.js';
+import { loadRoutingConfigForOrg } from '../decision/policy-loader.js';
+import { listActivePoliciesForOrg, loadPolicyByKeyForOrg } from '../policies/active-policies-source.js';
 import { ErrorCodes } from '../shared/error-codes.js';
 import type { IngestionLogResponse } from '../shared/types.js';
 
@@ -89,6 +91,52 @@ async function handleGetIngestionLog(params: Record<string, string | undefined>)
   return jsonResponse(200, response);
 }
 
+async function handleGetPolicies(params: Record<string, string | undefined>): Promise<APIGatewayProxyResult> {
+  const orgId = params.org_id;
+  if (!orgId || orgId.trim() === '') {
+    return jsonResponse(400, { code: ErrorCodes.MISSING_REQUIRED_FIELD, message: 'org_id is required', field_path: 'org_id' });
+  }
+
+  const [policies, routing] = await Promise.all([
+    listActivePoliciesForOrg(orgId),
+    Promise.resolve(loadRoutingConfigForOrg(orgId)),
+  ]);
+
+  return jsonResponse(200, { org_id: orgId, policies, routing: routing ?? null });
+}
+
+async function handleGetPolicyDetail(
+  params: Record<string, string | undefined>,
+  policyKey: string
+): Promise<APIGatewayProxyResult> {
+  const orgId = params.org_id;
+  if (!orgId || orgId.trim() === '') {
+    return jsonResponse(400, { code: ErrorCodes.MISSING_REQUIRED_FIELD, message: 'org_id is required', field_path: 'org_id' });
+  }
+
+  const policy = await loadPolicyByKeyForOrg(orgId, policyKey);
+  if (!policy) {
+    return jsonResponse(404, {
+      error: {
+        code: ErrorCodes.POLICY_NOT_FOUND,
+        message: `No policy '${policyKey}' found for org '${orgId}'`,
+      },
+    });
+  }
+
+  return jsonResponse(200, {
+    org_id: orgId,
+    policy_key: policyKey,
+    policy: {
+      policy_id: policy.policy_id,
+      policy_version: policy.policy_version,
+      description: policy.description,
+      rules: policy.rules,
+      default_decision_type: policy.default_decision_type,
+    },
+  });
+}
+
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   init();
 
@@ -112,6 +160,11 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
   if (path.endsWith('/state/list')) return handleGetStateList(params);
   if (path.endsWith('/state')) return handleGetState(params);
   if (path.endsWith('/ingestion')) return handleGetIngestionLog(params);
+
+  // Policy inspection — static /v1/policies checked before parametric /v1/policies/{key}
+  if (/\/v1\/policies$/.test(path)) return handleGetPolicies(params);
+  const policyDetailMatch = path.match(/\/v1\/policies\/([^/]+)$/);
+  if (policyDetailMatch) return handleGetPolicyDetail(params, policyDetailMatch[1]!);
 
   return jsonResponse(404, { error: 'Not Found' });
 };

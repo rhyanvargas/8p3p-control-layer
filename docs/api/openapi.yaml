@@ -32,6 +32,10 @@ tags:
     description: Learner state inspection operations.
   - name: Decision
     description: Decision output query operations.
+  - name: Policy
+    description: |
+      Read-only policy inspection for tenant orgs. Requires `x-api-key` header (same as all `/v1/*` endpoints).
+      Use to list active policies and inspect rule definitions before or after sending signals.
   - name: AdminPolicy
     description: |
       Admin policy lifecycle management. Requires `x-admin-api-key` header on all endpoints.
@@ -552,6 +556,102 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SignalLogError'
+
+  # ---------------------------------------------------------------------------
+  # Policy Inspection (tenant read-only)
+  # Static /v1/policies registered before parameterized /v1/policies/{policy_key}
+  # ---------------------------------------------------------------------------
+  /v1/policies:
+    get:
+      tags: [Policy]
+      operationId: listActivePolicies
+      summary: List active policies for an org
+      description: |
+        **What it does:** Returns all active policies for the given org as summaries (id, version, key, rule count, default decision type) plus the org's routing configuration.
+
+        **When to use:** Use to enumerate which policies are active for your org before sending signals, or to build a policy viewer UI. The `routing` object shows which source system maps to which policy key.
+
+        **How:** Supply `org_id` as a query parameter. Response includes `policies` array and `routing` config (null when no routing is configured for the org).
+      parameters:
+        - name: org_id
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 128
+          description: Organization identifier (required for tenant isolation)
+      responses:
+        '200':
+          description: Active policy list with routing config
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PolicyListResponse'
+        '400':
+          description: Missing org_id
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PolicyInspectionError'
+        '401':
+          description: Missing or invalid x-api-key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PolicyInspectionError'
+
+  /v1/policies/{policy_key}:
+    get:
+      tags: [Policy]
+      operationId: getPolicyDetail
+      summary: Get full policy detail by key
+      description: |
+        **What it does:** Returns the complete policy definition for the given key — including all rules and conditions — for the specified org.
+
+        **When to use:** When you need to inspect thresholds, rule ordering, or condition logic for a specific policy before or after sending signals.
+
+        **How:** Supply `policy_key` as a path parameter and `org_id` as a query parameter. Returns 404 with `policy_not_found` when the key does not exist for the org.
+      parameters:
+        - name: policy_key
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Policy key (e.g. learner, staff)
+        - name: org_id
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 128
+          description: Organization identifier
+      responses:
+        '200':
+          description: Full policy definition
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PolicyDetailResponse'
+        '400':
+          description: Missing org_id
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PolicyInspectionError'
+        '401':
+          description: Missing or invalid x-api-key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PolicyInspectionError'
+        '404':
+          description: Policy not found for the given org and key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PolicyNotFoundResponse'
 
   # ---------------------------------------------------------------------------
   # Admin Policy Management
@@ -1396,6 +1496,111 @@ components:
           properties:
             code:
               type: string
+            message:
+              type: string
+
+    # ---------------------------------------------------------------------------
+    # Policy Inspection (GET /v1/policies, GET /v1/policies/{policy_key})
+    # ---------------------------------------------------------------------------
+    PolicySummary:
+      type: object
+      required: [policy_id, policy_version, policy_key, description, rule_count, default_decision_type]
+      properties:
+        policy_id:
+          type: string
+          description: Fully-qualified policy identifier (e.g. springs:learner)
+        policy_version:
+          type: string
+          description: Semver string (e.g. 1.0.0)
+        policy_key:
+          type: string
+          description: Short key used in routing (e.g. learner, staff)
+        description:
+          type: string
+        rule_count:
+          type: integer
+          description: Number of rules in the policy
+        default_decision_type:
+          type: string
+          description: Decision type when no rule matches
+
+    PolicyRoutingConfig:
+      type: object
+      properties:
+        source_system_map:
+          type: object
+          additionalProperties:
+            type: string
+          description: Maps source_system values to policy keys
+        default_policy_key:
+          type: string
+          description: Fallback policy key when source system is not in the map
+
+    PolicyListResponse:
+      type: object
+      required: [org_id, policies]
+      properties:
+        org_id:
+          type: string
+        policies:
+          type: array
+          items:
+            $ref: '#/components/schemas/PolicySummary'
+        routing:
+          description: Routing config for the org; null when no routing is configured
+          oneOf:
+            - $ref: '#/components/schemas/PolicyRoutingConfig'
+            - type: 'null'
+
+    PolicyDetailResponse:
+      type: object
+      required: [org_id, policy_key, policy]
+      properties:
+        org_id:
+          type: string
+        policy_key:
+          type: string
+        policy:
+          type: object
+          required: [policy_id, policy_version, description, rules, default_decision_type]
+          properties:
+            policy_id:
+              type: string
+            policy_version:
+              type: string
+            description:
+              type: string
+            rules:
+              type: array
+              items:
+                type: object
+                description: Policy rule with rule_id, decision_type, and condition tree
+            default_decision_type:
+              type: string
+
+    PolicyInspectionError:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          enum: [missing_required_field, api_key_required, api_key_invalid]
+        message:
+          type: string
+        field_path:
+          type: string
+
+    PolicyNotFoundResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              enum: [policy_not_found]
             message:
               type: string
 

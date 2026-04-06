@@ -28,6 +28,7 @@ import { apiKeyPreHandler } from './auth/api-key-middleware.js';
 import { adminApiKeyPreHandler } from './auth/admin-api-key-middleware.js';
 import { loadTenantFieldMappingsFromFile } from './config/tenant-field-mappings.js';
 import { registerPolicyManagementRoutes } from './admin/policy-management-routes.js';
+import { registerPolicyInspectionRoutes } from './policies/routes.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -245,7 +246,7 @@ server.get('/', async () => {
   return {
     name: '8P3P Control Layer',
     version: '0.1.0',
-    endpoints: ['/health', '/v1/signals', '/v1/ingestion', '/v1/state', '/v1/state/list', '/v1/decisions', '/v1/receipts', '/inspect', '/docs']
+    endpoints: ['/health', '/v1/signals', '/v1/ingestion', '/v1/state', '/v1/state/list', '/v1/decisions', '/v1/receipts', '/v1/policies', '/v1/policies/:policy_key', '/inspect', '/docs']
   };
 });
 
@@ -260,6 +261,7 @@ server.register(async (v1) => {
   registerStateRoutes(v1);
   registerSignalLogRoutes(v1);
   registerDecisionRoutes(v1);
+  registerPolicyInspectionRoutes(v1);
 }, { prefix: '/v1' });
 
 // Register /v1/admin routes — separate scope with admin-only auth.

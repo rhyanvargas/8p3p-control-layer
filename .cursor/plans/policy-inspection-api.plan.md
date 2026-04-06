@@ -4,22 +4,22 @@ overview: Implement read-only `GET /v1/policies` and `GET /v1/policies/:policy_k
 todos:
   - id: TASK-001
     content: Active policy list source — DynamoDB Query + filesystem fallback
-    status: pending
+    status: completed
   - id: TASK-002
     content: Fastify handlers — list + detail, errors, response mapping
-    status: pending
+    status: completed
   - id: TASK-003
     content: Register routes and wire server (`/v1/policies`)
-    status: pending
+    status: completed
   - id: TASK-004
     content: OpenAPI — paths, params, response schemas
-    status: pending
+    status: completed
   - id: TASK-005
     content: Contract tests POL-API-001 through POL-API-005
-    status: pending
+    status: completed
   - id: TASK-006
     content: Lambda InspectFunction path routing (when handler exists)
-    status: pending
+    status: completed
 isProject: false
 ---
 
