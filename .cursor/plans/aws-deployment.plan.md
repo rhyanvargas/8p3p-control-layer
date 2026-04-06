@@ -4,52 +4,52 @@ overview: Deploy the 8P3P Control Layer to AWS with API Gateway (REST), arm64 No
 todos:
   - id: TASK-001
     content: Extract ingestion handler-core (framework-agnostic)
-    status: pending
+    status: completed
   - id: TASK-002
     content: Extract query-path handler cores (signal log, decisions, receipts)
-    status: pending
+    status: completed
   - id: TASK-003
     content: Extract inspection handler cores
-    status: pending
+    status: completed
   - id: TASK-004
     content: Bootstrap infra/ CDK project (bin, cdk.json, tsconfig, package)
-    status: pending
+    status: completed
   - id: TASK-005
     content: CDK — DynamoDB tables and GSIs
-    status: pending
+    status: completed
   - id: TASK-006
     content: CDK — API Gateway, usage plan, Lambdas, routes, unauthenticated /health and /docs
-    status: pending
+    status: completed
   - id: TASK-007
     content: Implement DynamoDB adapters for five repositories
-    status: pending
+    status: completed
   - id: TASK-008
     content: Wire PoliciesTable and FieldMappingsTable reads (policy-loader, tenant mappings)
-    status: pending
+    status: completed
   - id: TASK-009
     content: Lambda handlers, bundling, and repository init
-    status: pending
+    status: completed
   - id: TASK-010
     content: Unit tests for Lambda handler exports
-    status: pending
+    status: completed
   - id: TASK-011
     content: Parameterize contract tests (API_BASE_URL, API key)
-    status: pending
+    status: completed
   - id: TASK-012
     content: cdk synth validation and npm scripts
-    status: pending
+    status: completed
   - id: TASK-013
     content: Admin handler cores, AdminFunction, and admin routes (policy + mappings)
-    status: pending
+    status: completed
   - id: TASK-014
     content: Custom domain (ACM, Route 53, API mapping)
-    status: pending
+    status: completed
   - id: TASK-015
     content: GitHub Actions deploy workflow
-    status: pending
+    status: completed
   - id: TASK-016
     content: Post-deploy contract run and gateway 403 verification
-    status: pending
+    status: completed
 isProject: false
 ---
 
