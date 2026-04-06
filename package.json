@@ -24,7 +24,10 @@
     "seed:springs-demo": "node scripts/seed-springs-demo.mjs",
     "lint": "eslint src tests",
     "typecheck": "tsc --noEmit",
-    "check": "npm run build && npm run validate:schemas && npm run validate:contracts && npm run validate:api && npm run lint && npm test"
+    "check": "npm run build && npm run validate:schemas && npm run validate:contracts && npm run validate:api && npm run lint && npm test",
+    "cdk:synth": "cd infra && npm ci --quiet && npx cdk synth",
+    "cdk:deploy": "cd infra && npm ci --quiet && npx cdk deploy --require-approval never",
+    "cdk:diff": "cd infra && npx cdk diff"
   },
   "repository": {
     "type": "git",
@@ -52,6 +55,7 @@
   },
   "devDependencies": {
     "@redocly/cli": "^1.31.0",
+    "@types/aws-lambda": "^8.10.161",
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^25.1.0",
     "@typescript-eslint/eslint-plugin": "^8.54.0",
