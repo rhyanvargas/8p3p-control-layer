@@ -124,6 +124,9 @@ dist
 # Docusaurus cache and generated files
 .docusaurus
 
+# AWS CDK
+infra/cdk.out/
+
 # Serverless directories
 .serverless/
 
