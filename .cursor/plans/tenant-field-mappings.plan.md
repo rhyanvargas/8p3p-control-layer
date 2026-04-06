@@ -2,54 +2,54 @@
 name: Tenant field mappings v1.1
 overview: Implement pilot (Canvas) extensions to tenant payload mappings—restricted computed transforms, DynamoDB-backed FieldMappingsTable with TTL cache and admin PUT/GET, file fallback (TENANT_FIELD_MAPPINGS_PATH), and source_system–aware resolution—without changing the POST /v1/signals envelope contract. v1 (alias, required, types) remains; ingestion resolves mapping DynamoDB-first then file, then runs the existing pipeline order with transforms after aliases.
 todos:
-  - id: "TASK-001"
-    content: "Extend mapping types + v2 file shape (source_system nesting, transforms, backward compat)"
-    status: "pending"
-  - id: "TASK-002"
-    content: "Restricted transform expression parser/evaluator + upload-time validator"
-    status: "pending"
-  - id: "TASK-003"
-    content: "Integrate transforms into normalization (after aliases, before required/types)"
-    status: "pending"
-  - id: "TASK-004"
-    content: "DynamoDB field-mappings repository (GetItem, PutItem, Query)"
-    status: "pending"
-  - id: "TASK-005"
-    content: "In-memory TTL cache + PUT invalidation"
-    status: "pending"
-  - id: "TASK-006"
-    content: "Async resolver DynamoDB → file → null (per org_id + source_system)"
-    status: "pending"
-  - id: "TASK-007"
-    content: "Plumb source_system + resolved mapping into ingestion handler"
-    status: "pending"
-  - id: "TASK-008"
-    content: "Admin HTTP routes PUT/GET mappings + ADMIN_API_KEY auth"
-    status: "pending"
-  - id: "TASK-009"
-    content: "Dependencies + env wiring (AWS SDK, FIELD_MAPPINGS_*, cache TTL)"
-    status: "pending"
-  - id: "TASK-010"
-    content: "OpenAPI + error codes for mapping admin and runtime guard"
-    status: "pending"
-  - id: "TASK-011"
-    content: "Unit tests for expression engine and mapping resolution edge cases"
-    status: "pending"
-  - id: "TASK-012"
-    content: "Contract tests SIG-API-012–SIG-API-015 (regress after async + source_system)"
-    status: "pending"
-  - id: "TASK-013"
-    content: "Contract test SIG-API-016 (computed transform)"
-    status: "pending"
-  - id: "TASK-014"
-    content: "Contract test SIG-API-017 (invalid expression at admin PUT)"
-    status: "pending"
-  - id: "TASK-015"
-    content: "Contract test SIG-API-018 (DynamoDB mapping for org + source_system)"
-    status: "pending"
-  - id: "TASK-016"
-    content: "Contract test SIG-API-019 (fallback to file when DynamoDB miss/unavailable)"
-    status: "pending"
+  - id: TASK-001
+    content: Extend mapping types + v2 file shape (source_system nesting, transforms, backward compat)
+    status: pending
+  - id: TASK-002
+    content: Restricted transform expression parser/evaluator + upload-time validator
+    status: pending
+  - id: TASK-003
+    content: Integrate transforms into normalization (after aliases, before required/types)
+    status: pending
+  - id: TASK-004
+    content: DynamoDB field-mappings repository (GetItem, PutItem, Query)
+    status: pending
+  - id: TASK-005
+    content: In-memory TTL cache + PUT invalidation
+    status: pending
+  - id: TASK-006
+    content: Async resolver DynamoDB → file → null (per org_id + source_system)
+    status: pending
+  - id: TASK-007
+    content: Plumb source_system + resolved mapping into ingestion handler
+    status: pending
+  - id: TASK-008
+    content: Admin HTTP routes PUT/GET mappings + ADMIN_API_KEY auth
+    status: pending
+  - id: TASK-009
+    content: Dependencies + env wiring (AWS SDK, FIELD_MAPPINGS_*, cache TTL)
+    status: pending
+  - id: TASK-010
+    content: OpenAPI + error codes for mapping admin and runtime guard
+    status: pending
+  - id: TASK-011
+    content: Unit tests for expression engine and mapping resolution edge cases
+    status: pending
+  - id: TASK-012
+    content: Contract tests SIG-API-012–SIG-API-015 (regress after async + source_system)
+    status: pending
+  - id: TASK-013
+    content: Contract test SIG-API-016 (computed transform)
+    status: pending
+  - id: TASK-014
+    content: Contract test SIG-API-017 (invalid expression at admin PUT)
+    status: pending
+  - id: TASK-015
+    content: Contract test SIG-API-018 (DynamoDB mapping for org + source_system)
+    status: pending
+  - id: TASK-016
+    content: Contract test SIG-API-019 (fallback to file when DynamoDB miss/unavailable)
+    status: pending
 isProject: false
 ---
 
