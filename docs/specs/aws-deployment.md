@@ -8,7 +8,7 @@ Deploy the existing control-layer pipeline (signals → state → decisions) to 
 
 **Key principle:** The deployed system must pass the same contract tests that pass locally (462+ as of v1). If the tests pass, the deployment is correct. All four repository interfaces (Decision, State, Signal Log, Idempotency) are already extracted; DynamoDB adapters can slot in mechanically. See `.cursor/plans/` for completed extraction plans.
 
-**Budget context:** $900 AWS credits, 90-day pilot, 1 part-time senior engineer. Target ~$50/month development, ~$100/month during active pilot. See Cost Estimate table below.
+**Budget context:** Serverless-only architecture targeting minimal monthly spend during development and pilot. See Cost Estimate table below for per-service pricing (all public AWS rates). Internal budget targets are documented in `internal-docs/foundation/roadmap.md`.
 
 ---
 
@@ -415,7 +415,7 @@ Set up via Route 53 + ACM + API Gateway custom domain mapping. The domain should
 - **arm64 Lambda** — 20% cheaper and faster cold starts than x86
 - **No VPC** — Lambda runs in default networking (no NAT Gateway costs)
 - **Single region** — `us-east-1` (cheapest, required for API Gateway edge-optimized)
-- **Monthly cost cap** — must stay under $50/month during development, $100/month during pilot
+- **Monthly cost cap** — serverless-only; target minimal spend during development and pilot (see internal-docs for specific targets)
 - **Zero business logic changes** — Lambda handlers call the same functions as Fastify handlers
 
 ---
@@ -539,7 +539,7 @@ src/
 - [ ] All 462+ contract tests pass against the deployed endpoint
 - [ ] Custom domain resolves and serves the API
 - [ ] Cold start < 1 second (measured via CloudWatch)
-- [ ] Monthly cost < $50 during development
+- [ ] Monthly cost within internal budget targets (see internal-docs)
 - [ ] Local development still works unchanged (`npm run dev` uses SQLite)
 - [ ] `cdk synth` + DynamoDB Local works for local Lambda testing
 
@@ -555,7 +555,7 @@ Measurable outcomes defining a successful pilot. Each has a clear pass/fail at d
 | 4 | Tenant data isolation | Cross-tenant query test using different API keys | Zero cases of Org A data accessible via Org B API key |
 | 5 | API uptime | API Gateway 5xx rate | > 99.5% successful responses over 90 days |
 | 6 | Intake latency | API Gateway + Lambda p99 latency | < 500ms p99 for POST /v1/signals |
-| 7 | Budget adherence | AWS Cost Explorer at day 90 | Total spend under $300 for full 90-day pilot |
+| 7 | Budget adherence | AWS Cost Explorer at day 90 | Total spend within internal budget target for pilot period |
 | 8 | Zero-touch operation | Alert count requiring manual intervention | < 5 manual interventions over 90 days |
 
 ---

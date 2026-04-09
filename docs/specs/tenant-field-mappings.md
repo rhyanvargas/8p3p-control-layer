@@ -62,7 +62,7 @@ Transforms run **after** aliases, **before** required fields, so a transform may
 - [ ] **Computed transforms**: For each rule in `transforms[]`, read `source` from payload (dot-path allowed, e.g. `submission.score`), evaluate `expression` in a restricted grammar, write result to `target` (top-level canonical key unless spec says otherwise).
 - [ ] **DynamoDB config**: If `FIELD_MAPPINGS_TABLE` env is set and `GetItem` returns an item, use embedded mapping document; merge semantics = DynamoDB wins over file for same org+source_system when both exist (implementation: try DynamoDB first).
 - [ ] **Cache**: In-memory cache per `(org_id, source_system)` with TTL (default 300s, configurable); invalidate on admin `PUT` success for that key.
-- [ ] **Admin API**: `PUT /v1/admin/mappings/:org_id/:source_system` (body: full mapping JSON), `GET /v1/admin/mappings/:org_id` (list SKs + metadata for that org). Auth: `ADMIN_API_KEY` only. Routed via `AdminFunction` (`docs/specs/aws-deployment.md`).
+- [ ] **Admin API**: `PUT /v1/admin/mappings/:org_id/:source_system` (body: full mapping JSON; optional `template_id` and `template_version` metadata), `GET /v1/admin/mappings/:org_id` (list SKs + metadata for that org, including template provenance when present). Auth: `ADMIN_API_KEY` only. Routed via `AdminFunction` (`docs/specs/aws-deployment.md`).
 - [ ] **Expression validation at upload**: Invalid expression → 400 at `PUT` time (admin API), never at runtime-only failure for pilot.
 
 ### Acceptance Criteria (v1 — unchanged)
@@ -116,6 +116,8 @@ Each transform:
 | `source_system` | S | SK — must match `SignalEnvelope.source_system` (e.g. `canvas-lms`) |
 | `mapping_version` | N | Optimistic locking / audit |
 | `mapping` | M | Nested map: `required`, `aliases`, `types`, `transforms` (same shape as file JSON below) |
+| `template_id` | S | (Optional) ID of the integration template this mapping was created from (e.g. `canvas-lms-v1`). Null/absent when mapping was manually created via admin `PUT`. Used by the Connector Layer (`docs/specs/integration-templates.md`) to track which tenant mappings are template-sourced vs. custom, enabling upgrade detection when 8P3P ships updated templates. |
+| `template_version` | S | (Optional) Semantic version of the template at activation time (e.g. `1.0.0`). Compared against the registry's current version to surface upgrade prompts. |
 | `updated_at` | S | ISO 8601 |
 | `updated_by` | S | Admin key prefix |
 
@@ -204,6 +206,7 @@ Canvas assignment / submission webhooks vary by account. Example mapping **illus
 |------------|---------|
 | `normalizeAndValidateTenantPayload()` extended | Signal ingestion |
 | Admin mapping routes | `AdminFunction` |
+| `template_id` / `template_version` on mapping items | `docs/specs/integration-templates.md` (Connector Layer — activation seeds these fields; upgrade detection reads them) |
 
 ---
 
@@ -241,4 +244,4 @@ Canvas assignment / submission webhooks vary by account. Example mapping **illus
 
 ---
 
-*Spec updated: 2026-03-28 — v1.1 Canvas mapper, DynamoDB, transforms, admin API. Original DEF-DEC-006 v1 behavior retained.*
+*Spec updated: 2026-04-06 — v1.1.1 adds `template_id` / `template_version` optional metadata to DynamoDB item shape for Connector Layer forward-compatibility. v1.1 Canvas mapper, DynamoDB, transforms, admin API. Original DEF-DEC-006 v1 behavior retained.*

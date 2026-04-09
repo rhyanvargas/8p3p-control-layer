@@ -380,6 +380,8 @@ They are not the primary implementation. The API is the source of truth; scripts
 | Customer self-service write API | Not required for pilot; customers view via Inspection API | Dashboard investment post-pilot |
 | DynamoDB Streams audit trail | Deferred; `updated_at`/`updated_by` cover pilot needs | Compliance requirement |
 | GSI on `status` for filtered Scan | Scan acceptable at pilot org count | Cross-org filtered queries become a bottleneck |
+| Per-source policy routing (`source_systems` scope) | Pilot uses org-wide policy for all connectors. Phase 1 adds optional `source_systems: string[]` to `PoliciesTable` items. Decision engine resolution: check for source-scoped policy first → fall back to org-wide default. **Additive change**: absent `source_systems` = applies to all sources. No migration needed. Connector wizard Step 4 (currently informational) becomes a real per-source association. | Phase 1 — when multiple connectors per org need different policies |
+| Connector-aware policy association API | Admin currently selects policies and connectors independently. Phase 1 adds `PUT /v1/admin/policies/:org_id/:policy_key/scope` to set `source_systems` on a policy. | Phase 1 — alongside per-source policy routing |
 
 ---
 
@@ -455,4 +457,4 @@ They are not the primary implementation. The API is the source of truth; scripts
 
 ---
 
-*Spec created: 2026-03-28 | Depends on: policy-storage.md, aws-deployment.md, decision-engine.md*
+*Spec updated: 2026-04-06 — added per-source policy routing and connector-aware association to Out of Scope with Phase 1 markers. Original spec created: 2026-03-28. Depends on: policy-storage.md, aws-deployment.md, decision-engine.md*

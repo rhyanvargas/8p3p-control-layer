@@ -68,6 +68,10 @@ Raw LMS webhook JSON. Not an 8P3P `SignalEnvelope`. Shape is LMS-specific and op
 }
 ```
 
+**Response (204) — event type filtered out (silently dropped):**
+
+Returned when the webhook body's event type is not in the configured `allowed_event_types`. No body. No signal created, no LIU consumed.
+
 **Response (400) — missing or misconfigured envelope mapping:**
 
 ```json
@@ -113,7 +117,9 @@ The `envelope` block within a tenant mapping config defines how to extract `Sign
   "envelope": {
     "learner_reference_path": "submission.user_id",
     "signal_id_path": "submission.id",
-    "timestamp_path": "submission.submitted_at"
+    "timestamp_path": "submission.submitted_at",
+    "event_type_path": "event_type",
+    "allowed_event_types": ["submission_created", "submission_updated"]
   },
   "required": ["stabilityScore"],
   "transforms": [
@@ -127,6 +133,8 @@ The `envelope` block within a tenant mapping config defines how to extract `Sign
 | `learner_reference_path` | **Yes** | — | Dot-path to learner identifier in webhook body (must resolve to a string or number) |
 | `signal_id_path` | No | Auto-generated UUID | Dot-path to a unique signal identifier. If absent or empty, a UUID is generated |
 | `timestamp_path` | No | Server `now()` (ISO 8601) | Dot-path to a timestamp field. If absent or not a parseable ISO 8601 string, falls back to ingestion time |
+| `event_type_path` | No | — | Dot-path to an event type discriminator in the webhook body (e.g. `event_type`). When set, the adapter reads this field and checks it against `allowed_event_types`. When absent, all webhooks are processed. |
+| `allowed_event_types` | No | — (accept all) | Array of event type strings relevant to learning signals. Webhooks whose `event_type_path` value is **not** in this list are silently dropped with a `204 No Content` (no signal created, no error). Only evaluated when `event_type_path` is configured. LMS platforms emit many event types (e.g. Canvas fires `enrollment_created`, `grade_change`, `submission_created`, etc.); this filter ensures only pedagogically relevant events consume LIUs. |
 
 `schema_version` is fixed at `"1.0.0"` for all webhook-ingested signals. `org_id` is derived from the `x-api-key` tenant lookup (same as all `/v1/*` routes).
 
@@ -141,12 +149,16 @@ POST /v1/webhooks/canvas-lms
 1. API key auth → resolve org_id
 2. Load envelope mapping from FieldMappingsTable (GetItem org_id + source_system)
    → 400 missing_envelope_mapping if not found
-3. Extract envelope fields via dot-path:
+3. Event type filter (if event_type_path configured):
+   - Read event type from body via dot-path
+   - If value is NOT in allowed_event_types → 204 No Content (silently drop; no signal, no error)
+   - If value IS in allowed_event_types or no filter configured → continue
+4. Extract envelope fields via dot-path:
    - learner_reference (required)
    - signal_id (optional; auto UUID)
    - timestamp (optional; fallback now())
    → 400 envelope_extraction_failed if learner_reference path missing
-4. Construct SignalEnvelope:
+5. Construct SignalEnvelope:
    {
      org_id: <from key>,
      signal_id: <extracted or generated>,
@@ -156,7 +168,7 @@ POST /v1/webhooks/canvas-lms
      schema_version: "1.0.0",
      payload: <full raw body>
    }
-5. Pass to existing ingestion core (same logic as POST /v1/signals)
+6. Pass to existing ingestion core (same logic as POST /v1/signals)
    → forbidden key detection
    → tenant field mappings (aliases, transforms) [uses same FieldMappingsTable item]
    → required field enforcement
@@ -165,7 +177,7 @@ POST /v1/webhooks/canvas-lms
    → signal log storage
    → state application
    → decision evaluation
-6. Return SignalIngestResult (same shape as POST /v1/signals)
+7. Return SignalIngestResult (same shape as POST /v1/signals)
 ```
 
 ---
@@ -177,6 +189,7 @@ POST /v1/webhooks/canvas-lms
 - [ ] `POST /v1/webhooks/:source_system` accepts raw JSON body and requires `x-api-key`
 - [ ] Endpoint loads envelope mapping config for `(org_id, source_system)` from `FieldMappingsTable` via `GetItem`
 - [ ] If no mapping exists, returns 400 `missing_envelope_mapping` with actionable message
+- [ ] **Event type filtering**: When `event_type_path` and `allowed_event_types` are configured, the adapter reads the event type from the body and drops non-matching events with `204 No Content`. When filter config is absent, all events proceed to ingestion.
 - [ ] Extracts `learner_reference` from body via configured dot-path; returns 400 `envelope_extraction_failed` if path is absent or resolves to null/undefined
 - [ ] Extracts `signal_id` from body if `signal_id_path` configured; otherwise generates UUID v4
 - [ ] Extracts `timestamp` from body if `timestamp_path` configured and value is a valid ISO 8601 string; otherwise falls back to server `new Date().toISOString()`
@@ -195,6 +208,9 @@ POST /v1/webhooks/canvas-lms
 - Given the same raw webhook body is sent twice (same extracted `signal_id`), then the second call returns `status: "duplicate"` with the original `received_at`
 - Given `learner_reference_path: "submission.user_id"` but the body has no `submission.user_id`, then 400 `envelope_extraction_failed` is returned
 - Given a valid call, the raw body flows into the tenant field mapping pipeline so configured transforms execute on the payload
+- Given `event_type_path: "event_type"` and `allowed_event_types: ["submission_created"]`, when a webhook with `event_type: "enrollment_created"` is received, then `204 No Content` is returned and no signal is created
+- Given `event_type_path: "event_type"` and `allowed_event_types: ["submission_created"]`, when a webhook with `event_type: "submission_created"` is received, then the signal is ingested normally
+- Given no `event_type_path` is configured in the mapping, all webhook events proceed to ingestion regardless of body content
 
 ---
 
@@ -217,6 +233,7 @@ POST /v1/webhooks/canvas-lms
 | Async webhook processing (queue → Lambda) | Synchronous is sufficient for pilot | Webhook volume exceeds Lambda timeout tolerance |
 | Multi-field `learner_reference` composition (e.g., `course_id` + `user_id`) | Single dot-path for v1.1 | Customer needs composite learner ID namespace |
 | Webhook replay / retry tracking | Covered by idempotency (same `signal_id` = duplicate) | LMS delivery guarantees analysis |
+| S3 raw payload archive | Store raw webhook bodies in S3 before transformation for audit trail and replay. Adds cost and latency for pilot; defer to Phase 2 when volume/compliance justifies it. | Phase 2 — compliance requirement or customer replay request |
 
 ---
 
@@ -259,6 +276,7 @@ POST /v1/webhooks/canvas-lms
 |------|-------------|-------------|
 | `missing_envelope_mapping` | 400 | No envelope mapping configured for the org + source_system combination. Admin must upload config via `PUT /v1/admin/mappings/:org_id/:source_system`. |
 | `envelope_extraction_failed` | 400 | A required envelope field (e.g., `learner_reference`) could not be extracted from the webhook body using the configured dot-path. |
+| `filtered_event_type` | 204 | Webhook event type not in `allowed_event_types` — silently dropped. Logged at `debug` level for observability; not surfaced to caller. |
 
 ---
 
@@ -274,8 +292,11 @@ POST /v1/webhooks/canvas-lms
 | WHK-006 | Tenant field mapping transforms execute on payload | Body: `{ submission: { score: 65 } }`; mapping has transform `value/100 → stabilityScore` | Signal accepted; state contains `stabilityScore: 0.65` |
 | WHK-007 | Auth required | No `x-api-key` header | 401 |
 | WHK-008 | Timestamp fallback | Mapping has no `timestamp_path`; valid body | Signal accepted; `timestamp` in stored signal is a valid ISO 8601 server-time |
+| WHK-009 | Event type filter — allowed event proceeds | `event_type_path: "event_type"`, `allowed_event_types: ["submission_created"]`; body `event_type: "submission_created"` | 200 `accepted` — signal created |
+| WHK-010 | Event type filter — disallowed event silently dropped | Same config; body `event_type: "enrollment_created"` | 204 No Content — no signal created, no error |
+| WHK-011 | Event type filter — no filter configured, all events pass | No `event_type_path` in mapping config; any body | Signal proceeds to ingestion normally |
 
-> **Test strategy:** WHK-001 through WHK-008 are integration tests using Fastify `inject` with mocked `FieldMappingsTable` GetItem. WHK-005 requires inserting a signal into the idempotency store before the second call. WHK-006 requires a matching tenant field mapping with a transform fixture.
+> **Test strategy:** WHK-001 through WHK-011 are integration tests using Fastify `inject` with mocked `FieldMappingsTable` GetItem. WHK-005 requires inserting a signal into the idempotency store before the second call. WHK-006 requires a matching tenant field mapping with a transform fixture. WHK-009 through WHK-011 test event type filtering at the adapter layer before envelope extraction.
 
 ---
 
@@ -287,4 +308,4 @@ POST /v1/webhooks/canvas-lms
 
 ---
 
-*Spec created: 2026-03-28 | Phase: v1.1 | Depends on: signal-ingestion.md, tenant-field-mappings.md, api-key-middleware.md, aws-deployment.md (handler-core extraction)*
+*Spec updated: 2026-04-06 — v1.1.1 adds event type filtering (`event_type_path` + `allowed_event_types`), 204 silent drop for non-learning events, S3 raw archive deferred to Phase 2. Original v1.1 spec created: 2026-03-28. Depends on: signal-ingestion.md, tenant-field-mappings.md, api-key-middleware.md, aws-deployment.md (handler-core extraction)*

@@ -4,7 +4,7 @@
 
 ## Overview
 
-An LIU (Learning Intelligence Unit) is one governed learning decision: signals in → state updated → policy applied → decision produced = 1 LIU. The investor deck defines pricing at $0.020/LIU customer price with $0.00006 internal cost (70%+ margin). For the billing model to function — and for admins to monitor consumption — the platform must count and expose LIU volume per org per month.
+An LIU (Learning Intelligence Unit) is one governed learning decision: signals in → state updated → policy applied → decision produced = 1 LIU. LIU is the core billing metric for usage-based pricing. For the billing model to function — and for admins to monitor consumption — the platform must count and expose LIU volume per org per month. See `internal-docs/foundation/roadmap.md` for pricing details.
 
 This spec adds:
 1. **LIU counter** — a lightweight per-org monthly counter incremented atomically on each successful decision

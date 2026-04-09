@@ -24,7 +24,7 @@ todos:
     content: Plumb source_system + resolved mapping into ingestion handler
     status: pending
   - id: TASK-008
-    content: Admin HTTP routes PUT/GET mappings + ADMIN_API_KEY auth
+    content: Admin HTTP routes PUT/GET mappings + ADMIN_API_KEY auth (accept optional template_id / template_version per spec v1.1.1)
     status: pending
   - id: TASK-009
     content: Dependencies + env wiring (AWS SDK, FIELD_MAPPINGS_*, cache TTL)
@@ -120,7 +120,7 @@ Before starting implementation:
 ### TASK-008: Admin HTTP routes PUT/GET mappings + ADMIN_API_KEY auth
 - **Files**: `src/server.ts`, new route module e.g. `src/routes/admin-field-mappings.ts` (or align with future admin router), Lambda handler entry if split per deployment
 - **Action**: Create / Modify
-- **Details**: `PUT /v1/admin/mappings/:org_id/:source_system` (body: full mapping JSON), `GET /v1/admin/mappings/:org_id` (list SKs + metadata). Validate all `transforms[].expression` with TASK-002 before write; 400 on invalid (SIG-API-017). On PUT success, TASK-005 invalidation + optional `mapping_version` condition.
+- **Details**: `PUT /v1/admin/mappings/:org_id/:source_system` (body: full mapping JSON; optional `template_id` and `template_version` stored alongside mapping per spec v1.1.1), `GET /v1/admin/mappings/:org_id` (list SKs + metadata, include template provenance when present). Validate all `transforms[].expression` with TASK-002 before write; 400 on invalid (SIG-API-017). On PUT success, TASK-005 invalidation + optional `mapping_version` condition.
 - **Depends on**: TASK-002, TASK-004, TASK-005, PREREQ-002
 - **Verification**: Integration tests with Fastify inject + mocked DynamoDB; unauthorized request rejected.
 
