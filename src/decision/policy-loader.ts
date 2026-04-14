@@ -22,6 +22,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { DynamoDBClient, GetItemCommand } from '@aws-sdk/client-dynamodb';
 import { unmarshall } from '@aws-sdk/util-dynamodb';
+import { getAtPath } from '../shared/dot-path.js';
 import type {
   ConditionAll,
   ConditionAny,
@@ -461,7 +462,7 @@ function evaluateConditionCollecting(
   collected: EvaluatedField[]
 ): boolean {
   if (isConditionLeaf(node)) {
-    const raw = state[node.field];
+    const raw = getAtPath(state, node.field);
     collected.push({
       field: node.field,
       operator: node.operator,

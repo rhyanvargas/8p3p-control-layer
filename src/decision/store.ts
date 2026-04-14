@@ -121,28 +121,44 @@ export class SqliteDecisionRepository implements DecisionRepository {
     const pageSize = Math.min(Math.max(1, request.page_size ?? 100), 1000);
     const cursorId = request.page_token ? decodePageToken(request.page_token) : 0;
 
-    const stmt = this.db.prepare(`
-      SELECT id, org_id, decision_id, learner_reference, decision_type, decided_at,
-             decision_context, trace_state_id, trace_state_version, trace_policy_id, trace_policy_version, trace_matched_rule_id,
-             trace_state_snapshot, trace_matched_rule, trace_rationale, output_metadata
-      FROM decisions
-      WHERE org_id = ?
-        AND learner_reference = ?
-        AND decided_at >= ?
-        AND decided_at <= ?
-        AND id > ?
-      ORDER BY decided_at ASC, id ASC
-      LIMIT ?
-    `);
-
-    const rows = stmt.all(
+    const conditions = [
+      'org_id = ?',
+      'learner_reference = ?',
+      'decided_at >= ?',
+      'decided_at <= ?',
+      'id > ?',
+    ];
+    const queryParams: unknown[] = [
       request.org_id,
       request.learner_reference,
       request.from_time,
       request.to_time,
       cursorId,
-      pageSize + 1
-    ) as DecisionRow[];
+    ];
+
+    if (request.skill !== undefined) {
+      conditions.push("json_extract(decision_context, '$.skill') = ?");
+      queryParams.push(request.skill);
+    }
+
+    if (request.assessment_type !== undefined) {
+      conditions.push("json_extract(decision_context, '$.assessment_type') = ?");
+      queryParams.push(request.assessment_type);
+    }
+
+    const sql = `
+      SELECT id, org_id, decision_id, learner_reference, decision_type, decided_at,
+             decision_context, trace_state_id, trace_state_version, trace_policy_id, trace_policy_version, trace_matched_rule_id,
+             trace_state_snapshot, trace_matched_rule, trace_rationale, output_metadata
+      FROM decisions
+      WHERE ${conditions.join('\n        AND ')}
+      ORDER BY decided_at ASC, id ASC
+      LIMIT ?
+    `;
+    queryParams.push(pageSize + 1);
+
+    const stmt = this.db.prepare(sql);
+    const rows = stmt.all(...(queryParams as Parameters<typeof stmt.all>)) as DecisionRow[];
 
     const hasMore = rows.length > pageSize;
     const resultRows = hasMore ? rows.slice(0, pageSize) : rows;

@@ -183,6 +183,11 @@ export async function handleSignalIngestionCore(
         state_version: applyOutcome.result.new_state_version,
         requested_at: new Date().toISOString(),
         user_type: userType,
+        signal_context: {
+          skill: typeof signal.payload?.skill === 'string' ? signal.payload.skill : undefined,
+          assessment_type: typeof signal.payload?.assessment_type === 'string' ? signal.payload.assessment_type : undefined,
+          school_id: typeof signal.metadata?.school_id === 'string' ? signal.metadata.school_id : undefined,
+        },
       };
       const decisionOutcome = evaluateState(evalRequest);
       if (!decisionOutcome.ok) {

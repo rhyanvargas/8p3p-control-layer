@@ -8,6 +8,7 @@
  */
 
 import * as crypto from 'crypto';
+import { getAtPath, setAtPath } from '../shared/dot-path.js';
 import type {
   ConditionNode,
   Decision,
@@ -70,8 +71,9 @@ export function extractCanonicalSnapshot(
   }
   const snapshot: Record<string, unknown> = {};
   for (const field of fields) {
-    if (Object.prototype.hasOwnProperty.call(state, field)) {
-      snapshot[field] = state[field];
+    const value = getAtPath(state, field);
+    if (value !== undefined) {
+      setAtPath(snapshot, field, value);
     }
   }
   return snapshot;
@@ -171,8 +173,11 @@ export function evaluateState(request: EvaluateStateForDecisionRequest): Evaluat
     if (idx >= 0) priority = idx + 1;
   }
 
-  // Step 9: Build decision_context (empty object for Phase 1)
+  // Step 9: Build decision_context — propagate signal_context fields when present
   const decisionContext: Record<string, unknown> = {};
+  if (request.signal_context?.skill) decisionContext['skill'] = request.signal_context.skill;
+  if (request.signal_context?.assessment_type) decisionContext['assessment_type'] = request.signal_context.assessment_type;
+  if (request.signal_context?.school_id) decisionContext['school_id'] = request.signal_context.school_id;
 
   // Step 10: Validate decision_context
   const contextValidation = validateDecisionContext(decisionContext);

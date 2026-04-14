@@ -62,9 +62,13 @@
         "trace_id": {
           "type": "string",
           "description": "Optional trace ID for distributed tracing"
+        },
+        "school_id": {
+          "type": "string",
+          "description": "School identifier for multi-school orgs (propagated into decision_context)"
         }
       },
-      "additionalProperties": false
+      "additionalProperties": true
     }
   },
   "additionalProperties": false

@@ -90,30 +90,44 @@ export class SqliteSignalLogRepository implements SignalLogRepository {
       cursorId = decodePageToken(request.page_token);
     }
 
-    // Query with one extra row to determine if there are more results
-    // We use `id > cursorId` for cursor-based pagination (stable ordering by insert order)
-    // Filter by accepted_at time range for user-specified window
-    const stmt = this.db.prepare(`
-      SELECT id, org_id, signal_id, source_system, learner_reference,
-             timestamp, schema_version, payload, metadata, accepted_at
-      FROM signal_log
-      WHERE org_id = ?
-        AND learner_reference = ?
-        AND accepted_at >= ?
-        AND accepted_at <= ?
-        AND id > ?
-      ORDER BY accepted_at ASC, id ASC
-      LIMIT ?
-    `);
-
-    const rows = stmt.all(
+    // Build dynamic WHERE clause — optional json_extract filters for skill/assessment_type
+    const conditions = [
+      'org_id = ?',
+      'learner_reference = ?',
+      'accepted_at >= ?',
+      'accepted_at <= ?',
+      'id > ?',
+    ];
+    const queryParams: unknown[] = [
       request.org_id,
       request.learner_reference,
       request.from_time,
       request.to_time,
       cursorId,
-      pageSize + 1 // Fetch one extra to check for more
-    ) as SignalLogRow[];
+    ];
+
+    if (request.skill !== undefined) {
+      conditions.push("json_extract(payload, '$.skill') = ?");
+      queryParams.push(request.skill);
+    }
+
+    if (request.assessment_type !== undefined) {
+      conditions.push("json_extract(payload, '$.assessment_type') = ?");
+      queryParams.push(request.assessment_type);
+    }
+
+    const sql = `
+      SELECT id, org_id, signal_id, source_system, learner_reference,
+             timestamp, schema_version, payload, metadata, accepted_at
+      FROM signal_log
+      WHERE ${conditions.join('\n        AND ')}
+      ORDER BY accepted_at ASC, id ASC
+      LIMIT ?
+    `;
+    queryParams.push(pageSize + 1);
+
+    const stmt = this.db.prepare(sql);
+    const rows = stmt.all(...(queryParams as Parameters<typeof stmt.all>)) as SignalLogRow[];
 
     // Check if there are more results
     const hasMore = rows.length > pageSize;

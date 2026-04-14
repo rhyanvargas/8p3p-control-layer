@@ -179,6 +179,14 @@ export function validateSignalLogQuery(
   if (pageToken !== undefined) {
     parsed.page_token = pageToken;
   }
+
+  if (typeof params.skill === 'string' && params.skill.trim() !== '') {
+    parsed.skill = params.skill.trim();
+  }
+
+  if (typeof params.assessment_type === 'string' && params.assessment_type.trim() !== '') {
+    parsed.assessment_type = params.assessment_type.trim();
+  }
   
   return { valid: true, errors: [], parsed };
 }

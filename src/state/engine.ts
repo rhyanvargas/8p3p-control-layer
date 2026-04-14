@@ -12,6 +12,7 @@ import type {
   RejectionReason,
 } from '../shared/types.js';
 import { ErrorCodes } from '../shared/error-codes.js';
+import { isRecord } from '../shared/dot-path.js';
 import { validateApplySignalsRequest, validateStateObject } from './validator.js';
 import * as stateStore from './store.js';
 import { getSignalsByIds } from '../signalLog/store.js';
@@ -74,6 +75,44 @@ export function deepMerge(
 }
 
 /**
+ * Recursively compute delta companion fields for nested numeric fields.
+ * Called after the top-level flat loop in computeStateDeltas.
+ * Max recursion depth: 5 (guarded by depth parameter).
+ */
+function computeNestedDeltas(
+  prior: Record<string, unknown>,
+  next: Record<string, unknown>,
+  result: Record<string, unknown>,
+  depth = 0
+): void {
+  if (depth >= 5) {
+    console.debug('[computeNestedDeltas] max recursion depth reached, skipping');
+    return;
+  }
+  for (const key of Object.keys(next)) {
+    const nextVal = next[key];
+    const priorVal = prior[key];
+    if (typeof nextVal === 'number' && typeof priorVal === 'number') {
+      const delta = nextVal - priorVal;
+      result[`${key}_delta`] = delta;
+      result[`${key}_direction`] = delta > 0 ? 'improving' : delta < 0 ? 'declining' : 'stable';
+    } else if (isRecord(nextVal) && isRecord(priorVal)) {
+      const nestedResult = (isRecord(result[key]) ? result[key] : {}) as Record<string, unknown>;
+      computeNestedDeltas(priorVal, nextVal, nestedResult, depth + 1);
+      result[key] = nestedResult;
+    }
+  }
+  // Null-removal propagation: keys in prior but absent in next had their value
+  // removed by deepMerge null semantics — clean up stale delta companions.
+  for (const key of Object.keys(prior)) {
+    if (!(key in next)) {
+      delete result[`${key}_delta`];
+      delete result[`${key}_direction`];
+    }
+  }
+}
+
+/**
  * Compute delta companion fields for every top-level numeric field that changed.
  * For each key F in `next`:
  *   - Skip if prior[F] is absent (first-signal — no baseline to diff against).
@@ -116,6 +155,15 @@ export function computeStateDeltas(
     if (!(key in next)) {
       delete result[`${key}_delta`];
       delete result[`${key}_direction`];
+    }
+  }
+
+  // Nested delta pass — handles skills.{name}.{metric} pattern (max depth 5).
+  for (const key of Object.keys(next)) {
+    if (isRecord(next[key]) && isRecord(prior[key])) {
+      const nestedResult = (isRecord(result[key]) ? result[key] : { ...(next[key] as Record<string, unknown>) }) as Record<string, unknown>;
+      computeNestedDeltas(prior[key] as Record<string, unknown>, next[key] as Record<string, unknown>, nestedResult);
+      result[key] = nestedResult;
     }
   }
 

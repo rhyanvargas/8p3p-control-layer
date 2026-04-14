@@ -23,6 +23,8 @@ export interface RejectionReason {
 export interface SignalMetadata {
   correlation_id?: string;
   trace_id?: string;
+  school_id?: string;
+  [key: string]: unknown;
 }
 
 /**
@@ -151,6 +153,10 @@ export interface SignalLogReadRequest {
   page_token?: string;
   /** Number of results per page (1-1000, default 100) */
   page_size?: number;
+  /** Filter by skill name (matches payload.skill) */
+  skill?: string;
+  /** Filter by assessment type (matches payload.assessment_type) */
+  assessment_type?: string;
 }
 
 /**
@@ -348,6 +354,13 @@ export interface Decision {
   output_metadata?: OutputMetadata;
 }
 
+/** Optional skill/assessment context forwarded from the triggering signal */
+export interface SignalContext {
+  skill?: string;
+  assessment_type?: string;
+  school_id?: string;
+}
+
 /** Request to evaluate state for a decision */
 export interface EvaluateStateForDecisionRequest {
   org_id: string;
@@ -358,6 +371,8 @@ export interface EvaluateStateForDecisionRequest {
   /** Org-defined user category (e.g. "learner" | "staff"). Defaults to "learner". */
   user_type?: string;
   evaluation_context?: Record<string, unknown>;
+  /** Context derived from the triggering signal (skill, assessment_type, school_id). */
+  signal_context?: SignalContext;
 }
 
 /** Discriminated outcome for evaluateState */
@@ -373,6 +388,10 @@ export interface GetDecisionsRequest {
   to_time: string;
   page_token?: string;
   page_size?: number;
+  /** Filter by skill name (matches decision_context.skill) */
+  skill?: string;
+  /** Filter by assessment type (matches decision_context.assessment_type) */
+  assessment_type?: string;
 }
 
 /** Response for GET /v1/decisions */

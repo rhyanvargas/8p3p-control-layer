@@ -286,7 +286,7 @@ One-call aggregation with current state, decisions, trajectory, and policy.
 - [ ] **Change 4:** `GET /v1/signals` accepts optional `skill` and `assessment_type` query filters
 - [ ] **Change 4:** `GET /v1/decisions` accepts optional `skill` and `assessment_type` query filters
 - [ ] **Change 4:** `skill` and `assessment_type` from `signal.payload` are propagated into `decision_context`
-- [ ] **Change 4:** `GET /v1/state/trajectory` accepts optional `skill` parameter that auto-prefixes field paths
+- [ ] **Change 4:** ~~`GET /v1/state/trajectory` accepts optional `skill` parameter that auto-prefixes field paths~~ — **Deferred:** depends on `learner-trajectory-api.md` which is not yet implemented
 
 ### Acceptance Criteria
 

@@ -2,6 +2,7 @@ import { readFileSync } from 'fs';
 import type { RejectionReason } from '../shared/types.js';
 import { ErrorCodes } from '../shared/error-codes.js';
 import { evaluateTransform } from './transform-expression.js';
+import { isRecord, getAtPath, setAtPath } from '../shared/dot-path.js';
 
 export type PrimitiveType = 'string' | 'number' | 'boolean' | 'object';
 
@@ -119,35 +120,6 @@ export async function normalizeAndValidateTenantPayloadAsync(args: {
     payload: args.payload,
     mappingOverride: mapping,
   });
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === 'object' && !Array.isArray(value);
-}
-
-function getAtPath(obj: Record<string, unknown>, path: string): unknown {
-  const parts = path.split('.').filter(Boolean);
-  let cur: unknown = obj;
-  for (const p of parts) {
-    if (!isRecord(cur)) return undefined;
-    cur = cur[p];
-  }
-  return cur;
-}
-
-function setAtPath(obj: Record<string, unknown>, path: string, value: unknown): void {
-  const parts = path.split('.').filter(Boolean);
-  if (parts.length === 0) return;
-  let cur: Record<string, unknown> = obj;
-  for (let i = 0; i < parts.length - 1; i++) {
-    const p = parts[i]!;
-    const next = cur[p];
-    if (!isRecord(next)) {
-      cur[p] = {};
-    }
-    cur = cur[p] as Record<string, unknown>;
-  }
-  cur[parts[parts.length - 1]!] = value;
 }
 
 function typeOfPrimitive(value: unknown): PrimitiveType | null {

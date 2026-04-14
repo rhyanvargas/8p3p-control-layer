@@ -175,6 +175,18 @@ paths:
             maximum: 1000
             default: 100
           description: Results per page (1-1000)
+        - name: skill
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Filter by skill name (matches payload.skill). E.g. "fractions".
+        - name: assessment_type
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Filter by assessment type (matches payload.assessment_type). E.g. "diagnostic", "formative".
       responses:
         '200':
           description: Signal log query result
@@ -454,6 +466,18 @@ paths:
             maximum: 1000
             default: 100
           description: Results per page (1-1000)
+        - name: skill
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Filter by skill name (matches decision_context.skill). Only matches decisions produced after signal_context propagation was deployed.
+        - name: assessment_type
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Filter by assessment type (matches decision_context.assessment_type).
       responses:
         '200':
           description: Decisions in time range
@@ -1082,7 +1106,7 @@ components:
           description: Opaque payload content (validated for forbidden keys only)
         metadata:
           type: object
-          additionalProperties: false
+          additionalProperties: true
           properties:
             correlation_id:
               type: string
@@ -1090,6 +1114,9 @@ components:
             trace_id:
               type: string
               description: Optional trace ID for distributed tracing
+            school_id:
+              type: string
+              description: School identifier for multi-school orgs (propagated into decision_context)
 
     RejectionReason:
       type: object
@@ -1367,7 +1394,23 @@ components:
           description: RFC3339
         decision_context:
           type: object
-          description: Opaque, downstream-neutral context
+          description: |
+            Downstream-neutral context forwarded from the triggering signal.
+            Populated automatically from signal payload fields when present.
+            Convention: `skill` (string) and `assessment_type` (string) are set from
+            `payload.skill` and `payload.assessment_type` of the ingested signal.
+            `school_id` is set from `metadata.school_id` when present.
+          properties:
+            skill:
+              type: string
+              description: Skill name from the triggering signal (e.g. "fractions", "reading")
+            assessment_type:
+              type: string
+              description: Assessment type from the triggering signal (e.g. "diagnostic", "formative")
+            school_id:
+              type: string
+              description: School identifier from signal metadata
+          additionalProperties: true
         trace:
           $ref: '#/components/schemas/DecisionTrace'
         output_metadata:

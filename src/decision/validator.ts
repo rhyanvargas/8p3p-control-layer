@@ -310,5 +310,13 @@ export function validateGetDecisionsRequest(
   if (pageSize !== undefined) parsed.page_size = pageSize;
   if (pageToken !== undefined) parsed.page_token = pageToken;
 
+  if (typeof p.skill === 'string' && p.skill.trim() !== '') {
+    parsed.skill = p.skill.trim();
+  }
+
+  if (typeof p.assessment_type === 'string' && p.assessment_type.trim() !== '') {
+    parsed.assessment_type = p.assessment_type.trim();
+  }
+
   return { valid: true, errors: [], parsed };
 }

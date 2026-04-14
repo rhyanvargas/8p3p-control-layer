@@ -99,7 +99,7 @@ components:
           description: Opaque payload content (validated for forbidden keys only)
         metadata:
           type: object
-          additionalProperties: false
+          additionalProperties: true
           properties:
             correlation_id:
               type: string
@@ -107,6 +107,9 @@ components:
             trace_id:
               type: string
               description: Optional trace ID for distributed tracing
+            school_id:
+              type: string
+              description: School identifier for multi-school orgs (propagated into decision_context)
 
     SignalIngestedEvent:
       type: object

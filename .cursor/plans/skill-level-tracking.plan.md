@@ -5,40 +5,40 @@ overview: |
 todos:
   - id: TASK-001
     content: Create src/shared/dot-path.ts — export getAtPath, setAtPath, isRecord
-    status: pending
+    status: completed
   - id: TASK-002
     content: Refactor tenant-field-mappings.ts to import from src/shared/dot-path.ts
-    status: pending
+    status: completed
   - id: TASK-003
     content: Fix dot-path policy evaluation in policy-loader.ts (evaluateConditionCollecting)
-    status: pending
+    status: completed
   - id: TASK-004
     content: Fix extractCanonicalSnapshot in decision/engine.ts — nested get + setAtPath build
-    status: pending
+    status: completed
   - id: TASK-005
     content: Extend computeStateDeltas with recursive nested delta detection (max depth 5)
-    status: pending
+    status: completed
   - id: TASK-006
     content: Propagate skill, assessment_type, school_id into decision_context in decision/engine.ts
-    status: pending
+    status: completed
   - id: TASK-007
     content: Pass signal context overrides from ingestion/handler-core.ts into evaluateState
-    status: pending
+    status: completed
   - id: TASK-008
     content: Add skill + assessment_type query filters to GET /v1/signals
-    status: pending
+    status: completed
   - id: TASK-009
     content: Add skill + assessment_type query filters to GET /v1/decisions
-    status: pending
+    status: completed
   - id: TASK-010
     content: Unit tests SKL-001 through SKL-009 (dot-path eval + nested deltas)
-    status: pending
+    status: completed
   - id: TASK-011
     content: Integration/contract tests SKL-010 through SKL-014
-    status: pending
+    status: completed
   - id: TASK-012
     content: Update OpenAPI spec and shared types
-    status: pending
+    status: completed
 isProject: false
 ---
 
@@ -531,12 +531,12 @@ Before starting implementation:
 
 ## Verification Checklist
 
-- [ ] All tasks completed
-- [ ] All tests pass (`npm test`)
-- [ ] Linter passes (`npm run lint`)
-- [ ] Type check passes (`npm run typecheck`)
-- [ ] Existing tests unaffected (flat-field regression: SKL-003, SKL-008)
-- [ ] Matches spec requirements (all 14 functional requirements in Requirements section)
+- [x] All tasks completed
+- [x] All tests pass (`npm test`)
+- [x] Linter passes (`npm run lint`)
+- [x] Type check passes (`npm run typecheck`)
+- [x] Existing tests unaffected (flat-field regression: SKL-003, SKL-008)
+- [x] Matches spec requirements (all 14 functional requirements in Requirements section)
 
 ## Implementation Order
 
