@@ -1,11 +1,12 @@
 /**
  * DynamoDB-backed tenant field mapping resolution (FieldMappingsTable).
+ * Uses DynamoDBDocumentClient (high-level) per AWS SDK v3 best practices.
  * @see docs/specs/tenant-field-mappings.md — GetItem(PK=org_id, SK=source_system)
  */
 
-import { DynamoDBClient, GetItemCommand } from '@aws-sdk/client-dynamodb';
-import { marshall, unmarshall } from '@aws-sdk/util-dynamodb';
-import type { TenantPayloadMapping } from './tenant-field-mappings.js';
+import { DynamoDBClient, ProvisionedThroughputExceededException } from '@aws-sdk/client-dynamodb';
+import { DynamoDBDocumentClient, GetCommand, PutCommand, DeleteCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
+import type { TenantPayloadMapping, TransformRule } from './tenant-field-mappings.js';
 
 const DEFAULT_CACHE_TTL_MS = 5 * 60 * 1000;
 
@@ -23,16 +24,20 @@ interface CacheEntry {
 
 const cache = new Map<string, CacheEntry>();
 
-let _client: DynamoDBClient | null = null;
+let _docClient: DynamoDBDocumentClient | null = null;
 
-function getClient(): DynamoDBClient {
-  if (!_client) _client = new DynamoDBClient({});
-  return _client;
+function getDocClient(): DynamoDBDocumentClient {
+  if (!_docClient) {
+    _docClient = DynamoDBDocumentClient.from(new DynamoDBClient({}), {
+      marshallOptions: { removeUndefinedValues: true },
+    });
+  }
+  return _docClient;
 }
 
-/** Test hook */
-export function _setFieldMappingsDynamoClientForTesting(client: DynamoDBClient | null): void {
-  _client = client;
+/** Test hook — accepts a DynamoDBDocumentClient (or any object with .send()). */
+export function _setFieldMappingsDynamoClientForTesting(client: DynamoDBDocumentClient | null): void {
+  _docClient = client;
 }
 
 export function invalidateFieldMappingCache(orgId: string, sourceSystem: string): void {
@@ -41,6 +46,18 @@ export function invalidateFieldMappingCache(orgId: string, sourceSystem: string)
 
 export function clearFieldMappingCache(): void {
   cache.clear();
+}
+
+/** Metadata returned alongside the mapping for admin list/get. */
+export interface FieldMappingRecord {
+  org_id: string;
+  source_system: string;
+  mapping: TenantPayloadMapping;
+  mapping_version?: number;
+  template_id?: string;
+  template_version?: string;
+  updated_at?: string;
+  updated_by?: string;
 }
 
 function parseMappingFromItem(item: Record<string, unknown>): TenantPayloadMapping | null {
@@ -56,7 +73,38 @@ function parseMappingFromItem(item: Record<string, unknown>): TenantPayloadMappi
   if (mapping.types && typeof mapping.types === 'object' && !Array.isArray(mapping.types)) {
     out.types = mapping.types as TenantPayloadMapping['types'];
   }
+  if (Array.isArray(mapping.transforms)) {
+    out.transforms = mapping.transforms.filter(
+      (x): x is TransformRule =>
+        x !== null &&
+        typeof x === 'object' &&
+        typeof (x as Record<string, unknown>).target === 'string' &&
+        typeof (x as Record<string, unknown>).source === 'string' &&
+        typeof (x as Record<string, unknown>).expression === 'string',
+    );
+  }
+  if (typeof mapping.strict_transforms === 'boolean') {
+    out.strict_transforms = mapping.strict_transforms;
+  }
   return out;
+}
+
+function parseRecordFromItem(item: Record<string, unknown>): FieldMappingRecord | null {
+  const orgId = typeof item.org_id === 'string' ? item.org_id : undefined;
+  const sourceSystem = typeof item.source_system === 'string' ? item.source_system : undefined;
+  if (!orgId || !sourceSystem) return null;
+  const mapping = parseMappingFromItem(item);
+  if (!mapping) return null;
+  return {
+    org_id: orgId,
+    source_system: sourceSystem,
+    mapping,
+    mapping_version: typeof item.mapping_version === 'number' ? item.mapping_version : undefined,
+    template_id: typeof item.template_id === 'string' ? item.template_id : undefined,
+    template_version: typeof item.template_version === 'string' ? item.template_version : undefined,
+    updated_at: typeof item.updated_at === 'string' ? item.updated_at : undefined,
+    updated_by: typeof item.updated_by === 'string' ? item.updated_by : undefined,
+  };
 }
 
 /**
@@ -79,10 +127,10 @@ export async function getMappingFromDynamoDB(
   }
 
   try {
-    const result = await getClient().send(
-      new GetItemCommand({
+    const result = await getDocClient().send(
+      new GetCommand({
         TableName: tableName,
-        Key: marshall({ org_id: orgId, source_system: sourceSystem }),
+        Key: { org_id: orgId, source_system: sourceSystem },
         ConsistentRead: false,
       })
     );
@@ -92,14 +140,16 @@ export async function getMappingFromDynamoDB(
       return null;
     }
 
-    const item = unmarshall(result.Item) as Record<string, unknown>;
-    const mapping = parseMappingFromItem(item);
+    const mapping = parseMappingFromItem(result.Item as Record<string, unknown>);
     cache.set(cacheKey, { mapping, loadedAt: now });
     return mapping;
   } catch (err) {
+    const event = err instanceof ProvisionedThroughputExceededException
+      ? 'field_mappings_dynamo_throttled'
+      : 'field_mappings_dynamo_degraded';
     console.warn(
       JSON.stringify({
-        event: 'field_mappings_dynamo_degraded',
+        event,
         org_id: orgId,
         source_system: sourceSystem,
         error: err instanceof Error ? err.message : String(err),
@@ -107,4 +157,95 @@ export async function getMappingFromDynamoDB(
     );
     return null;
   }
+}
+
+/**
+ * Upsert a mapping item in DynamoDB (admin PUT).
+ * Stores the full mapping document + metadata. Invalidates the TTL cache on success.
+ * @see docs/specs/tenant-field-mappings.md §DynamoDB Item Shape
+ */
+export async function putFieldMappingItem(args: {
+  orgId: string;
+  sourceSystem: string;
+  mapping: TenantPayloadMapping;
+  updatedBy: string;
+  templateId?: string;
+  templateVersion?: string;
+  mappingVersion?: number;
+}): Promise<FieldMappingRecord> {
+  const tableName = process.env.FIELD_MAPPINGS_TABLE;
+  if (!tableName) throw new Error('FIELD_MAPPINGS_TABLE env var is not set');
+
+  const nextVersion = (args.mappingVersion ?? 0) + 1;
+  const updatedAt = new Date().toISOString();
+
+  const item: Record<string, unknown> = {
+    org_id: args.orgId,
+    source_system: args.sourceSystem,
+    mapping: args.mapping,
+    mapping_version: nextVersion,
+    updated_at: updatedAt,
+    updated_by: args.updatedBy,
+  };
+  if (args.templateId !== undefined) item.template_id = args.templateId;
+  if (args.templateVersion !== undefined) item.template_version = args.templateVersion;
+
+  await getDocClient().send(
+    new PutCommand({ TableName: tableName, Item: item }),
+  );
+
+  invalidateFieldMappingCache(args.orgId, args.sourceSystem);
+
+  return {
+    org_id: args.orgId,
+    source_system: args.sourceSystem,
+    mapping: args.mapping,
+    mapping_version: nextVersion,
+    template_id: args.templateId,
+    template_version: args.templateVersion,
+    updated_at: updatedAt,
+    updated_by: args.updatedBy,
+  };
+}
+
+/**
+ * List all mapping items for an org (admin GET).
+ * Uses Query(PK=org_id) — returns metadata + mapping for all source systems.
+ */
+export async function listFieldMappingItemsForOrg(orgId: string): Promise<FieldMappingRecord[]> {
+  const tableName = process.env.FIELD_MAPPINGS_TABLE;
+  if (!tableName) return [];
+
+  const result = await getDocClient().send(
+    new QueryCommand({
+      TableName: tableName,
+      KeyConditionExpression: 'org_id = :pk',
+      ExpressionAttributeValues: { ':pk': orgId },
+    }),
+  );
+
+  const records: FieldMappingRecord[] = [];
+  for (const item of result.Items ?? []) {
+    const record = parseRecordFromItem(item as Record<string, unknown>);
+    if (record) records.push(record);
+  }
+  return records;
+}
+
+/**
+ * Delete a mapping item from DynamoDB (admin DELETE).
+ * Invalidates the TTL cache on success.
+ */
+export async function deleteFieldMappingItem(orgId: string, sourceSystem: string): Promise<void> {
+  const tableName = process.env.FIELD_MAPPINGS_TABLE;
+  if (!tableName) throw new Error('FIELD_MAPPINGS_TABLE env var is not set');
+
+  await getDocClient().send(
+    new DeleteCommand({
+      TableName: tableName,
+      Key: { org_id: orgId, source_system: sourceSystem },
+    }),
+  );
+
+  invalidateFieldMappingCache(orgId, sourceSystem);
 }

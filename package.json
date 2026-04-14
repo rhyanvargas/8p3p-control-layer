@@ -43,6 +43,7 @@
   "homepage": "https://github.com/rhyanvargas/8p3p-control-layer#readme",
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.1019.0",
+    "@aws-sdk/lib-dynamodb": "^3.1027.0",
     "@aws-sdk/util-dynamodb": "^3.996.2",
     "@fastify/static": "^9.0.0",
     "@fastify/swagger": "^9.0.0",

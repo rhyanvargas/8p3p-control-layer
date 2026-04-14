@@ -157,6 +157,16 @@ export const ErrorCodes = {
    * Maps all validation throws from policy-loader to this single admin-facing code.
    */
   INVALID_POLICY_STRUCTURE: 'invalid_policy_structure',
+
+  // ==========================================================================
+  // Tenant Field Mappings (v1.1)
+  // ==========================================================================
+
+  /**
+   * Transform expression is syntactically invalid (400 at admin PUT) or fails at runtime.
+   * @see docs/specs/tenant-field-mappings.md §Error Codes
+   */
+  INVALID_MAPPING_EXPRESSION: 'invalid_mapping_expression',
 } as const;
 
 export type ErrorCode = typeof ErrorCodes[keyof typeof ErrorCodes];

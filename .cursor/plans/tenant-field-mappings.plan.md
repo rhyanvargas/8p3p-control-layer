@@ -4,52 +4,52 @@ overview: Implement pilot (Canvas) extensions to tenant payload mappings—restr
 todos:
   - id: TASK-001
     content: Extend mapping types + v2 file shape (source_system nesting, transforms, backward compat)
-    status: pending
+    status: completed
   - id: TASK-002
     content: Restricted transform expression parser/evaluator + upload-time validator
-    status: pending
+    status: completed
   - id: TASK-003
     content: Integrate transforms into normalization (after aliases, before required/types)
-    status: pending
+    status: completed
   - id: TASK-004
-    content: DynamoDB field-mappings repository (GetItem, PutItem, Query)
-    status: pending
+    content: Extend existing field-mappings-dynamo.ts (add PutItem, Query, Delete, transforms/template parsing)
+    status: completed
   - id: TASK-005
-    content: In-memory TTL cache + PUT invalidation
-    status: pending
+    content: Verify existing TTL cache + wire PUT/DELETE invalidation
+    status: completed
   - id: TASK-006
-    content: Async resolver DynamoDB → file → null (per org_id + source_system)
-    status: pending
+    content: Verify/extend async resolver for v2 file shape (source_system nesting)
+    status: completed
   - id: TASK-007
-    content: Plumb source_system + resolved mapping into ingestion handler
-    status: pending
+    content: Plumb source_system + resolved mapping into Fastify handler-core.ts (Lambda path already wired)
+    status: completed
   - id: TASK-008
     content: Admin HTTP routes PUT/GET mappings + ADMIN_API_KEY auth (accept optional template_id / template_version per spec v1.1.1)
-    status: pending
+    status: completed
   - id: TASK-009
-    content: Dependencies + env wiring (AWS SDK, FIELD_MAPPINGS_*, cache TTL)
-    status: pending
+    content: Env wiring + documentation (AWS SDK already installed)
+    status: completed
   - id: TASK-010
     content: OpenAPI + error codes for mapping admin and runtime guard
-    status: pending
+    status: completed
   - id: TASK-011
     content: Unit tests for expression engine and mapping resolution edge cases
-    status: pending
+    status: completed
   - id: TASK-012
     content: Contract tests SIG-API-012–SIG-API-015 (regress after async + source_system)
-    status: pending
+    status: completed
   - id: TASK-013
     content: Contract test SIG-API-016 (computed transform)
-    status: pending
+    status: completed
   - id: TASK-014
     content: Contract test SIG-API-017 (invalid expression at admin PUT)
-    status: pending
+    status: completed
   - id: TASK-015
     content: Contract test SIG-API-018 (DynamoDB mapping for org + source_system)
-    status: pending
+    status: completed
   - id: TASK-016
     content: Contract test SIG-API-019 (fallback to file when DynamoDB miss/unavailable)
-    status: pending
+    status: completed
 isProject: false
 ---
 
@@ -61,8 +61,11 @@ isProject: false
 
 Before starting implementation:
 
-- [ ] **PREREQ-001** Ingestion and admin runtimes have `FIELD_MAPPINGS_TABLE` (and AWS region/credentials) where DynamoDB is used, per `docs/specs/aws-deployment.md` (FieldMappingsTable, IngestFunction, AdminFunction env). Local dev may use file-only until CDK deploy exists.
-- [ ] **PREREQ-002** Confirm admin auth pattern (`x-admin-api-key` vs `ADMIN_API_KEY`) matches `docs/specs/policy-management-api.md` so mapping admin routes stay consistent with policy admin.
+- [x] **PREREQ-001** `FieldMappingsTable` exists in CDK stack (`infra/lib/control-layer-stack.ts`, PK=`org_id`, SK=`source_system`). `FIELD_MAPPINGS_TABLE` env var already read by `src/config/field-mappings-dynamo.ts` with graceful null return when unset. Local dev uses file-only path — no AWS creds required.
+- [x] **PREREQ-002** Admin auth pattern confirmed: `adminApiKeyPreHandler` in `src/auth/admin-api-key-middleware.ts`, registered on `/v1/admin` scope in `src/server.ts` (same scope as `registerPolicyManagementRoutes`). Mapping admin routes use the same pattern.
+- [x] **PREREQ-003** `@aws-sdk/client-dynamodb` (^3.1019.0) and `@aws-sdk/util-dynamodb` (^3.996.2) already in `package.json`.
+- [x] **PREREQ-004** `src/config/field-mappings-dynamo.ts` exists with `getMappingFromDynamoDB` (GetItem + TTL cache), `invalidateFieldMappingCache`, `clearFieldMappingCache`. TASK-004 extends this file rather than creating a new one.
+- [x] **PREREQ-005** `resolveTenantPayloadMappingForIngest` and `normalizeAndValidateTenantPayloadAsync` exist in `src/config/tenant-field-mappings.ts`. Lambda ingestion path (`handler-core-async.ts`) already calls the async resolver with `source_system`.
 
 ## Tasks
 
@@ -89,33 +92,46 @@ Before starting implementation:
 - **Depends on**: TASK-001, TASK-002
 - **Verification**: Manual or unit test—payload `{ raw_score: 65 }` with `value/100` → `stabilityScore === 0.65`.
 
-### TASK-004: DynamoDB field-mappings repository (GetItem, PutItem, Query)
-- **Files**: `src/config/field-mappings-dynamo.ts` or `src/storage/field-mappings-store.ts` (new)
-- **Action**: Create
-- **Details**: `GetItem(PK=org_id, SK=source_system)` returns `mapping` map + metadata. `PutItem` stores full mapping document + `updated_at` / `updated_by` (key prefix). `Query(PK=org_id)` for admin list. Use `@aws-sdk/client-dynamodb` (or Document Client) consistent with future policy storage patterns.
+### TASK-004: Extend DynamoDB field-mappings repository (add PutItem, Query, transforms/template parsing)
+- **Files**: `src/config/field-mappings-dynamo.ts` (exists — extend)
+- **Action**: Modify (file already exists with `GetItem` + TTL cache + `invalidateFieldMappingCache`)
+- **Details**:
+  The existing `src/config/field-mappings-dynamo.ts` already implements `getMappingFromDynamoDB` (GetItem + TTL cache), `invalidateFieldMappingCache`, and `clearFieldMappingCache`. Extend it with:
+  1. **`putFieldMappingItem`** — `PutItem` storing full mapping document + `template_id`, `template_version`, `mapping_version`, `updated_at`, `updated_by`.
+  2. **`listFieldMappingItemsForOrg`** — `Query(PK=org_id)` for admin list endpoint.
+  3. **`deleteFieldMappingItem`** — `DeleteItem` + cache invalidation (needed by integration-templates plan TASK-003).
+  4. **Update `parseMappingFromItem`** — currently only extracts `required`, `aliases`, `types`. Must also extract `transforms[]` from the DynamoDB item to match the extended `TenantPayloadMapping` type from TASK-001, plus return `template_id` and `template_version` metadata.
+  After `putFieldMappingItem` or `deleteFieldMappingItem`, call existing `invalidateFieldMappingCache(orgId, sourceSystem)`.
 - **Depends on**: TASK-001
-- **Verification**: Unit/integration tests with mocked DynamoDB client; item shape matches spec §DynamoDB Item Shape.
+- **Verification**: Unit/integration tests with mocked DynamoDB client; item shape matches spec §DynamoDB Item Shape; existing `getMappingFromDynamoDB` tests still pass.
 
-### TASK-005: In-memory TTL cache + PUT invalidation
-- **Files**: same module as TASK-004 or `src/config/field-mappings-cache.ts` (new)
-- **Action**: Create / Modify
-- **Details**: Cache key `(org_id, source_system)`, default TTL 300s, override `FIELD_MAPPINGS_CACHE_TTL_MS`. On successful admin `PutItem`, invalidate that key. Negative caching for misses optional (document if implemented).
+### TASK-005: Verify existing TTL cache + wire PUT invalidation
+- **Files**: `src/config/field-mappings-dynamo.ts` (exists — verify)
+- **Action**: Verify (already implemented)
+- **Details**:
+  The TTL cache already exists in `src/config/field-mappings-dynamo.ts`: `Map<string, CacheEntry>` keyed by `orgId:sourceSystem`, configurable via `FIELD_MAPPINGS_CACHE_TTL_MS` (default 300s), negative caching for misses. `invalidateFieldMappingCache(orgId, sourceSystem)` is already exported.
+  **Remaining work**: Verify TASK-004's new `putFieldMappingItem` and `deleteFieldMappingItem` call `invalidateFieldMappingCache` after successful writes. No new file or cache implementation needed.
 - **Depends on**: TASK-004
-- **Verification**: Unit test: second load within TTL does not call DynamoDB mock; after invalidate, calls again.
+- **Verification**: Existing cache behavior unchanged; confirm invalidation is called in TASK-004's new write paths.
 
-### TASK-006: Async resolver DynamoDB → file → null (per org_id + source_system)
-- **Files**: `src/config/tenant-field-mappings.ts` or `src/config/resolve-field-mapping.ts` (new)
-- **Action**: Create / Modify
-- **Details**: If `FIELD_MAPPINGS_TABLE` set, try cached/DynamoDB first; on miss or transport error, fall back to file (log warning on DynamoDB unavailable per SIG-API-019). If both miss, return null (Phase 1). Dynamo wins when both define same org+source.
-- **Depends on**: TASK-001, TASK-004, TASK-005
-- **Verification**: Mock DynamoDB success/miss/failure scenarios; assert precedence and logging.
+### TASK-006: Verify/extend existing async resolver for v2 file shape
+- **Files**: `src/config/tenant-field-mappings.ts` (exists — verify + extend)
+- **Action**: Verify / Modify
+- **Details**:
+  `resolveTenantPayloadMappingForIngest(orgId, sourceSystem)` already exists in `tenant-field-mappings.ts` and implements DynamoDB → file → null resolution. `normalizeAndValidateTenantPayloadAsync` already wires this into the Lambda ingestion path.
+  **Remaining work**: After TASK-001 adds v2 file shape with `source_system` nesting, update the file fallback in `getTenantPayloadMapping` (currently only `tenants[orgId].payload`) to also check `tenants[orgId][sourceSystem].payload` for v2 files. DynamoDB degradation warning log already exists (`field_mappings_dynamo_degraded` event). Verify DynamoDB-wins-over-file precedence is maintained.
+- **Depends on**: TASK-001
+- **Verification**: Mock DynamoDB success/miss/failure scenarios; v2 file lookup by `source_system` works; existing precedence unchanged.
 
 ### TASK-007: Plumb source_system + resolved mapping into ingestion handler
-- **Files**: `src/ingestion/handler.ts`, `src/config/tenant-field-mappings.ts`
+- **Files**: `src/ingestion/handler-core.ts` (sync/Fastify path), `src/ingestion/handler-core-async.ts` (async/Lambda path — verify only), `src/config/tenant-field-mappings.ts`
 - **Action**: Modify
-- **Details**: After forbidden keys, `await resolveTenantFieldMapping(signal.org_id, signal.source_system)` then `normalizeAndValidateTenantPayload({ orgId, payload, mapping })` (or equivalent) so mapping is optional/null. Preserve idempotency and downstream use of normalized payload.
+- **Details**:
+  **Lambda path (`handler-core-async.ts`)**: Already calls `normalizeAndValidateTenantPayloadAsync({ orgId, sourceSystem, payload })` which resolves DynamoDB → file → null. Verify it works with the extended `TenantPayloadMapping` (transforms) after TASK-001/TASK-003 — no code changes expected.
+  **Fastify path (`handler-core.ts`)**: Currently calls sync `normalizeAndValidateTenantPayload({ orgId, payload })` without `source_system`. Must be updated to either: (a) call `normalizeAndValidateTenantPayloadAsync` (making the Fastify handler async-aware for DynamoDB resolution), or (b) pass `source_system` and a pre-resolved mapping via `mappingOverride`. Option (a) is preferred for consistency with Lambda path.
+  Preserve idempotency and downstream use of normalized payload.
 - **Depends on**: TASK-003, TASK-006
-- **Verification**: `npm run typecheck`; handler tests pass; no duplicate DynamoDB calls without cache reason.
+- **Verification**: `npm run typecheck`; handler tests pass; Fastify path resolves mapping with `source_system`; Lambda path unchanged.
 
 ### TASK-008: Admin HTTP routes PUT/GET mappings + ADMIN_API_KEY auth
 - **Files**: `src/server.ts`, new route module e.g. `src/routes/admin-field-mappings.ts` (or align with future admin router), Lambda handler entry if split per deployment
@@ -124,12 +140,14 @@ Before starting implementation:
 - **Depends on**: TASK-002, TASK-004, TASK-005, PREREQ-002
 - **Verification**: Integration tests with Fastify inject + mocked DynamoDB; unauthorized request rejected.
 
-### TASK-009: Dependencies + env wiring (AWS SDK, FIELD_MAPPINGS_*, cache TTL)
-- **Files**: `package.json`, `src/server.ts`, `.env.example` (if repo uses it), `README.md` only if already documents env vars
-- **Action**: Modify
-- **Details**: Add AWS SDK dependency; document `FIELD_MAPPINGS_TABLE`, `FIELD_MAPPINGS_CACHE_TTL_MS`, existing `TENANT_FIELD_MAPPINGS_PATH`. Avoid starting DynamoDB clients when table unset (local file-only).
+### TASK-009: Env wiring + documentation (AWS SDK already installed)
+- **Files**: `src/server.ts`, `.env.example` (if repo uses it), `README.md` only if already documents env vars
+- **Action**: Verify / Modify
+- **Details**:
+  `@aws-sdk/client-dynamodb` (^3.1019.0) and `@aws-sdk/util-dynamodb` (^3.996.2) are already in `package.json` — no new dependency install needed. `FIELD_MAPPINGS_TABLE` env var is already read by `field-mappings-dynamo.ts` with graceful null return when unset.
+  **Remaining work**: Document `FIELD_MAPPINGS_CACHE_TTL_MS` in `.env.example` if it exists. Verify `src/server.ts` startup does not create a DynamoDB client when `FIELD_MAPPINGS_TABLE` is unset (already the case — lazy client init behind `getClient()`).
 - **Depends on**: TASK-004
-- **Verification**: `npm install`, `npm run build`, cold start without AWS creds when table unset does not throw.
+- **Verification**: `npm run build` succeeds; cold start without AWS creds when table unset does not throw.
 
 ### TASK-010: OpenAPI + error codes for mapping admin and runtime guard
 - **Files**: `docs/api/openapi.yaml`, `src/shared/error-codes.ts` (if `invalid_mapping_expression` added)
@@ -186,8 +204,6 @@ Before starting implementation:
 | File | Task | Purpose |
 |------|------|---------|
 | `src/config/transform-expression.ts` | TASK-002 | Safe parse/eval + upload validation |
-| `src/config/field-mappings-dynamo.ts` or `src/storage/field-mappings-store.ts` | TASK-004 | DynamoDB access patterns 1–3 |
-| `src/config/field-mappings-cache.ts` (optional) | TASK-005 | TTL cache + invalidation |
 | `src/routes/admin-field-mappings.ts` (or equivalent) | TASK-008 | Admin PUT/GET handlers |
 | `tests/unit/transform-expression.test.ts` | TASK-011 | Expression grammar tests |
 | `tests/unit/field-mappings-resolve.test.ts` (optional) | TASK-011 | Resolver unit tests |
@@ -195,10 +211,11 @@ Before starting implementation:
 ### To Modify
 | File | Task | Changes |
 |------|------|---------|
-| `src/config/tenant-field-mappings.ts` | TASK-001, TASK-003, TASK-006, TASK-007 | v2 types, transforms, resolver hooks, normalize signature |
-| `src/ingestion/handler.ts` | TASK-007 | Async mapping resolution + normalized payload |
-| `src/server.ts` | TASK-008, TASK-009 | Register admin routes, env/bootstrap |
-| `package.json` | TASK-009 | `@aws-sdk/*` dependency |
+| `src/config/tenant-field-mappings.ts` | TASK-001, TASK-003, TASK-006, TASK-007 | v2 types, transforms, v2 file resolver, normalize signature |
+| `src/config/field-mappings-dynamo.ts` | TASK-004, TASK-005 | Add PutItem/Query/Delete, parse transforms + template metadata, wire invalidation |
+| `src/ingestion/handler-core.ts` | TASK-007 | Fastify path: switch to async mapping resolution with source_system |
+| `src/ingestion/handler-core-async.ts` | TASK-007 | Lambda path: verify only (already wired) |
+| `src/server.ts` | TASK-008, TASK-009 | Register admin routes, env documentation |
 | `docs/api/openapi.yaml` | TASK-010 | Admin mapping paths |
 | `src/shared/error-codes.ts` | TASK-010 | `invalid_mapping_expression` if used |
 | `tests/contracts/signal-ingestion.test.ts` | TASK-012, TASK-013, TASK-015, TASK-016 | Contract coverage SIG-API-012–016, 018, 019 |

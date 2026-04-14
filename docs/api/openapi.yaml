@@ -41,6 +41,12 @@ tags:
       Admin policy lifecycle management. Requires `x-admin-api-key` header on all endpoints.
       Tenant `x-api-key` is **not** accepted — 401 is returned for tenant-key requests.
       Endpoints create, replace, toggle, validate, delete, and list policies in DynamoDB PoliciesTable.
+  - name: AdminMapping
+    description: |
+      Admin tenant field mapping lifecycle management (v1.1). Requires `x-admin-api-key` header on all endpoints.
+      Tenant `x-api-key` is **not** accepted — 401 is returned for tenant-key requests.
+      Endpoints upsert and list tenant payload mappings (aliases, required fields, type checks, computed transforms)
+      in DynamoDB `FieldMappingsTable`, keyed by `org_id` + `source_system`.
 
 paths:
   /health:
@@ -884,6 +890,119 @@ paths:
               schema:
                 $ref: '#/components/schemas/AdminErrorResponse'
 
+  /v1/admin/mappings/{org_id}/{source_system}:
+    put:
+      tags: [AdminMapping]
+      operationId: putFieldMapping
+      summary: Upsert a tenant field mapping
+      description: |
+        **What it does:** Creates or replaces the field mapping for an org + source system pair.
+        Validates all `transforms[].expression` values before writing; returns 400 for any invalid expression (SIG-API-017).
+        On success, invalidates the in-memory TTL cache for this `(org_id, source_system)` key.
+
+        **Body:** `TenantPayloadMapping` JSON object (`required`, `aliases`, `types`, `transforms`, optional `strict_transforms`).
+
+        **Query params:** `template_id` and `template_version` — optional provenance metadata, stored alongside the mapping
+        for Connector Layer upgrade detection (`docs/specs/integration-templates.md`).
+
+        **Auth:** Requires `x-admin-api-key` header.
+      security:
+        - AdminApiKeyAuth: []
+      parameters:
+        - name: org_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Organisation identifier (PK on FieldMappingsTable)
+        - name: source_system
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Source system identifier (SK on FieldMappingsTable; e.g. `canvas-lms`)
+        - name: template_id
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Optional integration template ID that generated this mapping (e.g. `canvas-lms-v1`)
+        - name: template_version
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Optional semantic version of the template at activation time (e.g. `1.0.0`)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TenantPayloadMapping'
+            example:
+              required: [stabilityScore]
+              aliases:
+                stabilityScore: [stability_score]
+              types:
+                stabilityScore: number
+              transforms:
+                - target: stabilityScore
+                  source: raw_score
+                  expression: value / 100
+      responses:
+        '200':
+          description: Mapping upserted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FieldMappingRecord'
+        '400':
+          description: Invalid mapping body or expression validation failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MappingErrorResponse'
+        '401':
+          description: Missing or invalid x-admin-api-key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminErrorResponse'
+
+  /v1/admin/mappings/{org_id}:
+    get:
+      tags: [AdminMapping]
+      operationId: listFieldMappings
+      summary: List all field mappings for an org
+      description: |
+        **What it does:** Returns all field mapping records for the given org (DynamoDB `Query(PK=org_id)`).
+        Each record includes the full mapping document plus metadata (`mapping_version`, `template_id`,
+        `template_version`, `updated_at`, `updated_by`).
+
+        **Auth:** Requires `x-admin-api-key` header.
+      security:
+        - AdminApiKeyAuth: []
+      parameters:
+        - name: org_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Organisation identifier
+      responses:
+        '200':
+          description: List of field mapping records
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListFieldMappingsResponse'
+        '401':
+          description: Missing or invalid x-admin-api-key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminErrorResponse'
+
 components:
   securitySchemes:
     ApiKeyAuth:
@@ -1621,5 +1740,119 @@ components:
                 - invalid_policy_structure
                 - policy_not_found
                 - invalid_format
+            message:
+              type: string
+
+    TransformRule:
+      type: object
+      required: [target, source, expression]
+      properties:
+        target:
+          type: string
+          description: Top-level canonical key to write the computed result into
+          example: stabilityScore
+        source:
+          type: string
+          description: Dot-path into the payload to read the input value from
+          example: raw_score
+        expression:
+          type: string
+          description: |
+            Restricted arithmetic expression. Only `value`, numeric literals, +−*/, parentheses,
+            and Math.min/max/round are allowed. No eval, no identifiers other than `value`.
+          example: value / 100
+
+    TenantPayloadMapping:
+      type: object
+      description: |
+        Opt-in per-tenant payload normalization config for signal ingestion.
+        Pipeline order: aliases → transforms → required → types.
+      properties:
+        required:
+          type: array
+          items:
+            type: string
+          description: Dot-paths that must be present in payload after normalization
+          example: [stabilityScore]
+        aliases:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Alias map from canonical dot-path → candidate alias dot-paths
+          example:
+            stabilityScore: [stability_score]
+        types:
+          type: object
+          additionalProperties:
+            type: string
+            enum: [string, number, boolean, object]
+          description: Expected primitive types for specific dot-paths
+          example:
+            stabilityScore: number
+        transforms:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransformRule'
+          description: Computed transform rules (v1.1) — evaluated after aliases, before required/types
+        strict_transforms:
+          type: boolean
+          description: |
+            When true, a missing `source` path causes rejection with `missing_required_field`.
+            Default false (skip the transform when source is absent).
+          default: false
+
+    FieldMappingRecord:
+      type: object
+      required: [org_id, source_system, mapping]
+      properties:
+        org_id:
+          type: string
+        source_system:
+          type: string
+        mapping:
+          $ref: '#/components/schemas/TenantPayloadMapping'
+        mapping_version:
+          type: integer
+          description: Monotonically incrementing version number
+        template_id:
+          type: string
+          description: Integration template ID if mapping was created from a template
+        template_version:
+          type: string
+          description: Semantic version of the template at activation time
+        updated_at:
+          type: string
+          format: date-time
+        updated_by:
+          type: string
+          description: Admin key prefix of the caller who last updated this mapping
+
+    ListFieldMappingsResponse:
+      type: object
+      required: [mappings, count]
+      properties:
+        mappings:
+          type: array
+          items:
+            $ref: '#/components/schemas/FieldMappingRecord'
+        count:
+          type: integer
+
+    MappingErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              enum:
+                - invalid_mapping_expression
+                - invalid_format
+                - admin_key_required
             message:
               type: string

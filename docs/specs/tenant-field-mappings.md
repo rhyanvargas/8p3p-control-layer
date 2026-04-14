@@ -59,11 +59,11 @@ Transforms run **after** aliases, **before** required fields, so a transform may
 
 ### Functional (v1.1 — new)
 
-- [ ] **Computed transforms**: For each rule in `transforms[]`, read `source` from payload (dot-path allowed, e.g. `submission.score`), evaluate `expression` in a restricted grammar, write result to `target` (top-level canonical key unless spec says otherwise).
-- [ ] **DynamoDB config**: If `FIELD_MAPPINGS_TABLE` env is set and `GetItem` returns an item, use embedded mapping document; merge semantics = DynamoDB wins over file for same org+source_system when both exist (implementation: try DynamoDB first).
-- [ ] **Cache**: In-memory cache per `(org_id, source_system)` with TTL (default 300s, configurable); invalidate on admin `PUT` success for that key.
-- [ ] **Admin API**: `PUT /v1/admin/mappings/:org_id/:source_system` (body: full mapping JSON; optional `template_id` and `template_version` metadata), `GET /v1/admin/mappings/:org_id` (list SKs + metadata for that org, including template provenance when present). Auth: `ADMIN_API_KEY` only. Routed via `AdminFunction` (`docs/specs/aws-deployment.md`).
-- [ ] **Expression validation at upload**: Invalid expression → 400 at `PUT` time (admin API), never at runtime-only failure for pilot.
+- [x] **Computed transforms**: For each rule in `transforms[]`, read `source` from payload (dot-path allowed, e.g. `submission.score`), evaluate `expression` in a restricted grammar, write result to `target` (top-level canonical key unless spec says otherwise).
+- [x] **DynamoDB config**: If `FIELD_MAPPINGS_TABLE` env is set and `GetItem` returns an item, use embedded mapping document; merge semantics = DynamoDB wins over file for same org+source_system when both exist (implementation: try DynamoDB first).
+- [x] **Cache**: In-memory cache per `(org_id, source_system)` with TTL (default 300s, configurable); invalidate on admin `PUT` success for that key.
+- [x] **Admin API**: `PUT /v1/admin/mappings/:org_id/:source_system` (body: full mapping JSON; optional `template_id` and `template_version` metadata), `GET /v1/admin/mappings/:org_id` (list SKs + metadata for that org, including template provenance when present). Auth: `ADMIN_API_KEY` only. Routed via `AdminFunction` (`docs/specs/aws-deployment.md`).
+- [x] **Expression validation at upload**: Invalid expression → 400 at `PUT` time (admin API), never at runtime-only failure for pilot.
 
 ### Acceptance Criteria (v1 — unchanged)
 

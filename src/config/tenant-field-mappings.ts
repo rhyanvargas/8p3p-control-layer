@@ -1,8 +1,22 @@
 import { readFileSync } from 'fs';
 import type { RejectionReason } from '../shared/types.js';
 import { ErrorCodes } from '../shared/error-codes.js';
+import { evaluateTransform } from './transform-expression.js';
 
 export type PrimitiveType = 'string' | 'number' | 'boolean' | 'object';
+
+/**
+ * A single declarative computed transform rule (v1.1).
+ * @see docs/specs/tenant-field-mappings.md §Restricted Transform Expression Grammar
+ */
+export interface TransformRule {
+  /** Top-level canonical key to write the computed result into. */
+  target: string;
+  /** Dot-path into the payload to read the input value from. */
+  source: string;
+  /** Restricted arithmetic expression; only `value`, numeric literals, +, -, *, /, Math.min/max/round. */
+  expression: string;
+}
 
 export interface TenantPayloadMapping {
   /**
@@ -19,12 +33,30 @@ export interface TenantPayloadMapping {
    * (Optional strictness; default is no type enforcement.)
    */
   types?: Record<string, PrimitiveType>;
+  /**
+   * Computed transform rules evaluated after aliases, before required/types (v1.1).
+   */
+  transforms?: TransformRule[];
+  /**
+   * When true, a missing `source` path in a transform causes rejection with missing_required_field.
+   * Default: false (skip the transform when source is absent).
+   */
+  strict_transforms?: boolean;
 }
 
-export interface TenantFieldMappingsConfig {
+/** v1 file shape — `tenants[org_id].payload` applies to all source_system values. */
+export interface TenantFieldMappingsConfigV1 {
   version: 1;
   tenants: Record<string, { payload?: TenantPayloadMapping }>;
 }
+
+/** v2 file shape — `tenants[org_id][source_system].payload` for per-source mappings (v1.1). */
+export interface TenantFieldMappingsConfigV2 {
+  version: 2;
+  tenants: Record<string, Record<string, { payload?: TenantPayloadMapping }>>;
+}
+
+export type TenantFieldMappingsConfig = TenantFieldMappingsConfigV1 | TenantFieldMappingsConfigV2;
 
 let tenantConfig: TenantFieldMappingsConfig | null = null;
 
@@ -38,13 +70,29 @@ export function loadTenantFieldMappingsFromFile(filePath: string): void {
   setTenantFieldMappings(parsed);
 }
 
-export function getTenantPayloadMapping(orgId: string): TenantPayloadMapping | null {
-  return tenantConfig?.tenants?.[orgId]?.payload ?? null;
+/**
+ * Resolve the tenant payload mapping from the in-memory file config.
+ * v2: looks up `tenants[orgId][sourceSystem].payload`.
+ * v1 (backward compat): `tenants[orgId].payload` applies to all source_system values.
+ * Returns null when no config or no entry for the org.
+ */
+export function getTenantPayloadMapping(orgId: string, sourceSystem?: string): TenantPayloadMapping | null {
+  if (!tenantConfig) return null;
+  if (tenantConfig.version === 2) {
+    if (sourceSystem) {
+      const entry = tenantConfig.tenants[orgId]?.[sourceSystem];
+      if (entry?.payload) return entry.payload;
+    }
+    return null;
+  }
+  // v1: payload applies to all source_system values
+  return tenantConfig.tenants[orgId]?.payload ?? null;
 }
 
 /**
  * Resolve mapping for ingestion: DynamoDB first (when FIELD_MAPPINGS_TABLE is set), then file fallback.
  * Per docs/specs/tenant-field-mappings.md — Dynamo wins for same org+source_system.
+ * File fallback checks v2 source_system key first, then v1 wildcard mapping.
  */
 export async function resolveTenantPayloadMappingForIngest(
   orgId: string,
@@ -53,7 +101,8 @@ export async function resolveTenantPayloadMappingForIngest(
   const { getMappingFromDynamoDB } = await import('./field-mappings-dynamo.js');
   const fromDynamo = await getMappingFromDynamoDB(orgId, sourceSystem);
   if (fromDynamo) return fromDynamo;
-  return getTenantPayloadMapping(orgId);
+  // v2: try source_system-specific file entry; v1: wildcard via getTenantPayloadMapping(orgId)
+  return getTenantPayloadMapping(orgId, sourceSystem) ?? getTenantPayloadMapping(orgId);
 }
 
 /**
@@ -172,6 +221,34 @@ export function normalizeAndValidateTenantPayload(args: {
         code: ErrorCodes.INVALID_FORMAT,
         message: `Multiple alias fields present for '${canonical}': ${present.map((p) => p.path).join(', ')}`,
         field_path: `payload.${canonical}`,
+      });
+    }
+  }
+
+  // Computed transforms (v1.1): evaluate after aliases, before required/types.
+  const transforms = mapping.transforms ?? [];
+  const strict = mapping.strict_transforms ?? false;
+  for (const rule of transforms) {
+    const sourceVal = getAtPath(normalized, rule.source);
+    if (sourceVal === undefined || sourceVal === null) {
+      if (strict) {
+        errors.push({
+          code: ErrorCodes.MISSING_REQUIRED_FIELD,
+          message: `Transform source '${rule.source}' not found in payload for target '${rule.target}'`,
+          field_path: `payload.${rule.source}`,
+        });
+      }
+      continue;
+    }
+    const numeric = typeof sourceVal === 'number' ? sourceVal : Number(sourceVal);
+    try {
+      const result = evaluateTransform(rule.expression, numeric);
+      setAtPath(normalized, rule.target, result);
+    } catch (err) {
+      errors.push({
+        code: ErrorCodes.INVALID_MAPPING_EXPRESSION,
+        message: `Transform expression failed for target '${rule.target}': ${err instanceof Error ? err.message : String(err)}`,
+        field_path: `payload.${rule.target}`,
       });
     }
   }

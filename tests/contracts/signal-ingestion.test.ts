@@ -1,12 +1,23 @@
 /**
- * Contract Tests for Signal Ingestion (SIG-API-001 through SIG-API-015)
+ * Contract Tests for Signal Ingestion (SIG-API-001 through SIG-API-019)
  * Tests the POST /signals endpoint against the spec contract
+ *
+ * SIG-API-012–015: Tenant mapping regression after async + source_system wiring.
+ * SIG-API-016: Computed transform produces canonical field.
+ * SIG-API-018: DynamoDB mapping wins for org + source_system (mocked client).
+ * SIG-API-019: Fallback to file when DynamoDB is unavailable; warning logged.
  */
 
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest';
 import Fastify, { type FastifyInstance } from 'fastify';
+import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
+import { GetCommand } from '@aws-sdk/lib-dynamodb';
 import { registerIngestionRoutes } from '../../src/ingestion/routes.js';
 import { setTenantFieldMappings } from '../../src/config/tenant-field-mappings.js';
+import {
+  _setFieldMappingsDynamoClientForTesting,
+  clearFieldMappingCache,
+} from '../../src/config/field-mappings-dynamo.js';
 import {
   initIdempotencyStore,
   closeIdempotencyStore,
@@ -704,6 +715,211 @@ describe('Signal Ingestion Contract Tests', () => {
       expect(body.status).toBe('rejected');
       expect(body.rejection_reason.code).toBe('invalid_type');
       expect(body.rejection_reason.field_path).toBe('payload.level');
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // v1.1: Computed transforms (SIG-API-016)
+  // ---------------------------------------------------------------------------
+
+  describe('SIG-API-016: Computed transform produces canonical field', () => {
+    it('should accept signal and produce stabilityScore=0.65 from raw_score=65 via value/100', async () => {
+      setTenantFieldMappings({
+        version: 1,
+        tenants: {
+          'test-org': {
+            payload: {
+              required: ['stabilityScore'],
+              types: { stabilityScore: 'number' },
+              transforms: [
+                { target: 'stabilityScore', source: 'raw_score', expression: 'value / 100' },
+              ],
+            },
+          },
+        },
+      });
+
+      const signal = validSignal({ payload: { raw_score: 65 } });
+
+      const response = await contractHttp(app, {
+        method: 'POST',
+        url: '/v1/signals',
+        payload: signal,
+      });
+
+      expect(response.statusCode).toBe(200);
+      const body = response.json();
+      expect(body.status).toBe('accepted');
+
+      const stored = getSignalsByIds(signal.org_id as string, [signal.signal_id as string]);
+      expect(stored).toHaveLength(1);
+      expect((stored[0]!.payload as Record<string, unknown>).stabilityScore).toBeCloseTo(0.65);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // v1.1: DynamoDB mapping lookup (SIG-API-018, SIG-API-019)
+  // SIG-API-017 (invalid expression at admin PUT) lives in admin-field-mappings.test.ts
+  // ---------------------------------------------------------------------------
+
+  describe('SIG-API-018: DynamoDB mapping loaded for org + source_system', () => {
+    const ORG = 'springs';
+    const SOURCE = 'canvas-lms';
+    const ORIG_TABLE = process.env.FIELD_MAPPINGS_TABLE;
+
+    afterEach(() => {
+      process.env.FIELD_MAPPINGS_TABLE = ORIG_TABLE;
+      _setFieldMappingsDynamoClientForTesting(null);
+      clearFieldMappingCache();
+    });
+
+    it('should use DynamoDB mapping (not file config) when DynamoDB item exists', async () => {
+      process.env.FIELD_MAPPINGS_TABLE = 'test-field-mappings-table';
+
+      // DynamoDB item: mapping for springs + canvas-lms with stabilityScore required
+      const dynamoItem = {
+        org_id: ORG,
+        source_system: SOURCE,
+        mapping: {
+          required: ['stabilityScore'],
+          types: { stabilityScore: 'number' },
+        },
+      };
+
+      const mockSend = vi.fn().mockResolvedValue({
+        Item: dynamoItem,
+      });
+      _setFieldMappingsDynamoClientForTesting({ send: mockSend } as unknown as DynamoDBDocumentClient);
+
+      // File config for the same org with different (looser) rules — DynamoDB should win
+      setTenantFieldMappings({
+        version: 1,
+        tenants: { [ORG]: { payload: {} } },
+      });
+
+      const signal = validSignal({
+        org_id: ORG,
+        source_system: SOURCE,
+        payload: { stabilityScore: 0.8 },
+      });
+
+      const response = await contractHttp(app, {
+        method: 'POST',
+        url: '/v1/signals',
+        payload: signal,
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json().status).toBe('accepted');
+
+      // Verify DynamoDB was queried with correct key
+      const calls = mockSend.mock.calls;
+      const getItemCall = calls.find(
+        ([cmd]: [unknown]) => cmd instanceof GetCommand,
+      );
+      expect(getItemCall).toBeDefined();
+    });
+
+    it('should reject when DynamoDB mapping requires a field not in payload', async () => {
+      process.env.FIELD_MAPPINGS_TABLE = 'test-field-mappings-table';
+
+      const dynamoItem = {
+        org_id: ORG,
+        source_system: SOURCE,
+        mapping: { required: ['stabilityScore'] },
+      };
+
+      const mockSend = vi.fn().mockResolvedValue({
+        Item: dynamoItem,
+      });
+      _setFieldMappingsDynamoClientForTesting({ send: mockSend } as unknown as DynamoDBDocumentClient);
+
+      const signal = validSignal({
+        org_id: ORG,
+        source_system: SOURCE,
+        payload: { other_field: 1 },
+      });
+
+      const response = await contractHttp(app, {
+        method: 'POST',
+        url: '/v1/signals',
+        payload: signal,
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect(response.json().rejection_reason.code).toBe('missing_required_field');
+    });
+  });
+
+  describe('SIG-API-019: Fallback to file when DynamoDB miss/unavailable + warning', () => {
+    const ORIG_TABLE = process.env.FIELD_MAPPINGS_TABLE;
+
+    afterEach(() => {
+      process.env.FIELD_MAPPINGS_TABLE = ORIG_TABLE;
+      _setFieldMappingsDynamoClientForTesting(null);
+      clearFieldMappingCache();
+    });
+
+    it('should fall back to file mapping and log a warning when DynamoDB throws', async () => {
+      process.env.FIELD_MAPPINGS_TABLE = 'test-field-mappings-table';
+
+      const mockSend = vi.fn().mockRejectedValue(new Error('DynamoDB connection refused'));
+      _setFieldMappingsDynamoClientForTesting({ send: mockSend } as unknown as DynamoDBDocumentClient);
+
+      // File config: loose mapping — no required fields — signal should be accepted
+      setTenantFieldMappings({
+        version: 1,
+        tenants: { 'test-org': { payload: {} } },
+      });
+
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+      const signal = validSignal({ payload: { skill: 'math' } });
+
+      const response = await contractHttp(app, {
+        method: 'POST',
+        url: '/v1/signals',
+        payload: signal,
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json().status).toBe('accepted');
+
+      // Warning should mention field_mappings_dynamo_degraded
+      const warnArgs = warnSpy.mock.calls.map((c) => JSON.stringify(c)).join(' ');
+      expect(warnArgs).toMatch(/field_mappings_dynamo_degraded/);
+
+      warnSpy.mockRestore();
+    });
+
+    it('should use file mapping when DynamoDB has no item for org+source_system', async () => {
+      process.env.FIELD_MAPPINGS_TABLE = 'test-field-mappings-table';
+
+      // DynamoDB returns empty (no item)
+      const mockSend = vi.fn().mockResolvedValue({ Item: undefined });
+      _setFieldMappingsDynamoClientForTesting({ send: mockSend } as unknown as DynamoDBDocumentClient);
+
+      setTenantFieldMappings({
+        version: 1,
+        tenants: {
+          'test-org': {
+            payload: {
+              required: ['stabilityScore'],
+            },
+          },
+        },
+      });
+
+      const signal = validSignal({ payload: { other: 1 } });
+
+      const response = await contractHttp(app, {
+        method: 'POST',
+        url: '/v1/signals',
+        payload: signal,
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect(response.json().rejection_reason.code).toBe('missing_required_field');
     });
   });
 });

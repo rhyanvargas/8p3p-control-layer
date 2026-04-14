@@ -16,7 +16,7 @@ import type {
 import { ErrorCodes } from '../shared/error-codes.js';
 import { validateSignalEnvelope } from '../contracts/validators/signal-envelope.js';
 import { detectForbiddenKeys } from './forbidden-keys.js';
-import { normalizeAndValidateTenantPayload } from '../config/tenant-field-mappings.js';
+import { normalizeAndValidateTenantPayloadAsync } from '../config/tenant-field-mappings.js';
 import { checkAndStore } from './idempotency.js';
 import { appendSignal } from '../signalLog/store.js';
 import { appendIngestionOutcome } from './ingestion-log-store.js';
@@ -111,7 +111,7 @@ export async function handleSignalIngestionCore(
     };
   }
 
-  const tenantPayload = normalizeAndValidateTenantPayload({ orgId: signal.org_id, payload: signal.payload });
+  const tenantPayload = await normalizeAndValidateTenantPayloadAsync({ orgId: signal.org_id, sourceSystem: signal.source_system, payload: signal.payload });
   if (!tenantPayload.ok) {
     const firstError = tenantPayload.errors[0]!;
 

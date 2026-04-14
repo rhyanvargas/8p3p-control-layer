@@ -29,6 +29,7 @@ import { adminApiKeyPreHandler } from './auth/admin-api-key-middleware.js';
 import { loadTenantFieldMappingsFromFile } from './config/tenant-field-mappings.js';
 import { registerPolicyManagementRoutes } from './admin/policy-management-routes.js';
 import { registerPolicyInspectionRoutes } from './policies/routes.js';
+import { registerAdminFieldMappingsRoutes } from './routes/admin-field-mappings.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -270,6 +271,7 @@ server.register(async (v1) => {
 server.register(async (admin) => {
   admin.addHook('preHandler', adminApiKeyPreHandler);
   registerPolicyManagementRoutes(admin);
+  registerAdminFieldMappingsRoutes(admin);
 }, { prefix: '/v1/admin' });
 
 // Graceful shutdown: close stores (reverse of init order)
