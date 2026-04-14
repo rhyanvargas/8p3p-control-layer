@@ -2,7 +2,7 @@
 
 > Approved user stories for features that build on the v1.1 infrastructure. These are **not yet spec'd** — each story should produce a spec in `docs/specs/` via `/draft-spec` before implementation planning.
 
-*Created: 2026-02-24 | Updated: 2026-03-28 | Source: architectural alignment review + pilot customer feedback*
+*Created: 2026-02-24 | Updated: 2026-04-10 | Source: architectural alignment review + pilot customer feedback*
 
 ---
 
@@ -11,11 +11,16 @@
 > - `docs/specs/learner-trajectory-api.md` (from US-TRAJECTORY-001)
 > - `docs/specs/learner-summary-api.md` (from US-HANDOFF-001)
 >
-> US-SKILL-001 remains in v1.2 because the v1.1 trajectory and summary specs intentionally scope to flat fields only (no dot-path dependency).
+> **US-SKILL-001 promoted to v1.1 (2026-04-10):** Promoted to deliver "What they need help with" for pilot. Now spec'd as `docs/specs/skill-level-tracking.md` — includes dot-path policy evaluation, nested delta detection, assessment-type classification, and skill/assessment query filters.
 
 ---
 
-## US-SKILL-001: Skill-level signal ingestion and policy evaluation
+## ~~US-SKILL-001: Skill-level signal ingestion and policy evaluation~~ → **PROMOTED TO v1.1**
+
+> **Promoted 2026-04-10.** Full spec: `docs/specs/skill-level-tracking.md`. Expanded scope: dot-path policy evaluation, nested delta detection, assessment-type classification, skill/assessment query filters, decision context propagation. Original acceptance criteria preserved and extended.
+
+<details>
+<summary>Original story (archived)</summary>
 
 **As a** pilot school administrator integrating with 8P3P,
 **I want to** include a `skill` descriptor (e.g., "fractions", "reading-comprehension", "safety-compliance") in the signal payload alongside canonical scores,
@@ -29,21 +34,7 @@
 4. `GET /v1/state` returns the full accumulated state including all skill-level entries.
 5. Existing flat-field policies continue to work unchanged (backward compatible).
 
-### Implementation notes
-
-- State engine already deep-merges nested payloads — no change needed there.
-- Core change: replace `state[node.field]` in `evaluateConditionCollecting` (`src/decision/policy-loader.ts` line 200) with a dot-path resolver (~10 LOC).
-- Applies to any domain: education (skills), factory training (modules), LMS (courses).
-
-### Dependencies
-
-- None — can be implemented on v1.1 infrastructure or current v1.
-
-### Unlocks (post-US-SKILL-001)
-
-- `learner-trajectory-api.md` dot-path extension (nested field trajectory)
-- `learner-summary-api.md` skill-level breakdown in `current_state.fields`
-- `state-delta-detection.md` dot-path delta fields
+</details>
 
 ---
 
@@ -80,11 +71,7 @@
 ## Sequencing
 
 ```
-US-SKILL-001  (dot-path resolver — prerequisite for nested field support)
-     │
-     ├── learner-trajectory-api.md dot-path extension (nested fields in trajectory)
-     │
-     └── learner-summary-api.md skill-level breakdown
+US-SKILL-001  → PROMOTED TO v1.1 (docs/specs/skill-level-tracking.md)
 
 US-POLICY-BUILDER-001  (independent — requires LLM service spec first)
      │
@@ -97,7 +84,7 @@ US-POLICY-BUILDER-001  (independent — requires LLM service spec first)
 
 | Story | Mission claim |
 |---|---|
-| US-SKILL-001 | "detecting **where** understanding is breaking down" (skill-level granularity) |
+| ~~US-SKILL-001~~ | ~~"detecting **where** understanding is breaking down"~~ → **v1.1** `skill-level-tracking.md` |
 | US-POLICY-BUILDER-001 | "turn vague educator needs into deterministic policies" (product capability, not services) |
 
 The v1.1 infrastructure (DynamoDB, CDK, policy management API, trajectory, summary) provides the foundational architecture these stories build on.
