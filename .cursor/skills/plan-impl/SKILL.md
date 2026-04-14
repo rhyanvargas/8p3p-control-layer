@@ -34,17 +34,21 @@ When the user invokes `/plan-impl`:
    - Functional requirements
    - Contract test IDs
    - Dependencies on other specs/components
-2. Create ordered tasks (`TASK-001`, `TASK-002`, ...) where each task has:
+2. **Check existing solutions** (per `.cursor/rules/prefer-existing-solutions/RULE.md`):
+   - For each requirement that involves an external service or well-known pattern, query relevant MCP servers (AWS docs, DynamoDB modeling, IaC) for official recommended approaches.
+   - Check `package.json` for installed libraries that already provide higher-level abstractions (e.g. `DynamoDBDocumentClient` over raw `DynamoDBClient`).
+   - Plan tasks should prefer existing SDK/library APIs. If a task proposes custom code where a library solution exists, note the justification (cheaper, faster, less complex, or higher DX) in the task details.
+3. Create ordered tasks (`TASK-001`, `TASK-002`, ...) where each task has:
    - explicit files
    - action (create/modify/delete)
    - verification criteria
    - dependency links
-3. Add mandatory test tasks:
+4. Add mandatory test tasks:
    - one task per spec-defined contract test set
    - direct tests for new public exports/DI surfaces
-4. Save plan to `.cursor/plans/{feature-name}.plan.md`
-5. Initialize `todos` for every task as `pending`
-6. Ensure every spec test ID maps to a task in the Test Plan table
+5. Save plan to `.cursor/plans/{feature-name}.plan.md`
+6. Initialize `todos` for every task as `pending`
+7. Ensure every spec test ID maps to a task in the Test Plan table
 
 > **Test task rule of thumb**: If the spec has a Contract Tests section, every test ID in that section must appear in the Test Plan table linked to a task. If a plan has no test tasks, it is incomplete.
 

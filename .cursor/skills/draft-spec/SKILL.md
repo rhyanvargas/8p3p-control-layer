@@ -28,18 +28,23 @@ When the user invokes `/draft-spec`:
 1. Parse the user request into: problem, user, expected outcomes.
 2. If unclear, ask targeted clarifying questions before drafting.
 3. Search related specs and code for reuse/dependencies.
-4. Draft spec with these required sections:
+4. **Check existing solutions** (per `.cursor/rules/prefer-existing-solutions/RULE.md`):
+   - Query relevant MCP servers (AWS docs, DynamoDB modeling, IaC) for official patterns and best practices for each external integration the feature touches.
+   - Check `package.json` for existing libraries that already solve parts of the problem.
+   - Reference official SDK/library docs for recommended abstractions (e.g. high-level clients over low-level + manual serialization).
+   - Document findings in the spec's Dependencies or Notes section. If custom code is proposed where a library exists, include a justification (cheaper, faster, less complex, or higher DX).
+5. Draft spec with these required sections:
    - Overview
    - Functional requirements + acceptance criteria
    - Constraints + out of scope
    - Dependencies (explicit source doc references)
    - Error codes (existing vs new)
    - Contract tests (explicit test IDs)
-5. Enforce dependency ownership:
+6. Enforce dependency ownership:
    - Reference cross-component functions/types in source specs
    - Do not define another component's interfaces inline
-6. Save file at `docs/specs/{feature-name}.md`.
-7. Recommend `/plan-impl docs/specs/{feature-name}.md`.
+7. Save file at `docs/specs/{feature-name}.md`.
+8. Recommend `/plan-impl docs/specs/{feature-name}.md`.
 
 ## Spec Template
 

@@ -126,6 +126,32 @@ For detailed contract specifications, see the API specs in [`docs/api/`](docs/ap
 
 ---
 
+## Environment variables
+
+The server loads `.env` then `.env.local` at startup (see `src/server.ts`). Copy [`.env.example`](.env.example) to `.env` and set values as needed; use `.env.local` for secrets you do not commit.
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PORT` | `3000` | HTTP listen port |
+| `LOG_LEVEL` | `info` | Log level |
+| `API_KEY` | *(unset)* | If set, `/v1/*` requires header `x-api-key`. If unset, tenant API key auth is off (typical for local dev). Generate: `npm run generate:api-key` |
+| `API_KEY_ORG_ID` | *(unset)* | If set, the server forces this `org_id` for the tenant key (client cannot choose org). If unset, `org_id` comes from the request |
+| `SIGNAL_BODY_LIMIT` | `1048576` | Max body size in bytes for `POST /v1/signals` |
+| `IDEMPOTENCY_DB_PATH` | `./data/idempotency.db` | SQLite path (created on first use) |
+| `SIGNAL_LOG_DB_PATH` | `./data/signal-log.db` | SQLite path |
+| `STATE_STORE_DB_PATH` | `./data/state.db` | SQLite path |
+| `INGESTION_LOG_DB_PATH` | `./data/ingestion-log.db` | SQLite path (ingestion audit log) |
+| `DECISION_DB_PATH` | `./data/decisions.db` | SQLite path |
+| `DECISION_POLICY_PATH` | `<cwd>/src/decision/policies/default.json` | Decision policy JSON file |
+| `TENANT_FIELD_MAPPINGS_PATH` | *(unset)* | Static JSON for tenant payload mappings ([DEF-DEC-006](docs/specs/tenant-field-mappings.md)). If unset, file-based mappings are off unless you use DynamoDB |
+| `FIELD_MAPPINGS_TABLE` | *(unset)* | DynamoDB table for field mappings (v1.1). If unset, DynamoDB lookup is skipped; ingestion uses file config or prior behavior |
+| `FIELD_MAPPINGS_CACHE_TTL_MS` | `300000` (5 min) | In-memory TTL for FieldMappingsTable cache |
+| `ADMIN_API_KEY` | *(unset)* | If set, `/v1/admin/*` requires header `x-admin-api-key`. Generate: `openssl rand -hex 32` |
+
+For hands-on setup steps, see [Local environment setup](docs/foundation/setup.md).
+
+---
+
 ## Project Structure
 
 ```
