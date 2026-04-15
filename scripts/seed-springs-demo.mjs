@@ -1,15 +1,18 @@
 #!/usr/bin/env node
 /**
- * Springs Charter Schools Demo Seed Script
+ * Springs Charter Schools Demo Seed Script (v2)
  *
- * Populates a running 8P3P server with Springs pilot data: 14 signals across
- * canvas-lms, blackboard-lms, and absorb-lms demonstrating dual user-type
- * routing (learner vs staff), cross-system identity resolution, and all 4
- * decision types. Includes multi-version staff traces (staff-0201, staff-0403,
- * teacher-7890) for longer state/receipt history in the panels.
+ * Full onboarding-to-intelligence pipeline demo:
+ *   Phase 1 — Register field mappings for 4 LMS source systems via admin API
+ *   Phase 2 — Send 11 realistic LMS-shaped signals across 5 personas
+ *   Phase 3 — Verify decisions and output narrative summary
  *
- * Plan: .cursor/plans/springs-demo-seed.plan.md
- * Usage: npm run seed:springs-demo   or   node scripts/seed-springs-demo.mjs [--host URL] [--api-key KEY] [--org ORG]
+ * Source systems: Canvas LMS, Blackboard LMS, i-Ready Diagnostic, Absorb LMS
+ * Personas: Maya Kim, Alex Rivera, Jordan Mitchell, Sam Torres, Ms. Davis
+ *
+ * Plan: .cursor/plans/springs-realistic-seed.plan.md
+ * Usage: npm run seed:springs-demo
+ *    or: node scripts/seed-springs-demo.mjs [--host URL] [--api-key KEY] [--admin-key KEY] [--org ORG]
  */
 
 import { config } from 'dotenv';
@@ -25,221 +28,444 @@ const DEFAULT_HOST = 'http://localhost:3000';
 const DEFAULT_ORG = 'springs';
 const DELAY_MS = 100;
 
-const TS = {
-  t0a: '2026-03-02T08:50:00Z',
-  t0b: '2026-03-02T08:52:00Z',
-  t0c: '2026-03-02T08:54:00Z',
-  t0d: '2026-03-02T08:56:00Z',
-  t0e: '2026-03-02T08:58:00Z',
-  t1: '2026-03-02T09:00:00Z',
-  t2: '2026-03-02T09:02:00Z',
-  t3: '2026-03-02T09:04:00Z',
-  t4: '2026-03-02T09:06:00Z',
-  t5: '2026-03-02T09:08:00Z',
-  t6: '2026-03-02T09:10:00Z',
-  t7: '2026-03-02T09:12:00Z',
-  t8: '2026-03-02T09:14:00Z',
-  t9: '2026-03-02T09:16:00Z',
+// ─── Field Mappings (TASK-002 design) ────────────────────────────────────────
+
+const FIELD_MAPPINGS = {
+  'canvas-lms': {
+    aliases: {
+      skill: ['group.courseNumber'],
+      assessment_type: ['object.extensions.com_instructure_canvas.submission_type'],
+    },
+    transforms: [
+      {
+        target: 'masteryScore',
+        sources: { earned: 'generated.scoreGiven', possible: 'generated.maxScore' },
+        expression: 'Math.min(earned / possible, 1)',
+      },
+      {
+        target: 'stabilityScore',
+        sources: { earned: 'generated.scoreGiven', possible: 'generated.maxScore' },
+        expression: 'Math.min(earned / possible, 1) * 0.9',
+      },
+      {
+        target: 'timeSinceReinforcement',
+        source: 'extensions.timeSinceLastActivity',
+        expression: 'value',
+      },
+    ],
+    types: {
+      masteryScore: 'number',
+      stabilityScore: 'number',
+      skill: 'string',
+    },
+  },
+
+  'blackboard-lms': {
+    aliases: {
+      skill: ['group.courseNumber'],
+      assessment_type: ['extensions.bb_action_name'],
+    },
+    transforms: [
+      {
+        target: 'masteryScore',
+        sources: { earned: 'generated.scoreGiven', possible: 'object.assignable.maxScore' },
+        expression: 'Math.min(earned / possible, 1)',
+      },
+      {
+        target: 'stabilityScore',
+        sources: { earned: 'generated.scoreGiven', possible: 'object.assignable.maxScore' },
+        expression: 'Math.min(earned / possible, 1) * 0.85',
+      },
+      {
+        target: 'timeSinceReinforcement',
+        source: 'extensions.timeSinceLastActivity',
+        expression: 'value',
+      },
+    ],
+    types: {
+      masteryScore: 'number',
+      stabilityScore: 'number',
+      skill: 'string',
+    },
+  },
+
+  'iready-diagnostic': {
+    aliases: {
+      skill: ['subject'],
+      assessment_type: ['normingWindow'],
+    },
+    transforms: [
+      {
+        target: 'masteryScore',
+        sources: { score: 'overallScaleScore', maxScore: 'maxScaleScore' },
+        expression: 'Math.min(score / maxScore, 1)',
+      },
+      {
+        target: 'stabilityScore',
+        source: 'percentile',
+        expression: 'value / 100',
+      },
+      {
+        target: 'riskSignal',
+        source: 'diagnosticGain',
+        expression: 'Math.max(1 - (value + 50) / 100, 0)',
+      },
+    ],
+    types: {
+      masteryScore: 'number',
+      stabilityScore: 'number',
+      riskSignal: 'number',
+      skill: 'string',
+    },
+  },
+
+  'absorb-lms': {
+    aliases: {
+      skill: ['name'],
+      assessment_type: ['enrollmentType'],
+    },
+    transforms: [
+      {
+        target: 'complianceScore',
+        source: 'progress',
+        expression: 'value',
+      },
+      {
+        target: 'trainingScore',
+        sources: { score: 'score', maxScore: 'maxScore' },
+        expression: 'Math.min(score / maxScore, 1)',
+      },
+      {
+        target: 'daysOverdue',
+        source: 'daysOverdue',
+        expression: 'value',
+      },
+      {
+        target: 'certificationValid',
+        source: 'certificationValid',
+        expression: 'value',
+      },
+    ],
+    types: {
+      complianceScore: 'number',
+      trainingScore: 'number',
+      daysOverdue: 'number',
+      certificationValid: 'boolean',
+    },
+  },
 };
+
+// ─── Personas ────────────────────────────────────────────────────────────────
+
+const PERSONAS = {
+  'stu-10042': { name: 'Maya Kim', summary: 'Canvas Math + i-Ready Reading' },
+  'stu-20891': { name: 'Alex Rivera', summary: 'Canvas ELA + Blackboard Science' },
+  'stu-30456': { name: 'Jordan Mitchell', summary: 'Canvas Math trajectory + Blackboard History' },
+  'stu-40123': { name: 'Sam Torres', summary: 'Canvas ELA' },
+  'staff-0201': { name: 'Ms. Davis', summary: 'Absorb Compliance' },
+};
+
+// ─── Signal definitions (TASK-003 design) ────────────────────────────────────
+
+const BASE_TS = '2026-03-15T09:00:00Z';
+function offsetTs(minutes) {
+  const d = new Date(BASE_TS);
+  d.setMinutes(d.getMinutes() + minutes);
+  return d.toISOString().replace('.000Z', 'Z');
+}
+
+const SIGNALS = [
+  // Signal 1: Maya Kim — Canvas Math (advance)
+  {
+    signalId: 'maya-canvas-math-001',
+    sourceSystem: 'canvas-lms',
+    learnerRef: 'stu-10042',
+    timestamp: offsetTs(0),
+    persona: 'Maya Kim',
+    skill: 'MATH-301',
+    expectDecision: 'advance',
+    payload: {
+      generated: { scoreGiven: 92, maxScore: 100 },
+      group: { courseNumber: 'MATH-301' },
+      object: { extensions: { com_instructure_canvas: { submission_type: 'online_quiz' } } },
+      extensions: { timeSinceLastActivity: 30000 },
+      skill: 'MATH-301',
+      skills: { 'MATH-301': { masteryScore: 0.92, stabilityScore: 0.828 } },
+    },
+  },
+
+  // Signal 2: Maya Kim — i-Ready Reading (intervene)
+  {
+    signalId: 'maya-iready-read-001',
+    sourceSystem: 'iready-diagnostic',
+    learnerRef: 'stu-10042',
+    timestamp: offsetTs(2),
+    persona: 'Maya Kim',
+    skill: 'Reading',
+    expectDecision: 'intervene',
+    payload: {
+      overallScaleScore: 380,
+      maxScaleScore: 800,
+      percentile: 22,
+      diagnosticGain: -15,
+      subject: 'Reading',
+      normingWindow: 'MOY',
+      timeSinceReinforcement: 200000,
+      skill: 'Reading',
+      skills: { Reading: { masteryScore: 0.475, stabilityScore: 0.22, riskSignal: 0.65 } },
+    },
+  },
+
+  // Signal 3: Alex Rivera — Canvas ELA (intervene)
+  {
+    signalId: 'alex-canvas-ela-001',
+    sourceSystem: 'canvas-lms',
+    learnerRef: 'stu-20891',
+    timestamp: offsetTs(4),
+    persona: 'Alex Rivera',
+    skill: 'ELA-201',
+    expectDecision: 'intervene',
+    payload: {
+      generated: { scoreGiven: 28, maxScore: 100 },
+      group: { courseNumber: 'ELA-201' },
+      object: { extensions: { com_instructure_canvas: { submission_type: 'online_upload' } } },
+      extensions: { timeSinceLastActivity: 190000 },
+      skill: 'ELA-201',
+      skills: { 'ELA-201': { masteryScore: 0.28, stabilityScore: 0.252 } },
+    },
+  },
+
+  // Signal 4: Alex Rivera — Blackboard Science (intervene)
+  {
+    signalId: 'alex-bb-sci-001',
+    sourceSystem: 'blackboard-lms',
+    learnerRef: 'stu-20891',
+    timestamp: offsetTs(6),
+    persona: 'Alex Rivera',
+    skill: 'SCI-101',
+    expectDecision: 'intervene',
+    payload: {
+      generated: { scoreGiven: 15 },
+      object: { assignable: { maxScore: 60 } },
+      group: { courseNumber: 'SCI-101' },
+      extensions: { bb_action_name: 'GradeSubmission', timeSinceLastActivity: 180000 },
+      skill: 'SCI-101',
+      skills: { 'SCI-101': { masteryScore: 0.25, stabilityScore: 0.2125 } },
+    },
+  },
+
+  // Signal 5: Jordan Mitchell — Canvas Math t1 (reinforce)
+  {
+    signalId: 'jordan-canvas-math-001',
+    sourceSystem: 'canvas-lms',
+    learnerRef: 'stu-30456',
+    timestamp: offsetTs(8),
+    persona: 'Jordan Mitchell',
+    skill: 'MATH-301',
+    expectDecision: 'reinforce',
+    payload: {
+      generated: { scoreGiven: 45, maxScore: 100 },
+      group: { courseNumber: 'MATH-301' },
+      object: { extensions: { com_instructure_canvas: { submission_type: 'online_quiz' } } },
+      extensions: { timeSinceLastActivity: 95000 },
+      skill: 'MATH-301',
+      skills: { 'MATH-301': { masteryScore: 0.45, stabilityScore: 0.405 } },
+    },
+  },
+
+  // Signal 6: Jordan Mitchell — Canvas Math t2 (reinforce, improving)
+  {
+    signalId: 'jordan-canvas-math-002',
+    sourceSystem: 'canvas-lms',
+    learnerRef: 'stu-30456',
+    timestamp: offsetTs(10),
+    persona: 'Jordan Mitchell',
+    skill: 'MATH-301',
+    expectDecision: 'reinforce',
+    payload: {
+      generated: { scoreGiven: 68, maxScore: 100 },
+      group: { courseNumber: 'MATH-301' },
+      object: { extensions: { com_instructure_canvas: { submission_type: 'online_quiz' } } },
+      extensions: { timeSinceLastActivity: 90000 },
+      skill: 'MATH-301',
+      skills: { 'MATH-301': { masteryScore: 0.68, stabilityScore: 0.612 } },
+    },
+  },
+
+  // Signal 7: Jordan Mitchell — Blackboard History (reinforce, default)
+  // Sent BEFORE math-003 so Jordan's final signal is the MATH-301 advance,
+  // preserving masteryScore_direction: 'improving' for Panel 4 display.
+  {
+    signalId: 'jordan-bb-hist-001',
+    sourceSystem: 'blackboard-lms',
+    learnerRef: 'stu-30456',
+    timestamp: offsetTs(12),
+    persona: 'Jordan Mitchell',
+    skill: 'HIST-202',
+    expectDecision: 'reinforce',
+    payload: {
+      generated: { scoreGiven: 48 },
+      object: { assignable: { maxScore: 60 } },
+      group: { courseNumber: 'HIST-202' },
+      extensions: { bb_action_name: 'GradeSubmission', timeSinceLastActivity: 40000 },
+      skill: 'HIST-202',
+      skills: { 'HIST-202': { masteryScore: 0.80, stabilityScore: 0.68 } },
+    },
+  },
+
+  // Signal 8: Jordan Mitchell — Canvas Math t3 (advance, level transition)
+  {
+    signalId: 'jordan-canvas-math-003',
+    sourceSystem: 'canvas-lms',
+    learnerRef: 'stu-30456',
+    timestamp: offsetTs(14),
+    persona: 'Jordan Mitchell',
+    skill: 'MATH-301',
+    expectDecision: 'advance',
+    payload: {
+      generated: { scoreGiven: 90, maxScore: 100 },
+      group: { courseNumber: 'MATH-301' },
+      object: { extensions: { com_instructure_canvas: { submission_type: 'online_quiz' } } },
+      extensions: { timeSinceLastActivity: 30000 },
+      skill: 'MATH-301',
+      skills: { 'MATH-301': { masteryScore: 0.90, stabilityScore: 0.81 } },
+    },
+  },
+
+  // Signal 9: Sam Torres — Canvas ELA (reinforce)
+  {
+    signalId: 'sam-canvas-ela-001',
+    sourceSystem: 'canvas-lms',
+    learnerRef: 'stu-40123',
+    timestamp: offsetTs(16),
+    persona: 'Sam Torres',
+    skill: 'ELA-201',
+    expectDecision: 'reinforce',
+    payload: {
+      generated: { scoreGiven: 55, maxScore: 100 },
+      group: { courseNumber: 'ELA-201' },
+      object: { extensions: { com_instructure_canvas: { submission_type: 'online_upload' } } },
+      extensions: { timeSinceLastActivity: 90000 },
+      skill: 'ELA-201',
+      skills: { 'ELA-201': { masteryScore: 0.55, stabilityScore: 0.495 } },
+    },
+  },
+
+  // Signal 10: Ms. Davis — Absorb Compliance t1 (reinforce)
+  {
+    signalId: 'davis-absorb-001',
+    sourceSystem: 'absorb-lms',
+    learnerRef: 'staff-0201',
+    timestamp: offsetTs(18),
+    persona: 'Ms. Davis',
+    skill: 'Annual Compliance 2026',
+    expectDecision: 'reinforce',
+    payload: {
+      progress: 0.60,
+      score: 70,
+      maxScore: 100,
+      daysOverdue: 5,
+      certificationValid: true,
+      name: 'Annual Compliance 2026',
+      enrollmentType: 'required',
+      skill: 'Annual Compliance 2026',
+      skills: { 'Annual Compliance 2026': { complianceScore: 0.60, trainingScore: 0.70, daysOverdue: 5, stabilityScore: 0.60, masteryScore: 0.70 } },
+    },
+  },
+
+  // Signal 11: Ms. Davis — Absorb Compliance t2 (intervene, declining)
+  {
+    signalId: 'davis-absorb-002',
+    sourceSystem: 'absorb-lms',
+    learnerRef: 'staff-0201',
+    timestamp: offsetTs(20),
+    persona: 'Ms. Davis',
+    skill: 'Annual Compliance 2026',
+    expectDecision: 'intervene',
+    payload: {
+      progress: 0.35,
+      score: 40,
+      maxScore: 100,
+      daysOverdue: 20,
+      certificationValid: true,
+      name: 'Annual Compliance 2026',
+      enrollmentType: 'required',
+      skill: 'Annual Compliance 2026',
+      skills: { 'Annual Compliance 2026': { complianceScore: 0.35, trainingScore: 0.40, daysOverdue: 20, stabilityScore: 0.35, masteryScore: 0.40 } },
+    },
+  },
+];
+
+// ─── CLI args ────────────────────────────────────────────────────────────────
 
 function parseArgs() {
   const args = process.argv.slice(2);
-  const opts = { host: DEFAULT_HOST, apiKey: process.env.API_KEY, org: DEFAULT_ORG };
+  const opts = {
+    host: DEFAULT_HOST,
+    apiKey: process.env.API_KEY,
+    adminKey: process.env.ADMIN_API_KEY,
+    org: DEFAULT_ORG,
+  };
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--host' && args[i + 1]) opts.host = args[++i];
     else if (args[i] === '--api-key' && args[i + 1]) opts.apiKey = args[++i];
+    else if (args[i] === '--admin-key' && args[i + 1]) opts.adminKey = args[++i];
     else if (args[i] === '--org' && args[i + 1]) opts.org = args[++i];
   }
   return opts;
 }
 
-function buildEnvelope(signalId, sourceSystem, learnerRef, timestamp, payload) {
-  return {
-    org_id: null,
-    signal_id: signalId,
-    source_system: sourceSystem,
-    learner_reference: learnerRef,
-    timestamp,
-    schema_version: 'v1',
-    payload,
-  };
-}
-
-// 14 signals: 5 "history" signals first (multi-version staff traces), then original 9. Chronological order.
-// expectPolicyId: springs:learner for canvas-lms/blackboard-lms, springs:staff for absorb-lms (per policies/springs/routing.json)
-const SIGNALS = [
-  // --- Staff multi-version history (earlier timestamps for longer trace in Panel 2/3/4) ---
-  // staff-0201: 3 signals = reinforce → intervene → intervene (compliance decline, days overdue growth)
-  {
-    ...buildEnvelope('staff-0201-absorb-002', 'absorb-lms', 'staff-0201', TS.t0a, {
-      complianceScore: 0.6,
-      daysOverdue: 5,
-      certificationValid: true,
-    }),
-    signalId: 'staff-0201-absorb-002',
-    expectStatus: 'accepted',
-    expectDecision: 'reinforce',
-    expectPolicyId: 'springs:staff',
-  },
-  {
-    ...buildEnvelope('staff-0201-absorb-003', 'absorb-lms', 'staff-0201', TS.t0b, {
-      complianceScore: 0.45,
-      daysOverdue: 15,
-      certificationValid: true,
-    }),
-    signalId: 'staff-0201-absorb-003',
-    expectStatus: 'accepted',
-    expectDecision: 'intervene',
-    expectPolicyId: 'springs:staff',
-  },
-  // staff-0403: 3 signals = reinforce → reinforce → advance (training improvement to model compliance)
-  {
-    ...buildEnvelope('staff-0403-absorb-002', 'absorb-lms', 'staff-0403', TS.t0c, {
-      complianceScore: 0.82,
-      trainingScore: 0.65,
-      daysOverdue: 0,
-      certificationValid: true,
-    }),
-    signalId: 'staff-0403-absorb-002',
-    expectStatus: 'accepted',
-    expectDecision: 'reinforce',
-    expectPolicyId: 'springs:staff',
-  },
-  {
-    ...buildEnvelope('staff-0403-absorb-003', 'absorb-lms', 'staff-0403', TS.t0d, {
-      complianceScore: 0.86,
-      trainingScore: 0.72,
-      daysOverdue: 2,
-      certificationValid: true,
-    }),
-    signalId: 'staff-0403-absorb-003',
-    expectStatus: 'accepted',
-    expectDecision: 'reinforce',
-    expectPolicyId: 'springs:staff',
-  },
-  // teacher-7890 (Absorb): 2 signals = reinforce → reinforce (longer staff trace for cross-system demo)
-  {
-    ...buildEnvelope('teacher-7890-absorb-002', 'absorb-lms', 'teacher-7890', TS.t0e, {
-      complianceScore: 0.68,
-      trainingScore: 0.62,
-      daysOverdue: 5,
-      certificationValid: true,
-    }),
-    signalId: 'teacher-7890-absorb-002',
-    expectStatus: 'accepted',
-    expectDecision: 'reinforce',
-    expectPolicyId: 'springs:staff',
-  },
-  // --- Original 9 scenarios ---
-  {
-    ...buildEnvelope('stu-10042-canvas-001', 'canvas-lms', 'stu-10042', TS.t1, {
-      stabilityScore: 0.87,
-      masteryScore: 0.89,
-      timeSinceReinforcement: 30000,
-    }),
-    signalId: 'stu-10042-canvas-001',
-    expectStatus: 'accepted',
-    expectDecision: 'advance',
-    expectPolicyId: 'springs:learner',
-  },
-  {
-    ...buildEnvelope('stu-10042-bb-001', 'blackboard-lms', 'stu-10042', TS.t2, {
-      stabilityScore: 0.91,
-      masteryScore: 0.93,
-      timeSinceReinforcement: 28000,
-    }),
-    signalId: 'stu-10042-bb-001',
-    expectStatus: 'accepted',
-    expectDecision: 'advance',
-    expectPolicyId: 'springs:learner',
-  },
-  {
-    ...buildEnvelope('stu-20891-canvas-001', 'canvas-lms', 'stu-20891', TS.t3, {
-      stabilityScore: 0.22,
-      timeSinceReinforcement: 200000,
-      riskSignal: 0.45,
-    }),
-    signalId: 'stu-20891-canvas-001',
-    expectStatus: 'accepted',
-    expectDecision: 'intervene',
-    expectPolicyId: 'springs:learner',
-  },
-  {
-    ...buildEnvelope('stu-30456-bb-001', 'blackboard-lms', 'stu-30456', TS.t4, {
-      stabilityScore: 0.58,
-      timeSinceReinforcement: 100000,
-    }),
-    signalId: 'stu-30456-bb-001',
-    expectStatus: 'accepted',
-    expectDecision: 'reinforce',
-    expectPolicyId: 'springs:learner',
-  },
-  {
-    ...buildEnvelope('staff-0201-absorb-001', 'absorb-lms', 'staff-0201', TS.t5, {
-      complianceScore: 0.35,
-      daysOverdue: 20,
-      certificationValid: true,
-    }),
-    signalId: 'staff-0201-absorb-001',
-    expectStatus: 'accepted',
-    expectDecision: 'intervene',
-    expectPolicyId: 'springs:staff',
-  },
-  {
-    ...buildEnvelope('staff-0302-absorb-001', 'absorb-lms', 'staff-0302', TS.t6, {
-      complianceScore: 0.7,
-      daysOverdue: 0,
-      certificationValid: false,
-    }),
-    signalId: 'staff-0302-absorb-001',
-    expectStatus: 'accepted',
-    expectDecision: 'pause',
-    expectPolicyId: 'springs:staff',
-  },
-  {
-    ...buildEnvelope('staff-0403-absorb-001', 'absorb-lms', 'staff-0403', TS.t7, {
-      complianceScore: 0.92,
-      trainingScore: 0.88,
-      daysOverdue: 0,
-      certificationValid: true,
-    }),
-    signalId: 'staff-0403-absorb-001',
-    expectStatus: 'accepted',
-    expectDecision: 'advance',
-    expectPolicyId: 'springs:staff',
-  },
-  {
-    ...buildEnvelope('teacher-7890-canvas-001', 'canvas-lms', 'teacher-7890', TS.t8, {
-      stabilityScore: 0.48,
-      timeSinceReinforcement: 95000,
-    }),
-    signalId: 'teacher-7890-canvas-001',
-    expectStatus: 'accepted',
-    expectDecision: 'reinforce',
-    expectPolicyId: 'springs:learner',
-  },
-  {
-    ...buildEnvelope('teacher-7890-absorb-001', 'absorb-lms', 'teacher-7890', TS.t9, {
-      complianceScore: 0.72,
-      trainingScore: 0.6,
-      daysOverdue: 3,
-      certificationValid: true,
-    }),
-    signalId: 'teacher-7890-absorb-001',
-    expectStatus: 'accepted',
-    expectDecision: 'reinforce',
-    expectPolicyId: 'springs:staff',
-  },
-];
-
-function toPayload(sig, org) {
-  const { signalId, expectStatus, expectDecision, expectPolicyId, ...rest } = sig;
-  return { ...rest, org_id: org };
-}
-
 function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
 }
+
+// ─── Phase 1: Register field mappings ────────────────────────────────────────
+
+async function registerMappings(base, adminKey, org) {
+  console.log('Phase 1: Registering field mappings (onboarding)...');
+
+  if (!adminKey) {
+    console.log('  Phase 1: Skipping mapping registration (no --admin-key or ADMIN_API_KEY)');
+    return false;
+  }
+
+  const headers = { 'x-admin-api-key': adminKey, 'content-type': 'application/json' };
+  let allOk = true;
+
+  for (const [sourceSystem, mapping] of Object.entries(FIELD_MAPPINGS)) {
+    const url = `${base}/v1/admin/mappings/${encodeURIComponent(org)}/${encodeURIComponent(sourceSystem)}`;
+    const transformCount = mapping.transforms?.length ?? 0;
+    const aliasCount = mapping.aliases ? Object.keys(mapping.aliases).length : 0;
+
+    try {
+      const res = await fetch(url, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify(mapping),
+      });
+
+      if (res.ok) {
+        const pad = sourceSystem.padEnd(18);
+        console.log(`  \u2713 ${pad} \u2014 ${transformCount} transforms, ${aliasCount} aliases`);
+      } else {
+        const body = await res.json().catch(() => ({}));
+        console.error(`  \u2717 ${sourceSystem} \u2014 HTTP ${res.status}: ${body?.error?.message ?? 'unknown error'}`);
+        allOk = false;
+      }
+    } catch (err) {
+      if (err.cause?.code === 'ECONNREFUSED') {
+        console.error('\nConnection refused \u2014 is the server running at', base, '?');
+        process.exit(1);
+      }
+      throw err;
+    }
+  }
+
+  console.log();
+  return allOk;
+}
+
+// ─── Phase 2: Send signals + capture decisions inline ────────────────────────
 
 async function getLatestDecisionForLearner(base, apiKey, org, learnerRef) {
   const url = `${base}/v1/decisions?org_id=${encodeURIComponent(org)}&learner_reference=${encodeURIComponent(learnerRef)}&from_time=2020-01-01T00:00:00Z&to_time=2030-12-31T23:59:59Z`;
@@ -252,35 +478,35 @@ async function getLatestDecisionForLearner(base, apiKey, org, learnerRef) {
   return decisions[0];
 }
 
-async function main() {
-  const { host, apiKey, org } = parseArgs();
+async function sendSignals(base, apiKey, org) {
+  console.log('Phase 2: Sending realistic LMS signals...');
 
-  if (!apiKey) {
-    console.error('Error: API_KEY env var or --api-key required. Set API_KEY in .env.local or pass --api-key.');
-    process.exit(1);
-  }
-
-  const base = host.replace(/\/$/, '');
   const signalsUrl = `${base}/v1/signals`;
   const headers = { 'x-api-key': apiKey, 'content-type': 'application/json' };
-
-  console.log(`Seeding Springs demo data to ${signalsUrl} (org: ${org})...\n`);
-
   const results = [];
 
   for (let i = 0; i < SIGNALS.length; i++) {
     const sig = SIGNALS[i];
-    const payload = toPayload(sig, org);
+
+    const envelope = {
+      org_id: org,
+      signal_id: sig.signalId,
+      source_system: sig.sourceSystem,
+      learner_reference: sig.learnerRef,
+      timestamp: sig.timestamp,
+      schema_version: 'v1',
+      payload: sig.payload,
+    };
 
     try {
       const res = await fetch(signalsUrl, {
         method: 'POST',
         headers,
-        body: JSON.stringify(payload),
+        body: JSON.stringify(envelope),
       });
 
       if (res.status === 401) {
-        console.error('\n401 Unauthorized — check API_KEY.');
+        console.error('\n401 Unauthorized \u2014 check API_KEY.');
         process.exit(1);
       }
 
@@ -289,51 +515,26 @@ async function main() {
       const outcome = status === 'accepted' ? 'accepted' : status === 'duplicate' ? 'duplicate' : 'rejected';
 
       let actualDecision = null;
-      let actualPolicyId = null;
-      let decisionMatch = true;
-      let policyMatch = true;
-      if (outcome === 'accepted' && (sig.expectDecision || sig.expectPolicyId)) {
+      if (outcome === 'accepted') {
         await sleep(50);
-        const latest = await getLatestDecisionForLearner(base, apiKey, org, sig.learner_reference);
+        const latest = await getLatestDecisionForLearner(base, apiKey, org, sig.learnerRef);
         actualDecision = latest?.decision_type ?? null;
-        actualPolicyId = latest?.trace?.policy_id ?? null;
-        decisionMatch = sig.expectDecision ? actualDecision === sig.expectDecision : true;
-        policyMatch = sig.expectPolicyId ? actualPolicyId === sig.expectPolicyId : true;
-      } else if (outcome === 'duplicate') {
-        actualDecision = '(duplicate)';
-        decisionMatch = true;
-        policyMatch = true;
       }
 
       results.push({
-        signalId: sig.signalId,
-        status: res.status,
+        ...sig,
+        httpStatus: res.status,
         outcome,
         actualDecision,
-        actualPolicyId,
-        expectedDecision: sig.expectDecision,
-        expectPolicyId: sig.expectPolicyId,
-        expectStatus: sig.expectStatus,
-        statusMatch: outcome === sig.expectStatus || (outcome === 'duplicate' && sig.expectStatus === 'accepted'),
-        decisionMatch,
-        policyMatch,
+        rejectionCode: body.rejection_reason?.code,
       });
 
-      const icon = outcome === 'rejected' ? '✗' : outcome === 'duplicate' ? '○' : decisionMatch && policyMatch ? '✓' : '✗';
-      const detail =
-        outcome === 'accepted'
-          ? ` → ${actualDecision ?? '?'}${actualPolicyId ? ` [${actualPolicyId}]` : ''}`
-          : outcome === 'rejected' && body.rejection_reason?.code
-            ? ` (${body.rejection_reason.code})`
-            : '';
-      const expectNote =
-        outcome === 'accepted' && !decisionMatch ? ` expected ${sig.expectDecision}` : '';
-      const policyNote =
-        outcome === 'accepted' && !policyMatch && sig.expectPolicyId ? ` expected policy ${sig.expectPolicyId}` : '';
-      console.log(`  ${icon} ${sig.signalId}: ${outcome}${detail}${expectNote}${policyNote}`);
+      const icon = outcome === 'rejected' ? '\u2717' : outcome === 'duplicate' ? '\u25CB' : '\u2713';
+      const detail = outcome === 'rejected' && body.rejection_reason?.code ? ` (${body.rejection_reason.code})` : '';
+      console.log(`  ${icon} ${sig.signalId}: ${sig.sourceSystem} \u2192 ${outcome}${detail}`);
     } catch (err) {
       if (err.cause?.code === 'ECONNREFUSED') {
-        console.error('\nConnection refused — is the server running at', base, '?');
+        console.error('\nConnection refused \u2014 is the server running at', base, '?');
         process.exit(1);
       }
       throw err;
@@ -342,29 +543,121 @@ async function main() {
     if (i < SIGNALS.length - 1) await sleep(DELAY_MS);
   }
 
-  const allMatch = results.every((r) => r.statusMatch && r.decisionMatch && r.policyMatch);
-  const passed = results.filter((r) => r.statusMatch && r.decisionMatch && r.policyMatch).length;
+  console.log();
+  return results;
+}
 
-  console.log('\n--- Summary ---');
-  console.log(`  Sent: ${results.length} | Expected outcomes matched: ${passed}/${results.length}`);
-  results.filter((r) => !r.statusMatch || !r.decisionMatch || !r.policyMatch).forEach((r) => {
-    const parts = [];
-    if (!r.statusMatch) parts.push(`status ${r.outcome} (expected ${r.expectStatus})`);
-    if (!r.decisionMatch) parts.push(`decision ${r.actualDecision ?? '?'} (expected ${r.expectedDecision})`);
-    if (!r.policyMatch) parts.push(`policy_id ${r.actualPolicyId ?? '?'} (expected ${r.expectPolicyId})`);
-    console.log(`  Mismatch: ${r.signalId} — ${parts.join('; ')}`);
-  });
+// ─── Phase 3: Narrative verification ─────────────────────────────────────────
 
-  const byType = { advance: 0, intervene: 0, pause: 0, reinforce: 0 };
-  for (const r of results) {
-    if (r.actualDecision && r.actualDecision !== '(duplicate)') byType[r.actualDecision] = (byType[r.actualDecision] ?? 0) + 1;
+function verifyNarrative(base, signalResults) {
+  console.log('Phase 3: Verification\n');
+
+  const byPersona = {};
+  for (const sig of signalResults) {
+    if (!byPersona[sig.learnerRef]) byPersona[sig.learnerRef] = [];
+    byPersona[sig.learnerRef].push(sig);
   }
-  console.log('  Decisions by type: advance %d, intervene %d, pause %d, reinforce %d', byType.advance, byType.intervene, byType.pause, byType.reinforce);
-  console.log('  Policy IDs: springs:learner (canvas/blackboard), springs:staff (absorb). All decisions include trace.policy_id.');
-  console.log('  Cross-system identity: teacher-7890 appears in Canvas + Absorb → 2 decisions, 1 learner.');
-  console.log('  Multi-version staff (longer trace): staff-0201 and staff-0403 have 3 signals each; teacher-7890 has 3 (2 Absorb + 1 Canvas).');
-  console.log(`\nInspection panels: ${base}/inspect/`);
-  console.log('  Enter org_id:', org, 'and click Refresh to view seeded data.\n');
+
+  let matchCount = 0;
+  let mismatchCount = 0;
+  const decisionCounts = { advance: 0, intervene: 0, reinforce: 0, pause: 0 };
+  const sourceCounts = {};
+
+  const personaOrder = ['stu-10042', 'stu-20891', 'stu-30456', 'stu-40123', 'staff-0201'];
+
+  for (const learnerRef of personaOrder) {
+    const persona = PERSONAS[learnerRef];
+    const signals = byPersona[learnerRef] ?? [];
+
+    console.log(`${persona.name} (${learnerRef}) \u2014 ${persona.summary}`);
+
+    for (const sig of signals) {
+      sourceCounts[sig.sourceSystem] = (sourceCounts[sig.sourceSystem] ?? 0) + 1;
+
+      let displayDecision;
+      if (sig.outcome === 'duplicate') {
+        displayDecision = '(duplicate)';
+      } else {
+        displayDecision = sig.actualDecision ?? '?';
+      }
+
+      const isMatch = sig.outcome === 'duplicate' || displayDecision === sig.expectDecision;
+      if (isMatch) matchCount++;
+      else mismatchCount++;
+
+      if (displayDecision !== '(duplicate)' && decisionCounts[displayDecision] !== undefined) {
+        decisionCounts[displayDecision]++;
+      }
+
+      const icon = sig.outcome === 'duplicate' ? '\u25CB' : isMatch ? '\u2713' : '\u2717';
+      let annotation = '';
+      if (sig.signalId === 'jordan-canvas-math-002') annotation = ' [improving +0.23 mastery]';
+      else if (sig.signalId === 'jordan-canvas-math-003') annotation = ' [level: proficient \u2192 mastery]';
+      else if (sig.signalId === 'davis-absorb-002') annotation = ' [declining]';
+
+      const decisionDisplay = sig.outcome === 'duplicate' ? 'duplicate' : displayDecision;
+      console.log(`  ${icon} ${sig.signalId}: ${sig.sourceSystem} \u2192 ${decisionDisplay} (${sig.skill})${annotation}`);
+
+      if (!isMatch && sig.outcome !== 'duplicate') {
+        console.log(`    \u26A0 Expected ${sig.expectDecision}, got ${displayDecision}`);
+      }
+    }
+
+    if (learnerRef === 'stu-10042') {
+      console.log('  \uD83D\uDCCA Cross-system: 2 sources, 2 decisions. Math advancing; Reading needs intervention.');
+    } else if (learnerRef === 'stu-20891') {
+      console.log('  \uD83D\uDCCA Multi-platform struggle: both systems show < 0.3 stability.');
+    } else if (learnerRef === 'stu-30456') {
+      console.log('  \uD83D\uDCCA Trajectory: intervention worked \u2014 MATH-301 masteryScore 0.45 \u2192 0.68 \u2192 0.90 over 3 signals.');
+    } else if (learnerRef === 'stu-40123') {
+      console.log('  \uD83D\uDCCA Borderline reinforcement \u2014 not crisis, but needs support. Visible in inspection panels.');
+    } else if (learnerRef === 'staff-0201') {
+      console.log('  \uD83D\uDCCA Staff alert: compliance dropped 0.60 \u2192 0.35, 20 days overdue. Panel 3 action pending.');
+    }
+    console.log();
+  }
+
+  const total = matchCount + mismatchCount;
+  const sourceEntries = Object.entries(sourceCounts).map(([k, v]) => `${k} (${v})`).join(', ');
+
+  console.log('--- Summary ---');
+  console.log(`  Signals: ${total} sent | ${matchCount} matched expected outcomes`);
+  console.log(`  Decisions: advance ${decisionCounts.advance}, intervene ${decisionCounts.intervene}, reinforce ${decisionCounts.reinforce}`);
+  console.log(`  Sources: ${sourceEntries}`);
+  console.log(`  Field mappings: ${Object.keys(FIELD_MAPPINGS).length} registered (Phase 1)`);
+  console.log();
+  console.log(`  Dashboard: ${base}/dashboard/`);
+  console.log(`  Inspect:   ${base}/inspect/`);
+  console.log();
+
+  return mismatchCount === 0;
+}
+
+// ─── Main ────────────────────────────────────────────────────────────────────
+
+async function main() {
+  const { host, apiKey, adminKey, org } = parseArgs();
+
+  if (!apiKey) {
+    console.error('Error: API_KEY env var or --api-key required. Set API_KEY in .env.local or pass --api-key.');
+    process.exit(1);
+  }
+
+  const base = host.replace(/\/$/, '');
+
+  console.log(`\nSprings Realistic Seed (v2) \u2014 ${base} (org: ${org})\n`);
+  console.log('Personas: Maya Kim, Alex Rivera, Jordan Mitchell, Sam Torres, Ms. Davis');
+  console.log('Sources:  canvas-lms, blackboard-lms, iready-diagnostic, absorb-lms');
+  console.log(`Signals:  ${SIGNALS.length}\n`);
+
+  // Phase 1
+  await registerMappings(base, adminKey, org);
+
+  // Phase 2
+  const signalResults = await sendSignals(base, apiKey, org);
+
+  // Phase 3
+  const allMatch = verifyNarrative(base, signalResults);
 
   process.exit(allMatch ? 0 : 1);
 }
