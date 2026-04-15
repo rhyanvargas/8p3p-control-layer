@@ -226,6 +226,20 @@ await server.register(fastifyStatic, {
   prefix: '/inspect/',
 });
 
+// Decision Panel SPA (Pilot Wave 2) — only when built artifacts exist
+const dashboardDist = resolve(process.cwd(), 'dashboard', 'dist');
+if (existsSync(dashboardDist)) {
+  server.get('/dashboard', async (_request, reply) => {
+    return reply.redirect('/dashboard/');
+  });
+
+  await server.register(fastifyStatic, {
+    root: dashboardDist,
+    prefix: '/dashboard/',
+    decorateReply: false,
+  });
+}
+
 await server.register(swagger, {
   mode: 'static',
   specification: {
@@ -247,7 +261,7 @@ server.get('/', async () => {
   return {
     name: '8P3P Control Layer',
     version: '0.1.0',
-    endpoints: ['/health', '/v1/signals', '/v1/ingestion', '/v1/state', '/v1/state/list', '/v1/decisions', '/v1/receipts', '/v1/policies', '/v1/policies/:policy_key', '/inspect', '/docs']
+    endpoints: ['/health', '/v1/signals', '/v1/ingestion', '/v1/state', '/v1/state/list', '/v1/decisions', '/v1/receipts', '/v1/policies', '/v1/policies/:policy_key', '/inspect', '/dashboard', '/docs']
   };
 });
 
