@@ -112,7 +112,7 @@ When `sources` is present, `allowedVariables` is set to `Object.keys(sources)`. 
 
 1. Tokenizes the expression
 2. For each identifier token, checks it exists in `allowedVariables`
-3. Evaluates with all variables bound to `0` (same as current validation pass)
+3. Evaluates with all variables bound to `1` (non-zero avoids spurious division-by-zero for expressions like `a / b`)
 
 ### Sources Map Validation
 
@@ -303,7 +303,7 @@ None — all error cases map to existing codes. The `invalid_mapping_expression`
 ## Implementation Notes
 
 - **Tokenizer refactor:** Replace the `TT.VALUE` token type with `TT.IDENTIFIER`. The tokenizer emits `TT.IDENTIFIER` for any `[a-zA-Z_][a-zA-Z0-9_]*` sequence that is not `Math.min`, `Math.max`, or `Math.round`. The parser resolves identifiers against the variables map. This is a modest refactor of `tokenize()` and `parsePrimary()`.
-- **`evaluateTransform` overload:** Add `evaluateTransform(expression: string, variables: Map<string, number>): number` alongside the existing `evaluateTransform(expression: string, value: number): number`. The single-arg form wraps into `new Map([['value', value]])` internally.
+- **`evaluateTransform` overload:** Expose two call signatures (single numeric `value` vs `Map` of named variables). In TypeScript this is expressed as **overload declarations plus one implementation** that accepts `number | Map<string, number>`; the numeric form wraps into `new Map([['value', value]])` internally.
 - **File changes are localized:** `transform-expression.ts` (tokenizer + parser), `tenant-field-mappings.ts` (TransformRule type + runtime loop), `field-mappings-dynamo.ts` (parse `sources`), `admin-field-mappings.ts` (validate `sources`). No changes to the ingestion pipeline, state engine, or decision engine.
 
 ---

@@ -3,17 +3,49 @@
  *
  * Implements a strict whitelist grammar — NO eval, NO Function constructor.
  * @see docs/specs/tenant-field-mappings.md §Restricted Transform Expression Grammar
+ * @see docs/specs/multi-source-transforms.md (v1.1.1)
  *
  * Allowed:
  *   - Numeric literals (e.g. 100, 3.14)
- *   - Variable: `value` (bound to the source field's numeric value)
+ *   - Identifiers bound via variable map (single-source: `value`; multi-source: keys from `sources`)
  *   - Operators: + - * / (binary), - (unary)
  *   - Parentheses
  *   - Functions: Math.min(a, b), Math.max(a, b), Math.round(a)
  *
- * Forbidden: eval, new, identifiers other than `value` and `Math.*` listed above,
- *   bracket access, string literals, ternary (deferred to v1.1.1).
+ * Forbidden: identifiers not in the variable map (except Math.* calls above),
+ *   bracket access, string literals, ternary (deferred).
  */
+
+// ---------------------------------------------------------------------------
+// Reserved names for `sources` keys (admin validation)
+// ---------------------------------------------------------------------------
+
+/** Frozen name list for `sources` keys at admin PUT — do not mutate at runtime. */
+export const RESERVED_IDENTIFIERS: ReadonlySet<string> = new Set([
+  'eval',
+  'new',
+  'function',
+  'return',
+  'import',
+  'export',
+  'this',
+  'class',
+  'var',
+  'let',
+  'const',
+  'Math',
+  'undefined',
+  'null',
+  'true',
+  'false',
+  'Infinity',
+  'NaN',
+  'process',
+  'require',
+  'window',
+  'document',
+  'globalThis',
+]);
 
 // ---------------------------------------------------------------------------
 // Tokenizer
@@ -21,7 +53,7 @@
 
 enum TT {
   NUMBER,
-  VALUE,
+  IDENTIFIER,
   MATH_MIN,
   MATH_MAX,
   MATH_ROUND,
@@ -57,7 +89,7 @@ function tokenize(input: string): Token[] {
       continue;
     }
 
-    // Math.min / Math.max / Math.round
+    // Math.min / Math.max / Math.round (before generic identifier)
     if (input.startsWith('Math.min', i)) {
       tokens.push({ type: TT.MATH_MIN, raw: 'Math.min' });
       i += 8;
@@ -74,10 +106,11 @@ function tokenize(input: string): Token[] {
       continue;
     }
 
-    // `value` variable (must not be prefix of another identifier)
-    if (input.startsWith('value', i) && !/[A-Za-z0-9_$]/.test(input[i + 5] ?? '')) {
-      tokens.push({ type: TT.VALUE, raw: 'value' });
-      i += 5;
+    // Generic identifier: [a-zA-Z_][a-zA-Z0-9_]*
+    const idMatch = /^[a-zA-Z_][a-zA-Z0-9_]*/.exec(input.slice(i));
+    if (idMatch) {
+      tokens.push({ type: TT.IDENTIFIER, raw: idMatch[0] });
+      i += idMatch[0].length;
       continue;
     }
 
@@ -91,8 +124,7 @@ function tokenize(input: string): Token[] {
     if (ch === ')') { tokens.push({ type: TT.RPAREN, raw: ')' }); i++; continue; }
     if (ch === ',') { tokens.push({ type: TT.COMMA,  raw: ',' }); i++; continue; }
 
-    // Anything else is forbidden
-    throw new Error(`Forbidden character or token at position ${i}: "${ch}" — only value, numeric literals, +−*/, parentheses, and Math.min/max/round are allowed`);
+    throw new Error(`Forbidden character or token at position ${i}: "${ch}" — only identifiers, numeric literals, +−*/, parentheses, and Math.min/max/round are allowed`);
   }
 
   tokens.push({ type: TT.EOF, raw: '' });
@@ -107,7 +139,7 @@ class Parser {
   private pos = 0;
   constructor(
     private readonly tokens: Token[],
-    private readonly value: number,
+    private readonly variables: Map<string, number>,
   ) {}
 
   private peek(): Token {
@@ -170,9 +202,13 @@ class Parser {
       return parseFloat(t.raw);
     }
 
-    if (t.type === TT.VALUE) {
+    if (t.type === TT.IDENTIFIER) {
       this.consume();
-      return this.value;
+      const bound = this.variables.get(t.raw);
+      if (bound === undefined) {
+        throw new Error(`Unknown variable '${t.raw}' — not bound in sources or not 'value'`);
+      }
+      return bound;
     }
 
     if (t.type === TT.MATH_MIN) {
@@ -214,6 +250,15 @@ class Parser {
   }
 }
 
+/** Non-zero values avoid spurious division-by-zero when validating expressions like `a / b` with all variables substituted. */
+function buildValidationVariables(allowedVariables: string[]): Map<string, number> {
+  const m = new Map<string, number>();
+  for (const name of allowedVariables) {
+    m.set(name, 1);
+  }
+  return m;
+}
+
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
@@ -222,13 +267,15 @@ export type ValidateResult = { ok: true } | { ok: false; message: string };
 
 /**
  * Validate a transform expression string at upload time.
- * Returns `{ ok: true }` when the expression parses cleanly (evaluated with `value=0`).
- * Returns `{ ok: false, message }` for any grammar violation.
+ * Returns `{ ok: true }` when the expression parses cleanly (evaluated with each allowed variable bound to 1
+ * so expressions like `a / b` validate without spurious division-by-zero).
+ * `allowedVariables` defaults to `['value']` for single-source backward compatibility.
  */
-export function validateTransformExpression(expression: string): ValidateResult {
+export function validateTransformExpression(expression: string, allowedVariables?: string[]): ValidateResult {
   try {
     const tokens = tokenize(expression);
-    new Parser(tokens, 0).evaluate();
+    const names = allowedVariables ?? ['value'];
+    new Parser(tokens, buildValidationVariables(names)).evaluate();
     return { ok: true };
   } catch (err) {
     return { ok: false, message: err instanceof Error ? err.message : String(err) };
@@ -236,12 +283,20 @@ export function validateTransformExpression(expression: string): ValidateResult 
 }
 
 /**
- * Evaluate a (pre-validated) transform expression with the given numeric value.
+ * Evaluate a (pre-validated) transform expression.
+ * Single-source: pass a number; it binds the identifier `value`.
+ * Multi-source: pass a Map of variable names to numbers.
  * Throws if the expression is invalid or produces NaN / Infinity.
  */
-export function evaluateTransform(expression: string, value: number): number {
+export function evaluateTransform(expression: string, value: number): number;
+export function evaluateTransform(expression: string, variables: Map<string, number>): number;
+export function evaluateTransform(expression: string, valueOrVariables: number | Map<string, number>): number {
+  const variables =
+    typeof valueOrVariables === 'number'
+      ? new Map<string, number>([['value', valueOrVariables]])
+      : valueOrVariables;
   const tokens = tokenize(expression);
-  const result = new Parser(tokens, value).evaluate();
+  const result = new Parser(tokens, variables).evaluate();
   if (!isFinite(result)) {
     throw new Error(`Transform expression produced non-finite result: ${result}`);
   }

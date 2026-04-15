@@ -71,9 +71,24 @@ describe('validateTransformExpression — forbidden forms', () => {
     expect(result.ok).toBe(false);
   });
 
-  it('rejects unknown identifier "score"', () => {
+  it('rejects unknown identifier "score" (default allowedVariables is value only)', () => {
     const result = validateTransformExpression('score / 100');
     expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.message).toContain('score');
+    }
+  });
+
+  it('accepts score/total when allowedVariables includes both (multi-source)', () => {
+    expect(validateTransformExpression('score / total', ['score', 'total']).ok).toBe(true);
+  });
+
+  it('rejects value in expression when multi-source allowedVariables omit value', () => {
+    const result = validateTransformExpression('value / total', ['total']);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.message).toContain('value');
+    }
   });
 
   it('rejects bracket access', () => {
@@ -182,5 +197,52 @@ describe('evaluateTransform — correctness', () => {
 
   it('throws on division by zero', () => {
     expect(() => evaluateTransform('value / 0', 5)).toThrow();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Multi-source (v1.1.1) — contract IDs MST-001, MST-002, MST-010, MST-012
+// ---------------------------------------------------------------------------
+
+describe('multi-source evaluateTransform(Map)', () => {
+  it('MST-001: score / total with two payload paths', () => {
+    expect(
+      evaluateTransform(
+        'score / total',
+        new Map<string, number>([
+          ['score', 68],
+          ['total', 100],
+        ]),
+      ),
+    ).toBe(0.68);
+  });
+
+  it('MST-002: Math.min(score / Math.max(total, 1), 1) clamps', () => {
+    expect(
+      evaluateTransform(
+        'Math.min(score / Math.max(total, 1), 1)',
+        new Map<string, number>([
+          ['score', 150],
+          ['total', 100],
+        ]),
+      ),
+    ).toBe(1);
+  });
+
+  it('MST-010: single-source numeric overload unchanged after tokenizer refactor', () => {
+    expect(evaluateTransform('value / 100', 65)).toBe(0.65);
+    expect(evaluateTransform('Math.min(value, 1)', 1.5)).toBe(1);
+  });
+
+  it('MST-012: division by zero in multi-source', () => {
+    expect(() =>
+      evaluateTransform(
+        'score / total',
+        new Map<string, number>([
+          ['score', 5],
+          ['total', 0],
+        ]),
+      ),
+    ).toThrow(/Division by zero/);
   });
 });

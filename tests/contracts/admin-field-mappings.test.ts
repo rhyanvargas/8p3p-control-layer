@@ -345,4 +345,132 @@ describe('Admin Field Mappings Contract Tests', () => {
       expect(response.statusCode).toBe(401);
     });
   });
+
+  // -------------------------------------------------------------------------
+  // Multi-source transforms (v1.1.1) — MST-005 through MST-009
+  // -------------------------------------------------------------------------
+
+  describe('Multi-source admin PUT validation', () => {
+    it('MST-005: reserved sources key "eval" returns 400 invalid_format', async () => {
+      const { client } = createMockClient();
+      _setFieldMappingsDynamoClientForTesting(client);
+
+      const body = validMappingBody({
+        transforms: [
+          {
+            target: 'masteryScore',
+            sources: { eval: 'submission.score' },
+            expression: 'eval',
+          },
+        ],
+      });
+
+      const response = await app.inject({
+        method: 'PUT',
+        url: '/v1/admin/mappings/springs/canvas-lms',
+        headers: { 'x-admin-api-key': ADMIN_KEY, 'content-type': 'application/json' },
+        payload: JSON.stringify(body),
+      });
+
+      expect(response.statusCode).toBe(400);
+      const responseBody = response.json() as { error: { code: string } };
+      expect(responseBody.error.code).toBe(ErrorCodes.INVALID_FORMAT);
+    });
+
+    it('MST-006: both source and sources on same rule returns 400', async () => {
+      const { client } = createMockClient();
+      _setFieldMappingsDynamoClientForTesting(client);
+
+      const body = validMappingBody({
+        transforms: [
+          {
+            target: 'x',
+            source: 'raw_score',
+            sources: { a: 'b' },
+            expression: 'value',
+          },
+        ],
+      });
+
+      const response = await app.inject({
+        method: 'PUT',
+        url: '/v1/admin/mappings/springs/canvas-lms',
+        headers: { 'x-admin-api-key': ADMIN_KEY, 'content-type': 'application/json' },
+        payload: JSON.stringify(body),
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect((response.json() as { error: { code: string } }).error.code).toBe(ErrorCodes.INVALID_FORMAT);
+    });
+
+    it('MST-007: neither source nor sources returns 400', async () => {
+      const { client } = createMockClient();
+      _setFieldMappingsDynamoClientForTesting(client);
+
+      const body = validMappingBody({
+        transforms: [
+          { target: 'x', expression: 'value' },
+        ],
+      });
+
+      const response = await app.inject({
+        method: 'PUT',
+        url: '/v1/admin/mappings/springs/canvas-lms',
+        headers: { 'x-admin-api-key': ADMIN_KEY, 'content-type': 'application/json' },
+        payload: JSON.stringify(body),
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect((response.json() as { error: { code: string } }).error.code).toBe(ErrorCodes.INVALID_FORMAT);
+    });
+
+    it('MST-008: multi-source expression uses value but sources omit value — invalid_mapping_expression', async () => {
+      const { client } = createMockClient();
+      _setFieldMappingsDynamoClientForTesting(client);
+
+      const body = validMappingBody({
+        transforms: [
+          {
+            target: 'masteryScore',
+            sources: { total: 'assignment.points_possible' },
+            expression: 'value / total',
+          },
+        ],
+      });
+
+      const response = await app.inject({
+        method: 'PUT',
+        url: '/v1/admin/mappings/springs/canvas-lms',
+        headers: { 'x-admin-api-key': ADMIN_KEY, 'content-type': 'application/json' },
+        payload: JSON.stringify(body),
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect((response.json() as { error: { code: string } }).error.code).toBe(ErrorCodes.INVALID_MAPPING_EXPRESSION);
+    });
+
+    it('MST-009: valid multi-source expression accepted (200)', async () => {
+      const { client } = createMockClient(() => ({}));
+      _setFieldMappingsDynamoClientForTesting(client);
+
+      const body = validMappingBody({
+        transforms: [
+          {
+            target: 'z',
+            sources: { a: 'x', b: 'y' },
+            expression: 'a + b',
+          },
+        ],
+      });
+
+      const response = await app.inject({
+        method: 'PUT',
+        url: '/v1/admin/mappings/springs/canvas-lms',
+        headers: { 'x-admin-api-key': ADMIN_KEY, 'content-type': 'application/json' },
+        payload: JSON.stringify(body),
+      });
+
+      expect(response.statusCode).toBe(200);
+    });
+  });
 });

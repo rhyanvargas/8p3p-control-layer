@@ -74,14 +74,18 @@ function parseMappingFromItem(item: Record<string, unknown>): TenantPayloadMappi
     out.types = mapping.types as TenantPayloadMapping['types'];
   }
   if (Array.isArray(mapping.transforms)) {
-    out.transforms = mapping.transforms.filter(
-      (x): x is TransformRule =>
-        x !== null &&
-        typeof x === 'object' &&
-        typeof (x as Record<string, unknown>).target === 'string' &&
-        typeof (x as Record<string, unknown>).source === 'string' &&
-        typeof (x as Record<string, unknown>).expression === 'string',
-    );
+    out.transforms = mapping.transforms.filter((x): x is TransformRule => {
+      if (x === null || typeof x !== 'object' || Array.isArray(x)) return false;
+      const o = x as Record<string, unknown>;
+      if (typeof o.target !== 'string' || typeof o.expression !== 'string') return false;
+      if (typeof o.source === 'string') return true;
+      if (o.sources !== null && typeof o.sources === 'object' && !Array.isArray(o.sources)) {
+        const entries = Object.entries(o.sources as Record<string, unknown>);
+        if (entries.length === 0) return false;
+        return entries.every(([, v]) => typeof v === 'string');
+      }
+      return false;
+    });
   }
   if (typeof mapping.strict_transforms === 'boolean') {
     out.strict_transforms = mapping.strict_transforms;

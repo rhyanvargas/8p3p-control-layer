@@ -7,15 +7,18 @@ import { isRecord, getAtPath, setAtPath } from '../shared/dot-path.js';
 export type PrimitiveType = 'string' | 'number' | 'boolean' | 'object';
 
 /**
- * A single declarative computed transform rule (v1.1).
+ * A single declarative computed transform rule (v1.1 / v1.1.1).
  * @see docs/specs/tenant-field-mappings.md §Restricted Transform Expression Grammar
+ * @see docs/specs/multi-source-transforms.md — exactly one of `source` or `sources`
  */
 export interface TransformRule {
   /** Top-level canonical key to write the computed result into. */
   target: string;
-  /** Dot-path into the payload to read the input value from. */
-  source: string;
-  /** Restricted arithmetic expression; only `value`, numeric literals, +, -, *, /, Math.min/max/round. */
+  /** Single-source: dot-path into the payload; binds to variable `value`. Mutually exclusive with `sources`. */
+  source?: string;
+  /** Multi-source: variable name → dot-path. Mutually exclusive with `source`. */
+  sources?: Record<string, string>;
+  /** Restricted arithmetic expression; identifiers are `value` (single-source) or keys from `sources`. */
   expression: string;
 }
 
@@ -39,8 +42,9 @@ export interface TenantPayloadMapping {
    */
   transforms?: TransformRule[];
   /**
-   * When true, a missing `source` path in a transform causes rejection with missing_required_field.
-   * Default: false (skip the transform when source is absent).
+   * When true, a missing source path in a transform (single `source` or any path in `sources`)
+   * causes rejection with missing_required_field.
+   * Default: false (skip the transform when a required path is absent).
    */
   strict_transforms?: boolean;
 }
@@ -197,31 +201,70 @@ export function normalizeAndValidateTenantPayload(args: {
     }
   }
 
-  // Computed transforms (v1.1): evaluate after aliases, before required/types.
+  // Computed transforms (v1.1 / v1.1.1): evaluate after aliases, before required/types.
   const transforms = mapping.transforms ?? [];
   const strict = mapping.strict_transforms ?? false;
   for (const rule of transforms) {
-    const sourceVal = getAtPath(normalized, rule.source);
-    if (sourceVal === undefined || sourceVal === null) {
-      if (strict) {
+    const multi = rule.sources && typeof rule.sources === 'object' && Object.keys(rule.sources).length > 0;
+    const single = typeof rule.source === 'string' && rule.source.trim() !== '';
+
+    if (multi) {
+      const variables = new Map<string, number>();
+      let skipRule = false;
+      for (const [varName, dotPath] of Object.entries(rule.sources!)) {
+        const sourceVal = getAtPath(normalized, dotPath);
+        if (sourceVal === undefined || sourceVal === null) {
+          if (strict) {
+            errors.push({
+              code: ErrorCodes.MISSING_REQUIRED_FIELD,
+              message: `Transform source '${dotPath}' not found in payload for target '${rule.target}'`,
+              field_path: `payload.${dotPath}`,
+            });
+          }
+          skipRule = true;
+          break;
+        }
+        const numeric = typeof sourceVal === 'number' ? sourceVal : Number(sourceVal);
+        variables.set(varName, numeric);
+      }
+      if (skipRule) continue;
+      try {
+        const result = evaluateTransform(rule.expression, variables);
+        setAtPath(normalized, rule.target, result);
+      } catch (err) {
         errors.push({
-          code: ErrorCodes.MISSING_REQUIRED_FIELD,
-          message: `Transform source '${rule.source}' not found in payload for target '${rule.target}'`,
-          field_path: `payload.${rule.source}`,
+          code: ErrorCodes.INVALID_MAPPING_EXPRESSION,
+          message: `Transform expression failed for target '${rule.target}': ${err instanceof Error ? err.message : String(err)}`,
+          field_path: `payload.${rule.target}`,
         });
       }
       continue;
     }
-    const numeric = typeof sourceVal === 'number' ? sourceVal : Number(sourceVal);
-    try {
-      const result = evaluateTransform(rule.expression, numeric);
-      setAtPath(normalized, rule.target, result);
-    } catch (err) {
-      errors.push({
-        code: ErrorCodes.INVALID_MAPPING_EXPRESSION,
-        message: `Transform expression failed for target '${rule.target}': ${err instanceof Error ? err.message : String(err)}`,
-        field_path: `payload.${rule.target}`,
-      });
+
+    if (single) {
+      const sourceVal = getAtPath(normalized, rule.source!);
+      if (sourceVal === undefined || sourceVal === null) {
+        if (strict) {
+          errors.push({
+            code: ErrorCodes.MISSING_REQUIRED_FIELD,
+            message: `Transform source '${rule.source}' not found in payload for target '${rule.target}'`,
+            field_path: `payload.${rule.source}`,
+          });
+        }
+        continue;
+      }
+      const numeric = typeof sourceVal === 'number' ? sourceVal : Number(sourceVal);
+      try {
+        const result = evaluateTransform(rule.expression, numeric);
+        setAtPath(normalized, rule.target, result);
+      } catch (err) {
+        errors.push({
+          code: ErrorCodes.INVALID_MAPPING_EXPRESSION,
+          message: `Transform expression failed for target '${rule.target}': ${err instanceof Error ? err.message : String(err)}`,
+          field_path: `payload.${rule.target}`,
+        });
+      }
+      continue;
     }
   }
 

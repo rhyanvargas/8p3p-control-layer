@@ -204,3 +204,99 @@ describe('normalizeAndValidateTenantPayload — transforms', () => {
     }
   });
 });
+
+// ---------------------------------------------------------------------------
+// Multi-source transforms (v1.1.1) — MST-003, MST-004, MST-011
+// ---------------------------------------------------------------------------
+
+describe('normalizeAndValidateTenantPayload — multi-source transforms', () => {
+  it('MST-003: missing one source path, strict_transforms=false — skip transform', () => {
+    const result = normalizeAndValidateTenantPayload({
+      orgId: 'org-A',
+      payload: { submission: { score: 68 } },
+      mappingOverride: {
+        strict_transforms: false,
+        transforms: [{
+          target: 'masteryScore',
+          sources: { score: 'submission.score', total: 'assignment.points_possible' },
+          expression: 'score / total',
+        }],
+      },
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.payload.masteryScore).toBeUndefined();
+    }
+  });
+
+  it('MST-004: missing one source path, strict_transforms=true — missing_required_field', () => {
+    const result = normalizeAndValidateTenantPayload({
+      orgId: 'org-A',
+      payload: { submission: { score: 68 } },
+      mappingOverride: {
+        strict_transforms: true,
+        transforms: [{
+          target: 'masteryScore',
+          sources: { score: 'submission.score', total: 'assignment.points_possible' },
+          expression: 'score / total',
+        }],
+      },
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.errors[0]?.code).toBe('missing_required_field');
+      expect(result.errors[0]?.field_path).toContain('assignment.points_possible');
+    }
+  });
+
+  it('multi-source: masteryScore from score/total', () => {
+    const result = normalizeAndValidateTenantPayload({
+      orgId: 'org-A',
+      payload: {
+        submission: { score: 68 },
+        assignment: { points_possible: 100 },
+      },
+      mappingOverride: {
+        transforms: [{
+          target: 'masteryScore',
+          sources: { score: 'submission.score', total: 'assignment.points_possible' },
+          expression: 'score / total',
+        }],
+      },
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.payload.masteryScore).toBeCloseTo(0.68);
+    }
+  });
+
+  it('MST-011: mixed single-source and multi-source in one mapping', () => {
+    const result = normalizeAndValidateTenantPayload({
+      orgId: 'org-A',
+      payload: {
+        raw_score: 80,
+        submission: { score: 68 },
+        assignment: { points_possible: 100 },
+      },
+      mappingOverride: {
+        transforms: [
+          {
+            target: 'masteryScore',
+            sources: { score: 'submission.score', total: 'assignment.points_possible' },
+            expression: 'Math.min(score / Math.max(total, 1), 1)',
+          },
+          {
+            target: 'stabilityScore',
+            source: 'raw_score',
+            expression: 'value / 100',
+          },
+        ],
+      },
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.payload.masteryScore).toBeCloseTo(0.68);
+      expect(result.payload.stabilityScore).toBeCloseTo(0.8);
+    }
+  });
+});

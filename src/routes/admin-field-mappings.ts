@@ -12,7 +12,7 @@
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { ErrorCodes } from '../shared/error-codes.js';
-import { validateTransformExpression } from '../config/transform-expression.js';
+import { validateTransformExpression, RESERVED_IDENTIFIERS } from '../config/transform-expression.js';
 import {
   putFieldMappingItem,
   listFieldMappingItemsForOrg,
@@ -53,6 +53,9 @@ type ValidationFailure = { ok: false; code: string; message: string };
 type ValidationSuccess = { ok: true; mapping: TenantPayloadMapping };
 type ValidationResult = ValidationSuccess | ValidationFailure;
 
+const MAX_SOURCES_PER_TRANSFORM = 10;
+const SOURCE_KEY_PATTERN = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
+
 function validateMappingBody(body: unknown): ValidationResult {
   if (!isMappingBody(body)) {
     return { ok: false, code: ErrorCodes.INVALID_FORMAT, message: 'Request body must be a JSON object representing a TenantPayloadMapping' };
@@ -82,19 +85,84 @@ function validateMappingBody(body: unknown): ValidationResult {
       if (typeof r.target !== 'string' || r.target.trim() === '') {
         return { ok: false, code: ErrorCodes.INVALID_FORMAT, message: `transforms[${i}].target must be a non-empty string` };
       }
-      if (typeof r.source !== 'string' || r.source.trim() === '') {
-        return { ok: false, code: ErrorCodes.INVALID_FORMAT, message: `transforms[${i}].source must be a non-empty string` };
-      }
       if (typeof r.expression !== 'string' || r.expression.trim() === '') {
         return { ok: false, code: ErrorCodes.INVALID_FORMAT, message: `transforms[${i}].expression must be a non-empty string` };
       }
-      const exprResult = validateTransformExpression(r.expression);
-      if (!exprResult.ok) {
+
+      const hasSource = typeof r.source === 'string' && r.source.trim() !== '';
+      const sourcesRaw = r.sources;
+      const hasSourcesKey = sourcesRaw !== undefined && sourcesRaw !== null;
+      const sourcesObj =
+        hasSourcesKey && typeof sourcesRaw === 'object' && !Array.isArray(sourcesRaw)
+          ? (sourcesRaw as Record<string, unknown>)
+          : null;
+      const sourceKeys = sourcesObj ? Object.keys(sourcesObj) : [];
+      const hasMulti = sourcesObj !== null && sourceKeys.length > 0;
+
+      if (hasSource && hasSourcesKey) {
         return {
           ok: false,
-          code: ErrorCodes.INVALID_MAPPING_EXPRESSION,
-          message: `transforms[${i}].expression is invalid: ${exprResult.message}`,
+          code: ErrorCodes.INVALID_FORMAT,
+          message: `transforms[${i}] must have exactly one of "source" or "sources", not both`,
         };
+      }
+      if (!hasSource && !hasMulti) {
+        return {
+          ok: false,
+          code: ErrorCodes.INVALID_FORMAT,
+          message: `transforms[${i}] must have exactly one of "source" or non-empty "sources"`,
+        };
+      }
+
+      if (hasMulti) {
+        if (sourceKeys.length > MAX_SOURCES_PER_TRANSFORM) {
+          return {
+            ok: false,
+            code: ErrorCodes.INVALID_FORMAT,
+            message: `transforms[${i}].sources must have at most ${MAX_SOURCES_PER_TRANSFORM} entries`,
+          };
+        }
+        for (const key of sourceKeys) {
+          if (!SOURCE_KEY_PATTERN.test(key)) {
+            return {
+              ok: false,
+              code: ErrorCodes.INVALID_FORMAT,
+              message: `transforms[${i}].sources key "${key}" must match /^[a-zA-Z_][a-zA-Z0-9_]*$/`,
+            };
+          }
+          if (RESERVED_IDENTIFIERS.has(key)) {
+            return {
+              ok: false,
+              code: ErrorCodes.INVALID_FORMAT,
+              message: `transforms[${i}].sources key "${key}" is reserved`,
+            };
+          }
+          const pathVal = sourcesObj![key];
+          if (typeof pathVal !== 'string' || pathVal.trim() === '') {
+            return {
+              ok: false,
+              code: ErrorCodes.INVALID_FORMAT,
+              message: `transforms[${i}].sources["${key}"] must be a non-empty string (dot-path)`,
+            };
+          }
+        }
+        const exprResult = validateTransformExpression(r.expression, sourceKeys);
+        if (!exprResult.ok) {
+          return {
+            ok: false,
+            code: ErrorCodes.INVALID_MAPPING_EXPRESSION,
+            message: `transforms[${i}].expression is invalid: ${exprResult.message}`,
+          };
+        }
+      } else {
+        const exprResult = validateTransformExpression(r.expression);
+        if (!exprResult.ok) {
+          return {
+            ok: false,
+            code: ErrorCodes.INVALID_MAPPING_EXPRESSION,
+            message: `transforms[${i}].expression is invalid: ${exprResult.message}`,
+          };
+        }
       }
     }
   }
