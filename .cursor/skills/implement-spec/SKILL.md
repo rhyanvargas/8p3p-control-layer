@@ -47,13 +47,18 @@ When the user invokes `/implement-spec`:
    - `npm run validate:contracts` when schemas/contract docs changed
    - `npm run validate:api` when `docs/api/openapi.yaml` changed
 6. Fix failures and re-run only failed stages until green
-7. Report:
+7. **Spec/plan parity pass** — Before the final report, diff literal requirements against code:
+   - Constants (e.g. validation substitution values, limits like max sources) must match `docs/specs/{feature}.md` and the plan’s TASK details.
+   - Public API surface (overload vs union, `ReadonlySet` vs `Set`) must match what the spec promises; update the spec Implementation Notes if the idiomatic TS shape differs from prose.
+   - Update `.cursor/plans/*.plan.md` TASK bodies if they still describe superseded literals.
+8. Report:
    - Implemented tasks and files changed
    - Commands run and pass/fail outcomes
-   - Any deferred items with rationale
+   - Any deferred items with rationale (including any spec edits made for parity)
 
 ## Next Steps
 
 After implementation:
+- Run `/post-impl-doc-sync` on the same spec path if you touched validation constants or public exports
 - Run `/review` for quality check
 - Use `/review --spec {spec-path}` for requirement-by-requirement verification

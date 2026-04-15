@@ -91,6 +91,19 @@ Track all issues with explicit assignments:
 - Implementation details (save for plan)
 - Inline type definitions that exist in `src/shared/types.ts`
 
+## Spec ↔ implementation parity (prevent drift)
+
+After coding (especially before merge), reconcile **literal** details between `docs/specs/`, `.cursor/plans/`, and `src/`:
+
+| Drift type | Example | Fix |
+|------------|---------|-----|
+| **Numeric constants** in validation vs spec prose | Spec said bind to `0` but `a / b` needs non-zero test values | Update the spec sentence to match the chosen constant (`1` in `validateTransformExpression`). |
+| **Public API shape** | Spec describes “two overloads” but ESLint rejected duplicate `export function` | Prefer TS overload declarations + one implementation; if tooling required a rule change, document in `eslint.config.js` why `no-redeclare` is off for `.ts`. |
+| **Immutability of shared sets** | Plan said `ReadonlySet`; code used `Set` | Type the export as `ReadonlySet<string>` so accidental `.add()` is a type error. |
+| **Finished plans** | Plan body still says old literals | Update plan TASK details when behavior changes, or add “superseded by spec section X” in the report. |
+
+**Agent checklist:** When `/implement-spec` or `/review --spec` finds a spec/plan mismatch, **fix the owning document** (usually the spec) in the same PR unless the implementation is wrong.
+
 ## Validation During Review
 
 When reviewing a spec, verify:
