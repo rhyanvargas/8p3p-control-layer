@@ -1,36 +1,28 @@
-# Pilot Integration Guide (v2)
+# Pilot Integration Guide (v3)
 
 **Audience:** Pilot customer IT administrators and integration engineers
-**Goal:** Get from "we use Canvas" → "signals flow automatically" → "we consume decisions" in minutes, not days.
+**Goal:** Get from "we have an LMS" → "signals flow" → "we consume decisions" in minutes, not days.
 **API contract:** `docs/api/openapi.yaml` (served at `/docs`)
 
 ---
 
 ## 1) What you implement
 
-### Primary path: Activate a connector (recommended)
+### Send signals (Direct API)
 
-If your school uses Canvas, I-Ready, or Branching Minds, 8P3P has pre-built connectors. No custom code required:
-
-1. **Activate** — 8P3P operator activates your LMS connector. You receive a webhook URL and setup instructions.
-2. **Configure** — Add the webhook URL to your LMS admin settings (e.g., Canvas → Admin → Developer Keys → Webhooks). Include your `x-api-key` as a custom header.
-3. **Done** — Signals flow automatically. 8P3P handles envelope extraction, field mapping, and normalization.
-
-You only need to implement one call: **read decisions**.
-
-### Advanced path: Direct API (custom integrations)
-
-For LMS platforms without a pre-built connector, or for custom data sources, send signals directly:
+Send learner events to the control layer via `POST /v1/signals`. You construct a `SignalEnvelope` with your LMS data — either with pre-normalized canonical fields or with raw LMS fields (if 8P3P has configured a field mapping for your `source_system`; see §13).
 
 - **Endpoint:** `POST /v1/signals`
-- **Purpose:** Send learner events in a standard `SignalEnvelope`. The control layer persists the signal, updates state, and generates a decision.
-- See §8 for the `SignalEnvelope` schema and §9 for the direct integration checklist.
+- **Purpose:** Send learner events. The control layer persists the signal, applies field mappings (if configured), updates state, and generates a decision.
+- See §4 for the quick start and §9 for the full integration checklist.
 
-### Read decisions (both paths)
+### Read decisions
 
 - **Endpoint:** `GET /v1/decisions`
 - **Purpose:** Poll for decisions per learner and time range. You decide what to do with them in your system (we emit decisions; we do not enforce workflows).
 - **Common use-case:** If you need decisions for **all learners in an org** (export/analytics), use the supported fan-out workflow: list learners → fetch decisions per learner. See [`get-all-learner-decisions-from-org.md`](get-all-learner-decisions-from-org.md).
+
+> **Future:** Pre-built connectors for Canvas, I-Ready, and Branching Minds are on the post-pilot roadmap. When available, connectors will accept raw LMS webhooks directly — no `SignalEnvelope` construction required on your side. For pilot, all integrations use the Direct API.
 
 ---
 
@@ -51,31 +43,22 @@ If the key is missing or invalid, you will receive **401** with `api_key_require
 
 ---
 
-## 3) Quick start — Connector path (recommended)
+## 3) Integration overview
 
-If 8P3P has activated a connector for your org, the quick start is:
+For the pilot, all LMS integrations use the **Direct API** — your system sends signals to `POST /v1/signals`. The control layer handles field normalization (if configured), state management, and decision generation.
 
-### Step 1: Verify your connector is active
-
-Ask your 8P3P operator to confirm the connector is activated and provide:
-- **Webhook URL:** `https://api.8p3p.dev/v1/webhooks/canvas-lms` (or your LMS)
-- **API key:** your `x-api-key` value
-- **Event types:** which LMS events are being ingested (e.g., `submission_created`, `grade_updated`)
-
-### Step 2: Add the webhook URL to your LMS
-
-In Canvas: Admin → Developer Keys → Webhooks → add the webhook URL with your API key as a custom header.
-
-### Step 3: Verify signals are flowing
-
-After a student submits an assignment (or trigger a test event), check that decisions are being produced:
-
-```bash
-curl -sS "https://api.8p3p.dev/v1/decisions?learner_reference=<student_id>&from_time=2026-04-01T00:00:00Z&to_time=2026-04-30T00:00:00Z" \
-  -H "x-api-key: <your_key>"
+```
+Your LMS event → Your integration code → POST /v1/signals → State → Policy → Decision
+                                              ↑
+                                    Field mapping (if configured by 8P3P)
+                                    normalizes raw fields → canonical fields
 ```
 
-If decisions are returned, your integration is working end-to-end.
+**Two options for the signal payload:**
+- **Option A:** You compute canonical fields yourself (e.g. `masteryScore: 0.68`) and send them directly. No server-side mapping needed.
+- **Option B:** You send your LMS's raw field structure, and 8P3P configures a field mapping that transforms them into canonical fields server-side. See §13.
+
+Both options use the same `POST /v1/signals` endpoint.
 
 ---
 
@@ -123,16 +106,17 @@ curl -sS "http://<host>:<port>/v1/decisions?org_id=org_pilot1&learner_reference=
 
 ---
 
-## 5) How connectors handle data mapping (you don't have to)
+## 5) How field mappings work (you may not need to normalize)
 
-When using a pre-built connector, the data mapping from your LMS to 8P3P's canonical fields is handled automatically by the Connector Layer. Here's what happens behind the scenes:
+If 8P3P has configured a field mapping for your `source_system`, the **Transform Engine** automatically normalizes your raw payload fields into canonical fields during signal ingestion. Here's what happens:
 
-1. Your LMS fires a raw webhook (e.g., Canvas `submission_created` event)
-2. The **Webhook Adapter** extracts envelope fields (`learner_reference`, `signal_id`, `timestamp`) from the raw body using configured dot-paths
-3. The **Transform Engine** applies declarative transforms to normalize LMS-specific fields into canonical state fields (e.g., `submission.score / 100` → `stabilityScore`)
-4. The resulting `SignalEnvelope` enters the standard ingestion pipeline
+1. You send a signal with your LMS's native payload structure (e.g., `{ submission: { score: 68 }, assignment: { points_possible: 100 } }`)
+2. The **Transform Engine** applies configured transforms to derive canonical fields (e.g., `score / points_possible` → `masteryScore: 0.68`)
+3. The ingestion pipeline uses the canonical fields for state update and policy evaluation
 
-**You do not need to normalize scores, map fields, or construct `SignalEnvelope` objects.** The connector template handles all of this. If you need to customize the mapping (power users only), ask your 8P3P operator about custom mapping overrides.
+**If a mapping is configured for your `source_system`**, you do not need to normalize scores or compute canonical fields yourself. Send your native payload and the engine handles it. Ask your 8P3P operator to confirm whether a mapping is configured for your LMS.
+
+**If no mapping is configured**, send canonical fields directly in your payload (see §4 quick start example).
 
 ### Canonical fields (reference)
 
@@ -214,10 +198,6 @@ The response includes `rejection_reason.code` and `field_path`. Common causes:
 - `payload_not_object`: payload is not a JSON object
 - `forbidden_semantic_key_detected`: payload contains UI/workflow semantics (blocked intentionally)
 
-### 204 No Content (webhook path)
-
-If your LMS fires an event type that isn't in the connector's allowed list (e.g., `enrollment_created`), the webhook adapter silently drops it with 204. This is expected — only pedagogically relevant events become signals.
-
 ### Debugging using the API docs
 
 - Swagger UI: `GET /docs`
@@ -225,28 +205,17 @@ If your LMS fires an event type that isn't in the connector's allowed list (e.g.
 
 ---
 
-## 9) Integration checklists
+## 9) Integration checklist
 
-### Connector path checklist (recommended)
-
-- [ ] Receive webhook URL and API key from 8P3P operator
-- [ ] Confirm which event types are configured for your connector
-- [ ] Add webhook URL to your LMS admin settings with `x-api-key` header
-- [ ] Verify first signal flows (check `GET /v1/decisions` after a student submits an assignment)
-- [ ] Implement decision polling from `GET /v1/decisions`
-- [ ] Implement handling for all 4 decision types (`reinforce`, `advance`, `intervene`, `pause`)
-- [ ] Use `/docs` as schema reference during implementation
-
-### Direct API checklist (advanced)
-
-- [ ] Choose `learner_reference` format (stable ID from your system)
-- [ ] Choose `signal_id` strategy (use upstream event ID; safe retry)
+- [ ] Receive API key from 8P3P operator
+- [ ] Choose `learner_reference` format (stable SIS/HR ID from your system)
+- [ ] Choose `signal_id` strategy (use upstream event ID for safe retry)
+- [ ] Confirm with 8P3P whether a field mapping is configured for your LMS (if yes, send raw fields; if no, normalize to canonical 0.0–1.0 fields yourself)
 - [ ] Implement event → `SignalEnvelope` transformation
-- [ ] Implement canonical field mapping + normalization (0.0–1.0)
 - [ ] Send signals to `POST /v1/signals` with `x-api-key`
 - [ ] Poll decisions from `GET /v1/decisions`
 - [ ] Implement handling for all 4 decision types (`reinforce`, `advance`, `intervene`, `pause`)
-- [ ] Use `/docs` as schema reference during implementation
+- [ ] Use `/docs` (Swagger UI) as schema reference during implementation
 
 ---
 
@@ -254,7 +223,7 @@ If your LMS fires an event type that isn't in the connector's allowed list (e.g.
 
 The control layer uses `learner_reference` as the **persistent merge key** for all signals from a given org. If the same person exists in multiple systems (Canvas `user_id: 40512`, Internal LMS `user_id: STU-1234`), you must resolve to a single canonical ID before sending signals. All signals for that person — regardless of `source_system` — must carry the same `learner_reference`.
 
-**When using a connector:** The connector's envelope mapping extracts `learner_reference` from a configured field in the LMS payload (e.g., `submission.user_id`). If your LMS uses a stable student ID, this works automatically. If your LMS uses internal IDs that don't match across systems, discuss ID resolution with your 8P3P operator during setup.
+**When using a field mapping:** If 8P3P has configured a field mapping for your `source_system`, the `learner_reference` can be extracted automatically from a configured field in the LMS payload (e.g., `submission.user_id`). If your LMS uses internal IDs that don't match across systems, discuss ID resolution with your 8P3P operator during setup.
 
 ### Recommended strategy: SIS/HR primary key
 
@@ -279,14 +248,14 @@ Branching Minds (LM-9988)         →  learner_reference: "stu-10042"  ─┘
 
 ## 11) Multi-LMS Integration
 
-All LMS systems use the same infrastructure. When using connectors, each connector has its own webhook URL:
+All LMS systems use the same infrastructure and the same endpoint: `POST /v1/signals`. Each LMS is identified by a `source_system` string in the signal payload.
 
-| LMS | Webhook URL | Integration pattern |
-|-----|-------------|---------------------|
-| Canvas | `https://api.8p3p.dev/v1/webhooks/canvas-lms` | Pre-built connector (activate and configure) |
-| I-Ready | `https://api.8p3p.dev/v1/webhooks/iready` | Pre-built connector (activate and configure) |
-| Branching Minds | `https://api.8p3p.dev/v1/webhooks/branching-minds` | Pre-built connector (activate and configure) |
-| Custom LMS | N/A | Direct API: `POST /v1/signals` with custom `source_system` |
+| LMS | `source_system` value | Integration pattern |
+|-----|----------------------|---------------------|
+| Canvas | `canvas-lms` | Direct API with field mapping (configured by 8P3P) |
+| I-Ready | `iready` | Direct API with field mapping (configured by 8P3P) |
+| Branching Minds | `branching-minds` | Direct API with field mapping (configured by 8P3P) |
+| Custom LMS | your choice (e.g. `custom-lms`) | Direct API — normalize fields yourself or request a mapping |
 
 The control layer is source-system agnostic. The same pipeline processes signals from all sources.
 
@@ -333,17 +302,139 @@ With this config:
 
 ---
 
+## 13) Custom LMS Integration (detailed)
+
+If your school uses a custom-built LMS (or any platform where 8P3P hasn't pre-configured a field mapping), you send signals via the **Direct API** (`POST /v1/signals`). The key question is: do you normalize your data yourself, or does 8P3P handle it?
+
+### Option A: You send pre-normalized canonical fields (simplest)
+
+If you can compute canonical fields in your system before sending, no server-side mapping is needed:
+
+```bash
+curl -sS -X POST "https://<host>/v1/signals" \
+  -H "content-type: application/json" \
+  -H "x-api-key: <your_key>" \
+  -d '{
+    "org_id": "<org_id>",
+    "signal_id": "quiz-result-4821",
+    "source_system": "acme-lms",
+    "learner_reference": "stu-10042",
+    "timestamp": "2026-04-14T14:00:00Z",
+    "schema_version": "v1",
+    "payload": {
+      "masteryScore": 0.80,
+      "stabilityScore": 0.65,
+      "confidenceInterval": 0.75,
+      "riskSignal": 0.20
+    }
+  }'
+```
+
+All score fields must be **0.0–1.0**. `timeSinceReinforcement` is in **seconds**. See §5 for the full canonical field reference.
+
+### Option B: You send raw data, 8P3P transforms it (recommended for pilot)
+
+If your system fires events with raw scores (e.g. `earned_points: 8`, `possible_points: 10`), 8P3P can configure a **field mapping** for your `source_system` that automatically derives canonical fields. You send your native payload — the transform engine does the math.
+
+```bash
+curl -sS -X POST "https://<host>/v1/signals" \
+  -H "content-type: application/json" \
+  -H "x-api-key: <your_key>" \
+  -d '{
+    "org_id": "<org_id>",
+    "signal_id": "quiz-result-4821",
+    "source_system": "acme-lms",
+    "learner_reference": "stu-10042",
+    "timestamp": "2026-04-14T14:00:00Z",
+    "schema_version": "v1",
+    "payload": {
+      "quiz_result": {
+        "earned_points": 8,
+        "possible_points": 10,
+        "attempt_number": 2
+      }
+    }
+  }'
+```
+
+With a mapping configured by your 8P3P operator, the transform engine computes:
+- `masteryScore` = `earned_points / possible_points` = `0.8` (clamped to 0–1)
+
+**To set this up:** Provide your 8P3P operator with:
+
+1. **A sample event payload** — the raw JSON your system produces for a learner event
+2. **Which fields represent scores/metrics** — so the operator knows what to map to canonical fields
+3. **The `source_system` identifier you'll use** — a stable string like `"acme-lms"` or `"custom-quiz-platform"` that you include in every signal
+
+Your operator will configure the transform rules. You can verify the mapping is working by sending a test signal and checking `GET /v1/decisions`.
+
+### What the customer provides vs. what 8P3P configures
+
+| Responsibility | Owner |
+|---------------|-------|
+| Choose a stable `source_system` identifier | Customer |
+| Choose a canonical `learner_reference` per student | Customer (see §10) |
+| Provide a sample raw event payload | Customer |
+| Configure field mapping (transforms, aliases, types) | 8P3P operator |
+| Configure policy routing for the new source system | 8P3P operator |
+| Send signals to `POST /v1/signals` | Customer |
+| Poll decisions from `GET /v1/decisions` | Customer |
+
+### Adding multiple source systems
+
+If your school uses Canvas + I-Ready + a custom platform, each gets its own `source_system` identifier. Signals from all systems flow through the same pipeline and merge into a single learner state per student — as long as you use the **same `learner_reference`** across all systems (see §10).
+
+```
+Custom LMS  (source_system: "acme-lms")    → learner_reference: "stu-10042" ─┐
+Canvas      (source_system: "canvas-lms")   → learner_reference: "stu-10042" ─┤─→ Unified State → Decision
+I-Ready     (source_system: "iready")       → learner_reference: "stu-10042" ─┘
+```
+
+Each source system can have its own transform mapping, but they all feed the same policy and produce the same decision types.
+
+---
+
+## 14) Decision Panel — see decisions visually
+
+The **Decision Panel** is a read-only proof surface at `/dashboard` that presents the control layer's output in an educator-friendly layout. It reads from the same API endpoints your integration uses — no additional setup required beyond an API key.
+
+### Four panels
+
+| Panel | What it shows |
+|-------|---------------|
+| **Who Needs Attention?** | Learners with the highest urgency (`intervene` / `pause` decisions) |
+| **Why Are They Stuck?** | Specific skills where learners are declining, with stability context |
+| **What To Do?** | Most recent actionable decision with Approve/Reject controls |
+| **Did It Work?** | Learner progress — which skills have improved since the last decision |
+
+### Access
+
+- **URL:** `https://<host>/dashboard`
+- **Auth:** Uses the same `x-api-key` as the API (configured at build time or prompted on first visit)
+- **Auto-refresh:** Data refreshes every 30 seconds; manual refresh button available
+
+The Decision Panel is a static SPA served from the same host as the API. It consumes `GET /v1/decisions`, `GET /v1/state`, `GET /v1/state/list`, and `GET /v1/policies` — all endpoints already documented above.
+
+**Spec:** `docs/specs/decision-panel-ui.md`
+
+---
+
 ## Reference Documents
 
 - `docs/api/openapi.yaml` (served at `/docs`)
-- `docs/specs/integration-templates.md` (Connector Layer — activation, templates, event types)
-- `docs/specs/webhook-adapters.md` (raw LMS webhook ingestion)
 - `docs/specs/tenant-field-mappings.md` (payload normalization and transforms)
+- `docs/specs/multi-source-transforms.md` (multi-field transform expressions)
 - `docs/specs/signal-ingestion.md` (SignalEnvelope schema, validation)
 - `docs/specs/decision-engine.md` (§4.7 canonical state fields)
 - `docs/specs/api-key-middleware.md` (authentication)
 - `docs/specs/policy-inspection-api.md` (view active policies)
+- `docs/specs/decision-panel-ui.md` (Decision Panel — proof surface for educators)
+
+### Post-pilot (deferred)
+
+- `docs/specs/integration-templates.md` (Connector Layer — pre-built LMS connectors)
+- `docs/specs/webhook-adapters.md` (raw LMS webhook ingestion endpoints)
 
 ---
 
-*Guide updated: 2026-04-06 (v2) — restructured around Connector Layer: connector path is now the primary integration pattern; direct API path is the advanced option. Removed §9 (build your own webhook receiver) — connectors replace this entirely. Added connector quick start, event type filtering note, and multi-connector table. Original v1: 2026-03-28.*
+*Guide updated: 2026-04-14 (v3.0) — restructured around Direct API as the sole pilot integration path; moved connectors and webhooks to post-pilot roadmap references. Previous: v2.2 added §13 Custom LMS integration. v2.1 added Decision Panel section. v2 restructured around Connector Layer.*

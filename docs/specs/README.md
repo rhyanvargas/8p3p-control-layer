@@ -25,9 +25,15 @@ Specifications in this folder are the **single source of truth for requirements 
 - [`policy-inspection-api.md`](policy-inspection-api.md) — `GET /v1/policies` (tenant read-only policy inspection)
 - [`policy-management-api.md`](policy-management-api.md) — Admin policy CRUD + `PATCH` status (soft enable/disable), `ADMIN_API_KEY`
 - [`state-delta-detection.md`](state-delta-detection.md) — Automatic `_delta` / `_direction` companion fields per numeric state field; enables decay detection in policy rules
+- [`skill-level-tracking.md`](skill-level-tracking.md) — Dot-path policy eval, nested delta detection, skill/assessment query filters
+- [`multi-source-transforms.md`](multi-source-transforms.md) — Expression grammar extension (`score / total` from multiple payload fields)
+- [`decision-panel-ui.md`](decision-panel-ui.md) — 4-panel read-only proof surface (React 19+, shadcn/ui, Tailwind CSS); served at `/dashboard`
+- [`dashboard-passphrase-gate.md`](dashboard-passphrase-gate.md) — FERPA-safe access control for Decision Panel; shared passphrase → session cookie
 - [`webhook-adapters.md`](webhook-adapters.md) — `POST /v1/webhooks/:source_system`; raw LMS webhook ingestion — no client-side `SignalEnvelope` construction required
+- [`integration-templates.md`](integration-templates.md) — Connector Layer: catalog, activation, event type config, pre-built templates (Canvas, I-Ready, Branching Minds)
 - [`learner-trajectory-api.md`](learner-trajectory-api.md) — `GET /v1/state/trajectory`; version-range field trend view (**depends on state-delta-detection**)
 - [`learner-summary-api.md`](learner-summary-api.md) — `GET /v1/learners/:ref/summary`; educator-readable aggregated view (**depends on trajectory**)
+- [`liu-usage-meter.md`](liu-usage-meter.md) — `GET /v1/admin/usage` + `GET /v1/usage`; per-org monthly LIU metering
 
 ---
 

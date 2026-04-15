@@ -125,7 +125,20 @@ Read `rules[].condition` for thresholds (e.g. `stabilityScore` compared to `0.65
 
 ---
 
-## Optional: Inspection panels (if you have UI access)
+## Optional: Decision Panel (educator-facing proof surface)
+
+If 8P3P has deployed the Decision Panel for your org:
+
+1. Open `https://<host>/dashboard` in a browser.
+2. The panel uses the same API key as the API — it may be pre-configured, or you'll be prompted to enter it on first visit.
+3. Four panels show real-time insights: **Who Needs Attention?**, **Why Are They Stuck?**, **What To Do?**, **Did It Work?**
+4. Data auto-refreshes every 30 seconds. Use the **Refresh** button for an immediate update.
+
+Share the Decision Panel URL with your educator champion — this is the primary interface for seeing the control layer's intelligence output.
+
+**Full details:** [Pilot Integration Guide §14](pilot-integration-guide.md#14-decision-panel--see-decisions-visually)
+
+## Optional: Inspection panels (developer debugging)
 
 If 8P3P has given you access to the inspection UI:
 

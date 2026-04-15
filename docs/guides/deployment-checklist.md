@@ -4,6 +4,8 @@ Use this checklist before deploying any pilot environment reachable by a custome
 
 This checklist is intentionally **v1** (single-tenant, one org per deployment). For multi-tenant (2–3 concurrent pilots in one environment), use v1.1 tenant provisioning: `docs/specs/tenant-provisioning.md`.
 
+> **Context:** This checklist covers the *technical deployment* gates. For the full pilot onboarding workflow (including customer readiness, onboarding call, and first-week monitoring), see [Pilot Readiness Definition](../../internal-docs/pilot-operations/pilot-readiness-definition.md) and [Onboarding Runbook](../../internal-docs/pilot-operations/onboarding-runbook.md).
+
 ---
 
 ## Non-Negotiable Security Gates
