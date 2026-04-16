@@ -146,7 +146,7 @@ The template uses simple string interpolation (no template engine dependency nee
 
 | Attribute | Value | Rationale |
 |-----------|-------|-----------|
-| Name | `__Host-dp_session` | `__Host-` prefix enforces `Secure`, `Path=/`, no `Domain` — browser-enforced security |
+| Name | `dp_session` | Scoped to `/dashboard` via `Path` attribute below. The `__Host-` prefix was considered but is incompatible with `Path=/dashboard` — browsers enforce that `__Host-` cookies MUST have `Path=/` and no `Domain`. Path-scoping to `/dashboard` is the higher-value property (cookie is not sent on `/v1/*` API calls), so the prefix is dropped. See § Implementation Notes for the future-hardening note. |
 | Value | HMAC-SHA256 signature of `{ exp: <unix_timestamp> }` | Stateless — no server-side session store needed |
 | `HttpOnly` | `true` | Not accessible via JavaScript — XSS cannot steal the cookie |
 | `Secure` | `true` (production); `false` (localhost) | Only sent over HTTPS in production |
@@ -308,7 +308,7 @@ src/
 - **Constant-time comparison:** Use `crypto.timingSafeEqual()` for passphrase validation (same as API key middleware).
 - **HMAC signing:** Use `crypto.createHmac('sha256', COOKIE_SECRET)` — no external JWT library needed.
 - **Login form:** Server-rendered HTML string in the route handler. No template engine dependency. Use string replacement for the error message.
-- **`__Host-` cookie prefix:** Modern browsers enforce that `__Host-` cookies must have `Secure=true`, `Path=/`, and no `Domain` attribute. This prevents cookie injection attacks. On localhost (HTTP), fall back to a non-prefixed name.
+- **Why not the `__Host-` cookie prefix:** The `__Host-` prefix gives browser-enforced protection against cookie injection attacks, but it is only valid when the cookie is scoped to `Path=/` with no `Domain` attribute. This spec scopes the session cookie to `Path=/dashboard` so it is not sent on `/v1/*` API requests — a stronger isolation property for this deployment than the injection protection would provide. Future hardening: if the dashboard is ever split onto its own subdomain (e.g. `dashboard.8p3p.io`), revisit this decision — a subdomain-scoped deployment can safely adopt `__Host-dp_session` with `Path=/`.
 - **Integration with Decision Panel build:** No changes to the SPA. The gate sits in front of `@fastify/static`. The SPA loads after the gate passes.
 
 ---
