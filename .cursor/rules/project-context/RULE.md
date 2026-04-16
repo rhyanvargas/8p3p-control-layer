@@ -156,6 +156,7 @@ Canonical reference: `internal-docs/foundation/definitive-workflow.md`.
 - **Rules (`.cursor/rules/`)**: durable standards, constraints, and policy
 - **Commands (`.cursor/commands/`)**: short entrypoints and usage examples only
 - **Skills (`.cursor/skills/`)**: step-by-step execution workflow
+- **Pre-flight context loading** (`command-context-loading/RULE.md`): before executing any `/command`, the agent loads relevant skills, rules, and MCP documentation (see rule for decision matrix)
 
 Do not duplicate detailed workflow instructions in rules or commands.
 
