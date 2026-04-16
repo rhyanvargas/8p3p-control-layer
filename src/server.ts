@@ -11,6 +11,8 @@ if (existsSync(localPath)) {
 }
 
 import Fastify from 'fastify';
+import cookie from '@fastify/cookie';
+import formbody from '@fastify/formbody';
 import fastifyStatic from '@fastify/static';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
@@ -26,6 +28,8 @@ import { loadPolicy } from './decision/policy-loader.js';
 import { registerDecisionRoutes } from './decision/routes.js';
 import { apiKeyPreHandler } from './auth/api-key-middleware.js';
 import { adminApiKeyPreHandler } from './auth/admin-api-key-middleware.js';
+import { registerDashboardLoginRoutes } from './auth/dashboard-login.js';
+import { dashboardGatePreHandler } from './auth/dashboard-gate.js';
 import { loadTenantFieldMappingsFromFile } from './config/tenant-field-mappings.js';
 import { registerPolicyManagementRoutes } from './admin/policy-management-routes.js';
 import { registerPolicyInspectionRoutes } from './policies/routes.js';
@@ -226,18 +230,31 @@ await server.register(fastifyStatic, {
   prefix: '/inspect/',
 });
 
+await server.register(cookie);
+await server.register(formbody);
+
 // Decision Panel SPA (Pilot Wave 2) — only when built artifacts exist
 const dashboardDist = resolve(process.cwd(), 'dashboard', 'dist');
 if (existsSync(dashboardDist)) {
-  server.get('/dashboard', async (_request, reply) => {
-    return reply.redirect('/dashboard/');
-  });
+  registerDashboardLoginRoutes(server);
 
-  await server.register(fastifyStatic, {
-    root: dashboardDist,
-    prefix: '/dashboard/',
-    decorateReply: false,
-  });
+  // Gate the no-slash `/dashboard` redirect so unauthenticated users land on
+  // /dashboard/login in a single hop (spec § Architecture), rather than
+  // bouncing through /dashboard/ first.
+  server.get(
+    '/dashboard',
+    { preHandler: dashboardGatePreHandler },
+    async (_req, reply) => reply.redirect('/dashboard/')
+  );
+
+  await server.register(async (dashScope) => {
+    dashScope.addHook('preHandler', dashboardGatePreHandler);
+    await dashScope.register(fastifyStatic, {
+      root: dashboardDist,
+      prefix: '/',
+      decorateReply: false,
+    });
+  }, { prefix: '/dashboard/' });
 }
 
 await server.register(swagger, {
