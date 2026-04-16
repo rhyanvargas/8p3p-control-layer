@@ -62,6 +62,7 @@ The agent should answer these questions **before** starting execution:
 2. **Does the target code fall within a domain skill?** — Load the skill.
 3. **Does the task involve an external integration?** — Query MCP docs first.
 4. **Has any loaded rule or skill been updated since I last read it?** — Re-read if uncertain.
+5. **Does the spec contain normative literal blocks?** — When `/plan-impl` or `/implement-spec` runs on a spec that includes wire-format / signed-token / cookie-attribute / env-var / HTTP-status tables or code fences, the agent MUST extract those literal blocks into the plan's `## Spec Literals` section (or the implementation's working context) **before** generating task details or code. Paraphrasing a normative literal is the primary source of spec↔plan drift and is prohibited — quote verbatim with a section anchor.
 
 ## Non-Goals
 

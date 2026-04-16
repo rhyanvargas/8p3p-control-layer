@@ -91,18 +91,28 @@ Track all issues with explicit assignments:
 - Implementation details (save for plan)
 - Inline type definitions that exist in `src/shared/types.ts`
 
-## Spec ↔ implementation parity (prevent drift)
+## Spec ↔ Plan ↔ Implementation parity (prevent drift)
 
-After coding (especially before merge), reconcile **literal** details between `docs/specs/`, `.cursor/plans/`, and `src/`:
+Parity is enforced at **three** boundaries, not just one:
 
-| Drift type | Example | Fix |
-|------------|---------|-----|
+1. **Spec → Plan** (enforced by `/plan-impl` steps 2, 7, 8): the plan quotes spec literals verbatim, maps every requirement to a task, and surfaces every deviation in a `## Deviations from Spec` table.
+2. **Plan → Implementation** (enforced by `/implement-spec` pre-code parity pass): code matches the plan's cited Spec Literals and resolved deviations before the first line is written.
+3. **Implementation → Spec** (enforced by `/implement-spec` post-code parity pass and `/review --spec`): any literal that changed during coding is reconciled back into the spec in the same PR.
+
+Reconcile **literal** details between `docs/specs/`, `.cursor/plans/`, and `src/`:
+
+| Drift type | Example | Fix location |
+|------------|---------|--------------|
+| **Wire format / byte order / encoding** | Spec: `hmac.payload` (no encoding pinned); plan: `payload.hmac` with hex | Spec owns the wire format. Plan and code MUST quote verbatim. If the plan proposes a better format, update the spec in the same PR. |
 | **Numeric constants** in validation vs spec prose | Spec said bind to `0` but `a / b` needs non-zero test values | Update the spec sentence to match the chosen constant (`1` in `validateTransformExpression`). |
-| **Public API shape** | Spec describes “two overloads” but ESLint rejected duplicate `export function` | Prefer TS overload declarations + one implementation; if tooling required a rule change, document in `eslint.config.js` why `no-redeclare` is off for `.ts`. |
+| **Public API shape** | Spec describes "two overloads" but ESLint rejected duplicate `export function` | Prefer TS overload declarations + one implementation; if tooling required a rule change, document in `eslint.config.js` why `no-redeclare` is off for `.ts`. |
+| **Plan-introduced public export** | Plan adds `assertGateConfig()` that the spec never mentions | If the export is part of the component's external surface, round-trip it into the spec's Dependencies/Provides section in the same PR. Internal-only helpers are exempt but must be marked internal (`@internal` JSDoc or non-`index.ts` path). |
 | **Immutability of shared sets** | Plan said `ReadonlySet`; code used `Set` | Type the export as `ReadonlySet<string>` so accidental `.add()` is a type error. |
-| **Finished plans** | Plan body still says old literals | Update plan TASK details when behavior changes, or add “superseded by spec section X” in the report. |
+| **Deliberate deviation hidden in prose** | Plan picks `dp_session` but keeps `__Host-dp_session` in a risks table or JSDoc instead of `## Deviations from Spec` | Move to the plan's `Deviations from Spec` table with explicit resolution (`Update spec in same PR` / `Implementation detail — spec silent` / `Reverted`). |
+| **Rate-limit / security semantics** | Spec says "successful logins do not increment counter"; plan increments before passphrase check | Treat spec's behavior sentence as normative. Reorder plan operations to match, or surface the change in `Deviations from Spec` with spec update. |
+| **Finished plans** | Plan body still says old literals | Update plan TASK details when behavior changes, or add "superseded by spec section X" in the report. |
 
-**Agent checklist:** When `/implement-spec` or `/review --spec` finds a spec/plan mismatch, **fix the owning document** (usually the spec) in the same PR unless the implementation is wrong.
+**Agent checklist:** When `/plan-impl`, `/implement-spec`, or `/review --spec` finds a spec/plan/code mismatch, **fix the owning document** (usually the spec, sometimes the plan) in the same PR unless the implementation is the one that is wrong. Silent divergence is not acceptable — every divergence has a named resolution.
 
 ## Validation During Review
 
