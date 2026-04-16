@@ -58,7 +58,7 @@ The passphrase gate sits **in front of** the static SPA. The SPA itself is uncha
 - [ ] `POST /dashboard/login` validates the submitted passphrase against `DASHBOARD_ACCESS_CODE` using constant-time comparison
 - [ ] On valid passphrase: set a signed `HttpOnly`, `Secure` (in production), `SameSite=Strict` session cookie and redirect to `/dashboard`
 - [ ] On invalid passphrase: re-render login form with "Invalid access code" error (no details about the expected value)
-- [ ] All `/dashboard/*` routes (except `/dashboard/login`) check for a valid session cookie via Fastify `preHandler` hook
+- [ ] All `/dashboard/*` routes (except `/dashboard/login` and `/dashboard/logout`) check for a valid session cookie via Fastify `preHandler` hook. `/dashboard/logout` is exempt so expired or invalid sessions can still clear cookie state without hitting a redirect loop.
 - [ ] Missing or invalid session cookie → 302 redirect to `/dashboard/login`
 - [ ] Session cookie TTL: configurable via `DASHBOARD_SESSION_TTL_HOURS` env var (default: 8 hours — one school day)
 - [ ] `GET /dashboard/logout` clears the session cookie and redirects to `/dashboard/login`
@@ -157,12 +157,14 @@ The template uses simple string interpolation (no template engine dependency nee
 ### Cookie Value Structure
 
 ```
-HMAC-SHA256( COOKIE_SECRET, JSON.stringify({ exp: 1713100800 }) )
+hex( HMAC-SHA256( COOKIE_SECRET, JSON.stringify({ exp: 1713100800 }) ) )
   + "."
   + base64url( JSON.stringify({ exp: 1713100800 }) )
 ```
 
-Verification: split on `.`, verify HMAC of the payload portion, parse payload, check `exp > Date.now()/1000`.
+The signature portion is the lowercase hex encoding of the HMAC-SHA256 digest. The payload portion is the `base64url` encoding (RFC 4648 §5, no padding) of the UTF-8 JSON payload. The two portions are joined by a single `.` separator.
+
+Verification: split on `.`, hex-decode the signature, recompute `HMAC-SHA256(COOKIE_SECRET, payloadJson)` over the original (base64url-decoded) payload bytes, compare with `crypto.timingSafeEqual`, parse payload, check `exp > Date.now()/1000`.
 
 ---
 
@@ -306,7 +308,8 @@ src/
 ## Implementation Notes
 
 - **Constant-time comparison:** Use `crypto.timingSafeEqual()` for passphrase validation (same as API key middleware).
-- **HMAC signing:** Use `crypto.createHmac('sha256', COOKIE_SECRET)` — no external JWT library needed.
+- **HMAC signing:** Use `crypto.createHmac('sha256', COOKIE_SECRET)` — no external JWT library needed. The digest is emitted as lowercase hex (`.digest('hex')`) before concatenation with the `base64url` payload — see § Cookie Value Structure.
+- **Gate exempt paths:** The preHandler skips both `/dashboard/login` (login form + POST) and `/dashboard/logout`. Logout is intentionally reachable without a valid cookie so a user with an expired session can still clear local state without triggering a redirect loop back to `/dashboard/login`. See `DASHBOARD_LOGIN_EXEMPT_PATHS` in `src/auth/dashboard-gate.ts`.
 - **Login form:** Server-rendered HTML string in the route handler. No template engine dependency. Use string replacement for the error message.
 - **Why not the `__Host-` cookie prefix:** The `__Host-` prefix gives browser-enforced protection against cookie injection attacks, but it is only valid when the cookie is scoped to `Path=/` with no `Domain` attribute. This spec scopes the session cookie to `Path=/dashboard` so it is not sent on `/v1/*` API requests — a stronger isolation property for this deployment than the injection protection would provide. Future hardening: if the dashboard is ever split onto its own subdomain (e.g. `dashboard.8p3p.io`), revisit this decision — a subdomain-scoped deployment can safely adopt `__Host-dp_session` with `Path=/`.
 - **Integration with Decision Panel build:** No changes to the SPA. The gate sits in front of `@fastify/static`. The SPA loads after the gate passes.

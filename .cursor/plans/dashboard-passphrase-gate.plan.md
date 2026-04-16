@@ -11,31 +11,31 @@ overview: |
 todos:
   - id: TASK-001
     content: Install @fastify/cookie and @fastify/formbody plugins
-    status: pending
+    status: completed
   - id: TASK-002
     content: Create src/auth/session-cookie.ts — sign/verify/clear HMAC-SHA256 cookie helpers
-    status: pending
+    status: completed
   - id: TASK-003
     content: Write tests/unit/session-cookie.test.ts — GATE-007, GATE-008, GATE-009
-    status: pending
+    status: completed
   - id: TASK-004
     content: Create src/auth/login-rate-limiter.ts — in-memory per-IP sliding-window limiter
-    status: pending
+    status: completed
   - id: TASK-005
     content: Create src/auth/dashboard-login.ts — GET/POST /dashboard/login + GET /dashboard/logout + inline HTML template
-    status: pending
+    status: completed
   - id: TASK-006
     content: Create src/auth/dashboard-gate.ts — preHandler hook for /dashboard/* session check
-    status: pending
+    status: completed
   - id: TASK-007
     content: Wire plugins and routes into src/server.ts in correct order (cookie → formbody → login routes → gate hook → static)
-    status: pending
+    status: completed
   - id: TASK-008
     content: Write tests/integration/dashboard-gate.test.ts — GATE-001..006, GATE-010, GATE-011
-    status: pending
+    status: completed
   - id: TASK-009
     content: Update .env.example + README env table with DASHBOARD_ACCESS_CODE, DASHBOARD_SESSION_TTL_HOURS, COOKIE_SECRET
-    status: pending
+    status: completed
 isProject: false
 ---
 
@@ -74,12 +74,14 @@ isProject: false
 ### From spec § Cookie Value Structure
 
 ```
-HMAC-SHA256( COOKIE_SECRET, JSON.stringify({ exp: 1713100800 }) )
+hex( HMAC-SHA256( COOKIE_SECRET, JSON.stringify({ exp: 1713100800 }) ) )
   + "."
   + base64url( JSON.stringify({ exp: 1713100800 }) )
 ```
 
-> Verification: split on `.`, verify HMAC of the payload portion, parse payload, check `exp > Date.now()/1000`.
+> Signature: lowercase hex of the HMAC-SHA256 digest.
+> Payload: `base64url` (RFC 4648 §5, no padding) of the UTF-8 JSON payload.
+> Verification: split on `.`, hex-decode signature, recompute HMAC over the original payload bytes, `timingSafeEqual` compare, parse payload JSON, check `exp > Date.now()/1000`.
 
 ### From spec § Rate Limiting
 
@@ -149,7 +151,8 @@ HMAC-SHA256( COOKIE_SECRET, JSON.stringify({ exp: 1713100800 }) )
 ### From spec § Implementation Notes (normative)
 
 - Use `crypto.timingSafeEqual()` for passphrase validation.
-- Use `crypto.createHmac('sha256', COOKIE_SECRET)` — no external JWT library.
+- Use `crypto.createHmac('sha256', COOKIE_SECRET)` with `.digest('hex')` — no external JWT library.
+- Gate exempt paths: `/dashboard/login` (GET + POST) and `/dashboard/logout`. Logout is exempt so expired cookies can still be cleared without a redirect loop.
 - Server-rendered HTML string, no template engine, string replacement for the error.
 - Cookie name is `dp_session` (non-prefixed) so that `Path=/dashboard` scoping can be used. The `__Host-` prefix is explicitly deferred to future subdomain-scoped deployments per spec § Implementation Notes.
 
@@ -378,8 +381,10 @@ Before starting implementation:
 | Spec section | Spec says | Plan does | Resolution |
 |--------------|-----------|-----------|------------|
 | § Cookie Specification, § Implementation Notes | `Name = dp_session` with `Path = /dashboard`; `__Host-` prefix documented as future hardening for subdomain-scoped deployments | `Name = dp_session` with `Path = /dashboard` | **Reverted — plan now matches spec.** Spec was updated in commit accompanying this plan to resolve the internal contradiction between `__Host-dp_session` (browser-requires `Path=/`) and `Path=/dashboard`. Spec chose to preserve the path-scoping rationale and drop the prefix. Plan and spec are now literal-compatible. |
-| § Functional (FR-10) | "`GET /dashboard/logout` clears the session cookie and redirects to `/dashboard/login`" | Exempts `/dashboard/logout` from the gate so logout still works when the cookie is already expired/invalid | **Implementation detail — spec silent.** Spec lists logout among the routes but does not specify whether it requires a valid session. Plan exempts it to avoid a redirect loop on expired cookies. |
-| § Rate Limiting | "Storage: In-memory Map" | Plan adds an exported `_resetForTest()` helper that clears the Map | **Implementation detail — spec silent.** Test-only affordance, not part of public API. Will be marked `@internal` in JSDoc. |
+| § Cookie Value Structure | Original spec: `HMAC-SHA256(...)` output encoding unpinned (pseudocode concatenated with `.`) | Implementation emits lowercase hex via `.digest('hex')` | **Spec updated in same PR as post-impl sync.** Spec § Cookie Value Structure now pins `hex(HMAC-SHA256(...))` + `.` + `base64url(payload)` and § Implementation Notes points at `.digest('hex')`. Plan Spec Literals now quote the updated wire format verbatim. |
+| § Functional (FR-7) | Original spec: gate applies "except `/dashboard/login`" | Implementation exempts both `/dashboard/login` AND `/dashboard/logout` via `DASHBOARD_LOGIN_EXEMPT_PATHS` to avoid redirect loops on expired sessions | **Spec updated in same PR as post-impl sync.** Spec FR-7 now lists both paths; § Implementation Notes adds a "Gate exempt paths" bullet citing `DASHBOARD_LOGIN_EXEMPT_PATHS`. Round-trip complete. |
+| Plan-introduced export | Plan adds `DASHBOARD_LOGIN_EXEMPT_PATHS` export not mentioned in spec | Exported from `src/auth/dashboard-gate.ts` with `@internal` JSDoc and doc pointer to spec § Implementation Notes | **Marked `@internal`.** Not part of public module surface; only consumed by integration tests. Per `document-traceability/RULE.md` § "Plan-introduced public export", internal-only helpers are exempt from spec round-trip when marked `@internal`. |
+| § Rate Limiting | "Storage: In-memory Map" | Plan adds an exported `_resetForTest()` helper that clears the Map | **Implementation detail — spec silent.** Test-only affordance, not part of public API. Marked `@internal` in JSDoc (`src/auth/login-rate-limiter.ts`). |
 | § Login Page | HTML uses `{{#if error}}...{{/if}}` Handlebars-like syntax | Plan implements this via a plain `string.replace(/{{#if error}}[\s\S]*?{{\/if}}/, errorHtml \|\| '')` (no Handlebars dep) | **Implementation detail — spec silent.** Spec § Implementation Notes explicitly says "No template engine dependency. Use string replacement for the error message." Plan matches that guidance. |
 | § Environment Variables | `COOKIE_SECRET` "Min 32 chars" | Plan fails fast at server startup if `COOKIE_SECRET` is shorter than 32 chars when `DASHBOARD_ACCESS_CODE` is set | **Implementation detail — spec silent on enforcement mechanism.** Plan chooses fail-fast (matches existing `API_KEY` pattern which also validates on boot). |
 

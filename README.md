@@ -147,6 +147,15 @@ The server loads `.env` then `.env.local` at startup (see `src/server.ts`). Copy
 | `FIELD_MAPPINGS_TABLE` | *(unset)* | DynamoDB table for field mappings (v1.1). If unset, DynamoDB lookup is skipped; ingestion uses file config or prior behavior |
 | `FIELD_MAPPINGS_CACHE_TTL_MS` | `300000` (5 min) | In-memory TTL for FieldMappingsTable cache |
 | `ADMIN_API_KEY` | *(unset)* | If set, `/v1/admin/*` requires header `x-admin-api-key`. Generate: `openssl rand -hex 32` |
+| `DASHBOARD_ACCESS_CODE` | *(unset)* | If set (non-empty), enables the passphrase gate for `/dashboard/*`. If unset or empty, the Decision Panel is served without a login gate (typical local dev). See [Dashboard passphrase gate](docs/specs/dashboard-passphrase-gate.md) |
+| `DASHBOARD_SESSION_TTL_HOURS` | `8` | Signed session cookie lifetime in hours when the gate is enabled |
+| `COOKIE_SECRET` | *(unset)* | Required when `DASHBOARD_ACCESS_CODE` is set: secret used to sign `dp_session` cookies (min 32 characters). Generate: `openssl rand -hex 32`. Rotating this value revokes all active dashboard sessions |
+
+### Dashboard access gate
+
+When `DASHBOARD_ACCESS_CODE` is set, staff must enter the shared access code once per session before the Decision Panel SPA loads. Behavior, cookie shape, and rate limits are specified in [`docs/specs/dashboard-passphrase-gate.md`](docs/specs/dashboard-passphrase-gate.md). Set `COOKIE_SECRET` to a strong random value (for example `openssl rand -hex 32`) in the same environment.
+
+Behind a reverse proxy or load balancer, configure Fastify `trustProxy` appropriately so `request.ip` reflects the client IP for login rate limiting; otherwise all clients may appear as the proxy address.
 
 For hands-on setup steps, see [Local environment setup](docs/foundation/setup.md).
 
@@ -161,7 +170,11 @@ src/
 │   └── policy-management-routes.ts # Admin policy CRUD handlers
 ├── auth/                # Authentication middleware
 │   ├── admin-api-key-middleware.ts  # x-admin-api-key auth
-│   └── api-key-middleware.ts       # x-api-key tenant auth
+│   ├── api-key-middleware.ts       # x-api-key tenant auth
+│   ├── dashboard-gate.ts           # Decision Panel session gate
+│   ├── dashboard-login.ts          # Dashboard login/logout routes
+│   ├── session-cookie.ts           # HMAC session cookie helpers
+│   └── login-rate-limiter.ts       # Login attempt rate limiter
 ├── config/              # Tenant configuration
 │   └── tenant-field-mappings.ts    # Payload normalization + aliases
 ├── contracts/           # JSON schemas and validators
@@ -230,6 +243,7 @@ tests/
 │   ├── e2e-signal-to-decision.test.ts
 │   ├── springs-pilot.test.ts
 │   ├── inspection-panels.test.ts
+│   ├── dashboard-gate.test.ts
 │   └── gateway-403.test.ts
 ├── unit/             # Unit tests
 │   ├── forbidden-keys.test.ts
@@ -244,6 +258,7 @@ tests/
 │   ├── decision-validator.test.ts
 │   ├── policy-loader.test.ts
 │   ├── api-key-middleware.test.ts
+│   ├── session-cookie.test.ts
 │   └── lambda/
 │       └── lambda-handlers.test.ts
 └── helpers/          # Shared test utilities
