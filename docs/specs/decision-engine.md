@@ -47,11 +47,13 @@ The canonical decision object. Matches the OpenAPI `Decision` schema. Trace incl
   "trace": {
     "state_id": "string",
     "state_version": "integer",
+    "policy_id": "string",
     "policy_version": "string",
     "matched_rule_id": "string | null",
     "state_snapshot": {},
     "matched_rule": {} | null,
-    "rationale": "string"
+    "rationale": "string",
+    "educator_summary": "string"
   },
   "output_metadata": {}
 }
@@ -71,11 +73,13 @@ The canonical decision object. Matches the OpenAPI `Decision` schema. Trace incl
 | `decision_context` | object | Opaque, downstream-neutral context (no domain semantics) |
 | `trace.state_id` | string | ID of the state snapshot used for evaluation |
 | `trace.state_version` | integer | Version of the state snapshot used for evaluation |
+| `trace.policy_id` | string | Policy identifier (e.g. `springs:learner`, `springs:staff`) — required; each policy is unique and referenced by this id across services. |
 | `trace.policy_version` | string | Version of the policy used to produce this decision |
-| `trace.matched_rule_id` | string or null | ID of the policy rule that fired. `null` when `default_decision_type` was used (no rule matched). Enables per-rule traceability. |
+| `trace.matched_rule_id` | string or null | ID of the policy rule that fired. On any **persisted** Decision, this is the matching rule's `rule_id` (non-null). When no rule matches, no Decision is constructed — see §4.3 (`{ ok: true, matched: false }`); there is no default fall-through. |
 | `trace.state_snapshot` | object | (Enriched trace) Canonical state fields at evaluation time; only policy-evaluated fields, excludes PII. See DEF-DEC-007. |
 | `trace.matched_rule` | object or null | (Enriched trace) Full matched rule with evaluated_fields. |
 | `trace.rationale` | string | (Enriched trace) Human-readable rationale. |
+| `trace.educator_summary` | string | Teacher-facing short label for this decision type (non-empty). Source: runbook § Teacher-friendly decision definitions (Shortest version column). Populated from `DECISION_TYPE_TO_EDUCATOR_SUMMARY` in `src/decision/educator-summaries.ts`. |
 | `output_metadata` | object (optional) | Downstream metadata: `priority`, `ttl_seconds`, `downstream_targets`. See OpenAPI. |
 
 ### 4.2 EvaluateStateForDecisionRequest (Internal Invocation)
@@ -106,12 +110,24 @@ From Component Interface Contracts §4.1, extended with optional `evaluation_con
 
 `evaluateState` returns a discriminated outcome rather than throwing on rejection. Consumers **must** inspect the `ok` field before accessing results. Follows the same pattern as `ApplySignalsOutcome`.
 
-**Success:**
+**Success (policy rule matched — Decision persisted):**
 
 ```json
 {
   "ok": true,
+  "matched": true,
   "result": "Decision (see 4.1)"
+}
+```
+
+**Success (no policy rule matched — no Decision, no persistence, no LIU):**
+
+When no rule in the resolved policy matches, `evaluateState()` returns `{ ok: true, matched: false }` — no `Decision` is constructed, no persistence occurs, no LIU is counted. Source: runbook § Policy rule (2026-04-18): *"Remove any default decision that fires when no rule matches. If no policy rule matches, no decision is created and no LIU is counted."* The earlier behavior (fall through to `default_decision_type`) is removed.
+
+```json
+{
+  "ok": true,
+  "matched": false
 }
 ```
 
@@ -160,6 +176,7 @@ These codes validate the structural integrity of `Decision` objects. Since the e
 Internal consumers (Output Interfaces, future pipeline stages) **must** follow these rules when handling `EvaluateDecisionOutcome`:
 
 - **Pattern-match on `ok`** before accessing `result` or `errors`. Never assume success.
+- When `ok === true`, **inspect `matched`** before accessing `result`. If `matched === false`, there is no `Decision` and no persistence occurred.
 - **Branch on `code`, not `message`** — error message text is informational and may change; use `code` exclusively for control flow.
 - **Log full `errors` array** when `ok === false`, and propagate the first error's `code` for upstream reporting.
 
@@ -200,7 +217,9 @@ Four types only. No additions without spec revision. `escalate`, `recommend`, an
 | `reinforce` | Continue current path; prevent decay |
 | `advance` | Progress to next level or content |
 | `intervene` | Require immediate assistance (highest-risk path) |
-| `pause` | Temporary hold; reroute or compliance block |
+| `pause` | Possible learning decay detected; watch closely (hold/reroute internally) |
+
+Per runbook internal note (2026-04-18): on the backend, `pause` can still map to possible risk or decay, but in client conversations it must never be explained as inaction or an open-ended hold. The column above is the client-facing description.
 
 Runtime constant: `DECISION_TYPES = ['reinforce', 'advance', 'intervene', 'pause']`
 
@@ -220,7 +239,7 @@ Schema for JSON policy files (ISS-DGE-002). Supports compound conditions via rec
       "decision_type": "string (one of 4 types)"
     }
   ],
-  "default_decision_type": "string (one of 4 types)"
+  "default_decision_type?": "string (one of 4 types) — deprecated; accepted for back-compat, ignored by the evaluator"
 }
 ```
 
@@ -233,7 +252,7 @@ Schema for JSON policy files (ISS-DGE-002). Supports compound conditions via rec
 | `rules[].rule_id` | string | Unique identifier for this rule within the policy. Recorded in `trace.matched_rule_id`. |
 | `rules[].condition` | ConditionNode | Condition tree to evaluate against state (see §4.6.1) |
 | `rules[].decision_type` | string | Decision type to emit if condition matches (one of 4 types) |
-| `default_decision_type` | string | Fallback decision type when no rules match (one of 4 types). `trace.matched_rule_id` is `null` in this case. |
+| `default_decision_type` | string | **Deprecated.** Accepted for back-compat of existing admin API payloads but **ignored by the evaluator**. Scheduled for removal in v1.2 after the first enterprise contract signs (tracked in DEF-DEC-010). New policies should omit the field. When no rule matches, no decision is emitted (see § Policy Evaluation Semantics). |
 
 #### 4.6.1 ConditionNode (Recursive)
 
@@ -298,9 +317,13 @@ The default policy evaluates against these canonical state fields. All numeric s
 
 ### Determinism
 
-- Same `(state_id, state_version, policy_version)` → same `decision_type` and semantically equivalent `decision_context`
+- Same `(state_id, state_version, policy_version)` → same outcome: either the same `decision_type` and semantically equivalent `decision_context` when a rule matches, or consistently **no decision** when no rule matches (`{ ok: true, matched: false }`).
 - Decisions can be reproduced by replaying evaluation against the same state snapshot and policy version
 - Concurrent evaluations for the same input produce identical decisions
+
+### No-match emits nothing
+
+- If **no** policy rule matches the current state, **no** `Decision` object is created, **no** row is written to the Decision Store, and **no** LIU is counted. The engine returns `{ ok: true, matched: false }`. This is normal pilot behavior, not an error. Source: runbook § Policy rule — *"Important control: if no rule matches, no decision should be emitted."*
 
 ### Immutability
 
@@ -316,9 +339,9 @@ The default policy evaluates against these canonical state fields. All numeric s
 
 ### Trace Required
 
-- Every decision **must** include `trace` with `state_id`, `state_version`, `policy_version`, `matched_rule_id`, and (for v1 pilot) `state_snapshot`, `matched_rule`, `rationale`
+- Every decision **must** include `trace` with `state_id`, `state_version`, `policy_id`, `policy_version`, `matched_rule_id`, and (for v1 pilot) `state_snapshot`, `matched_rule`, `rationale`, `educator_summary`
 - Trace binds the decision to the exact state snapshot, policy, and rule that produced it
-- `matched_rule_id` is the `rule_id` of the first matching rule, or `null` when `default_decision_type` was used
+- `matched_rule_id` is the `rule_id` of the first matching rule (non-null on any persisted Decision). There is no default-decision path; if no rule matches, no Decision exists and trace is not applicable.
 - Missing trace → `missing_trace` rejection
 
 ### No Downstream Enforcement
@@ -434,8 +457,14 @@ CREATE TABLE IF NOT EXISTS decisions (
   decision_context TEXT NOT NULL,
   trace_state_id TEXT NOT NULL,
   trace_state_version INTEGER NOT NULL,
+  trace_policy_id TEXT,                   -- Added by migration; NOT NULL on new rows (populated by engine).
   trace_policy_version TEXT NOT NULL,
-  trace_matched_rule_id TEXT,            -- NULL when default_decision_type was used
+  trace_matched_rule_id TEXT,             -- rule_id for persisted decisions; no row is inserted when no rule matched
+  trace_state_snapshot TEXT,              -- Enriched trace: canonical state fields JSON (DEF-DEC-007)
+  trace_matched_rule TEXT,                -- Enriched trace: full matched rule JSON
+  trace_rationale TEXT,                   -- Enriched trace: human-readable rationale
+  trace_educator_summary TEXT,            -- Added 2026-04-18: teacher-facing short label (runbook §Shortest version)
+  output_metadata TEXT,                   -- Downstream metadata JSON (priority, ttl_seconds, downstream_targets)
   UNIQUE(org_id, decision_id)             -- Composite key mirrors DynamoDB PK (org_id) + SK (decision_id).
                                           -- Functionally redundant with column-level UNIQUE on decision_id
                                           -- (UUIDs are globally unique) but retained for migration parity.
@@ -444,6 +473,8 @@ CREATE TABLE IF NOT EXISTS decisions (
 CREATE INDEX idx_decisions_query
   ON decisions(org_id, learner_reference, decided_at);
 ```
+
+> **Migration note:** `trace_policy_id`, `trace_state_snapshot`, `trace_matched_rule`, `trace_rationale`, `trace_educator_summary`, and `output_metadata` are added via in-place `ALTER TABLE` migrations in `SqliteDecisionRepository` to keep existing dev/test DBs forward-compatible. New rows written by the engine always populate these columns (JSON schema requires them); legacy rows may surface `null` via the `rowToDecision` back-fill path.
 
 **Functions:**
 - `initDecisionStore(dbPath: string): void` — Initialize database with schema (creates `SqliteDecisionRepository` internally)
@@ -476,12 +507,12 @@ function evaluateState(request: EvaluateStateForDecisionRequest): EvaluateDecisi
 3. Verify state exists → `state_not_found` if null
 4. Verify state matches request (`state_id`, `state_version`) → `trace_state_mismatch` if diverged
 5. Load current policy (or use cached policy from startup)
-6. Evaluate policy against state → get `decision_type` and `matched_rule_id` (recursive condition tree walk; see §Policy Evaluation Semantics)
+6. Evaluate policy against state → get `decision_type` and `matched_rule_id` (recursive condition tree walk; see §Policy Evaluation Semantics). If no rule matches, return `{ ok: true, matched: false }` — **stop** (no snapshot, no save).
 7. Build `decision_context` (opaque, from evaluation metadata)
 8. Validate `decision_context` for forbidden keys
-9. Construct `Decision` object with trace (`state_id`, `state_version`, `policy_version`, `matched_rule_id`)
+9. Construct `Decision` object with trace (`state_id`, `state_version`, `policy_version`, `matched_rule_id`, …)
 10. Save decision to Decision Store
-11. Return `{ ok: true, result: Decision }`
+11. Return `{ ok: true, matched: true, result: Decision }`
 
 **On rejection:** Return `{ ok: false, errors: [...] }` — never throw.
 
@@ -501,7 +532,7 @@ Load and evaluate JSON policy files. Supports both a single default policy (lega
 - `loadPolicyForContext(orgId: string, userType: string): PolicyDefinition` — Resolve policy for `(org_id, policy_key)` using the resolution order `policies/{orgId}/{userType}.json` → `policies/{orgId}/default.json` → `policies/default.json`. Cached by `{orgId}:{userType}`. Throws with `policy_not_found` if no candidate file exists.
 - `loadRoutingConfigForOrg(orgId: string): PolicyRoutingConfig | null` — Load `policies/{orgId}/routing.json`; returns `null` if missing or invalid. Cached per org.
 - `resolveUserTypeFromSourceSystem(orgId: string, sourceSystem: string): string` — Return policy key for the given org and source system (routing config → default_policy_key → `"learner"`).
-- `evaluatePolicy(state: Record<string, unknown>, policy: PolicyDefinition): PolicyEvaluationResult` — Walk rules in order, recursively evaluate each rule's condition tree against state. Return first matching rule's `decision_type`, `matched_rule_id`, and (for enriched trace) `matched_rule` with `evaluated_fields`; or default decision with `matched_rule_id: null`.
+- `evaluatePolicy(state: Record<string, unknown>, policy: PolicyDefinition): PolicyEvaluationResult` — Walk rules in order, recursively evaluate each rule's condition tree against state. Return first matching rule's `decision_type`, `matched_rule_id`, and (for enriched trace) `matched_rule` with `evaluated_fields`; if no rule matches, return `{ decision_type: null, matched_rule_id: null }` (evaluator does not read `default_decision_type`).
 - `getLoadedPolicyVersion(): string` — Return current policy version for trace recording (singleton cache from `loadPolicy()`; context-loaded policies use the version from the resolved policy).
 
 **Validation (at load time):**
@@ -512,7 +543,7 @@ Load and evaluate JSON policy files. Supports both a single default policy (lega
 - All `rule_id` values must be unique within the policy
 - Each `ConditionNode` must be exactly one of: leaf, `all`, or `any` (no mixing)
 - Compound nodes (`all`/`any`) must contain at least 2 children
-- At least one rule or a `default_decision_type` required
+- At least one rule required (`default_decision_type` is optional and ignored by evaluation; see §4.6)
 
 **Error handling:**
 - Missing policy file → throw with `policy_not_found` error code
@@ -580,7 +611,7 @@ const evalRequest: EvaluateStateForDecisionRequest = {
 const decisionOutcome = evaluateState(evalRequest);
 ```
 
-**Critical constraint:** Decision evaluation failure must **not** fail signal ingestion. If `evaluateState` returns `ok: false`, log the error but do not reject the signal.
+**Critical constraint:** Decision evaluation failure must **not** fail signal ingestion. If `evaluateState` returns `ok: false`, log the error but do not reject the signal. If `evaluateState` returns `ok: true` with `matched: false`, that is normal — log at info, not error.
 
 ### On-Demand Trigger
 
@@ -623,7 +654,7 @@ EvaluateStateForDecisionRequest
 ┌──────────────────┐
 │ Evaluate Policy  │ ← Walk rules in order, evaluate condition tree recursively
 │ Against State    │ ← First match → decision_type + matched_rule_id
-│                  │ ← No match → default_decision_type (matched_rule_id = null)
+│                  │ ← No match → { ok: true, matched: false } (no Decision)
 └────────┬─────────┘
          │
          ▼
@@ -645,7 +676,7 @@ EvaluateStateForDecisionRequest
 └────────┬─────────┘
          │
          ▼
-  EvaluateDecisionOutcome (ok: true → Decision | ok: false → errors)
+  EvaluateDecisionOutcome (ok:true, matched:true → Decision | ok:true, matched:false → no row | ok: false → errors)
 ```
 
 ## Policy Model
@@ -656,7 +687,7 @@ JSON files stored at `src/decision/policies/`. Loaded at startup, versioned via 
 
 **Default policy (`src/decision/policies/default.json`):**
 
-> **4-rule policy (priority-ordered, first match wins).** Locked to 4 decision types. `escalate`/`reroute`/`recommend` conditions merged into `intervene` and `pause`. Rules use only the canonical state fields (§4.7). Highest-risk decisions evaluated first; safe fallback: `reinforce`.
+> **4-rule policy (priority-ordered, first match wins).** Locked to 4 decision types. `escalate`/`reroute`/`recommend` conditions merged into `intervene` and `pause`. Rules use only the canonical state fields (§4.7). Highest-risk decisions evaluated first; **no default decision** when nothing matches — see § Policy Evaluation Semantics.
 
 ```json
 {
@@ -719,12 +750,11 @@ JSON files stored at `src/decision/policies/`. Loaded at startup, versioned via 
       },
       "decision_type": "reinforce"
     }
-  ],
-  "default_decision_type": "reinforce"
+  ]
 }
 ```
 
-> **Rule priority rationale (highest → lowest danger):** `intervene` → `pause` → `advance` → `reinforce` → default (`reinforce`). `intervene` absorbs former `escalate` conditions (low-confidence + extreme risk). `pause` absorbs former `reroute` conditions (high risk + sufficient confidence). `advance` collapses former `recommend`. Compound `any` in `rule-intervene` exercises ISS-DGE-002 nested condition evaluation.
+> **Rule priority rationale (highest → lowest danger):** `intervene` → `pause` → `advance` → `reinforce`. `intervene` absorbs former `escalate` conditions (low-confidence + extreme risk). `pause` absorbs former `reroute` conditions (high risk + sufficient confidence). `advance` collapses former `recommend`. If no rule matches, no decision is emitted. Compound `any` in `rule-intervene` exercises ISS-DGE-002 nested condition evaluation.
 
 ### Policy Evaluation Semantics
 
@@ -733,8 +763,8 @@ JSON files stored at `src/decision/policies/`. Loaded at startup, versioned via 
 1. Rules are evaluated in array order (first match wins)
 2. For each rule, the condition tree is evaluated recursively (see below)
 3. If a rule's condition evaluates to `true`, return `{ decision_type: rule.decision_type, matched_rule_id: rule.rule_id }`
-4. If no rules match, return `{ decision_type: default_decision_type, matched_rule_id: null }`
-5. All `decision_type` values must be in the closed set
+4. If no rules match, return `{ decision_type: null, matched_rule_id: null }`; `evaluateState()` translates this into `{ ok: true, matched: false }` and does not persist a Decision (the evaluator ignores `default_decision_type`).
+5. All `decision_type` values on rules must be in the closed set
 
 **Condition tree evaluation (recursive):**
 
@@ -811,9 +841,10 @@ Implement all tests from the Contract Test Matrix §5 (Decision Engine) and §6 
 | DEC-005 | Trace Required | Omit trace | rejected, `missing_trace` |
 | DEC-006 | Deterministic Decision Output | Evaluate same `(state_id, state_version)` twice | Identical `decision_type` and equivalent `decision_context` |
 | DEC-007 | Trace-State Mismatch | Trace references different `state_version` than request | rejected, `trace_state_mismatch` |
-| DEC-008 | Traceability per decision type (parameterized, 9 cases — POC v2) | State with canonical fields tuned to trigger each decision type plus default paths (see table below) | Decision with correct `decision_type`, `trace.matched_rule_id` matching the expected rule (or `null` for default), and correct `trace.policy_version` |
+| DEC-008 | Traceability per decision type (parameterized, 9 cases — POC v2) | State with canonical fields tuned to trigger each decision type plus no-match paths (see table below) | For rule matches: Decision with correct `decision_type`, `trace.matched_rule_id`, and `trace.policy_version`. For 8h–8i: `{ ok: true, matched: false }` (no Decision row). |
+| DEC-009 | No rule match — no persistence | State that matches no rule in `default.json` (e.g. DEC-008 vector 8h) | `evaluateState` and `evaluateStateAsync` return `{ ok: true, matched: false }`; `getDecisions` empty for that evaluation window; `saveDecision` not invoked |
 
-**DEC-008 test vectors (POC v2 — all 4 types + default paths):**
+**DEC-008 test vectors (POC v2 — all 4 types + no-match paths):**
 
 | Case | State Fields | Expected `decision_type` | Expected `matched_rule_id` |
 |------|--------------|-------------------------|---------------------------|
@@ -824,10 +855,10 @@ Implement all tests from the Contract Test Matrix §5 (Decision Engine) and §6 
 | 8e | `stabilityScore: 0.5, timeSinceReinforcement: 100000` | `reinforce` | `rule-reinforce` |
 | 8f | `stabilityScore: 0.9, masteryScore: 0.9, riskSignal: 0.1, confidenceInterval: 0.8` | `advance` | `rule-advance` |
 | 8g | `stabilityScore: 0.85, masteryScore: 0.82, riskSignal: 0.2, confidenceInterval: 0.75` | `advance` | `rule-advance` |
-| 8h | `stabilityScore: 0.9, timeSinceReinforcement: 1000` | `reinforce` | `null` (default) |
-| 8i | `stabilityScore: 0.6, timeSinceReinforcement: 1000, confidenceInterval: 0.8` | `reinforce` | `null` (default) |
+| 8h | `stabilityScore: 0.9, timeSinceReinforcement: 1000` | *(no decision)* | `evaluateState` → `{ ok: true, matched: false }` |
+| 8i | `stabilityScore: 0.6, timeSinceReinforcement: 1000, confidenceInterval: 0.8` | *(no decision)* | `evaluateState` → `{ ok: true, matched: false }` |
 
-> **DEC-008 rationale:** DEC-001 validates a single happy path. DEC-008 is a parameterized sweep proving traceability for every decision type in the 4-type closed set, including nested compound conditions (`rule-intervene` using `any`-inside-`all`) and explicit default fall-through (`matched_rule_id: null`).
+> **DEC-008 rationale:** DEC-001 validates a single happy path. DEC-008 is a parameterized sweep proving traceability for every decision type in the 4-type closed set, including nested compound conditions (`rule-intervene` using `any`-inside-`all`) and **no-match** cases (8h–8i): states that match no rule must emit no Decision and no default fall-through.
 
 > **Testing strategy note:** DEC-001, DEC-006, DEC-007, and DEC-008 test the full `evaluateState()` flow end-to-end. DEC-002–DEC-005 test the validator functions directly (e.g., `validateDecisionType`, `validateDecisionContext`, Ajv schema validator), since the engine produces valid decisions by construction — these edge cases cannot be triggered through normal `evaluateState()` execution. This ensures the safety-net validators are exercised even though the engine won't produce invalid output.
 
@@ -901,7 +932,7 @@ src/
 
 tests/
 ├── contracts/
-│   ├── decision-engine.test.ts        # DEC-001–DEC-008 contract tests
+│   ├── decision-engine.test.ts        # DEC-001–DEC-009 contract tests
 │   └── output-api.test.ts            # OUT-API-001–OUT-API-003 tests
 └── unit/
     ├── decision-store.test.ts         # Decision store unit tests
@@ -914,20 +945,21 @@ tests/
 
 Implementation is complete when:
 
-- [ ] `evaluateState()` evaluates state against policy and returns a Decision
-- [ ] Decision type is from the 4-type closed set only
+- [ ] `evaluateState()` evaluates state against policy and returns either a persisted `Decision` (`ok: true`, `matched: true`) or a no-match outcome (`ok: true`, `matched: false`) with no persistence
+- [ ] Decision type is from the 4-type closed set only (when a decision is produced)
 - [ ] Decision includes trace with `state_id`, `state_version`, `policy_version`, `matched_rule_id`
-- [ ] Deterministic: same `(state_id, state_version, policy_version)` → same decision
+- [ ] Deterministic: same `(state_id, state_version, policy_version)` → same outcome (including no-match)
+- [ ] No-match outcome: when no rule matches, no Decision row is created and `evaluateState` returns `{ ok: true, matched: false }`
 - [ ] `decision_context` validated for forbidden semantic keys
 - [ ] `decision_context` must be a plain object
 - [ ] Decisions are immutable (no UPDATE/DELETE)
 - [ ] Org isolation: decisions scoped to `org_id`
-- [ ] Sync trigger: signal ingestion → state update → decision automatically created
+- [ ] Sync trigger: signal ingestion → state update → decision evaluation; a Decision row is created only when a rule matches
 - [ ] Decision evaluation failure does not fail signal ingestion
 - [ ] `GET /v1/decisions` returns valid `GetDecisionsResponse`
 - [ ] Time-range and pagination validation on GetDecisions
-- [ ] All DEC-001 through DEC-008 contract tests pass
-- [ ] Traceability validated for all 4 decision types + default paths (DEC-008, 9 cases — POC v2)
+- [ ] All DEC-001 through DEC-009 contract tests pass
+- [ ] Traceability validated for all 4 decision types + no-match paths (DEC-008 / DEC-009, 9 cases — POC v2)
 - [ ] All OUT-API-001 through OUT-API-003 output API tests pass
 - [ ] Existing STATE Engine and Signal Log tests still pass (no regression)
 
@@ -1001,3 +1033,5 @@ This supports the two access patterns: write by `(org_id, decision_id)` and quer
 | DEF-DEC-006 | Signal normalization layer: tenant-scoped field mappings from vendor payloads to canonical state fields. Phase 1 assumes identity mapping (signals produce canonical fields directly). | Policy-suggestion analysis, architectural decision | Phase 2 |
 | DEF-DEC-007 | **Canonical receipt snapshot**: `state_snapshot` in `Decision.trace` must include only canonical fields evaluated by policy (e.g., `stabilityScore`, `masteryScore`, `timeSinceReinforcement`, `confidenceInterval`, `riskSignal`) — not the full STATE object. Prevents PII leakage into receipts. Per CEO directive (2026-02-24). | CEO pilot positioning, `docs/specs/inspection-api.md` §3.1 | **v1 — pilot hardening** |
 | DEF-DEC-008-PII | **PII forbidden keys**: add PII-category keys (`firstName`, `lastName`, `email`, `ssn`, `birthdate`, etc.) to the forbidden-keys list in `src/ingestion/forbidden-keys.ts`. Rejects inbound PII at ingestion. Per CEO directive (2026-02-24). | CEO pilot positioning, `docs/specs/signal-ingestion.md` §Forbidden Semantic Keys | **v1 — pilot hardening** |
+| DEF-DEC-009 | Per-policy `educator_summary` override map (optional on `PolicyDefinition`) | Pilot runbook alignment — global `DECISION_TYPE_TO_EDUCATOR_SUMMARY` is v1 default | Deferred to v1.2 |
+| DEF-DEC-010 | **Remove `default_decision_type` from `PolicyDefinition`**: field is currently accepted on PUT, spread passthrough on inspection, and ignored by the evaluator (runbook 2026-04-18 §Policy rule). Removal requires: (1) drop from `PolicyDefinition` type in `src/shared/types.ts`, (2) reject with 400 in `validatePolicyStructure` (`src/decision/policy-loader.ts`), (3) stop passthrough in `src/policies/active-policies-source.ts`, (4) remove `deprecated: true` field from OpenAPI `PolicyDefinition`/`PolicyInspectionResponse`/`PolicySummary` schemas, (5) delete the deprecation notes in `docs/specs/policy-inspection-api.md`, `docs/specs/policy-management-api.md`, and §4.6 of this spec, (6) delete the `policy_default_decision_type_deprecated` warning log. | Pilot runbook alignment (2026-04-18); §4.6 row above promises v1.2 removal | **v1.2** — after first enterprise contract signs |

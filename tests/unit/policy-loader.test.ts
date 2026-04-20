@@ -68,7 +68,7 @@ describe('Policy Loader', () => {
       expect(policy.policy_version).toBe('1.0.0');
       expect(policy.rules).toBeInstanceOf(Array);
       expect(policy.rules.length).toBeGreaterThan(0);
-      expect(policy.default_decision_type).toBe('reinforce');
+      expect(policy.default_decision_type).toBeUndefined();
     });
 
     it('should throw with policy_not_found when file does not exist', () => {
@@ -129,6 +129,30 @@ describe('Policy Loader', () => {
         const e = err as Error & { code: string };
         expect(e.code).toBe(ErrorCodes.INVALID_DECISION_TYPE);
       }
+    });
+
+    it('should load policy JSON with no default_decision_type field', () => {
+      const policyPath = writeTempPolicy({
+        policy_id: 'test-no-default',
+        policy_version: '1.0.0',
+        description: 'optional default',
+        rules: [
+          {
+            rule_id: 'r-only',
+            condition: { field: 'x', operator: 'eq', value: 1 },
+            decision_type: 'advance',
+          },
+        ],
+      });
+
+      const policy = loadPolicy(policyPath);
+      expect(policy.policy_id).toBe('test-no-default');
+      expect(policy.default_decision_type).toBeUndefined();
+      expect(evaluatePolicy({ x: 1 }, policy).decision_type).toBe('advance');
+      expect(evaluatePolicy({ x: 2 }, policy).decision_type).toBeNull();
+
+      // loadPolicy mutates global cache — restore default for sibling tests
+      loadPolicy(path.join(process.cwd(), 'src/decision/policies/default.json'));
     });
 
     it('should throw with invalid_policy_version when policy_version is not semver', () => {
@@ -475,7 +499,7 @@ describe('Policy Loader', () => {
       expect(result.matched_rule_id).toBe('rule-A');
     });
 
-    it('returns default_decision_type with null matched_rule_id when no rule matches', () => {
+    it('returns null decision_type and matched_rule_id when no rule matches', () => {
       const policy: PolicyDefinition = {
         policy_id: 'p',
         policy_version: '1.0.0',
@@ -491,7 +515,7 @@ describe('Policy Loader', () => {
       };
 
       const result = evaluatePolicy({ score: 100 }, policy);
-      expect(result.decision_type).toBe('advance');
+      expect(result.decision_type).toBeNull();
       expect(result.matched_rule_id).toBeNull();
     });
 
@@ -528,16 +552,16 @@ describe('Policy Loader', () => {
       expect(result.matched_rule_id).toBe('rule-reinforce');
     });
 
-    it('evaluates default.json policy correctly with non-matching state (falls to default)', () => {
+    it('evaluates default.json policy correctly with non-matching state (no-match sentinel)', () => {
       const defaultPath = path.join(process.cwd(), 'src/decision/policies/default.json');
       const policy = loadPolicy(defaultPath);
 
-      // stabilityScore >= 0.7 → no rule matches → default_decision_type (reinforce)
+      // stabilityScore >= 0.7 → no rule matches → evaluator does not use default_decision_type
       const result = evaluatePolicy(
         { stabilityScore: 0.9, timeSinceReinforcement: 100000 },
         policy
       );
-      expect(result.decision_type).toBe('reinforce');
+      expect(result.decision_type).toBeNull();
       expect(result.matched_rule_id).toBeNull();
     });
 
@@ -581,7 +605,7 @@ describe('Policy Loader', () => {
       expect(result.evaluated_fields).toEqual(result.matched_rule!.evaluated_fields);
     });
 
-    it('returns matched_rule null and empty evaluated_fields when default matches', () => {
+    it('returns no matched_rule or evaluated_fields when no rule matches', () => {
       const policy: PolicyDefinition = {
         policy_id: 'p',
         policy_version: '1.0.0',
@@ -597,8 +621,8 @@ describe('Policy Loader', () => {
       };
 
       const result = evaluatePolicy({ x: 1 }, policy);
-      expect(result.matched_rule).toBeNull();
-      expect(result.evaluated_fields).toEqual([]);
+      expect(result.matched_rule).toBeUndefined();
+      expect(result.evaluated_fields).toBeUndefined();
     });
   });
 

@@ -11,6 +11,7 @@
 import Database from 'better-sqlite3';
 import { DECISION_TYPES, type Decision, type GetDecisionsRequest } from '../shared/types.js';
 import type { DecisionRepository } from './repository.js';
+import { DECISION_TYPE_TO_EDUCATOR_SUMMARY } from './educator-summaries.js';
 
 let repository: DecisionRepository | null = null;
 
@@ -47,6 +48,7 @@ export class SqliteDecisionRepository implements DecisionRepository {
     this.migrateAddOutputMetadata();
     this.migrateAddEnrichedTraceColumns();
     this.migrateAddTracePolicyId();
+    this.migrateAddTraceEducatorSummary();
     this.db.exec(`
       CREATE INDEX IF NOT EXISTS idx_decisions_query
       ON decisions(org_id, learner_reference, decided_at)
@@ -85,14 +87,21 @@ export class SqliteDecisionRepository implements DecisionRepository {
     }
   }
 
+  private migrateAddTraceEducatorSummary(): void {
+    const info = this.db.pragma('table_info(decisions)') as Array<{ name: string }>;
+    if (!info.some((c) => c.name === 'trace_educator_summary')) {
+      this.db.exec('ALTER TABLE decisions ADD COLUMN trace_educator_summary TEXT');
+    }
+  }
+
   saveDecision(decision: Decision): void {
     const stmt = this.db.prepare(`
       INSERT INTO decisions (
         org_id, decision_id, learner_reference, decision_type, decided_at,
         decision_context, trace_state_id, trace_state_version, trace_policy_id, trace_policy_version, trace_matched_rule_id,
-        trace_state_snapshot, trace_matched_rule, trace_rationale, output_metadata
+        trace_state_snapshot, trace_matched_rule, trace_rationale, trace_educator_summary, output_metadata
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     stmt.run(
       decision.org_id,
@@ -109,6 +118,7 @@ export class SqliteDecisionRepository implements DecisionRepository {
       JSON.stringify(decision.trace.state_snapshot),
       decision.trace.matched_rule != null ? JSON.stringify(decision.trace.matched_rule) : null,
       decision.trace.rationale,
+      decision.trace.educator_summary,
       decision.output_metadata ? JSON.stringify(decision.output_metadata) : null
     );
   }
@@ -149,7 +159,7 @@ export class SqliteDecisionRepository implements DecisionRepository {
     const sql = `
       SELECT id, org_id, decision_id, learner_reference, decision_type, decided_at,
              decision_context, trace_state_id, trace_state_version, trace_policy_id, trace_policy_version, trace_matched_rule_id,
-             trace_state_snapshot, trace_matched_rule, trace_rationale, output_metadata
+             trace_state_snapshot, trace_matched_rule, trace_rationale, trace_educator_summary, output_metadata
       FROM decisions
       WHERE ${conditions.join('\n        AND ')}
       ORDER BY decided_at ASC, id ASC
@@ -181,7 +191,7 @@ export class SqliteDecisionRepository implements DecisionRepository {
     const stmt = this.db.prepare(`
       SELECT id, org_id, decision_id, learner_reference, decision_type, decided_at,
              decision_context, trace_state_id, trace_state_version, trace_policy_id, trace_policy_version, trace_matched_rule_id,
-             trace_state_snapshot, trace_matched_rule, trace_rationale, output_metadata
+             trace_state_snapshot, trace_matched_rule, trace_rationale, trace_educator_summary, output_metadata
       FROM decisions
       WHERE org_id = ? AND decision_id = ?
     `);
@@ -328,10 +338,17 @@ interface DecisionRow {
   trace_state_snapshot: string | null;
   trace_matched_rule: string | null;
   trace_rationale: string | null;
+  trace_educator_summary: string | null;
   output_metadata: string | null;
 }
 
 function rowToDecision(row: DecisionRow): Decision {
+  const dt = row.decision_type;
+  if (!DECISION_TYPES.includes(dt as (typeof DECISION_TYPES)[number])) {
+    throw new Error(`Invalid decision_type in DB (decision_id=${row.decision_id}): ${dt}`);
+  }
+  const typedDt = dt as Decision['decision_type'];
+
   const trace: Decision['trace'] = {
     state_id: row.trace_state_id,
     state_version: row.trace_state_version,
@@ -342,6 +359,10 @@ function rowToDecision(row: DecisionRow): Decision {
     state_snapshot: {},
     matched_rule: null,
     rationale: 'legacy decision: rationale unavailable',
+    educator_summary:
+      row.trace_educator_summary && row.trace_educator_summary.length > 0
+        ? row.trace_educator_summary
+        : DECISION_TYPE_TO_EDUCATOR_SUMMARY[typedDt],
   };
   if (row.trace_state_snapshot) {
     trace.state_snapshot = JSON.parse(row.trace_state_snapshot) as Record<string, unknown>;
@@ -353,15 +374,11 @@ function rowToDecision(row: DecisionRow): Decision {
     trace.rationale = row.trace_rationale;
   }
 
-  const dt = row.decision_type;
-  if (!DECISION_TYPES.includes(dt as (typeof DECISION_TYPES)[number])) {
-    throw new Error(`Invalid decision_type in DB (decision_id=${row.decision_id}): ${dt}`);
-  }
   const decision: Decision = {
     org_id: row.org_id,
     decision_id: row.decision_id,
     learner_reference: row.learner_reference,
-    decision_type: dt as Decision['decision_type'],
+    decision_type: typedDt,
     decided_at: row.decided_at,
     decision_context: JSON.parse(row.decision_context) as Record<string, unknown>,
     trace,

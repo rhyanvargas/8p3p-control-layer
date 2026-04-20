@@ -35,6 +35,10 @@
     const rule = trace.matched_rule;
     const snapshot = trace.state_snapshot;
     const rationale = trace.rationale;
+    const educatorSummary =
+      typeof trace.educator_summary === 'string' && trace.educator_summary.length > 0
+        ? trace.educator_summary
+        : null;
 
     let html = `
       <h2>DECISION TRACE</h2>
@@ -46,6 +50,7 @@
       <h3>Decision</h3>
       <table>
         <tr><td>type</td><td>${esc(decision.decision_type || '—')}</td></tr>
+        <tr><td>educator_summary</td><td>${educatorSummary != null ? esc(educatorSummary) : '—'}</td></tr>
         <tr><td>decided_at</td><td>${esc(decision.decided_at || '—')}</td></tr>
         <tr><td>learner</td><td>${esc(decision.learner_reference || '—')}</td></tr>
         <tr><td>policy</td><td>${esc(trace.policy_id ? trace.policy_id + ' (' + (trace.policy_version || '') + ')' : (trace.policy_version || '—'))}</td></tr>

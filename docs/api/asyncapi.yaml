@@ -181,6 +181,7 @@ components:
             - state_snapshot
             - matched_rule
             - rationale
+            - educator_summary
           additionalProperties: false
           properties:
             state_id:
@@ -207,6 +208,10 @@ components:
             rationale:
               type: string
               description: Human-readable rationale (enriched trace)
+            educator_summary:
+              type: string
+              minLength: 1
+              description: Teacher-facing short label for this decision type (runbook § Shortest version).
         output_metadata:
           type: object
           description: Output metadata for downstream (priority, TTL, targets)

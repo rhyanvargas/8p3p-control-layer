@@ -128,7 +128,7 @@ describe('Decision Engine', () => {
   // Happy path
   // -----------------------------------------------------------------------
   describe('happy path', () => {
-    it('should return { ok: true, result: Decision } with valid request', () => {
+    it('should return { ok: true, matched: true, result: Decision } with valid request', () => {
       const { state_id, state_version } = setupLearnerState();
 
       const outcome = evaluateState({
@@ -140,7 +140,7 @@ describe('Decision Engine', () => {
       });
 
       expect(outcome.ok).toBe(true);
-      if (outcome.ok) {
+      if (outcome.ok && outcome.matched) {
         expect(outcome.result.org_id).toBe('org-A');
         expect(outcome.result.learner_reference).toBe('learner-1');
         expect(outcome.result.decision_id).toBeDefined();
@@ -163,7 +163,7 @@ describe('Decision Engine', () => {
       });
 
       expect(outcome.ok).toBe(true);
-      if (outcome.ok) {
+      if (outcome.ok && outcome.matched) {
         expect(outcome.result.trace.state_id).toBe(state_id);
         expect(outcome.result.trace.state_version).toBe(state_version);
         expect(outcome.result.trace.policy_version).toBe('1.0.0');
@@ -288,7 +288,7 @@ describe('Decision Engine', () => {
       });
 
       expect(outcome.ok).toBe(true);
-      if (outcome.ok) {
+      if (outcome.ok && outcome.matched) {
         const retrieved = getDecisionById('org-A', outcome.result.decision_id);
         expect(retrieved).not.toBeNull();
         expect(retrieved!.decision_id).toBe(outcome.result.decision_id);
@@ -315,14 +315,16 @@ describe('Decision Engine', () => {
 
       const outcome1 = evaluateState(request);
       expect(outcome1.ok).toBe(true);
+      expect(outcome1.matched).toBe(true);
 
       // Clear decisions so we can evaluate again (same state, fresh decision store)
       clearDecisionStore();
 
       const outcome2 = evaluateState(request);
       expect(outcome2.ok).toBe(true);
+      expect(outcome2.matched).toBe(true);
 
-      if (outcome1.ok && outcome2.ok) {
+      if (outcome1.ok && outcome1.matched && outcome2.ok && outcome2.matched) {
         expect(outcome1.result.decision_type).toBe(outcome2.result.decision_type);
         expect(outcome1.result.trace.matched_rule_id).toBe(outcome2.result.trace.matched_rule_id);
       }
@@ -461,7 +463,7 @@ describe('Decision Engine', () => {
       });
 
       expect(outcome.ok).toBe(true);
-      if (outcome.ok) {
+      if (outcome.ok && outcome.matched) {
         const snap = outcome.result.trace.state_snapshot;
         expect(snap).toHaveProperty('stabilityScore', 0.3);
         expect(snap).toHaveProperty('timeSinceReinforcement', 100000);
@@ -490,13 +492,13 @@ describe('Decision Engine', () => {
       });
 
       expect(outcome.ok).toBe(true);
-      if (outcome.ok) {
+      if (outcome.ok && outcome.matched) {
         expect(outcome.result.decision_type).toBe('reinforce');
         expect(outcome.result.trace.matched_rule_id).toBe('rule-reinforce');
       }
     });
 
-    it('should return reinforce (default) when stabilityScore >= 0.7 (no rule match)', () => {
+    it('should return matched: false when stabilityScore >= 0.7 (no rule match)', () => {
       const { state_id, state_version } = setupLearnerState('org-A', 'learner-1', {
         stabilityScore: 0.9,
         timeSinceReinforcement: 100000,
@@ -510,15 +512,10 @@ describe('Decision Engine', () => {
         requested_at: new Date().toISOString(),
       });
 
-      expect(outcome.ok).toBe(true);
-      if (outcome.ok) {
-        expect(outcome.result.decision_type).toBe('reinforce');
-        // Default: no rule matched
-        expect(outcome.result.trace.matched_rule_id).toBeNull();
-      }
+      expect(outcome).toEqual({ ok: true, matched: false });
     });
 
-    it('should return reinforce (default) when timeSinceReinforcement <= 86400 (no rule match)', () => {
+    it('should return matched: false when timeSinceReinforcement <= 86400 (no rule match)', () => {
       const { state_id, state_version } = setupLearnerState('org-A', 'learner-1', {
         stabilityScore: 0.3,
         timeSinceReinforcement: 1000,
@@ -532,11 +529,84 @@ describe('Decision Engine', () => {
         requested_at: new Date().toISOString(),
       });
 
-      expect(outcome.ok).toBe(true);
-      if (outcome.ok) {
-        expect(outcome.result.decision_type).toBe('reinforce');
-        expect(outcome.result.trace.matched_rule_id).toBeNull();
-      }
+      expect(outcome).toEqual({ ok: true, matched: false });
     });
+  });
+
+  // -----------------------------------------------------------------------
+  // trace.educator_summary — runbook § Teacher-friendly decision definitions
+  // (Shortest version); assertions spell expected strings explicitly so drift
+  // from src/decision/educator-summaries.ts is caught.
+  // -----------------------------------------------------------------------
+  describe('educator_summary', () => {
+    const cases: Array<{
+      decision_type: 'advance' | 'reinforce' | 'intervene' | 'pause';
+      expectedSummary: string;
+      payload: Record<string, unknown>;
+    }> = [
+      {
+        decision_type: 'advance',
+        expectedSummary: 'Ready to move on',
+        payload: {
+          stabilityScore: 0.9,
+          masteryScore: 0.9,
+          riskSignal: 0.2,
+          confidenceInterval: 0.8,
+        },
+      },
+      {
+        decision_type: 'reinforce',
+        expectedSummary: 'Needs more practice',
+        payload: {
+          stabilityScore: 0.5,
+          timeSinceReinforcement: 100000,
+          masteryScore: 0.5,
+          riskSignal: 0.2,
+          confidenceInterval: 0.8,
+        },
+      },
+      {
+        decision_type: 'intervene',
+        expectedSummary: 'Needs stronger support now',
+        payload: {
+          stabilityScore: 0.35,
+          confidenceInterval: 0.8,
+          riskSignal: 0.2,
+          masteryScore: 0.5,
+        },
+      },
+      {
+        decision_type: 'pause',
+        expectedSummary: 'Possible learning decay detected; watch closely',
+        payload: {
+          stabilityScore: 0.45,
+          riskSignal: 0.75,
+          confidenceInterval: 0.8,
+          masteryScore: 0.5,
+        },
+      },
+    ];
+
+    it.each(cases)(
+      'maps $decision_type to runbook shortest label on trace.educator_summary',
+      ({ decision_type, expectedSummary, payload }) => {
+        const { state_id, state_version } = setupLearnerState('org-A', `learner-${decision_type}`, payload);
+
+        const outcome = evaluateState({
+          org_id: 'org-A',
+          learner_reference: `learner-${decision_type}`,
+          state_id,
+          state_version,
+          requested_at: new Date().toISOString(),
+        });
+
+        expect(outcome.ok).toBe(true);
+        expect(outcome.matched).toBe(true);
+        if (outcome.ok && outcome.matched) {
+          expect(outcome.result.decision_type).toBe(decision_type);
+          expect(outcome.result.trace.educator_summary).toBe(expectedSummary);
+        }
+      }
+    );
   });
 });

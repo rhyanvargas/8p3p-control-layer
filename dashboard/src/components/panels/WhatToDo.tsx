@@ -80,8 +80,15 @@ export function WhatToDo({ orgId }: { orgId: string }) {
       variant="action"
     >
       <div className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4">
-        <div className="flex flex-wrap items-start gap-2">
-          <DecisionBadge type={nextDecision.decision_type} />
+        <div className="flex flex-col gap-1">
+          <div className="flex flex-wrap items-start gap-2">
+            <DecisionBadge type={nextDecision.decision_type} />
+          </div>
+          {nextDecision.trace?.educator_summary ? (
+            <p className="text-sm text-foreground" aria-label="Educator-facing decision summary">
+              {nextDecision.trace.educator_summary}
+            </p>
+          ) : null}
         </div>
         <p className="text-base font-semibold text-foreground">{nextDecision.learner_reference}</p>
         {skillLine ? <p className="text-sm text-muted-foreground">{skillLine}</p> : null}

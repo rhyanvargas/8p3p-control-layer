@@ -40,6 +40,7 @@ function createDecision(overrides: Partial<Decision> = {}): Decision {
       state_snapshot: {},
       matched_rule: null,
       rationale: 'test decision',
+      educator_summary: 'Needs more practice',
     },
     ...overrides,
   };
@@ -243,11 +244,13 @@ describe('Decision Store', () => {
         trace: {
           state_id: 'test-org:learner-1:v1',
           state_version: 1,
+          policy_id: 'test-policy',
           policy_version: '1.0.0',
           matched_rule_id: null,
           state_snapshot: {},
           matched_rule: null,
           rationale: 'test decision',
+          educator_summary: 'Needs more practice',
         },
       });
       saveDecision(decision);

@@ -87,6 +87,7 @@ function makeDecision(overrides: Partial<Decision> & { decisionContext?: Record<
       state_snapshot: {},
       matched_rule: null,
       rationale: 'test decision',
+      educator_summary: 'Needs more practice',
     },
     output_metadata: { priority: null },
     ...overrides,
@@ -119,7 +120,6 @@ describe('SKL Integration & Contract Tests', () => {
         policy_id: 'fractions-skill-policy',
         policy_version: '1.0.0',
         description: 'Policy evaluating nested skills.fractions.stabilityScore',
-        default_decision_type: 'reinforce',
         rules: [
           {
             rule_id: 'rule-fractions-intervene',

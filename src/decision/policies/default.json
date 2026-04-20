@@ -71,6 +71,5 @@
       },
       "decision_type": "reinforce"
     }
-  ],
-  "default_decision_type": "reinforce"
+  ]
 }

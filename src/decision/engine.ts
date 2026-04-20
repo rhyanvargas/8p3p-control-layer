@@ -22,20 +22,21 @@ import { validateEvaluateRequest, validateDecisionContext } from './validator.js
 import { loadPolicyForContext, evaluatePolicy } from './policy-loader.js';
 import { getState } from '../state/store.js';
 import { saveDecision } from './store.js';
+import { DECISION_TYPE_TO_EDUCATOR_SUMMARY } from './educator-summaries.js';
 
 /**
- * Build rationale string for trace.
+ * Build rationale string for trace when a policy rule matched.
  * Rule match: "Rule {rule_id} fired: {field} ({actual}) {op} {threshold} AND/OR ..."
- * Default: "No rules matched. Default decision: {default_decision_type}"
  */
-export function buildRationale(evalResult: PolicyEvaluationResult, policy: PolicyDefinition): string {
+export function buildRationale(evalResult: PolicyEvaluationResult): string {
   if (evalResult.matched_rule_id && evalResult.evaluated_fields && evalResult.evaluated_fields.length > 0) {
     const parts = evalResult.evaluated_fields.map(
       (ef) => `${ef.field} (${JSON.stringify(ef.actual_value)}) ${ef.operator} ${JSON.stringify(ef.threshold)}`
     );
     return `Rule ${evalResult.matched_rule_id} fired: ${parts.join(' AND ')}`;
   }
-  return `No rules matched. Default decision: ${policy.default_decision_type}`;
+  /* istanbul ignore next — buildRationale is only called after a rule match */
+  throw new Error('buildRationale requires a matched policy rule');
 }
 
 /**
@@ -93,7 +94,7 @@ export function extractCanonicalSnapshot(
  * 8. Return outcome
  *
  * @param request - EvaluateStateForDecisionRequest
- * @returns EvaluateDecisionOutcome — { ok: true, result: Decision } or { ok: false, errors }
+ * @returns EvaluateDecisionOutcome — success with decision, no-match, or validation errors
  */
 export function evaluateState(request: EvaluateStateForDecisionRequest): EvaluateDecisionOutcome {
   // Step 1: Validate request structure
@@ -159,12 +160,16 @@ export function evaluateState(request: EvaluateStateForDecisionRequest): Evaluat
   // Step 5: Evaluate policy rules against state
   const evalResult = evaluatePolicy(currentState.state, policy);
 
+  if (evalResult.decision_type === null) {
+    return { ok: true, matched: false };
+  }
+
   // Step 6: Build canonical state_snapshot — only policy-evaluated fields (DEF-DEC-007).
   // Excludes non-canonical and PII fields; prevents personal data from leaking into receipts.
   const stateSnapshot = extractCanonicalSnapshot(currentState.state, policy);
 
   // Step 7: Build rationale string
-  const rationale = buildRationale(evalResult, policy);
+  const rationale = buildRationale(evalResult);
 
   // Step 8: Build output_metadata (priority = 1-based rule index when rule matches)
   let priority: number | null = null;
@@ -202,6 +207,7 @@ export function evaluateState(request: EvaluateStateForDecisionRequest): Evaluat
       state_snapshot: stateSnapshot,
       matched_rule: evalResult.matched_rule ?? null,
       rationale,
+      educator_summary: DECISION_TYPE_TO_EDUCATOR_SUMMARY[evalResult.decision_type],
     },
     output_metadata: { priority },
   };
@@ -210,5 +216,5 @@ export function evaluateState(request: EvaluateStateForDecisionRequest): Evaluat
   saveDecision(decision);
 
   // Step 13: Return success
-  return { ok: true, result: decision };
+  return { ok: true, matched: true, result: decision };
 }

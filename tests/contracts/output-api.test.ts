@@ -41,11 +41,13 @@ describe('Output API Contract Tests', () => {
       trace: {
         state_id: 'test-org:learner-123:v1',
         state_version: 1,
+        policy_id: 'default',
         policy_version: '1.0.0',
         matched_rule_id: 'rule-reinforce',
         state_snapshot: {},
         matched_rule: null,
         rationale: 'test decision',
+        educator_summary: 'Needs more practice',
       },
       ...overrides,
     };

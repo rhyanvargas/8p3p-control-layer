@@ -33,16 +33,14 @@ List all active policies for an org.
       "policy_version": "1.0.0",
       "policy_key": "learner",
       "description": "Springs Charter School — learner policy...",
-      "rule_count": 4,
-      "default_decision_type": "reinforce"
+      "rule_count": 4
     },
     {
       "policy_id": "springs:staff",
       "policy_version": "1.0.0",
       "policy_key": "staff",
       "description": "Springs Charter School — staff policy...",
-      "rule_count": 4,
-      "default_decision_type": "reinforce"
+      "rule_count": 4
     }
   ],
   "routing": {
@@ -93,11 +91,12 @@ Get full policy detail including rules and conditions.
           ]
         }
       }
-    ],
-    "default_decision_type": "reinforce"
+    ]
   }
 }
 ```
+
+> **Note on `default_decision_type`:** The field is **deprecated** (see [`decision-engine.md`](decision-engine.md) §4.6) and is **not included** by the tenant inspection API for new policies. It is emitted passthrough **only** when the stored policy JSON still carries the legacy field — in that case, callers will see `"default_decision_type": "<type>"` on the policy object (list summary or detail). The evaluator ignores it regardless; if no rule matches, no decision is produced (see [`decision-engine.md`](decision-engine.md) § Policy Evaluation Semantics). Implementation: `src/policies/active-policies-source.ts` spreads the field only when defined on the source policy.
 
 **Response (404) — policy not found:**
 

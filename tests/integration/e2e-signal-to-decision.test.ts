@@ -236,23 +236,26 @@ describe('E2E: Signal → State → Decision (POC v2)', () => {
         name: 'Maya (K, age 5) — rule fires (both conditions met)',
         learnerRef: 'maya-k',
         payload: MAYA_PAYLOAD,
-        expectedMatchedRuleId: 'rule-reinforce',
+        expectedDecisionCount: 1,
+        expectedMatchedRuleId: 'rule-reinforce' as const,
       },
       {
-        name: 'Jordan (3rd, age 8) — default (reinforcement too recent)',
+        name: 'Jordan (3rd, age 8) — no governing rule (reinforcement too recent)',
         learnerRef: 'jordan-3rd',
         payload: JORDAN_PAYLOAD,
+        expectedDecisionCount: 0,
         expectedMatchedRuleId: null,
       },
       {
-        name: 'Aisha (5th, age 10) — default (stability too high)',
+        name: 'Aisha (5th, age 10) — no governing rule (stability too high)',
         learnerRef: 'aisha-5th',
         payload: AISHA_PAYLOAD,
+        expectedDecisionCount: 0,
         expectedMatchedRuleId: null,
       },
     ] as const;
 
-    for (const { name, learnerRef, payload, expectedMatchedRuleId } of LEARNER_CASES) {
+    for (const { name, learnerRef, payload, expectedDecisionCount, expectedMatchedRuleId } of LEARNER_CASES) {
       it(`should complete full signal → decision cycle for ${name}`, async () => {
         // 1. POST /v1/signals
         const signal = buildSignal(learnerRef, payload);
@@ -276,27 +279,24 @@ describe('E2E: Signal → State → Decision (POC v2)', () => {
         expect(getRes.statusCode).toBe(200);
         const getBody = getRes.json();
         expect(getBody.decisions).toBeInstanceOf(Array);
-        expect(getBody.decisions.length).toBe(1);
+        expect(getBody.decisions.length).toBe(expectedDecisionCount);
+
+        if (expectedDecisionCount === 0) return;
 
         const decision = getBody.decisions[0];
 
-        // 3. Assert decision_type = reinforce (all paths produce reinforce in v1)
         expect(decision.decision_type).toBe('reinforce');
 
-        // 4. Assert trace.matched_rule_id
         expect(decision.trace.matched_rule_id).toBe(expectedMatchedRuleId);
 
-        // 5. Assert trace.policy_version = 3.0.0
         expect(decision.trace.policy_version).toBe('1.0.0');
 
-        // 6. Assert trace.state_id and trace.state_version present
         expect(decision.trace.state_id).toBeDefined();
         expect(typeof decision.trace.state_id).toBe('string');
         expect(decision.trace.state_version).toBeDefined();
         expect(typeof decision.trace.state_version).toBe('number');
         expect(decision.trace.state_version).toBeGreaterThanOrEqual(1);
 
-        // 7. Assert decision shape completeness
         expect(decision.org_id).toBe(ORG_ID);
         expect(decision.learner_reference).toBe(learnerRef);
         expect(decision.decision_id).toBeDefined();
@@ -383,7 +383,12 @@ describe('E2E: Signal → State → Decision (POC v2)', () => {
         expect(res.statusCode).toBe(200);
       }
 
-      // Each learner sees only their own decision
+      const expectedCounts: Record<string, number> = {
+        'maya-k-iso': 1,
+        'jordan-3rd-iso': 0,
+        'aisha-5th-iso': 0,
+      };
+
       for (const { ref } of learners) {
         const res = await app.inject({
           method: 'GET',
@@ -391,9 +396,11 @@ describe('E2E: Signal → State → Decision (POC v2)', () => {
         });
         expect(res.statusCode).toBe(200);
         const body = res.json();
-        expect(body.decisions.length).toBe(1);
-        expect(body.decisions[0].learner_reference).toBe(ref);
-        expect(body.decisions[0].org_id).toBe(ORG_ID);
+        expect(body.decisions.length).toBe(expectedCounts[ref]);
+        if (expectedCounts[ref]! > 0) {
+          expect(body.decisions[0].learner_reference).toBe(ref);
+          expect(body.decisions[0].org_id).toBe(ORG_ID);
+        }
       }
     });
 

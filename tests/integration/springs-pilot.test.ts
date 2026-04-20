@@ -170,6 +170,7 @@ describe('Springs Charter Schools Pilot Integration', () => {
       expect(decisions).toHaveLength(1);
       expect(decisions[0].decision_type).toBe('intervene');
       expect(decisions[0].trace.matched_rule_id).toBe('rule-intervene');
+      expect(decisions[0].trace.educator_summary).toBe('Needs stronger support now');
     });
 
     it('canvas-lms signal with high stability triggers advance via learner policy', async () => {
@@ -189,6 +190,7 @@ describe('Springs Charter Schools Pilot Integration', () => {
       expect(decisions).toHaveLength(1);
       expect(decisions[0].decision_type).toBe('advance');
       expect(decisions[0].trace.matched_rule_id).toBe('rule-advance');
+      expect(decisions[0].trace.educator_summary).toBe('Ready to move on');
     });
 
     it('internal-lms also routes to learner policy', async () => {
@@ -208,6 +210,7 @@ describe('Springs Charter Schools Pilot Integration', () => {
       expect(decisions).toHaveLength(1);
       expect(decisions[0].decision_type).toBe('reinforce');
       expect(decisions[0].trace.matched_rule_id).toBe('rule-reinforce');
+      expect(decisions[0].trace.educator_summary).toBe('Needs more practice');
     });
   });
 
@@ -234,6 +237,7 @@ describe('Springs Charter Schools Pilot Integration', () => {
       expect(decisions).toHaveLength(1);
       expect(decisions[0].decision_type).toBe('intervene');
       expect(decisions[0].trace.matched_rule_id).toBe('rule-intervene');
+      expect(decisions[0].trace.educator_summary).toBe('Needs stronger support now');
     });
 
     it('hr-training signal with invalid certification triggers pause via staff policy', async () => {
@@ -253,6 +257,7 @@ describe('Springs Charter Schools Pilot Integration', () => {
       expect(decisions).toHaveLength(1);
       expect(decisions[0].decision_type).toBe('pause');
       expect(decisions[0].trace.matched_rule_id).toBe('rule-pause');
+      expect(decisions[0].trace.educator_summary).toBe('Possible learning decay detected; watch closely');
     });
 
     it('hr-training signal with full compliance triggers advance via staff policy', async () => {
@@ -272,6 +277,7 @@ describe('Springs Charter Schools Pilot Integration', () => {
       expect(decisions).toHaveLength(1);
       expect(decisions[0].decision_type).toBe('advance');
       expect(decisions[0].trace.matched_rule_id).toBe('rule-advance');
+      expect(decisions[0].trace.educator_summary).toBe('Ready to move on');
     });
   });
 
@@ -342,7 +348,8 @@ describe('Springs Charter Schools Pilot Integration', () => {
         url: '/v1/signals',
         payload: buildSignal(CANONICAL_REF, 'canvas-lms', {
           stabilityScore: 0.6,
-          timeSinceReinforcement: 50000,
+          // Springs rule-reinforce requires timeSinceReinforcement > 86400 (same as default policy)
+          timeSinceReinforcement: 90000,
         }),
       });
 
@@ -394,6 +401,7 @@ describe('Springs Charter Schools Pilot Integration', () => {
       expect(decisions).toHaveLength(1);
       // Falls back to learner policy
       expect(decisions[0].trace.matched_rule_id).toBe('rule-reinforce');
+      expect(decisions[0].trace.educator_summary).toBe('Needs more practice');
     });
   });
 });

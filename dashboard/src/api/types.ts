@@ -16,6 +16,7 @@ export interface DecisionTrace {
   state_snapshot: Record<string, unknown>;
   matched_rule: unknown;
   rationale: string;
+  educator_summary: string;
 }
 
 export interface Decision {

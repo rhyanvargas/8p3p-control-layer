@@ -18,6 +18,7 @@ import {
 } from '@aws-sdk/client-dynamodb';
 import { marshall, unmarshall } from '@aws-sdk/util-dynamodb';
 import type { Decision, GetDecisionsRequest } from '../shared/types.js';
+import { DECISION_TYPE_TO_EDUCATOR_SUMMARY } from './educator-summaries.js';
 
 export class DynamoDbDecisionRepository {
   private readonly client: DynamoDBClient;
@@ -105,14 +106,27 @@ export class DynamoDbDecisionRepository {
 }
 
 function unmarshallDecision(item: Record<string, unknown>): Decision {
+  const decisionType = item.decision_type as Decision['decision_type'];
+  const trace = item.trace as Decision['trace'] | undefined;
+  if (!trace) {
+    throw new Error(
+      `DynamoDB decision row missing required 'trace' object (decision_id=${String(item.decision_id)})`
+    );
+  }
   return {
     org_id: item.org_id as string,
     decision_id: item.decision_id as string,
     learner_reference: item.learner_reference as string,
-    decision_type: item.decision_type as Decision['decision_type'],
+    decision_type: decisionType,
     decided_at: item.decided_at as string,
     decision_context: item.decision_context as Record<string, unknown>,
-    trace: item.trace as Decision['trace'],
+    trace: {
+      ...trace,
+      educator_summary:
+        trace.educator_summary && trace.educator_summary.length > 0
+          ? trace.educator_summary
+          : DECISION_TYPE_TO_EDUCATOR_SUMMARY[decisionType],
+    },
     output_metadata: item.output_metadata as Decision['output_metadata'],
   };
 }

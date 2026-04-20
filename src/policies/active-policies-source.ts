@@ -20,7 +20,8 @@ export interface PolicySummary {
   policy_key: string;
   description: string;
   rule_count: number;
-  default_decision_type: string;
+  /** Present only when the stored policy still includes the deprecated field. */
+  default_decision_type?: string;
 }
 
 let _client: DynamoDBClient | null = null;
@@ -42,7 +43,9 @@ function toSummary(policy: PolicyDefinition, policyKey: string): PolicySummary {
     policy_key: policyKey,
     description: policy.description,
     rule_count: policy.rules.length,
-    default_decision_type: policy.default_decision_type,
+    ...(policy.default_decision_type !== undefined
+      ? { default_decision_type: policy.default_decision_type }
+      : {}),
   };
 }
 

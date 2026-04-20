@@ -1,14 +1,15 @@
 /**
- * Contract Tests for Decision Engine (DEC-001 through DEC-008)
+ * Contract Tests for Decision Engine (DEC-001 through DEC-009)
  * Tests evaluateState and validators against the spec contract.
  *
  * Strategy (per spec §Testing strategy note):
- *   DEC-001, DEC-006, DEC-007, DEC-008 — full evaluateState() flow end-to-end
+ *   DEC-001, DEC-006, DEC-007, DEC-008, DEC-009 — full evaluateState() /
+ *     evaluateStateAsync() flow end-to-end
  *   DEC-002–DEC-005 — test validator functions directly (edge cases the engine
  *     won't produce, ensuring safety-net validators are exercised)
  */
 
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import {
   initSignalLogStore,
   closeSignalLogStore,
@@ -25,9 +26,12 @@ import {
   closeDecisionStore,
   clearDecisionStore,
   getDecisionById,
+  getDecisions,
 } from '../../src/decision/store.js';
 import { applySignals } from '../../src/state/engine.js';
+import { getState } from '../../src/state/store.js';
 import { evaluateState } from '../../src/decision/engine.js';
+import { evaluateStateAsync } from '../../src/decision/engine-async.js';
 import { loadPolicy } from '../../src/decision/policy-loader.js';
 import { validateDecisionType, validateDecisionContext } from '../../src/decision/validator.js';
 import { validateDecision } from '../../src/contracts/validators/decision.js';
@@ -125,7 +129,7 @@ describe('Decision Engine Contract Tests', () => {
       });
 
       expect(outcome.ok).toBe(true);
-      if (!outcome.ok) return;
+      if (!outcome.ok || !outcome.matched) return;
 
       const decision = outcome.result;
 
@@ -169,7 +173,7 @@ describe('Decision Engine Contract Tests', () => {
       });
 
       expect(outcome.ok).toBe(true);
-      if (!outcome.ok) return;
+      if (!outcome.ok || !outcome.matched) return;
 
       const persisted = getDecisionById(org_id, outcome.result.decision_id);
       expect(persisted).not.toBeNull();
@@ -197,7 +201,7 @@ describe('Decision Engine Contract Tests', () => {
       });
 
       expect(outcome.ok).toBe(true);
-      if (!outcome.ok) return;
+      if (!outcome.ok || !outcome.matched) return;
 
       const schemaResult = validateDecision(outcome.result);
       expect(schemaResult.valid).toBe(true);
@@ -349,7 +353,9 @@ describe('Decision Engine Contract Tests', () => {
 
       expect(outcome1.ok).toBe(true);
       expect(outcome2.ok).toBe(true);
-      if (!outcome1.ok || !outcome2.ok) return;
+      expect(outcome1.matched).toBe(true);
+      expect(outcome2.matched).toBe(true);
+      if (!outcome1.ok || !outcome1.matched || !outcome2.ok || !outcome2.matched) return;
 
       // Same decision_type
       expect(outcome1.result.decision_type).toBe(outcome2.result.decision_type);
@@ -363,8 +369,7 @@ describe('Decision Engine Contract Tests', () => {
       expect(outcome1.result.decision_id).not.toBe(outcome2.result.decision_id);
     });
 
-    it('should produce deterministic output on default path as well', () => {
-      // State that falls to default (stabilityScore above threshold)
+    it('should produce deterministic matched:false on no-rule-match path', () => {
       const { state_id, state_version, org_id, learner_reference } = createStateViaSignal({
         stabilityScore: 0.9,
         masteryScore: 0.6,
@@ -389,15 +394,8 @@ describe('Decision Engine Contract Tests', () => {
         requested_at: new Date().toISOString(),
       });
 
-      expect(outcome1.ok).toBe(true);
-      expect(outcome2.ok).toBe(true);
-      if (!outcome1.ok || !outcome2.ok) return;
-
-      expect(outcome1.result.decision_type).toBe(outcome2.result.decision_type);
-      expect(outcome1.result.trace.matched_rule_id).toBe(
-        outcome2.result.trace.matched_rule_id
-      );
-      expect(outcome1.result.decision_context).toEqual(outcome2.result.decision_context);
+      expect(outcome1).toEqual({ ok: true, matched: false });
+      expect(outcome2).toEqual({ ok: true, matched: false });
     });
   });
 
@@ -514,17 +512,15 @@ describe('Decision Engine Contract Tests', () => {
       },
       {
         case_id: '8h',
-        description: 'default path: high stability, recently reinforced',
+        description: 'no-match: high stability, recently reinforced',
         state: { stabilityScore: 0.9, timeSinceReinforcement: 1000 },
-        expected_decision_type: 'reinforce',
-        expected_matched_rule_id: null,
+        expect_no_match: true,
       },
       {
         case_id: '8i',
-        description: 'default path: moderate stability, recently reinforced',
+        description: 'no-match: moderate stability, recently reinforced',
         state: { stabilityScore: 0.6, timeSinceReinforcement: 1000, confidenceInterval: 0.8 },
-        expected_decision_type: 'reinforce',
-        expected_matched_rule_id: null,
+        expect_no_match: true,
       },
     ] as const;
 
@@ -545,6 +541,14 @@ describe('Decision Engine Contract Tests', () => {
         expect(outcome.ok).toBe(true);
         if (!outcome.ok) return;
 
+        if ('expect_no_match' in vector && vector.expect_no_match) {
+          expect(outcome).toEqual({ ok: true, matched: false });
+          return;
+        }
+
+        expect(outcome.matched).toBe(true);
+        if (!outcome.matched) return;
+
         // decision_type matches expected
         expect(outcome.result.decision_type).toBe(vector.expected_decision_type);
 
@@ -559,5 +563,76 @@ describe('Decision Engine Contract Tests', () => {
         expect(outcome.result.trace.state_version).toBe(state_version);
       });
     }
+  });
+
+  // ---------------------------------------------------------------------------
+  // DEC-009: No rule match — no persistence (sync + async parity)
+  // ---------------------------------------------------------------------------
+
+  describe('DEC-009: no rule match emits no decision, no saveDecision call', () => {
+    it('sync: evaluateState returns matched false and no rows are persisted', () => {
+      // Note: we do NOT spy on decisionStoreModule.saveDecision here. ESM named
+      // imports are live read-only bindings, so vi.spyOn against the namespace
+      // object does not rewire engine.ts's internal reference and can record
+      // zero calls for the wrong reason. The authoritative guard is the
+      // getDecisions(...) query below: if persistence happened, a row appears.
+      // Async parity is covered by the port-based variant (next test).
+      const { state_id, state_version, org_id, learner_reference } = createStateViaSignal({
+        stabilityScore: 0.9,
+        timeSinceReinforcement: 1000,
+      });
+
+      const outcome = evaluateState({
+        org_id,
+        learner_reference,
+        state_id,
+        state_version,
+        requested_at: new Date().toISOString(),
+      });
+
+      expect(outcome).toEqual({ ok: true, matched: false });
+
+      const query = getDecisions({
+        org_id,
+        learner_reference,
+        from_time: '2000-01-01T00:00:00.000Z',
+        to_time: '2100-01-01T00:00:00.000Z',
+      });
+      expect(query.decisions).toHaveLength(0);
+    });
+
+    it('async: evaluateStateAsync returns matched false, port saveDecision not called', async () => {
+      const saveSpy = vi.fn();
+
+      const { state_id, state_version, org_id, learner_reference } = createStateViaSignal({
+        stabilityScore: 0.9,
+        timeSinceReinforcement: 1000,
+      });
+
+      const outcome = await evaluateStateAsync(
+        {
+          org_id,
+          learner_reference,
+          state_id,
+          state_version,
+          requested_at: new Date().toISOString(),
+        },
+        {
+          getState: (oid, lr) => Promise.resolve(getState(oid, lr)),
+          saveDecision: saveSpy,
+        }
+      );
+
+      expect(outcome).toEqual({ ok: true, matched: false });
+      expect(saveSpy).not.toHaveBeenCalled();
+
+      const query = getDecisions({
+        org_id,
+        learner_reference,
+        from_time: '2000-01-01T00:00:00.000Z',
+        to_time: '2100-01-01T00:00:00.000Z',
+      });
+      expect(query.decisions).toHaveLength(0);
+    });
   });
 });

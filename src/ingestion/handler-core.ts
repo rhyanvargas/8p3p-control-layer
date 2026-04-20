@@ -24,7 +24,7 @@ import { applySignals, type ApplySignalsOutcome } from '../state/engine.js';
 import { evaluateState } from '../decision/engine.js';
 import { resolveUserTypeFromSourceSystem } from '../decision/policy-loader.js';
 
-type Logger = { warn?: (obj: unknown, msg: string) => void };
+type Logger = { warn?: (obj: unknown, msg: string) => void; info?: (obj: unknown, msg: string) => void };
 
 function logIngestionOutcome(entry: IngestionOutcomeEntry, log: Logger): void {
   try {
@@ -194,6 +194,11 @@ export async function handleSignalIngestionCore(
         log.warn?.(
           { err: decisionOutcome.errors, org_id: signal.org_id, signal_id: signal.signal_id },
           'evaluateState rejected after applySignals; signal and state remain intact'
+        );
+      } else if (!decisionOutcome.matched) {
+        log.info?.(
+          { org_id: signal.org_id, signal_id: signal.signal_id },
+          'no policy rule matched; no decision emitted (runbook §Policy rule)'
         );
       }
     } catch (err) {

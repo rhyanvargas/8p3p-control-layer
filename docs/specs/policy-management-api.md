@@ -63,10 +63,11 @@ Create or replace a policy. Sets `status: "active"` by default. Body must be a v
       },
       "decision_type": "intervene"
     }
-  ],
-  "default_decision_type": "reinforce"
+  ]
 }
 ```
+
+> **Note on `default_decision_type`:** Optional and **deprecated** (see [`decision-engine.md`](decision-engine.md) §4.6). Accepted on PUT for back-compat of existing admin payloads and — if present — validated as a valid `DecisionType`, but **ignored by the evaluator**; `validatePolicyStructure` emits a one-shot `policy_default_decision_type_deprecated` warning log (see `src/decision/policy-loader.ts`). New policies should omit the field. When no rule matches, no decision is emitted and no LIU is counted (runbook § Policy rule, 2026-04-18).
 
 **Response (200):**
 

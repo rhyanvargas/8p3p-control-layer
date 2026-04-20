@@ -44,7 +44,8 @@
         "matched_rule_id",
         "state_snapshot",
         "matched_rule",
-        "rationale"
+        "rationale",
+        "educator_summary"
       ],
       "additionalProperties": false,
       "properties": {
@@ -68,7 +69,7 @@
         },
         "matched_rule_id": {
           "type": ["string", "null"],
-          "description": "Rule ID that matched, or null if default decision"
+          "description": "Rule ID that matched (present for all persisted decisions under the no-default policy model; legacy rows may be null)."
         },
         "state_snapshot": {
           "type": "object",
@@ -81,6 +82,11 @@
         "rationale": {
           "type": "string",
           "description": "Human-readable rationale (enriched trace)"
+        },
+        "educator_summary": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Teacher-facing short label for this decision type. Source: runbook § Teacher-friendly decision definitions (Shortest version)."
         }
       }
     },
@@ -90,7 +96,7 @@
       "properties": {
         "priority": {
           "type": ["integer", "null"],
-          "description": "1-based rule index when rule matched; null for default"
+          "description": "1-based rule index of the matched rule; null only when the rule cannot be resolved back to an index (defensive fallback)."
         },
         "ttl_seconds": { "type": ["integer", "null"] },
         "downstream_targets": { "type": "array", "items": { "type": "string" } }

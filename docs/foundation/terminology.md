@@ -44,7 +44,7 @@ Closed set of 4 values (see `src/contracts/schemas/decision.json`). Priority-ord
 | `reinforce` | Prevent decay / prevent future failure before it happens | **Primary** |
 | `advance` | Strong mastery and stability — progress to next level | |
 | `intervene` | High-risk now; take action immediately | **Primary** |
-| `pause` | Insufficient confidence to act — hold | |
+| `pause` | Possible learning decay detected; monitor closely before advancing | |
 
 The recommended demo narrative anchors on **reinforce** and **intervene** as the primary decision types.
 

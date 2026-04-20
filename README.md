@@ -88,7 +88,7 @@ The control layer supports four decision types, forming a closed set (see `src/c
 | `reinforce` | Continue current learning path |
 | `advance` | Progress to next level |
 | `intervene` | Require assistance |
-| `pause` | Temporary hold |
+| `pause` | Possible learning decay detected; watch closely |
 
 ---
 

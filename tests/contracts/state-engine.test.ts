@@ -516,7 +516,7 @@ describe('STATE Engine Contract Tests', () => {
         policy_id: 'test-delta-policy',
         policy_version: '1.0.0',
         description: 'Test policy exercising delta companion fields',
-        default_decision_type: 'monitor',
+        default_decision_type: 'reinforce',
         rules: [
           {
             rule_id: 'rule-stability-delta-drop',

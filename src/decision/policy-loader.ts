@@ -396,12 +396,11 @@ export function validatePolicyStructure(raw: unknown): asserts raw is PolicyDefi
     typeof policy.policy_id !== 'string' ||
     typeof policy.policy_version !== 'string' ||
     typeof policy.description !== 'string' ||
-    !Array.isArray(policy.rules) ||
-    typeof policy.default_decision_type !== 'string'
+    !Array.isArray(policy.rules)
   ) {
     throwPolicyError(
       ErrorCodes.INVALID_TYPE,
-      'Policy must have policy_id, policy_version, description (strings), rules (array), default_decision_type (string)'
+      'Policy must have policy_id, policy_version, description (strings), rules (array)'
     );
   }
   if (!SEMVER_REGEX.test(policy.policy_version as string)) {
@@ -410,10 +409,27 @@ export function validatePolicyStructure(raw: unknown): asserts raw is PolicyDefi
       `policy_version must be valid semver (e.g. 1.0.0), got: "${policy.policy_version}"`
     );
   }
-  if (!DECISION_TYPES.includes(policy.default_decision_type as Parameters<typeof DECISION_TYPES.includes>[0])) {
-    throwPolicyError(
-      ErrorCodes.INVALID_DECISION_TYPE,
-      `default_decision_type must be one of: ${DECISION_TYPES.join(', ')}`
+  if (Object.prototype.hasOwnProperty.call(policy, 'default_decision_type')) {
+    const ddt = policy['default_decision_type'];
+    if (typeof ddt !== 'string') {
+      throwPolicyError(
+        ErrorCodes.INVALID_TYPE,
+        'default_decision_type must be a string when present'
+      );
+    }
+    if (!DECISION_TYPES.includes(ddt as Parameters<typeof DECISION_TYPES.includes>[0])) {
+      throwPolicyError(
+        ErrorCodes.INVALID_DECISION_TYPE,
+        `default_decision_type must be one of: ${DECISION_TYPES.join(', ')}`
+      );
+    }
+    console.warn(
+      JSON.stringify({
+        event: 'policy_default_decision_type_deprecated',
+        policy_id: policy.policy_id,
+        message:
+          'default_decision_type is deprecated and ignored (runbook 2026-04-18 §Policy rule); remove from policy JSON',
+      })
     );
   }
   const seenRuleIds = new Set<string>();
@@ -724,8 +740,9 @@ function loadPolicyForContextFromFs(orgId: string, userType: string): PolicyDefi
 
 /**
  * Evaluates state against policy rules in order. First matching rule wins.
- * If no rule matches, returns default_decision_type with matched_rule_id null.
  * When a rule matches, returns matched_rule with evaluated_fields for trace enrichment.
+ * If no rule matches, returns a no-match sentinel (`decision_type` and `matched_rule_id`
+ * both null). `policy.default_decision_type` is not consulted — see evaluator comment below.
  */
 export function evaluatePolicy(state: Record<string, unknown>, policy: PolicyDefinition): PolicyEvaluationResult {
   for (let i = 0; i < policy.rules.length; i++) {
@@ -746,11 +763,10 @@ export function evaluatePolicy(state: Record<string, unknown>, policy: PolicyDef
       };
     }
   }
+  // Per runbook § Policy rule: "If no policy rule matches, no decision is created and no LIU is counted."
   return {
-    decision_type: policy.default_decision_type,
+    decision_type: null,
     matched_rule_id: null,
-    matched_rule: null,
-    evaluated_fields: [],
   };
 }
 

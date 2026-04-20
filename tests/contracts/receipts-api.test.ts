@@ -34,6 +34,7 @@ describe('Receipts API Contract Tests', () => {
       trace: {
         state_id: 'test-org:learner-123:v1',
         state_version: 1,
+        policy_id: 'default',
         policy_version: '1.0.0',
         matched_rule_id: 'rule-reinforce',
         state_snapshot: { progress: 0.5 },
@@ -44,6 +45,7 @@ describe('Receipts API Contract Tests', () => {
           evaluated_fields: [{ field: 'progress', operator: 'gte', threshold: 0.5, actual_value: 0.5 }],
         },
         rationale: 'Learner progress meets reinforce threshold',
+        educator_summary: 'Needs more practice',
       },
       ...overrides,
     };
@@ -232,23 +234,42 @@ describe('Receipts API Contract Tests', () => {
   // ---------------------------------------------------------------------------
 
   describe('RCPT-API-005: Receipt contains enriched trace', () => {
-    it('should include trace.state_snapshot, trace.matched_rule, trace.rationale', async () => {
-      createDecision({
-        trace: {
-          state_id: 'test-org:learner-123:v1',
-          state_version: 1,
-          policy_version: '1.0.0',
-          matched_rule_id: 'rule-advance',
-          state_snapshot: { score: 85, level: 3 },
-          matched_rule: {
-            rule_id: 'rule-advance',
-            decision_type: 'advance',
-            condition: { field: 'score', operator: 'gte', value: 80 },
-            evaluated_fields: [{ field: 'score', operator: 'gte', threshold: 80, actual_value: 85 }],
-          },
-          rationale: 'Score exceeds advance threshold',
+    /**
+     * Runbook § What a receipt should show — "Any explanation text shown to the school"
+     * projects through Decision.trace (receipts-api spec: same fields as Decision.trace).
+     */
+    it('should include trace.state_snapshot, trace.matched_rule, trace.rationale, trace.educator_summary', async () => {
+      const rows: { educator_summary: string; decided_at: string }[] = [
+        { educator_summary: 'Ready to move on', decided_at: '2026-01-30T10:00:00Z' },
+        { educator_summary: 'Needs more practice', decided_at: '2026-01-30T11:00:00Z' },
+        { educator_summary: 'Needs stronger support now', decided_at: '2026-01-30T12:00:00Z' },
+        {
+          educator_summary: 'Possible learning decay detected; watch closely',
+          decided_at: '2026-01-30T13:00:00Z',
         },
-      });
+      ];
+
+      for (const { educator_summary, decided_at } of rows) {
+        createDecision({
+          decided_at,
+          trace: {
+            state_id: 'test-org:learner-123:v1',
+            state_version: 1,
+            policy_id: 'default',
+            policy_version: '1.0.0',
+            matched_rule_id: 'rule-advance',
+            state_snapshot: { score: 85, level: 3 },
+            matched_rule: {
+              rule_id: 'rule-advance',
+              decision_type: 'advance',
+              condition: { field: 'score', operator: 'gte', value: 80 },
+              evaluated_fields: [{ field: 'score', operator: 'gte', threshold: 80, actual_value: 85 }],
+            },
+            rationale: 'Score exceeds advance threshold',
+            educator_summary,
+          },
+        });
+      }
 
       const response = await queryReceipts({
         org_id: 'test-org',
@@ -260,14 +281,18 @@ describe('Receipts API Contract Tests', () => {
       expect(response.statusCode).toBe(200);
 
       const body = response.json();
-      expect(body.receipts.length).toBe(1);
+      expect(body.receipts.length).toBe(4);
 
-      const receipt = body.receipts[0];
-      expect(receipt.trace).toBeDefined();
-      expect(receipt.trace.state_snapshot).toEqual({ score: 85, level: 3 });
-      expect(receipt.trace.matched_rule).toBeDefined();
-      expect(receipt.trace.matched_rule.rule_id).toBe('rule-advance');
-      expect(receipt.trace.rationale).toBe('Score exceeds advance threshold');
+      for (const receipt of body.receipts) {
+        expect(receipt.trace).toBeDefined();
+        expect(receipt.trace.state_snapshot).toEqual({ score: 85, level: 3 });
+        expect(receipt.trace.matched_rule).toBeDefined();
+        expect(receipt.trace.matched_rule.rule_id).toBe('rule-advance');
+        expect(receipt.trace.rationale).toBe('Score exceeds advance threshold');
+        expect(typeof receipt.trace.educator_summary).toBe('string');
+        expect(receipt.trace.educator_summary.length).toBeGreaterThan(0);
+        expect(rows.map((r) => r.educator_summary)).toContain(receipt.trace.educator_summary);
+      }
     });
   });
 });

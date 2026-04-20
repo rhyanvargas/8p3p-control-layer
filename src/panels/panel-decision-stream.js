@@ -19,8 +19,7 @@
   }
 
   var DECISION_TOOLTIPS = {
-    escalate:  'Escalate — highest priority; immediate intervention required',
-    pause:     'Pause — halt progression until conditions improve',
+    pause:     'Possible learning decay detected; watch closely',
     reinforce: 'Reinforce — repeat or strengthen current learning path',
     advance:   'Advance — learner is ready to move forward',
     intervene: 'Intervene — targeted corrective action needed',
@@ -156,22 +155,31 @@
         html += `
           <table>
             <thead><tr>
-              <th>Time</th><th>Decision</th><th>Rule</th><th>Pri</th><th>Pol.</th><th>Learner</th>
+              <th>Time</th><th>Decision</th><th>Educator summary</th><th>Rule</th><th>Pri</th><th>Pol.</th><th>Learner</th>
             </tr></thead>
             <tbody>
         `;
 
         for (const r of receipts) {
           const trace = r.trace || {};
-          const ruleId = trace.matched_rule_id != null ? esc(String(trace.matched_rule_id)) : '(default)';
+          const edu =
+            typeof trace.educator_summary === 'string' && trace.educator_summary.length > 0
+              ? esc(trace.educator_summary)
+              : '—';
+          const ruleId = trace.matched_rule_id != null ? esc(String(trace.matched_rule_id)) : '(legacy)';
           const policy = trace.policy_id
             ? esc(trace.policy_id) + (trace.policy_version ? ' / ' + esc(trace.policy_version) : '')
             : esc(trace.policy_version || '—');
           const cls = decisionClass(r.decision_type);
+          const tip =
+            typeof trace.educator_summary === 'string' && trace.educator_summary.length > 0
+              ? esc(trace.educator_summary)
+              : decisionTooltip(r.decision_type);
 
           html += `<tr class="clickable" data-decision="${encodeDecision(r, learnerRef)}">`;
           html += `<td>${fmt(r.decided_at)}</td>`;
-          html += `<td class="${cls}" title="${decisionTooltip(r.decision_type)}">${esc(r.decision_type || '—')}</td>`;
+          html += `<td class="${cls}" title="${tip}">${esc(r.decision_type || '—')}</td>`;
+          html += `<td>${edu}</td>`;
           html += `<td>${ruleId}</td>`;
           html += `<td>—</td>`;
           html += `<td>${policy}</td>`;
@@ -219,7 +227,15 @@
         const learnerRef2 = res2.learner_reference || learner;
         for (const r of more) {
           const trace = r.trace || {};
-          const ruleId = trace.matched_rule_id != null ? esc2(String(trace.matched_rule_id)) : '(default)';
+          const edu =
+            typeof trace.educator_summary === 'string' && trace.educator_summary.length > 0
+              ? esc2(trace.educator_summary)
+              : '—';
+          const tip =
+            typeof trace.educator_summary === 'string' && trace.educator_summary.length > 0
+              ? esc2(trace.educator_summary)
+              : decisionTooltip(r.decision_type);
+          const ruleId = trace.matched_rule_id != null ? esc2(String(trace.matched_rule_id)) : '(legacy)';
           const policy = trace.policy_id
             ? esc2(trace.policy_id) + (trace.policy_version ? ' / ' + esc2(trace.policy_version) : '')
             : esc2(trace.policy_version || '—');
@@ -227,7 +243,7 @@
           const row = document.createElement('tr');
           row.className = 'clickable';
           row.setAttribute('data-decision', encodeDecision(r, learnerRef2));
-          row.innerHTML = `<td>${fmt2(r.decided_at)}</td><td class="${cls}" title="${decisionTooltip(r.decision_type)}">${esc2(r.decision_type || '—')}</td><td>${ruleId}</td><td>—</td><td>${policy}</td><td>${esc2(learnerRef2)}</td>`;
+          row.innerHTML = `<td>${fmt2(r.decided_at)}</td><td class="${cls}" title="${tip}">${esc2(r.decision_type || '—')}</td><td>${edu}</td><td>${ruleId}</td><td>—</td><td>${policy}</td><td>${esc2(learnerRef2)}</td>`;
           row.addEventListener('click', () => {
             const encoded = row.getAttribute('data-decision');
             const decision = decodeDecision(encoded);

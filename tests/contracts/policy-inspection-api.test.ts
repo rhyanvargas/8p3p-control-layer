@@ -62,7 +62,7 @@ describe('Policy Inspection API Contract Tests', () => {
           policy_version: string;
           description: string;
           rule_count: number;
-          default_decision_type: string;
+          default_decision_type?: string;
         }>;
         routing: {
           source_system_map: Record<string, string>;
@@ -82,7 +82,7 @@ describe('Policy Inspection API Contract Tests', () => {
       expect(learner.policy_version).toBe('1.0.0');
       expect(typeof learner.description).toBe('string');
       expect(learner.rule_count).toBeGreaterThan(0);
-      expect(typeof learner.default_decision_type).toBe('string');
+      expect(learner.default_decision_type).toBeUndefined();
 
       const staff = body.policies.find((p) => p.policy_key === 'staff')!;
       expect(staff.policy_id).toBe('springs:staff');
@@ -145,7 +145,7 @@ describe('Policy Inspection API Contract Tests', () => {
             decision_type: string;
             condition: unknown;
           }>;
-          default_decision_type: string;
+          default_decision_type?: string;
         };
       };
 
@@ -162,7 +162,7 @@ describe('Policy Inspection API Contract Tests', () => {
       expect(typeof rule.decision_type).toBe('string');
       expect(rule.condition).toBeDefined();
 
-      expect(typeof body.policy.default_decision_type).toBe('string');
+      expect(body.policy.default_decision_type).toBeUndefined();
     });
   });
 

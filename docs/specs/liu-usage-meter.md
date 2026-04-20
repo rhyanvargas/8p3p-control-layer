@@ -26,6 +26,8 @@ The counter is derived from the existing decision pipeline — no new computatio
 | `GET /v1/state` or any inspection endpoint | **No** | Read-only |
 | Admin operations (PUT policy, etc.) | **No** | Configuration, not learning decisions |
 
+This aligns with `internal-docs/pilot-operations/pilot-runbook.md` § Policy rule: *"If no policy rule matches, no decision is created and no LIU is counted."* The engine enforces this behavior — see `evaluateState()` in `src/decision/engine.ts`.
+
 **Rule:** 1 LIU = 1 new row in the decisions store. The counter increments in the same transaction/write path as `saveDecision()`.
 
 ---

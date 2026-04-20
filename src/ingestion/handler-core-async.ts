@@ -24,7 +24,7 @@ import type { DynamoDbStateRepository } from '../state/dynamodb-repository.js';
 import type { DynamoDbDecisionRepository } from '../decision/dynamodb-repository.js';
 import type { DynamoDbIngestionLogRepository } from './dynamodb-ingestion-log-repository.js';
 
-type Logger = { warn?: (obj: unknown, msg: string) => void };
+type Logger = { warn?: (obj: unknown, msg: string) => void; info?: (obj: unknown, msg: string) => void };
 
 export interface DynamoIngestionPorts {
   idempotency: DynamoDbIdempotencyRepository;
@@ -206,6 +206,11 @@ export async function handleSignalIngestionAsync(
         log.warn?.(
           { err: decisionOutcome.errors, org_id: signal.org_id, signal_id: signal.signal_id },
           'evaluateStateAsync rejected'
+        );
+      } else if (!decisionOutcome.matched) {
+        log.info?.(
+          { org_id: signal.org_id, signal_id: signal.signal_id },
+          'no policy rule matched; no decision emitted (runbook §Policy rule)'
         );
       }
     } catch (err) {

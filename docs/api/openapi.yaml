@@ -1384,6 +1384,10 @@ components:
           type: string
         decision_type:
           type: string
+          description: |
+            Closed set. `reinforce` — continue current path; `advance` — progress to next level;
+            `intervene` — require assistance; `pause` — possible learning decay detected; watch closely
+            (internal hold/reroute only; teacher-facing wording is trace.educator_summary).
           enum:
             - reinforce
             - advance
@@ -1419,7 +1423,7 @@ components:
           properties:
             priority:
               type: ['integer', 'null']
-              description: 1-based rule index when rule matched; null for default
+              description: 1-based rule index of the matched rule; null only when the rule cannot be resolved back to an index (defensive fallback; no-default policy model)
             ttl_seconds:
               type: ['integer', 'null']
             downstream_targets:
@@ -1459,6 +1463,10 @@ components:
           type: string
         decision_type:
           type: string
+          description: |
+            Closed set. `reinforce` — continue current path; `advance` — progress to next level;
+            `intervene` — require assistance; `pause` — possible learning decay detected; watch closely
+            (internal hold/reroute only; teacher-facing wording is trace.educator_summary).
           enum:
             - reinforce
             - advance
@@ -1501,6 +1509,7 @@ components:
         - state_snapshot
         - matched_rule
         - rationale
+        - educator_summary
       additionalProperties: false
       properties:
         state_id:
@@ -1517,7 +1526,7 @@ components:
           description: Policy version that produced this decision (semver)
         matched_rule_id:
           type: ['string', 'null']
-          description: Rule ID that matched, or null if default decision
+          description: Rule ID that matched (present for all persisted decisions under the no-default policy model).
         state_snapshot:
           type: object
           description: Canonical state fields at evaluation time — includes only policy-evaluated fields, excludes non-canonical and PII data (enriched trace)
@@ -1527,6 +1536,10 @@ components:
         rationale:
           type: string
           description: Human-readable rationale (enriched trace)
+        educator_summary:
+          type: string
+          minLength: 1
+          description: Teacher-facing short label for this decision type (runbook § Shortest version).
 
     # ---------------------------------------------------------------------------
     # Admin Policy Management schemas
@@ -1540,7 +1553,6 @@ components:
         - policy_version
         - description
         - rules
-        - default_decision_type
       properties:
         policy_id:
           type: string
@@ -1568,6 +1580,10 @@ components:
         default_decision_type:
           type: string
           enum: [reinforce, advance, intervene, pause]
+          deprecated: true
+          description: |
+            Deprecated — accepted for backward compatibility but ignored by the evaluator.
+            Omit for new policies; if no rule matches, no decision is emitted.
 
     PolicyWriteResponse:
       type: object
@@ -1666,7 +1682,7 @@ components:
     # ---------------------------------------------------------------------------
     PolicySummary:
       type: object
-      required: [policy_id, policy_version, policy_key, description, rule_count, default_decision_type]
+      required: [policy_id, policy_version, policy_key, description, rule_count]
       properties:
         policy_id:
           type: string
@@ -1684,7 +1700,8 @@ components:
           description: Number of rules in the policy
         default_decision_type:
           type: string
-          description: Decision type when no rule matches
+          deprecated: true
+          description: Deprecated optional field when present on stored policy; ignored by the evaluator.
 
     PolicyRoutingConfig:
       type: object
@@ -1724,7 +1741,7 @@ components:
           type: string
         policy:
           type: object
-          required: [policy_id, policy_version, description, rules, default_decision_type]
+          required: [policy_id, policy_version, description, rules]
           properties:
             policy_id:
               type: string
@@ -1739,6 +1756,8 @@ components:
                 description: Policy rule with rule_id, decision_type, and condition tree
             default_decision_type:
               type: string
+              deprecated: true
+              description: Deprecated optional field; ignored by the evaluator.
 
     PolicyInspectionError:
       type: object

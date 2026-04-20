@@ -7,12 +7,13 @@ import type {
   Decision,
   EvaluateStateForDecisionRequest,
   EvaluateDecisionOutcome,
+  LearnerState,
 } from '../shared/types.js';
 import { ErrorCodes } from '../shared/error-codes.js';
 import { validateEvaluateRequest, validateDecisionContext } from './validator.js';
 import { loadPolicyForContext, evaluatePolicy } from './policy-loader.js';
 import { extractCanonicalSnapshot, buildRationale } from './engine.js';
-import type { LearnerState } from '../shared/types.js';
+import { DECISION_TYPE_TO_EDUCATOR_SUMMARY } from './educator-summaries.js';
 
 export interface EvaluateStateAsyncPort {
   getState(orgId: string, learnerReference: string): Promise<LearnerState | null>;
@@ -81,8 +82,13 @@ export async function evaluateStateAsync(
   }
 
   const evalResult = evaluatePolicy(currentState.state, policy);
+
+  if (evalResult.decision_type === null) {
+    return { ok: true, matched: false };
+  }
+
   const stateSnapshot = extractCanonicalSnapshot(currentState.state, policy);
-  const rationale = buildRationale(evalResult, policy);
+  const rationale = buildRationale(evalResult);
 
   let priority: number | null = null;
   if (evalResult.matched_rule_id) {
@@ -91,6 +97,12 @@ export async function evaluateStateAsync(
   }
 
   const decisionContext: Record<string, unknown> = {};
+  if (request.signal_context?.skill) decisionContext['skill'] = request.signal_context.skill;
+  if (request.signal_context?.assessment_type) {
+    decisionContext['assessment_type'] = request.signal_context.assessment_type;
+  }
+  if (request.signal_context?.school_id) decisionContext['school_id'] = request.signal_context.school_id;
+
   const contextValidation = validateDecisionContext(decisionContext);
   if (!contextValidation.valid) {
     return { ok: false, errors: contextValidation.errors };
@@ -112,10 +124,11 @@ export async function evaluateStateAsync(
       state_snapshot: stateSnapshot,
       matched_rule: evalResult.matched_rule ?? null,
       rationale,
+      educator_summary: DECISION_TYPE_TO_EDUCATOR_SUMMARY[evalResult.decision_type],
     },
     output_metadata: { priority },
   };
 
   await port.saveDecision(decision);
-  return { ok: true, result: decision };
+  return { ok: true, matched: true, result: decision };
 }

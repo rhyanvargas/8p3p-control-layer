@@ -280,7 +280,7 @@ Extend the `trace` object in the Decision record with three new fields: `state_s
 The rationale is a deterministic string built from the matched rule and state values. Format:
 
 - **When a rule matches:** `"Rule {rule_id} fired: {field} ({actual}) {op} {threshold} AND/OR ..."` — flattened condition summary with actual values.
-- **When default fires:** `"No rules matched. Default decision: {default_decision_type}"`
+- **When no rule matches:** no rationale is produced — per runbook § Policy rule (2026-04-18), no governed decision is emitted and no row is persisted, so there is no `trace.rationale` to render. `policy.default_decision_type` is **not** consulted (see [`decision-engine.md`](decision-engine.md) §4.6 and § Policy Evaluation Semantics).
 
 Rationale must be deterministic: same state + same policy → same rationale string (excluding timestamp formatting).
 
@@ -484,7 +484,7 @@ ALTER TABLE decisions ADD COLUMN output_metadata TEXT;
 | INSP-014 | Historical decision without enriched trace returns cleanly | No error, missing fields tolerated |
 | INSP-015 | Org isolation on `GET /v1/ingestion` | Entries from org B not visible to org A |
 | INSP-016 | Org isolation on `GET /v1/state` | State from org B not visible to org A |
-| INSP-017 | Default-path decision has `rationale` explaining no rule matched | Rationale contains "No rules matched" |
+| INSP-017 | No-match path emits no governed decision | `evaluateState` returns `{ ok: true, matched: false }`; `GET /v1/decisions` returns an empty list; no row is persisted (see `src/decision/engine.ts` no-match short-circuit and `tests/contracts/inspection-api.test.ts`) |
 
 ---
 

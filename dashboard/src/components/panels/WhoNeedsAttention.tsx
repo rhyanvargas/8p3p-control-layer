@@ -82,7 +82,9 @@ export function WhoNeedsAttention({ orgId }: { orgId: string }) {
           >
             <div className="flex flex-wrap items-center gap-2">
               <DecisionBadge type={d.decision_type} />
-              <span className="text-sm text-muted-foreground">{decisionNarration(d.decision_type)}</span>
+              <span className="text-sm text-muted-foreground">
+                {d.trace?.educator_summary ?? decisionNarration(d.decision_type)}
+              </span>
             </div>
             {skillLine ? <p className="text-sm text-foreground">{skillLine}</p> : null}
           </LearnerCard>

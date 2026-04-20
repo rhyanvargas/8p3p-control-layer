@@ -286,7 +286,8 @@ export interface PolicyDefinition {
   policy_version: string;
   description: string;
   rules: PolicyRule[];
-  default_decision_type: DecisionType;
+  /** @deprecated Accepted for admin API back-compat; ignored by the evaluator. */
+  default_decision_type?: DecisionType;
 }
 
 /** Closed set of 4 decision types */
@@ -311,11 +312,14 @@ export interface MatchedRule {
   evaluated_fields: EvaluatedField[];
 }
 
-/** Policy evaluation result */
+/**
+ * Policy evaluation result.
+ * When no rule matches, `matched_rule_id` and `decision_type` are both `null` (paired).
+ */
 export interface PolicyEvaluationResult {
-  decision_type: DecisionType;
+  decision_type: DecisionType | null;
   matched_rule_id: string | null;
-  /** Full rule when a rule matched; null when default matched */
+  /** Present when a rule matched */
   matched_rule?: MatchedRule | null;
   /** Leaf evaluations for the matching path */
   evaluated_fields?: EvaluatedField[];
@@ -349,6 +353,8 @@ export interface Decision {
     matched_rule: MatchedRule | null;
     /** Human-readable rationale (enriched trace) */
     rationale: string;
+    /** Teacher-facing short label for this decision type (runbook § Shortest version). */
+    educator_summary: string;
   };
   /** Output metadata for downstream (priority = 1-based rule index) */
   output_metadata?: OutputMetadata;
@@ -375,9 +381,35 @@ export interface EvaluateStateForDecisionRequest {
   signal_context?: SignalContext;
 }
 
-/** Discriminated outcome for evaluateState */
+/**
+ * Discriminated outcome for evaluateState.
+ *
+ * § docs/specs/decision-engine.md §4.3 (EvaluateDecisionOutcome), verbatim:
+ *
+ * ```json
+ * {
+ *   "ok": true,
+ *   "result": "Decision (see 4.1)"
+ * }
+ * ```
+ *
+ * ```json
+ * {
+ *   "ok": false,
+ *   "errors": [
+ *     { "code": "string", "message": "string", "field_path": "string | undefined" }
+ *   ]
+ * }
+ * ```
+ *
+ * Superset: when no policy rule matches, the engine returns `{ ok: true, matched: false }`
+ * — no Decision is persisted. Runbook § Policy rule: *"Remove any default decision that
+ * fires when no rule matches. If no policy rule matches, no decision is created and no LIU
+ * is counted."*
+ */
 export type EvaluateDecisionOutcome =
-  | { ok: true; result: Decision }
+  | { ok: true; matched: true; result: Decision }
+  | { ok: true; matched: false }
   | { ok: false; errors: RejectionReason[] };
 
 /** Request for GET /v1/decisions */

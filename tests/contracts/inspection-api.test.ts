@@ -434,11 +434,13 @@ describe('Inspection API Contract Tests', () => {
         trace: {
           state_id: 'test-org:learner-123:v1',
           state_version: 1,
+          policy_id: 'default',
           policy_version: '1.0.0',
           matched_rule_id: 'rule-reinforce',
           state_snapshot: {},
           matched_rule: null,
           rationale: 'legacy decision: rationale unavailable',
+          educator_summary: 'Needs more practice',
         },
       };
       saveDecision(historicalDecision);
@@ -502,11 +504,10 @@ describe('Inspection API Contract Tests', () => {
   });
 
   // ---------------------------------------------------------------------------
-  // INSP-017: Default-path decision has rationale "No rules matched"
+  // INSP-017: No-match path — no governed decision persisted (runbook § Policy rule)
   // ---------------------------------------------------------------------------
-  describe('INSP-017: Default-path decision has rationale "No rules matched"', () => {
-    it('should include "No rules matched" in rationale when default decision', async () => {
-      // State that matches default path: high stability, recently reinforced
+  describe('INSP-017: No-match path emits no governed decision', () => {
+    it('should persist no decision when no policy rule matches', async () => {
       const state = createState({
         state: { stabilityScore: 0.9, timeSinceReinforcement: 3600 },
       });
@@ -523,10 +524,7 @@ describe('Inspection API Contract Tests', () => {
       });
       expect(decisionsRes.statusCode).toBe(200);
       const decisions = decisionsRes.json().decisions;
-      expect(decisions.length).toBeGreaterThanOrEqual(1);
-      const defaultDec = decisions.find((d: { trace: { matched_rule_id: string | null } }) => d.trace.matched_rule_id === null);
-      expect(defaultDec).toBeDefined();
-      expect(defaultDec.trace.rationale).toContain('No rules matched');
+      expect(decisions).toHaveLength(0);
     });
   });
 });
