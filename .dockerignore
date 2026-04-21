@@ -1,0 +1,40 @@
+# Dependencies (installed in Docker builder stage)
+node_modules
+dashboard/node_modules
+infra/node_modules
+
+# Pre-built artifacts — rebuilt inside the image
+dist
+dashboard/dist
+
+# Local SQLite and dev data — never ship; runtime uses fresh ./data under cwd
+data
+
+# Tests and tooling caches
+tests
+coverage
+.vitest-cache
+
+# Secrets — inject at runtime only
+.env
+.env.local
+.env.*.local
+
+# Repo / IDE / agent metadata not needed in image
+.git
+.github
+.cursor
+.agents
+internal-docs
+
+# Large docs subsets; docs/api/openapi.yaml is kept for runtime COPY (see Dockerfile)
+docs/reports
+docs/testing
+docs/design
+
+# AWS CDK — not used for Fly/Render pilot container
+infra
+
+# OS / logs
+.DS_Store
+*.log

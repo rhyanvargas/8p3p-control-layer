@@ -1,0 +1,54 @@
+# Fly.io template (Decision 1 Option A). App name is set when Decision 1 lands
+# (e.g. fly launch --name 8p3p-pilot-springs).
+#
+# SQLite / dry run: `internal-docs/pilot-operations/dry-run-script.md` § Saturday
+# 12:00–12:45 PM pre-flight says to re-seed after a clean slate. Re-seed after any
+# machine stop/start or deploy that wipes the ephemeral volume (SQLite under /app/data).
+# No persistent volume for this dry-run artifact — add volumes when the real pilot starts.
+
+# Template — app name filled Thursday evening when Decision 1 lands.
+# app = "8p3p-pilot-springs"  # set via: fly launch --name 8p3p-pilot-springs
+# Primary region (single machine). Fly: `dfw`/`iad` are “solid bets”; check `fly platform regions`.
+# Ref: https://fly.io/docs/machines/guides-examples/machine-placement/ — https://fly.io/docs/reference/regions/
+primary_region = "dfw"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[build.args]
+  # These are consumed by Dockerfile ARG VITE_* in Stage 1 (builder) and
+  # baked into dashboard/dist at vite build time. Accepted per readiness-brief
+  # scope guardrail #1: "Not fixing the VITE_API_KEY build-time bake-in."
+  VITE_API_BASE_URL = ""   # set via: fly deploy --build-arg VITE_API_BASE_URL=https://8p3p-pilot-springs.fly.dev
+  VITE_API_KEY = ""        # set via: fly deploy --build-arg VITE_API_KEY=<pilot_key>
+  VITE_ORG_ID = "springs"
+
+[env]
+  PORT = "3000"
+  LOG_LEVEL = "info"
+  API_KEY_ORG_ID = "springs"
+  DECISION_POLICY_PATH = "./src/decision/policies/default.json"
+  DASHBOARD_SESSION_TTL_HOURS = "8"
+
+# Runtime secrets (not in fly.toml — set via `fly secrets set`):
+#   API_KEY, ADMIN_API_KEY, DASHBOARD_ACCESS_CODE, COOKIE_SECRET
+# See docs/guides/pilot-host-deployment.md § Secrets for the exact commands.
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  auto_stop_machines = "stop"     # idle scale-to-zero to hit the $5/month target
+  auto_start_machines = true
+  min_machines_running = 0
+
+  [[http_service.checks]]
+    grace_period = "10s"
+    interval = "30s"
+    method = "GET"
+    timeout = "5s"
+    path = "/health"
+
+[[vm]]
+  memory = "512mb"
+  cpu_kind = "shared"
+  cpus = 1
