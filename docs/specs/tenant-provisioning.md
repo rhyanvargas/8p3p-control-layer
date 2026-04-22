@@ -235,6 +235,8 @@ The api_key_id → org_id lookup happens on every request. To avoid a DynamoDB r
 
 These are enforced at the API Gateway level — zero Lambda code required. When a customer exceeds their rate limit, API Gateway returns 429 Too Many Requests before Lambda is invoked.
 
+> **Future plan (not yet enabled).** An `evaluation` plan value is anticipated for the controlled-data-evaluation flow described in `internal-docs/Proposal for Controlled Data Evaluation.pdf`. When a signed evaluation engagement lands, we add the enum value, rate limits (likely `pilot`-equivalent), and the mode-aware branch in `ProgramMetricsService.computeReport` in one scoped PR. See `.cursor/plans/pilot-evidence-prep.plan.md` § Decisions D-001 for the defer-until-signal rationale.
+
 ---
 
 ## Requirements
