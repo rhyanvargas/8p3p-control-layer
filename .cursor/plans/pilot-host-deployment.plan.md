@@ -31,7 +31,7 @@ todos:
     status: completed
   - id: TASK-004
     content: Create render.yaml template (Option A — Render) with equivalent build args, env slots, and /health check
-    status: pending
+    status: completed
   - id: TASK-005
     content: Author docs/guides/pilot-host-deployment.md — host pick workflow, env-var wiring, secret sourcing, build args, persistence caveat, smoke-test curl verbatim
     status: completed

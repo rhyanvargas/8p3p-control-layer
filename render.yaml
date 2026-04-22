@@ -1,0 +1,70 @@
+# Render Blueprint (Decision 1 Option A — alternate to fly.toml).
+# Shipped alongside fly.toml so the CEO-approved host can go live without a
+# further plan revision. If Fly.io was chosen (current default — see commit
+# f7583a4 "feat(deploy): add Fly.io deploy bundle for Springs pilot"), this
+# file stays as a fallback artifact; swap hosts without editing the Dockerfile.
+#
+# SQLite / dry run: Render starter plan has no persistent disk; SQLite under
+# /app/data/*.db is ephemeral. Re-seed per
+# `internal-docs/pilot-operations/dry-run-script.md` § Saturday 12:00–12:45 PM
+# pre-flight after any deploy or machine restart. Persistent disk is a
+# post-pilot decision (same deferral as fly.toml).
+#
+# Secrets (set in Render dashboard, not in this blueprint): API_KEY,
+# ADMIN_API_KEY, DASHBOARD_ACCESS_CODE, COOKIE_SECRET, VITE_API_BASE_URL,
+# VITE_API_KEY. See `docs/guides/pilot-host-deployment.md` § Secrets.
+
+services:
+  - type: web
+    name: 8p3p-pilot-springs
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: starter                 # ~$7/month; closest to the readiness brief's ~$5 target
+    region: oregon                # change if Springs is East Coast — oregon is Render's default
+    healthCheckPath: /health
+    autoDeploy: true              # main-branch push triggers deploy
+
+    # Rebuild filters — only rebuild when artifacts that actually enter the
+    # image change. Keeps idle cost low and avoids unnecessary deploys.
+    buildFilter:
+      paths:
+        - Dockerfile
+        - package.json
+        - package-lock.json
+        - src/**
+        - dashboard/**
+        - docs/api/openapi.yaml
+
+    envVars:
+      # Public runtime config — mirrors fly.toml [env]
+      - key: PORT
+        value: 3000
+      - key: LOG_LEVEL
+        value: info
+      - key: API_KEY_ORG_ID
+        value: springs
+      - key: DECISION_POLICY_PATH
+        value: ./src/decision/policies/default.json
+      - key: DASHBOARD_SESSION_TTL_HOURS
+        value: "8"
+
+      # Runtime secrets — set in Render dashboard (sync: false = value not
+      # stored in blueprint). Parallels `fly secrets set ...`.
+      - key: API_KEY
+        sync: false
+      - key: ADMIN_API_KEY
+        sync: false
+      - key: DASHBOARD_ACCESS_CODE
+        sync: false
+      - key: COOKIE_SECRET
+        sync: false
+
+      # Build-time args — baked into dashboard/dist via Dockerfile ARG VITE_*.
+      # Bake-in accepted per readiness-brief scope guardrail #1 ("Not fixing
+      # the VITE_API_KEY build-time bake-in"). Rebuild required to change.
+      - key: VITE_API_BASE_URL
+        sync: false
+      - key: VITE_API_KEY
+        sync: false
+      - key: VITE_ORG_ID
+        value: springs
