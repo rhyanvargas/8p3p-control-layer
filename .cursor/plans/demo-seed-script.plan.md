@@ -20,6 +20,8 @@ isProject: false
 
 # Demo Seed Script
 
+> **SUPERSEDED (2026-04-21).** The artifacts this plan shipped — `scripts/seed-demo.mjs` and the `seed:demo` npm script — were removed in commit `7fb3ca9` ("feat: implement dashboard passphrase gate and remove demo seed script"). Active demo tooling is `scripts/seed-springs-demo.mjs` / `npm run seed:springs-demo`; see `.cursor/plans/springs-demo-seed.plan.md` and `.cursor/plans/springs-realistic-seed.plan.md` for the current plans. **Do not re-run tasks in this plan.** Retained for historical traceability only.
+
 **Spec**: Pilot Readiness Artifact #7 (`docs/reports/2026-02-20-pilot-readiness-v1-v1.1.md`)  
 **CEO approval**: `docs/reports/2026-02-23-ceo-scope-approval.md` — demo anchored on REINFORCE + INTERVENE
 

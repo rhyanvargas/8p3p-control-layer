@@ -364,7 +364,7 @@ Common business use-cases and integration workflows (built from the existing API
 - [x] **DynamoDB Adapters** — all five repository implementations for AWS deployment
 - [x] **Lambda Handlers** — ingest, query, inspect, admin entrypoints
 - [x] **CDK Stack** — API Gateway + Lambda + DynamoDB table definitions
-- [x] **Demo Seed Script** — `npm run seed:demo`, Springs pilot data
+- [x] **Demo Seed Script** — `npm run seed:springs-demo`, Springs pilot data
 - [x] **503 tests** — unit, contract, integration, and drift detection across 27 files
 
 ### v1.1: Pre-Month 0 (In Progress)

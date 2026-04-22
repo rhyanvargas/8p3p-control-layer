@@ -691,7 +691,7 @@ Panels 1, 2, and 4 depend on `decision_context.skill`, `skills.*.stabilityScore_
 - **Rationale builder:** `rationale-builder.ts` constructs human-readable sentences from state data: e.g., `stabilityScore: 0.22`, skill `"fractions"` → "Understanding of fractions is unstable (22% stability). May need reinforcement." This is purely client-side presentation logic — the decision trace `rationale` field is the authoritative source when available.
 - **GET /v1/decisions scope:** The shipped API requires `learner_reference`, `from_time`, and `to_time` (see `docs/api/openapi.yaml`). The dashboard aggregates org-wide decisions by paging `GET /v1/state/list`, then querying `GET /v1/decisions` per learner over a rolling window (see `docs/guides/get-all-learner-decisions-from-org.md`).
 - **Build integration:** Add `"build:dashboard": "cd dashboard && npm ci --quiet && npm run build"` to root `package.json`. The Fastify server registers `dashboard/dist/` as a static directory at `/dashboard`.
-- **Demo seed compatibility:** The existing `npm run seed:demo` and `npm run seed:springs-demo` scripts produce decisions, states, and signals that the Decision Panel can display immediately — no additional seeding required once skill-level-tracking is implemented.
+- **Demo seed compatibility:** The existing `npm run seed:springs-demo` script produces decisions, states, and signals that the Decision Panel can display immediately — no additional seeding required once skill-level-tracking is implemented.
 
 ---
 

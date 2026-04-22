@@ -147,7 +147,7 @@ If 8P3P has given you access to the inspection UI:
 3. Enter **org_id** (e.g. `org_acme`) and click **Refresh**.
 4. Use the four panels: **Signal Intake**, **State Viewer**, **Decision Stream**, **Decision Trace**.
 
-To preload demo data (same host, e.g. for training): run `npm run seed:demo` against the server with `--api-key <your_key>` and `--org <org_id>` (or use the org assigned to your key).
+To preload demo data (same host, e.g. for training): run `npm run seed:springs-demo` against the server with `--api-key <your_key>` and `--org <org_id>` (or use the org assigned to your key).
 
 ---
 

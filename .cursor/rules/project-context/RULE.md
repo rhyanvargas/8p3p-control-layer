@@ -51,7 +51,6 @@ npm run validate:api        # Lint OpenAPI spec (Redocly)
 npm run check              # build → validate:schemas → validate:contracts → validate:api → lint → test
 
 # Demo seeds
-npm run seed:demo          # Seed org_demo (generic demo)
 npm run seed:springs-demo  # Seed springs org (Canvas + Blackboard + Absorb, 14 signals)
 ```
 
