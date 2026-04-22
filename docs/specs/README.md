@@ -33,11 +33,20 @@ Specifications in this folder are the **single source of truth for requirements 
 - [`integration-templates.md`](integration-templates.md) — Connector Layer: catalog, activation, event type config, pre-built templates (Canvas, I-Ready, Branching Minds)
 - [`learner-trajectory-api.md`](learner-trajectory-api.md) — `GET /v1/state/trajectory`; version-range field trend view (**depends on state-delta-detection**)
 - [`learner-summary-api.md`](learner-summary-api.md) — `GET /v1/learners/:ref/summary`; educator-readable aggregated view (**depends on trajectory**)
-- [`liu-usage-meter.md`](liu-usage-meter.md) — `GET /v1/admin/usage` + `GET /v1/usage`; per-org monthly LIU metering
+- [`liu-usage-meter.md`](liu-usage-meter.md) — `GET /v1/admin/usage` + `GET /v1/usage`; per-org monthly LIU metering (**promoted to pre-Month 0 as SBIR evidence denominator**)
+
+## SBIR Evidence Layer (2026-04-20) — spec'd
+
+- [`program-metrics.md`](program-metrics.md) — MC-A*/B*/C* catalog + `GET /v1/admin/program-metrics`; answers the three DOE questions with data (phase-neutral identifiers per [`internal-docs/foundation/api-naming-conventions.md`](../../internal-docs/foundation/api-naming-conventions.md))
+- [`educator-feedback-api.md`](educator-feedback-api.md) — `POST /v1/decisions/:id/feedback`; view log; soft-prompt count; feeds MC-B* + MC-C*
+- [`decision-outcomes.md`](decision-outcomes.md) — derived view joining decisions → subsequent state deltas; feeds MC-C*
+- [`pilot-research-export.md`](pilot-research-export.md) — FERPA-safe de-identified bulk export for DOE/IES reviewers
+- [`ingestion-preflight.md`](ingestion-preflight.md) — PII/semantic-key categorization + `POST /v1/admin/ingestion/preflight` dry-run endpoint for pilot intake
 
 ---
 
 - **API reference:** [`docs/api/openapi.yaml`](../api/openapi.yaml)
 - **Architecture overview:** [`docs/foundation/architecture.md`](../foundation/architecture.md)
 - **Terminology:** [`docs/foundation/terminology.md`](../foundation/terminology.md)
+- **API naming conventions:** [`internal-docs/foundation/api-naming-conventions.md`](../../internal-docs/foundation/api-naming-conventions.md) — durability rule for route/module names (MUST-read before adding a new public surface)
 
