@@ -43,6 +43,10 @@ Specifications in this folder are the **single source of truth for requirements 
 - [`pilot-research-export.md`](pilot-research-export.md) — FERPA-safe de-identified bulk export for DOE/IES reviewers
 - [`ingestion-preflight.md`](ingestion-preflight.md) — PII/semantic-key categorization + `POST /v1/admin/ingestion/preflight` dry-run endpoint for pilot intake
 
+## Infrastructure — spec'd
+
+- [`ci-cd-pipeline.md`](ci-cd-pipeline.md) — GitHub Actions: merge-gate CI + Deploy→Pilot (Fly.io) + Deploy→Prod (AWS CDK); source of truth for what runs where
+
 ---
 
 - **API reference:** [`docs/api/openapi.yaml`](../api/openapi.yaml)
