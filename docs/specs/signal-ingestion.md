@@ -68,6 +68,8 @@ All of the following fields are required:
 
 Phase 1 treats `payload` as opaque (except forbidden semantic keys). Phase 2 can optionally apply **per-tenant payload normalization and enforcement** (required canonical fields, alias normalization, primitive type checks) during ingestion.
 
+**Source of configuration:** Required canonical fields, aliases, transforms, and primitive types are defined in **tenant field mapping configuration** (file or DynamoDB `FieldMappingsTable`), keyed by `org_id` and `source_system` — not by embedding a policy schema inside the signal payload. Policy documents (`PoliciesTable` / policy files) drive **decision evaluation** after state is updated; they are separate from ingestion-time required-field enforcement. If a signal must be rejected because state would be incomplete for policy, that is still enforced **at ingestion** when those fields are declared required in the mapping layer (so missing data never reaches the signal log).
+
 Source of truth: `docs/specs/tenant-field-mappings.md`.
 
 ### Optional Fields

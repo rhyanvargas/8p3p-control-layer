@@ -35,6 +35,8 @@ A bundle is a tar.gz archive with this layout:
 └── README.md                          # auto-generated — schema notes, caveats, citation format
 ```
 
+**Filename timestamp form.** The `{from}`, `{to}`, and `{exported_at}` placeholders in the **outer archive filename** use `YYYY-MM-DDTHH-MM-SSZ` (hyphens in the time component) for cross-platform filesystem safety — the colon character is invalid in Windows filenames and is stripped or re-encoded by many archive tools. The **manifest body** (`from_time`, `to_time`, `exported_at`) retains canonical RFC3339 with colons. Consumers parsing the filename must tolerate the hyphen form; consumers parsing the manifest JSON receive standards-compliant RFC3339.
+
 ### `MANIFEST.json`
 
 ```json
@@ -61,6 +63,7 @@ A bundle is a tar.gz archive with this layout:
     "springs:learner@1.1.0",
     "springs:staff@1.0.0"
   ],
+  "metrics_snapshot_available": true,
   "metrics_snapshot": {
     "MC-A01": { "value": 14320, "window_days": 89 },
     "MC-A02": { "value": 1.0 },
@@ -69,7 +72,8 @@ A bundle is a tar.gz archive with this layout:
   "de_identification": {
     "method": "pseudonymous_learner_reference",
     "forbidden_keys_version": "2026-02-24",
-    "pii_regex_applied": ["email", "phone_us", "ssn", "given_name_heuristic"]
+    "pii_regex_applied": ["email", "phone_us", "ssn", "given_name_heuristic"],
+    "structural_scan_scope": ["top_level", "data.*", "state_snapshot.*", "decision_context.*", "policies/*.json"]
   },
   "files": [
     { "path": "decisions.jsonl", "sha256": "...", "rows": 14320, "schema_version": "1.0.0" }
@@ -155,6 +159,16 @@ The sweep is intentionally simple — we rely primarily on the **structural** PI
 }
 ```
 
+**`format` enforcement.** The `format` field is a closed enum. **v1 accepts only `"jsonl_tar_gz"`**; any other value returns `400 invalid_format`. Future formats (e.g. `parquet`, `sqlite_snapshot`) will be added as additional enum values in a follow-up spec revision — they are not silently accepted. Omitting `format` defaults to `"jsonl_tar_gz"`.
+
+**`metrics_snapshot` degraded-dependency behavior.** The `MANIFEST.metrics_snapshot` block is populated from `docs/specs/program-metrics.md`. If `program-metrics` is not wired into the deployment (e.g. during Wave 3 sequencing before `program-metrics` ships, or in a test harness without the metrics service), the export **must still succeed** with:
+
+- `MANIFEST.metrics_snapshot_available: false`
+- `MANIFEST.metrics_snapshot: {}` (empty object, not `null` — consumers parse a stable type)
+- A single `WARN` log line: `metrics_snapshot_unavailable: program-metrics service not wired; bundle emitted without MC-* values`
+
+When `program-metrics` is wired, `metrics_snapshot_available: true` and the object is populated as shown above. Reviewers can detect a degraded bundle by inspecting the boolean flag rather than probing for null values.
+
 **Response (202):**
 
 ```json
@@ -178,7 +192,18 @@ Streams the `.tar.gz`. Signed URL lifetime ≤ 24 h.
 
 ### CLI (`scripts/export-pilot-research.mjs`)
 
-A thin wrapper around the three endpoints above, useful for operators who prefer shell. The CLI also supports `--format csv` which flattens the JSONL files into a parallel `.csv/` directory inside the bundle for spreadsheet users.
+A thin wrapper around the three endpoints above, useful for operators who prefer shell. The CLI also supports `--format csv` which flattens the JSONL files into a parallel `.csv/` directory **placed next to the `.tar.gz` bundle on the operator's filesystem** (not inside the archive).
+
+**Why the CSVs are outside the archive.** The server writes `MANIFEST.files[].sha256` and the outer `file_sha256` once, during bundle assembly, and those checksums are the bundle's integrity contract (FR10 determinism). Re-tarring after the CLI flattens CSVs would invalidate every checksum, defeating the guarantee that two exports with identical inputs produce bit-identical bundles. Keeping CSVs adjacent to the bundle preserves determinism while still giving spreadsheet users one-step access:
+
+```
+./exports/
+  ├── 8p3p-pilot-export-org_springs-...tar.gz   # immutable, checksummed
+  └── 8p3p-pilot-export-org_springs-.../csv/    # CLI-flattened, regenerable
+      ├── decisions.csv
+      ├── decision_feedback.csv
+      └── ...
+```
 
 ```bash
 node scripts/export-pilot-research.mjs \
@@ -203,7 +228,7 @@ node scripts/export-pilot-research.mjs \
 - [ ] Forbidden-key check fails the export with `pii_detected` if any row contains a forbidden key (the export tool does not silently strip)
 - [ ] Textual PII regexes are applied and logged in the manifest
 - [ ] Session IDs are rotated to per-bundle opaque tokens
-- [ ] CSV format is available via flag; it parallels JSONL but flattens nested fields into dotted columns
+- [ ] CSV format is available via CLI flag; it parallels JSONL, flattens nested fields into dotted columns, and is emitted **adjacent to** (not inside) the signed tar.gz bundle so outer-bundle checksums remain valid
 - [ ] Download URL is signed and expires ≤ 24 h
 - [ ] Export is deterministic: two exports with identical params over the same data produce byte-identical bundles (modulo `exported_at` and `bundle_id`)
 
@@ -301,7 +326,7 @@ node scripts/export-pilot-research.mjs \
 | EXPORT-007 | contract | Concurrent export of same `(org, from, to)` → 409 `export_in_progress` | 409 |
 | EXPORT-008 | integration | Bundle includes all referenced policy versions | 200; file count matches distinct `policy_version` |
 | EXPORT-009 | integration | Session IDs in `decision_feedback.jsonl` are rotated to opaque tokens | 200; originals absent |
-| EXPORT-010 | integration | CSV format flag produces parallel `.csv/` directory | 200 |
+| EXPORT-010 | integration | CSV format flag produces parallel `.csv/` directory **next to** the `.tar.gz` (not inside); outer `file_sha256` remains unchanged by CSV generation | 200 |
 | EXPORT-011 | contract | Expired `export_id` → 404 `export_not_found` | 404 |
 | EXPORT-012 | unit | README.md is regenerated per export with current row counts | 200 |
 

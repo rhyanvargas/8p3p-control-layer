@@ -10,6 +10,8 @@ This spec defines a **derived view** (no new storage) computed on-demand from th
 
 **Why a view and not a table.** Pilot volume is small (≤ 500 learners × 8 weeks ≈ 15 k decisions). On-demand joins are cheap, require no write-path changes, and eliminate a class of drift bugs. A future `decision_outcomes` materialized table is an explicit **Phase II roadmap item** — see § *Out of Scope*.
 
+**Implementation status:** Normative only — this repository does not yet include `src/outcomes/`, the HTTP endpoints in § Endpoints, or matching OpenAPI paths. Track delivery in `.cursor/plans/decision-outcomes.plan.md`.
+
 ---
 
 ## What an "outcome" is
@@ -18,11 +20,26 @@ For a given decision `D` at `decided_at = T0` with `learner_reference = L` and a
 
 | Outcome label | Definition |
 |---------------|------------|
-| `improved` | Within `window_days` (default 21) after `T0`, there exists a state version for `L` where the delta `F_delta` is strictly positive *and* the associated `F_direction` ∈ {`increasing`, `recovering`} |
-| `regressed` | Within `window_days`, there exists a state version for `L` where `F_delta` is strictly negative *and* `F_direction` ∈ {`decreasing`, `decaying`} — and no `improved` event preceded it |
+| `improved` | Within `window_days` after `T0` (default window length is per `decision_type` when the query param is omitted; see above), there exists a state version for `L` where the delta `F_delta` is strictly positive *and* the associated `F_direction == "improving"` |
+| `regressed` | Within `window_days`, there exists a state version for `L` where `F_delta` is strictly negative *and* `F_direction == "declining"` — and no `improved` event preceded it |
 | `stable` | Within `window_days`, `|F_delta| < policy.stability_epsilon` (default 0.02) across all subsequent state versions |
 | `no_signal` | No new state version for `L` within `window_days` (the learner generated no new signal or no signal moved `F`) |
 | `pending` | Window has not yet elapsed (i.e. `T0 + window_days > now`) |
+
+When the `window_days` query parameter is **omitted**, the effective observation window defaults **per `decision_type`** (Literacy Pilot / Wave 2 — aligns with CEO pilot recheck cadence):
+
+```
+DEFAULT_WINDOW_DAYS_BY_TYPE = {
+  intervene: 10,
+  pause:     14,
+  reinforce: 14,
+  advance:   21
+}
+```
+
+An explicit `?window_days=N` continues to override (min 1, max 180). For `GET /v1/outcomes`, each row uses the default matching that row's `decision_type`.
+
+**Recheck projection (response fields):** Outcome responses include `recheck_due_at` (RFC3339) = `decided_at` + `effective_window_days` days (using the resolved default or the explicit query override), and `recheck_overdue` (boolean) = `true` when `now > recheck_due_at && outcome == "pending"`.
 
 **Primary policy field** is resolved from the matched rule:
 
@@ -50,7 +67,7 @@ For a given decision `D` at `decided_at = T0` with `learner_reference = L` and a
 
 | Param | Required | Description |
 |-------|----------|-------------|
-| `window_days` | No | Outcome observation window. Default 21. Max 180. |
+| `window_days` | No | Outcome observation window. When omitted, default is `DEFAULT_WINDOW_DAYS_BY_TYPE[decision.decision_type]` (see § *What an "outcome" is* above). Max 180. |
 
 **Response (200):**
 
@@ -59,9 +76,11 @@ For a given decision `D` at `decided_at = T0` with `learner_reference = L` and a
   "decision_id": "uuid",
   "learner_reference": "stu-10042",
   "decided_at": "2026-04-15T14:00:00Z",
-  "window_days": 21,
+  "window_days": 14,
   "primary_field": "stabilityScore",
   "outcome": "improved",
+  "recheck_due_at": "2026-04-29T14:00:00Z",
+  "recheck_overdue": false,
   "outcome_evidence": {
     "state_version_at_decision": 7,
     "observed_state_versions": [8, 9, 10],
@@ -88,7 +107,7 @@ When `outcome == "pending"` the evidence block contains `window_ends_at` (RFC333
 |-------|----------|-------------|
 | `from_time` | Yes | Decision `decided_at` lower bound (RFC3339) |
 | `to_time` | Yes | Decision `decided_at` upper bound (RFC3339); must be ≥ `from_time` |
-| `window_days` | No | Default 21 |
+| `window_days` | No | When omitted, per-row default follows `DEFAULT_WINDOW_DAYS_BY_TYPE[decision_type]` |
 | `decision_type` | No | Filter: `reinforce` / `advance` / `intervene` / `pause` |
 | `learner_reference` | No | Filter to a single learner |
 | `page_token` | No | Opaque pagination cursor |
@@ -127,7 +146,7 @@ Ordering matches `GET /v1/decisions` (`decided_at ASC`). Per-decision detail ava
 {
   "from_time": "2026-04-01T00:00:00Z",
   "to_time": "2026-04-30T23:59:59Z",
-  "window_days": 21,
+  "window_days": 14,
   "by_org": [
     {
       "org_id": "org_springs",
@@ -183,7 +202,7 @@ Given `decision_id = D`, the server:
 
 ### Acceptance Criteria
 
-- Given a decision at state v3 and three subsequent versions (v4, v5, v6) where `stabilityScore` climbs from 0.62 → 0.78, when the outcome is queried with `window_days=21`, then `outcome == "improved"` and `max_positive_delta ≈ 0.16`
+- Given a decision at state v3 and three subsequent versions (v4, v5, v6) where `stabilityScore` climbs from 0.62 → 0.78, when the outcome is queried with explicit `window_days=21`, then `outcome == "improved"` and `max_positive_delta ≈ 0.16`
 - Given a decision with no subsequent state versions inside the window, then `outcome == "no_signal"`
 - Given the window has not yet elapsed, then `outcome == "pending"` and `window_ends_at` is returned
 - Given feedback exists for the decision with `action == "approve"`, then `educator_action == "approve"` and `time_to_educator_action_hours` is populated
@@ -220,7 +239,7 @@ Given `decision_id = D`, the server:
 | Immutable decision records with `trace.matched_rule` and `state_id`/`state_version` | `docs/specs/decision-engine.md` | **Complete** |
 | Versioned state store with per-learner version query | `docs/specs/state-engine.md` | **Complete** |
 | State-delta companion fields (`_delta`, `_direction`) | `docs/specs/state-delta-detection.md` | **Complete** |
-| Educator feedback rows | `docs/specs/educator-feedback-api.md` | **New — this review** |
+| Educator feedback rows | `docs/specs/educator-feedback-api.md` | **Spec complete; runtime not in `src/` until feedback plan ships** |
 | API key middleware + org scoping | `docs/specs/api-key-middleware.md` | **Complete** |
 | Admin API key for summary endpoint | `docs/specs/policy-management-api.md` | **Complete** |
 

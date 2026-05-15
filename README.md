@@ -431,6 +431,18 @@ User stories approved, specs deferred: [`docs/backlog/user-stories-v1.2.md`](doc
 - [ ] Multi-region deployment
 - [ ] Usage-based rate limiting (per-LIU throttling)
 
+### Enterprise posture and compliance (internal)
+
+Phased path toward stronger identity controls, regulated-data handling, and common audit frameworks (for example SOC 2–class controls and HIPAA-class data practices) is documented in [`internal-docs/compliance-security-posture-and-migration-path.md`](internal-docs/compliance-security-posture-and-migration-path.md). That document is the canonical internal checklist; it does not replace legal review or third-party attestation.
+
+### Forward-looking specs (drafted, not scheduled)
+
+Domain-neutral, separable work identified during posture analysis. These are not on the current milestone plan; they are implementation vehicles for future phases.
+
+- [Tiered Data Classification](docs/specs/tiered-data-classification.md) — per-tenant per-field classification policy (`allow | tokenize | encrypt | reject`) with enforcement at ingestion and read. Replaces the blanket PII rejection with an auditable tiered posture. Options section evaluates Presidio and AWS Comprehend.
+
+> **Parked pending prerequisite:** [`document-extraction-service.md`](docs/specs/document-extraction-service.md) is drafted but depends on `tiered-data-classification.md` for per-field classification. It is not surfaced in this list until the classification spec has a scheduled plan.
+
 ---
 
 ## License

@@ -16,6 +16,7 @@ Specifications in this folder are the **single source of truth for requirements 
 - [`inspection-panels.md`](inspection-panels.md) — 4 read-only inspection panels at `/inspect`
 - [`receipts-api.md`](receipts-api.md) — `GET /v1/receipts` compliance/audit query surface (implemented)
 - [`tenant-field-mappings.md`](tenant-field-mappings.md) — Phase 2 per-tenant payload normalization (DEF-DEC-006; implemented). **v1.1 extension:** computed transforms, DynamoDB-backed config, Canvas mapper — see same spec.
+- **Configuration templates (repo artifacts):** [`../templates/literacy-field-mappings.json`](../templates/literacy-field-mappings.json) — optional literacy onboarding template applied via `npm run apply-template` (see `.cursor/plans/literacy-pilot.plan.md`).
 
 ## v1.1 (2–3 concurrent pilots) — spec’d
 
@@ -46,6 +47,14 @@ Specifications in this folder are the **single source of truth for requirements 
 ## Infrastructure — spec'd
 
 - [`ci-cd-pipeline.md`](ci-cd-pipeline.md) — GitHub Actions: merge-gate CI + Deploy→Pilot (Fly.io) + Deploy→Prod (AWS CDK); source of truth for what runs where
+
+## Forward-looking (enterprise posture, cross-vertical) — spec'd, not scheduled
+
+These specs describe **future, separable** work surfaced during posture analysis. They are deliberately domain-neutral and are not on the current milestone plan. See [`internal-docs/compliance-security-posture-and-migration-path.md`](../../internal-docs/compliance-security-posture-and-migration-path.md) for how they fit the phased path.
+
+- [`tiered-data-classification.md`](tiered-data-classification.md) — tenant-configurable per-field classification policy (`allow | tokenize | encrypt | reject`) that evolves the current blanket PII rejection into an auditable tiered posture. Includes an Options section evaluating Presidio / AWS Comprehend.
+
+> **Parked pending prerequisite:** [`document-extraction-service.md`](document-extraction-service.md) is drafted but depends on `tiered-data-classification.md` for per-field classification. It is not surfaced in this list until the classification spec has a scheduled plan.
 
 ---
 

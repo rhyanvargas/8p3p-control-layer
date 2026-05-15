@@ -1,4 +1,4 @@
----
+ ---
 name: post-impl-doc-sync
 description: Reconcile docs/specs and plans with implementation after a feature lands — constants, API shapes, immutability. Use when the user runs /post-impl-doc-sync.
 disable-model-invocation: true

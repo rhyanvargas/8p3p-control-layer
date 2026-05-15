@@ -1,6 +1,6 @@
 # 8P3P Control Layer Architecture
 
-**Related:** [`docs/foundation/terminology.md`](terminology.md) | [`docs/api/openapi.yaml`](../api/openapi.yaml)
+**Related:** [`docs/foundation/terminology.md`](terminology.md) | [`docs/api/openapi.yaml`](../api/openapi.yaml) | [`internal-docs/compliance-security-posture-and-migration-path.md`](../../internal-docs/compliance-security-posture-and-migration-path.md) (enterprise posture and phased compliance path)
 
 ## System Architecture Diagram
 
@@ -74,6 +74,10 @@ The Connector Layer writes into `FieldMappingsTable` (DynamoDB). Layers 1 and 2 
 | **3** | STATE Engine | Apply signals to learner state; single source of truth |
 | **4** | Decision Engine | Evaluate state and generate deterministic decisions |
 | **5** | Output Interfaces | Expose decisions via API and/or events (implemented in `decision/`: GET `/v1/decisions`, GET `/v1/receipts`) |
+
+### Default policy (literacy pilot)
+
+The filesystem fallback policy at `src/decision/policies/default.json` ships as a **literacy-optimized** ruleset (skill-tagged dot paths; see `docs/specs/decision-engine.md` § policy routing). Org-specific files under `src/decision/policies/{orgId}/` continue to take precedence (`{userType}.json`, then `default.json`, then the global default). Reference-only generic policy content is preserved as `src/decision/policies/default.legacy-1.0.0.json` for tenants that need the prior four-field POC policy.
 
 ## Data Flow Summary
 
@@ -163,6 +167,10 @@ The Living Student Record grows more valuable with each signal. It persists even
 | **Event OUT** | Outbound | EventBridge (Phase 3) | Decision events |
 
 ---
+
+## Compliance and security evolution
+
+Stronger customer security requirements (identity beyond API keys, regulated data, formal audit programs) are **process and deployment migrations** on top of this architecture, not a redesign of the signal → state → decision pipeline. The phased engineering and program checklist lives in [`internal-docs/compliance-security-posture-and-migration-path.md`](../../internal-docs/compliance-security-posture-and-migration-path.md).
 
 ## Key Properties
 
