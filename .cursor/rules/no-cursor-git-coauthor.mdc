@@ -1,0 +1,23 @@
+---
+description: Never attribute commits to Cursor; forbid Co-authored-by trailers in git messages
+alwaysApply: true
+---
+
+# Git commits — no Cursor co-author attribution
+
+## Requirement
+
+- **Do not** add `Co-authored-by: Cursor`, `Co-authored-by: cursoragent@cursor.com`, or any similar Cursor-authored trailer to commit messages.
+- When creating commits (including HEREDOC `git commit -m`), **verify the message body** contains no such line before running `git commit`.
+- After any commit the agent makes, run `git log -1 --format=%B` once; if a Cursor co-author trailer appears, remove it **before pushing**:
+  - Preferred: `./scripts/git/strip-cursor-coauthor.sh` (temp-stashes if the tree is dirty, rewrites `HEAD` message only).
+  - Manual: `FILTER_BRANCH_SQUELCH_WARNING=1 git filter-branch -f --msg-filter 'grep -v "^Co-authored-by: Cursor"' -- HEAD^..HEAD` with a clean tree, then delete `refs/original/*`.
+- If the branch is **already pushed** with that trailer, stop and tell the human (no force-push) unless they explicitly request a history rewrite.
+
+## Rationale
+
+Those trailers pollute authorship history and `git blame` / release attribution. The project records human authors only.
+
+## Optional human-side guard
+
+If Cursor IDE keeps injecting the trailer via automation, disable that behavior in Cursor settings; this rule governs agent-authored commits and immediate repair.
