@@ -141,7 +141,7 @@ isProject: false
 | MC-B03 | Override rate                        | % of reviewed decisions where `feedback.action = "reject"` with non-empty `reason_text`            | Same                                                                    |
 | MC-B04 | Ignore rate                          | % of reviewed decisions where `feedback.action = "ignore"`                                         | Same                                                                    |
 | MC-B05 | Decision-to-action latency           | Median hours from `decided_at` to first non-null educator feedback                                 | `decisions.decided_at` ↔ `decision_feedback.created_at`                 |
-| MC-B06 | Coverage of at-risk learners         | % of learners flagged `intervene` or `pause` whose row was viewed by educator within 48 h          | `decision_view_log` filtered by `decision_type` ∈ {`intervene`,`pause`} |
+| MC-B06 |                                      | % of learners flagged `intervene` or `pause` whose row was viewed by educator within 48 h          | `decision_view_log` filtered by `decision_type` ∈ {`intervene`,`pause`} |
 | MC-B07 | Educator self-reported time savings  | Minutes saved per week per educator vs. pre-pilot baseline                                         | Pre- and mid-pilot educator survey                                      |
 | MC-B08 | Educator Net Promoter-style question | "Would you recommend 8P3P decisions to a colleague?" on 0–10 scale; NPS = %promoters − %detractors | Same survey                                                             |
 
@@ -226,6 +226,7 @@ If PREREQ-001..003 are not complete, TASK-003..006 produce `metric_unavailable` 
 > **Status:** Executed in `.cursor/plans/pilot-evidence-prep.plan.md` PREP-001. This task exists here for traceability only; **do not re-run**. Frontmatter status is `cancelled` (done-via-PREP-001).
 >
 > **Ship artifacts (verified):**
+>
 > - Spec renamed: `docs/specs/program-metrics.md` (H1 `# Program Metrics`; endpoints `/v1/admin/program-metrics` and `/v1/program-metrics`).
 > - Naming convention doc created: `internal-docs/foundation/api-naming-conventions.md`.
 > - Cross-refs updated in `docs/specs/README.md`, `docs/specs/educator-feedback-api.md`, `docs/specs/decision-outcomes.md`, `docs/specs/pilot-research-export.md`, `internal-docs/pilot-operations/pilot-runbook.md`, `internal-docs/pilot-operations/pilot-readiness-definition.md`, `internal-docs/foundation/roadmap.md`.
@@ -631,13 +632,12 @@ TASK-011 (unit tests) parallel to TASK-003/004/005/006
 
 > This surface graduates without renaming. Pointer for future readers tracing where `/v1/admin/program-metrics` travels after Springs.
 
-The `/v1/admin/program-metrics` endpoint, the `MC-*` metric IDs, the `{value, numerator, denominator, window, computed_at}` response shape, and the module paths under `src/program-metrics/` are **lifecycle-neutral identifiers** per [`internal-docs/foundation/api-naming-conventions.md`](../../internal-docs/foundation/api-naming-conventions.md) § The Durability Rule. They do not change as the program graduates from Springs (Phase 0) → SBIR Phase I → GA. Only the **numeric targets** in `docs/specs/program-metrics.md` comparison tables update per phase.
+The `/v1/admin/program-metrics` endpoint, the `MC-*` metric IDs, the `{value, numerator, denominator, window, computed_at}` response shape, and the module paths under `src/program-metrics/` are **lifecycle-neutral identifiers** per `[internal-docs/foundation/api-naming-conventions.md](../../internal-docs/foundation/api-naming-conventions.md)` § The Durability Rule. They do not change as the program graduates from Springs (Phase 0) → SBIR Phase I → GA. Only the **numeric targets** in `docs/specs/program-metrics.md` comparison tables update per phase.
 
 **Downstream consumers of this surface (in activation order):**
 
-1. **Phase 2 admin dashboard** (`8p3p-admin` separate repo, per [`internal-docs/foundation/roadmap.md`](../../internal-docs/foundation/roadmap.md) § Phase 2 row: "admin dashboard platform UI"). It will embed `GET /v1/admin/program-metrics` as its evidence panel. No endpoint change required at graduation; only an auth-model adjustment (admin dashboard uses a service-level key with admin scope, not an educator passphrase).
-
-2. **SBIR Phase I evidence report** authored at pilot close per [`internal-docs/pilot-operations/pilot-readiness-definition.md`](../../internal-docs/pilot-operations/pilot-readiness-definition.md) § Evidence produced. Template filename: `internal-docs/reports/YYYY-MM-DD-sbir-phase-i-evidence.md`. The report pulls numeric values from the same endpoint Springs uses; only the Phase I target column in the comparison tables changes.
+1. **Phase 2 admin dashboard** (`8p3p-admin` separate repo, per `[internal-docs/foundation/roadmap.md](../../internal-docs/foundation/roadmap.md)` § Phase 2 row: "admin dashboard platform UI"). It will embed `GET /v1/admin/program-metrics` as its evidence panel. No endpoint change required at graduation; only an auth-model adjustment (admin dashboard uses a service-level key with admin scope, not an educator passphrase).
+2. **SBIR Phase I evidence report** authored at pilot close per `[internal-docs/pilot-operations/pilot-readiness-definition.md](../../internal-docs/pilot-operations/pilot-readiness-definition.md)` § Evidence produced. Template filename: `internal-docs/reports/YYYY-MM-DD-sbir-phase-i-evidence.md`. The report pulls numeric values from the same endpoint Springs uses; only the Phase I target column in the comparison tables changes.
 
 **What does NOT change at graduation:** route paths, module paths, OpenAPI operation IDs, error codes, wire-format shape, metric IDs, acceptance-test assertions (targets shift; the test structure is stable). If a future reviewer proposes renaming any of these, route them back to the durability rule — the answer is no.
 
@@ -647,8 +647,8 @@ The `/v1/admin/program-metrics` endpoint, the `MC-*` metric IDs, the `{value, nu
 
 1. TASK-001 is complete (via PREP-001, 2026-04-21). Ignore TASK-001 Details narrative except as historical breadcrumb.
 2. Verify PREREQ-001..003 status before running `/implement-spec`. As of 2026-04-21, all three are **spec'd but not implemented**; their plans must be authored first:
-   - `docs/specs/liu-usage-meter.md` → needs `/plan-impl`
-   - `docs/specs/educator-feedback-api.md` → needs `/plan-impl`
-   - `docs/specs/decision-outcomes.md` → needs `/plan-impl`
+  - `docs/specs/liu-usage-meter.md` → needs `/plan-impl`
+  - `docs/specs/educator-feedback-api.md` → needs `/plan-impl`
+  - `docs/specs/decision-outcomes.md` → needs `/plan-impl`
 3. Once PREREQ plans are authored (or explicitly deferred with `metric_unavailable` handling as the contract), run `/implement-spec .cursor/plans/program-metrics.plan.md` starting at TASK-002.
 

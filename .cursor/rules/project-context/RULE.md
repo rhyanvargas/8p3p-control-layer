@@ -51,7 +51,9 @@ npm run validate:api        # Lint OpenAPI spec (Redocly)
 npm run check              # build → validate:schemas → validate:contracts → validate:api → lint → test
 
 # Demo seeds
-npm run seed:springs-demo  # Seed springs org (Canvas + Blackboard + Absorb, 14 signals)
+npm run seed:springs-demo  # Springs reference demo (examples/springs/seed-springs-demo.mjs)
+npm run apply-template -- --org-id <id> --template literacy  # Register literacy field mappings (ADMIN_API_KEY)
+npm run seed:literacy-demo -- --org-id <id>  # Four CEO literacy scenarios (after template + API_KEY)
 ```
 
 ## Architecture
