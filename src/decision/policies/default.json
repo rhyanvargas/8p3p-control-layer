@@ -1,27 +1,22 @@
 {
   "policy_id": "default",
-  "policy_version": "1.0.0",
-  "description": "Default policy: 4 decision types (reinforce, advance, intervene, pause). Priority-ordered; first match wins. Escalate conditions merged into intervene (high-risk path). Reroute conditions merged into pause. Recommend collapsed into advance.",
+  "policy_version": "2.0.0",
+  "description": "Literacy-optimized default policy (replaces generic 1.0.0). Evaluates skill-tagged literacy signals against the 4 decision types from decision-engine.md §4.5. Priority-ordered; first match wins. No-match emits nothing per decision-engine.md §No-match emits nothing. Thresholds are starter values for pilot calibration.",
   "rules": [
     {
-      "rule_id": "rule-intervene",
+      "rule_id": "rule-intervene-cross-subject",
       "condition": {
         "any": [
           {
             "all": [
-              { "field": "confidenceInterval", "operator": "lt", "value": 0.3 },
-              {
-                "any": [
-                  { "field": "stabilityScore", "operator": "lt", "value": 0.3 },
-                  { "field": "riskSignal", "operator": "gt", "value": 0.8 }
-                ]
-              }
+              { "field": "skills.academic_vocabulary.stabilityScore", "operator": "lt", "value": 0.5 },
+              { "field": "skills.cross_subject_literacy.stabilityScore", "operator": "lt", "value": 0.5 }
             ]
           },
           {
             "all": [
-              { "field": "stabilityScore", "operator": "lt", "value": 0.4 },
-              { "field": "confidenceInterval", "operator": "gte", "value": 0.3 }
+              { "field": "skills.academic_vocabulary.stabilityScore", "operator": "lt", "value": 0.5 },
+              { "field": "skills.academic_vocabulary.stabilityScore_direction", "operator": "eq", "value": "declining" }
             ]
           }
         ]
@@ -29,47 +24,45 @@
       "decision_type": "intervene"
     },
     {
-      "rule_id": "rule-pause",
+      "rule_id": "rule-pause-reading-stamina",
       "condition": {
-        "any": [
-          {
-            "all": [
-              { "field": "confidenceInterval", "operator": "lt", "value": 0.3 },
-              { "field": "stabilityScore", "operator": "lt", "value": 0.5 }
-            ]
-          },
-          {
-            "all": [
-              { "field": "riskSignal", "operator": "gt", "value": 0.7 },
-              { "field": "stabilityScore", "operator": "lt", "value": 0.5 },
-              { "field": "confidenceInterval", "operator": "gte", "value": 0.3 }
-            ]
-          }
+        "all": [
+          { "field": "skills.reading_stamina.stabilityScore", "operator": "lt", "value": 0.7 },
+          { "field": "skills.reading_stamina.stabilityScore_direction", "operator": "eq", "value": "declining" }
         ]
       },
       "decision_type": "pause"
     },
     {
-      "rule_id": "rule-advance",
+      "rule_id": "rule-reinforce-text-evidence",
       "condition": {
-        "all": [
-          { "field": "stabilityScore", "operator": "gte", "value": 0.8 },
-          { "field": "masteryScore", "operator": "gte", "value": 0.8 },
-          { "field": "riskSignal", "operator": "lt", "value": 0.3 },
-          { "field": "confidenceInterval", "operator": "gte", "value": 0.7 }
-        ]
-      },
-      "decision_type": "advance"
-    },
-    {
-      "rule_id": "rule-reinforce",
-      "condition": {
-        "all": [
-          { "field": "stabilityScore", "operator": "lt", "value": 0.7 },
-          { "field": "timeSinceReinforcement", "operator": "gt", "value": 86400 }
+        "any": [
+          {
+            "all": [
+              { "field": "skills.text_evidence.stabilityScore", "operator": "lt", "value": 0.7 },
+              { "field": "skills.text_evidence.stabilityScore_direction", "operator": "eq", "value": "declining" }
+            ]
+          },
+          {
+            "all": [
+              { "field": "skills.written_response.stabilityScore", "operator": "lt", "value": 0.7 },
+              { "field": "skills.written_response.stabilityScore_direction", "operator": "eq", "value": "declining" }
+            ]
+          }
         ]
       },
       "decision_type": "reinforce"
+    },
+    {
+      "rule_id": "rule-advance-strong-literacy",
+      "condition": {
+        "all": [
+          { "field": "skills.text_evidence.masteryScore", "operator": "gte", "value": 0.85 },
+          { "field": "skills.written_response.masteryScore", "operator": "gte", "value": 0.8 },
+          { "field": "skills.basic_comprehension.stabilityScore", "operator": "gte", "value": 0.75 }
+        ]
+      },
+      "decision_type": "advance"
     }
   ]
 }

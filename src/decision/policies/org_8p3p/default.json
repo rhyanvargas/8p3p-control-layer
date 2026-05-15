@@ -1,0 +1,75 @@
+{
+  "policy_id": "default",
+  "policy_version": "1.0.0",
+  "description": "Default policy: 4 decision types (reinforce, advance, intervene, pause). Priority-ordered; first match wins. Escalate conditions merged into intervene (high-risk path). Reroute conditions merged into pause. Recommend collapsed into advance.",
+  "rules": [
+    {
+      "rule_id": "rule-intervene",
+      "condition": {
+        "any": [
+          {
+            "all": [
+              { "field": "confidenceInterval", "operator": "lt", "value": 0.3 },
+              {
+                "any": [
+                  { "field": "stabilityScore", "operator": "lt", "value": 0.3 },
+                  { "field": "riskSignal", "operator": "gt", "value": 0.8 }
+                ]
+              }
+            ]
+          },
+          {
+            "all": [
+              { "field": "stabilityScore", "operator": "lt", "value": 0.4 },
+              { "field": "confidenceInterval", "operator": "gte", "value": 0.3 }
+            ]
+          }
+        ]
+      },
+      "decision_type": "intervene"
+    },
+    {
+      "rule_id": "rule-pause",
+      "condition": {
+        "any": [
+          {
+            "all": [
+              { "field": "confidenceInterval", "operator": "lt", "value": 0.3 },
+              { "field": "stabilityScore", "operator": "lt", "value": 0.5 }
+            ]
+          },
+          {
+            "all": [
+              { "field": "riskSignal", "operator": "gt", "value": 0.7 },
+              { "field": "stabilityScore", "operator": "lt", "value": 0.5 },
+              { "field": "confidenceInterval", "operator": "gte", "value": 0.3 }
+            ]
+          }
+        ]
+      },
+      "decision_type": "pause"
+    },
+    {
+      "rule_id": "rule-advance",
+      "condition": {
+        "all": [
+          { "field": "stabilityScore", "operator": "gte", "value": 0.8 },
+          { "field": "masteryScore", "operator": "gte", "value": 0.8 },
+          { "field": "riskSignal", "operator": "lt", "value": 0.3 },
+          { "field": "confidenceInterval", "operator": "gte", "value": 0.7 }
+        ]
+      },
+      "decision_type": "advance"
+    },
+    {
+      "rule_id": "rule-reinforce",
+      "condition": {
+        "all": [
+          { "field": "stabilityScore", "operator": "lt", "value": 0.7 },
+          { "field": "timeSinceReinforcement", "operator": "gt", "value": 86400 }
+        ]
+      },
+      "decision_type": "reinforce"
+    }
+  ]
+}

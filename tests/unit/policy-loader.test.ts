@@ -65,7 +65,7 @@ describe('Policy Loader', () => {
       const policy = loadPolicy(defaultPath);
       expect(policy).toBeDefined();
       expect(policy.policy_id).toBe('default');
-      expect(policy.policy_version).toBe('1.0.0');
+      expect(policy.policy_version).toBe('2.0.0');
       expect(policy.rules).toBeInstanceOf(Array);
       expect(policy.rules.length).toBeGreaterThan(0);
       expect(policy.default_decision_type).toBeUndefined();
@@ -226,7 +226,7 @@ describe('Policy Loader', () => {
     it('should return cached version after loadPolicy', () => {
       const defaultPath = path.join(process.cwd(), 'src/decision/policies/default.json');
       loadPolicy(defaultPath);
-      expect(getLoadedPolicyVersion()).toBe('1.0.0');
+      expect(getLoadedPolicyVersion()).toBe('2.0.0');
     });
   });
 
@@ -539,9 +539,9 @@ describe('Policy Loader', () => {
       expect(result.matched_rule_id).toBe('specific-rule');
     });
 
-    it('evaluates default.json policy correctly with matching state', () => {
-      const defaultPath = path.join(process.cwd(), 'src/decision/policies/default.json');
-      const policy = loadPolicy(defaultPath);
+    it('evaluates bundled generic legacy policy correctly with matching state', () => {
+      const legacyPath = path.join(process.cwd(), 'src/decision/policies/default.legacy-1.0.0.json');
+      const policy = loadPolicy(legacyPath);
 
       // stabilityScore < 0.7 AND timeSinceReinforcement > 86400 → reinforce (rule-reinforce)
       const result = evaluatePolicy(
@@ -552,9 +552,9 @@ describe('Policy Loader', () => {
       expect(result.matched_rule_id).toBe('rule-reinforce');
     });
 
-    it('evaluates default.json policy correctly with non-matching state (no-match sentinel)', () => {
-      const defaultPath = path.join(process.cwd(), 'src/decision/policies/default.json');
-      const policy = loadPolicy(defaultPath);
+    it('evaluates bundled generic legacy policy correctly with non-matching state (no-match sentinel)', () => {
+      const legacyPath = path.join(process.cwd(), 'src/decision/policies/default.legacy-1.0.0.json');
+      const policy = loadPolicy(legacyPath);
 
       // stabilityScore >= 0.7 → no rule matches → evaluator does not use default_decision_type
       const result = evaluatePolicy(

@@ -100,7 +100,6 @@ function makeDecision(overrides: Partial<Decision> & { decisionContext?: Record<
 
 describe('SKL Integration & Contract Tests', () => {
   let app: FastifyInstance;
-  let fractionsOrgPolicyPath: string;
 
   beforeAll(async () => {
     initIdempotencyStore(':memory:');
@@ -113,7 +112,7 @@ describe('SKL Integration & Contract Tests', () => {
     const policiesRoot = path.join(process.cwd(), 'src/decision/policies');
     const fractionsOrgDir = path.join(policiesRoot, ORG_FRACTIONS);
     fs.mkdirSync(fractionsOrgDir, { recursive: true });
-    fractionsOrgPolicyPath = path.join(fractionsOrgDir, 'learner.json');
+    const fractionsOrgPolicyPath = path.join(fractionsOrgDir, 'learner.json');
     fs.writeFileSync(
       fractionsOrgPolicyPath,
       JSON.stringify({
@@ -154,13 +153,10 @@ describe('SKL Integration & Contract Tests', () => {
     closeSignalLogStore();
     closeIdempotencyStore();
 
-    // Clean up temp policy file
-    if (fs.existsSync(fractionsOrgPolicyPath)) {
-      fs.rmSync(fractionsOrgPolicyPath, { force: true });
-    }
+    // Remove temp policy dir (SKL-014 writes learner.json under ORG_FRACTIONS)
     const fractionsOrgDir = path.join(process.cwd(), 'src/decision/policies', ORG_FRACTIONS);
     if (fs.existsSync(fractionsOrgDir)) {
-      fs.rmdirSync(fractionsOrgDir);
+      fs.rmSync(fractionsOrgDir, { recursive: true, force: true });
     }
   });
 
