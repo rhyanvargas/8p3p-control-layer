@@ -2,7 +2,7 @@
 
 **Audience**: School principal, IT director, pilot stakeholders
 **Duration**: ~4 minutes with narration
-**Prerequisites**: Server running (`npm run dev`), seed data loaded (`npm run seed:springs-demo`)
+**Prerequisites**: Server running (`npm run dev`), seed data loaded (`npm run seed:springs-demo`, script path `examples/springs/seed-springs-demo.mjs`)
 
 ---
 

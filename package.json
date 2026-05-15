@@ -24,7 +24,7 @@
     "validate:contracts": "tsx scripts/validate-contracts.ts",
     "validate:api": "redocly lint docs/api/openapi.yaml",
     "generate:api-key": "node scripts/generate-api-key.mjs",
-    "seed:springs-demo": "node scripts/seed-springs-demo.mjs",
+    "seed:springs-demo": "node examples/springs/seed-springs-demo.mjs",
     "build:dashboard": "cd dashboard && npm ci --quiet && npm run build",
     "lint": "eslint src tests",
     "typecheck": "tsc --noEmit",
