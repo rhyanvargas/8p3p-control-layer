@@ -326,22 +326,22 @@ To preserve the isolation, `/dashboard/login` mints a **sibling cookie** alongsi
 
 | Attribute | Value | Rationale |
 |-----------|-------|-----------|
-| Name | `fb_session` | Disjoint from `dp_session`; name signals scope (`/v1/feedback`). |
+| Name | `fb_session` | Disjoint from `dp_session`; name signals educator-feedback session (see `educator-feedback-api.md`). |
 | Value | **Identical** to `dp_session` for the same login (same HMAC signature + `base64url` payload — both cookies are produced by `signSession(COOKIE_SECRET, maxAgeSeconds)` called once, with the resulting string set on both cookies). Callers derive an opaque `session_id` from the HMAC prefix; the identical value keeps that derivation stable across both cookies. |
 | Secret | `COOKIE_SECRET` (same env var as `dp_session`) | Single rotation point; no new env vars. |
-| Path | `/v1/feedback` | Browsers send `fb_session` only on `/v1/feedback/*` requests. Does **not** reach `/v1/signals`, `/v1/decisions`, or any other `/v1/*` namespace. |
+| Path | `/v1/decisions` | Browsers send `fb_session` on `/v1/decisions/*` requests used by the Educator Feedback API (`…/feedback`, `…/view`, and `…/feedback/pending`). Does **not** reach `/v1/signals`, `/v1/state`, or other `/v1/*` namespaces outside that prefix. |
 | Domain | Not set | Host-only. Same property as `dp_session`. |
 | Max-Age | Same as `dp_session` (default 8h, overridable via `DASHBOARD_SESSION_TTL_HOURS`) | Both cookies expire together; no partial-auth states. |
 | HttpOnly | `true` | Not JS-accessible. |
 | Secure | `true` in production (`NODE_ENV === 'production'`) | HTTPS-only in prod. |
 | SameSite | `Strict` | Blocks CSRF identical to `dp_session`. |
 
-**Consumer contract.** Any spec that needs to authenticate a `/v1/feedback/*` request must reference this section and gate on `fb_session` — not `dp_session`. New `/v1/*` namespaces that need dashboard-gated auth must mint their own sibling cookie following this same pattern (name, path scope, same `COOKIE_SECRET`) rather than widening `dp_session`.
+**Consumer contract.** Any spec that needs to authenticate educator feedback requests must reference this section and gate on `fb_session` — not `dp_session`. New `/v1/*` namespaces that need dashboard-gated auth must mint their own sibling cookie following this same pattern (name, path scope, same `COOKIE_SECRET`) rather than widening `dp_session`.
 
-**Logout.** `GET /dashboard/logout` issues `Set-Cookie` clears for both `dp_session` (`path=/dashboard`) and `fb_session` (`path=/v1/feedback`) before redirecting to `/dashboard/login`.
+**Logout.** `GET /dashboard/logout` issues `Set-Cookie` clears for both `dp_session` (`path=/dashboard`) and `fb_session` (`path=/v1/decisions`) before redirecting to `/dashboard/login`.
 
-**Not a new contract test surface for this spec.** `fb_session`-specific contract tests live in `educator-feedback-api.md` (FEEDBACK-003) and in a new GATE-004 integration case added by the `educator-feedback-api` plan (assert both cookies are set atomically on successful login).
+**Not a new contract test surface for this spec.** `fb_session`-specific contract tests live in `educator-feedback-api.md` (FEEDBACK-003). Dual-cookie login/logout assertions are covered by **GATE-002** (login sets `dp_session` + `fb_session`) and **GATE-011** (logout clears both) in `tests/integration/dashboard-gate.test.ts`.
 
 ---
 
-*Spec created: 2026-04-14 | Sibling cookie added: 2026-04-23 | Phase: Pilot Wave 2 (same wave as Decision Panel UI) | Depends on: decision-panel-ui.md | Downstream consumers of `fb_session`: educator-feedback-api.md*
+*Spec created: 2026-04-14 | Sibling cookie added: 2026-04-23 (Path `/v1/decisions` from 2026-05-14 — aligns cookie scope with `…/decisions/*/feedback` routes) | Phase: Pilot Wave 2 (same wave as Decision Panel UI) | Depends on: decision-panel-ui.md | Downstream consumers of `fb_session`: educator-feedback-api.md*

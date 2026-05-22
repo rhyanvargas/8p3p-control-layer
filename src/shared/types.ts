@@ -462,3 +462,88 @@ export interface HandlerResult<T> {
   statusCode: number;
   body: T;
 }
+
+// =============================================================================
+// Educator Feedback API (v1.1)
+// =============================================================================
+
+/** Closed set per docs/specs/educator-feedback-api.md § Data Model */
+export type FeedbackAction = 'approve' | 'reject' | 'ignore';
+
+/** Allowed reason_category values per action (normative literals from spec) */
+export const FEEDBACK_REASON_CATEGORIES: Record<FeedbackAction, readonly string[]> = {
+  approve: ['agree_primary', 'agree_after_review', 'agree_would_have_missed'] as const,
+  reject: ['not_at_risk', 'wrong_skill', 'wrong_timing', 'wrong_decision_type', 'data_stale', 'other'] as const,
+  ignore: ['not_applicable_now', 'duplicate', 'deferred', 'other'] as const,
+};
+
+/** Persisted feedback row (decision_feedback) */
+export interface FeedbackRecord {
+  feedback_id: string;
+  decision_id: string;
+  org_id: string;
+  learner_reference: string;
+  session_id: string;
+  action: FeedbackAction;
+  reason_category: string | null;
+  reason_text: string | null;
+  suggested_decision_type: string | null;
+  created_at: string;
+}
+
+/** Persisted view log row (decision_view_log) */
+export interface DecisionViewRecord {
+  view_id: string;
+  decision_id: string;
+  org_id: string;
+  session_id: string;
+  viewed_at: string;
+}
+
+/** POST /v1/decisions/:decision_id/feedback request body */
+export interface SubmitFeedbackRequest {
+  action: FeedbackAction;
+  reason_category?: string | null;
+  reason_text?: string | null;
+  suggested_decision_type?: string | null;
+}
+
+/** POST /v1/decisions/:decision_id/feedback 201 response */
+export interface SubmitFeedbackResponse {
+  feedback_id: string;
+  decision_id: string;
+  action: FeedbackAction;
+  reason_category: string | null;
+  created_at: string;
+}
+
+/** Single feedback row in GET /v1/decisions/:id/feedback response */
+export interface FeedbackListItem {
+  feedback_id: string;
+  action: FeedbackAction;
+  reason_category: string | null;
+  reason_text: string | null;
+  suggested_decision_type?: string | null;
+  created_at: string;
+}
+
+/** GET /v1/decisions/:decision_id/feedback 200 response */
+export interface GetFeedbackResponse {
+  decision_id: string;
+  feedback: FeedbackListItem[];
+  latest_action: FeedbackAction | null;
+}
+
+/** POST /v1/decisions/:decision_id/view 200 response variants */
+export type RecordViewResponse =
+  | { recorded: true; viewed_at: string }
+  | { recorded: false; reason: 'dedup_window' };
+
+/** GET /v1/decisions/feedback/pending 200 response */
+export interface PendingFeedbackResponse {
+  org_id: string;
+  pending_count: number;
+  pending_by_type: Record<DecisionType, number>;
+  oldest_decided_at: string | null;
+  threshold_days: number;
+}

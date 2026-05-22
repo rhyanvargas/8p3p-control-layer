@@ -26,6 +26,9 @@ import { initStateStore, closeStateStore } from './state/store.js';
 import { initDecisionStore, closeDecisionStore } from './decision/store.js';
 import { loadPolicy } from './decision/policy-loader.js';
 import { registerDecisionRoutes } from './decision/routes.js';
+import { initFeedbackStore, closeFeedbackStore, setFeedbackRepository } from './feedback/sqlite-repository.js';
+import { DynamoDbFeedbackRepository } from './feedback/dynamodb-repository.js';
+import { registerFeedbackRoutes } from './feedback/routes.js';
 import { apiKeyPreHandler } from './auth/api-key-middleware.js';
 import { adminApiKeyPreHandler } from './auth/admin-api-key-middleware.js';
 import { registerDashboardLoginRoutes } from './auth/dashboard-login.js';
@@ -99,6 +102,20 @@ try {
   // Directory may already exist
 }
 initDecisionStore(decisionDbPath);
+
+const feedbackDbPath = process.env.FEEDBACK_DB_PATH ?? './data/feedback.db';
+try {
+  mkdirSync(dirname(feedbackDbPath), { recursive: true });
+} catch {
+  // Directory may already exist
+}
+
+const feedbackTable = process.env.FEEDBACK_TABLE?.trim();
+if (feedbackTable) {
+  setFeedbackRepository(new DynamoDbFeedbackRepository(feedbackTable));
+} else {
+  initFeedbackStore({ feedbackDbPath, decisionsDbPath: decisionDbPath });
+}
 
 // Load decision policy (must happen after store init, before route registration)
 loadPolicy();
@@ -278,7 +295,7 @@ server.get('/', async () => {
   return {
     name: '8P3P Control Layer',
     version: '0.1.0',
-    endpoints: ['/health', '/v1/signals', '/v1/ingestion', '/v1/state', '/v1/state/list', '/v1/decisions', '/v1/receipts', '/v1/policies', '/v1/policies/:policy_key', '/inspect', '/dashboard', '/docs']
+    endpoints: ['/health', '/v1/signals', '/v1/ingestion', '/v1/state', '/v1/state/list', '/v1/decisions', '/v1/decisions/:decision_id/feedback', '/v1/decisions/:decision_id/view', '/v1/decisions/feedback/pending', '/v1/receipts', '/v1/policies', '/v1/policies/:policy_key', '/inspect', '/dashboard', '/docs']
   };
 });
 
@@ -293,6 +310,7 @@ server.register(async (v1) => {
   registerStateRoutes(v1);
   registerSignalLogRoutes(v1);
   registerDecisionRoutes(v1);
+  registerFeedbackRoutes(v1);
   registerPolicyInspectionRoutes(v1);
 }, { prefix: '/v1' });
 
@@ -307,6 +325,7 @@ server.register(async (admin) => {
 
 // Graceful shutdown: close stores (reverse of init order)
 server.addHook('onClose', () => {
+  closeFeedbackStore();
   closeDecisionStore();
   closeStateStore();
   closeSignalLogStore();

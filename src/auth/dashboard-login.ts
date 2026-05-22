@@ -2,7 +2,9 @@ import { timingSafeEqual } from 'crypto';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import {
   SESSION_COOKIE_NAME,
+  FEEDBACK_SESSION_COOKIE_NAME,
   buildSetCookieAttributes,
+  buildFeedbackCookieAttributes,
   signSession,
 } from './session-cookie.js';
 import { clearFailures, recordFailure } from './login-rate-limiter.js';
@@ -160,11 +162,17 @@ export function registerDashboardLoginRoutes(fastify: FastifyInstance): void {
       signed,
       buildSetCookieAttributes({ maxAgeSeconds, secure }),
     );
+    void reply.setCookie(
+      FEEDBACK_SESSION_COOKIE_NAME,
+      signed,
+      buildFeedbackCookieAttributes({ maxAgeSeconds, secure }),
+    );
     return reply.redirect('/dashboard', 302);
   });
 
   fastify.get('/dashboard/logout', async (_request: FastifyRequest, reply: FastifyReply) => {
     void reply.clearCookie(SESSION_COOKIE_NAME, { path: '/dashboard' });
+    void reply.clearCookie(FEEDBACK_SESSION_COOKIE_NAME, { path: '/v1/decisions' });
     // When the gate is disabled (local dev), /dashboard/login returns 404, so
     // redirect to the SPA root instead of the login form to avoid a confusing
     // 302 → 404 chain on logout.

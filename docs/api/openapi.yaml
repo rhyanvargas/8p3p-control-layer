@@ -504,6 +504,180 @@ paths:
               schema:
                 $ref: '#/components/schemas/SignalLogError'
 
+  /v1/decisions/{decision_id}/feedback:
+    parameters:
+      - name: decision_id
+        in: path
+        required: true
+        schema:
+          type: string
+    post:
+      tags: [Decision]
+      operationId: submitDecisionFeedback
+      summary: Submit educator feedback (approve / reject / ignore)
+      description: |
+        Append-only feedback row for a decision. Requires `fb_session` cookie (passphrase gate sibling of `dp_session`) plus `x-api-key`.
+        See docs/specs/educator-feedback-api.md.
+      security:
+        - ApiKeyAuth: []
+        - FeedbackSessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmitFeedbackRequest'
+      responses:
+        '201':
+          description: Feedback recorded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubmitFeedbackResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedbackValidationError'
+        '401':
+          description: Missing or invalid API key or session cookie
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedbackAuthError'
+        '404':
+          description: Decision not found for this org
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedbackNotFoundError'
+    get:
+      tags: [Decision]
+      operationId: getDecisionFeedback
+      summary: List feedback rows for a decision
+      description: Read-only; API key only (no `fb_session` required).
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: org_id
+          in: query
+          required: false
+          description: Organization identifier. Omit when `API_KEY_ORG_ID` env override is set (local/test).
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Feedback rows in created_at ascending order
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetFeedbackResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: string
+                    enum: [api_key_required, api_key_invalid]
+                  message:
+                    type: string
+        '404':
+          description: Decision not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedbackNotFoundError'
+
+  /v1/decisions/{decision_id}/view:
+    parameters:
+      - name: decision_id
+        in: path
+        required: true
+        schema:
+          type: string
+    post:
+      tags: [Decision]
+      operationId: recordDecisionView
+      summary: Record educator opened a decision card
+      description: Idempotent within 60s per (decision_id, session). Requires `fb_session` + `x-api-key`.
+      security:
+        - ApiKeyAuth: []
+        - FeedbackSessionCookie: []
+      parameters:
+        - name: org_id
+          in: query
+          required: false
+          description: Organization identifier. Omit when `API_KEY_ORG_ID` env override is set (local/test).
+          schema:
+            type: string
+      responses:
+        '200':
+          description: View recorded or deduplicated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecordViewResponse'
+        '401':
+          description: Missing session or API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedbackAuthError'
+        '404':
+          description: Decision not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedbackNotFoundError'
+
+  /v1/decisions/feedback/pending:
+    get:
+      tags: [Decision]
+      operationId: getPendingFeedback
+      summary: Count unreviewed decisions (soft nudge)
+      description: |
+        On DynamoDB deployments Phase 1 returns 501 `not_implemented_on_cloud`. SQLite pilot host returns full counts.
+      security:
+        - ApiKeyAuth: []
+        - FeedbackSessionCookie: []
+      parameters:
+        - name: org_id
+          in: query
+          required: false
+          description: Organization identifier. Omit when `API_KEY_ORG_ID` env override is set (local/test).
+          schema:
+            type: string
+        - name: older_than_days
+          in: query
+          required: false
+          description: Only count decisions at least this many days old. Default 3. Non-finite or negative values normalize to the default.
+          schema:
+            type: integer
+            default: 3
+      responses:
+        '200':
+          description: Pending counts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PendingFeedbackResponse'
+        '501':
+          description: Not implemented on cloud path (Phase 1)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PendingNotImplementedResponse'
+        '401':
+          description: Missing session or API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedbackAuthError'
+
   /v1/receipts:
     get:
       tags: [Decision]
@@ -1044,6 +1218,13 @@ components:
         Admin API key for policy lifecycle management (required on all `/v1/admin/*` endpoints).
         Must match the `ADMIN_API_KEY` environment variable. A valid tenant `x-api-key` is **not** sufficient — admin endpoints exclusively validate this header.
         When unset in the environment, all admin requests are rejected (fail-closed).
+    FeedbackSessionCookie:
+      type: apiKey
+      in: cookie
+      name: fb_session
+      description: |
+        Dashboard passphrase sibling cookie (`Path=/v1/decisions`). Required on educator feedback write endpoints together with `x-api-key`.
+        See docs/specs/dashboard-passphrase-gate.md § Sibling cookie.
   schemas:
     # ---------------------------------------------------------------------------
     # Health (GET /health)
@@ -1918,3 +2099,211 @@ components:
                 - admin_key_required
             message:
               type: string
+
+    # ---------------------------------------------------------------------------
+    # Educator Feedback API (v1.1)
+    # ---------------------------------------------------------------------------
+    SubmitFeedbackRequest:
+      type: object
+      required: [action]
+      properties:
+        org_id:
+          type: string
+          description: Organization identifier. May also be supplied via query or `API_KEY_ORG_ID` env override.
+        action:
+          type: string
+          enum: [approve, reject, ignore]
+        reason_category:
+          type: string
+        reason_text:
+          type: string
+          maxLength: 2000
+        suggested_decision_type:
+          type: string
+          enum: [reinforce, advance, intervene, pause]
+
+    SubmitFeedbackResponse:
+      type: object
+      required: [feedback_id, decision_id, action, reason_category, created_at]
+      properties:
+        feedback_id:
+          type: string
+        decision_id:
+          type: string
+        action:
+          type: string
+          enum: [approve, reject, ignore]
+        reason_category:
+          oneOf:
+            - type: string
+            - type: 'null'
+        created_at:
+          type: string
+          format: date-time
+
+    FeedbackListItem:
+      type: object
+      required: [feedback_id, action, reason_category, reason_text, created_at]
+      properties:
+        feedback_id:
+          type: string
+        action:
+          type: string
+          enum: [approve, reject, ignore]
+        reason_category:
+          oneOf:
+            - type: string
+            - type: 'null'
+        reason_text:
+          oneOf:
+            - type: string
+            - type: 'null'
+        suggested_decision_type:
+          oneOf:
+            - type: string
+            - type: 'null'
+        created_at:
+          type: string
+          format: date-time
+
+    GetFeedbackResponse:
+      type: object
+      required: [decision_id, feedback, latest_action]
+      properties:
+        decision_id:
+          type: string
+        feedback:
+          type: array
+          items:
+            $ref: '#/components/schemas/FeedbackListItem'
+        latest_action:
+          oneOf:
+            - type: string
+              enum: [approve, reject, ignore]
+            - type: 'null'
+
+    RecordViewResponse:
+      oneOf:
+        - type: object
+          required: [recorded, viewed_at]
+          properties:
+            recorded:
+              type: boolean
+              enum: [true]
+            viewed_at:
+              type: string
+              format: date-time
+        - type: object
+          required: [recorded, reason]
+          properties:
+            recorded:
+              type: boolean
+              enum: [false]
+            reason:
+              type: string
+              enum: [dedup_window]
+
+    PendingFeedbackResponse:
+      type: object
+      required: [org_id, pending_count, pending_by_type, oldest_decided_at, threshold_days]
+      properties:
+        org_id:
+          type: string
+        pending_count:
+          type: integer
+        pending_by_type:
+          type: object
+          required: [reinforce, advance, intervene, pause]
+          properties:
+            reinforce:
+              type: integer
+            advance:
+              type: integer
+            intervene:
+              type: integer
+            pause:
+              type: integer
+        oldest_decided_at:
+          oneOf:
+            - type: string
+              format: date-time
+            - type: 'null'
+        threshold_days:
+          type: integer
+
+    PendingNotImplementedResponse:
+      type: object
+      required:
+        - code
+        - message
+        - org_id
+        - pending_count
+        - pending_by_type
+        - oldest_decided_at
+        - threshold_days
+      properties:
+        code:
+          type: string
+          enum: [not_implemented_on_cloud]
+        message:
+          type: string
+        org_id:
+          type: string
+        pending_count:
+          type: integer
+          enum: [0]
+        pending_by_type:
+          type: object
+          required: [reinforce, advance, intervene, pause]
+          properties:
+            reinforce:
+              type: integer
+              enum: [0]
+            advance:
+              type: integer
+              enum: [0]
+            intervene:
+              type: integer
+              enum: [0]
+            pause:
+              type: integer
+              enum: [0]
+        oldest_decided_at:
+          type: 'null'
+        threshold_days:
+          type: integer
+
+    FeedbackAuthError:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          enum: [api_key_required, api_key_invalid, session_required]
+        message:
+          type: string
+
+    FeedbackNotFoundError:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          enum: [decision_not_found]
+        message:
+          type: string
+
+    FeedbackValidationError:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          enum:
+            - invalid_action
+            - invalid_reason_category
+            - reason_text_too_long
+            - suggested_decision_type_required
+            - suggested_decision_type_forbidden
+        message:
+          type: string

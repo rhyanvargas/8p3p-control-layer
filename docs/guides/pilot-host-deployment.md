@@ -102,7 +102,96 @@ From [dry-run script — Saturday 12:00–12:45 pre-flight](../../internal-docs/
 - **No code deploys after 12:30 PM**
 ```
 
-**Deviation (accepted for the Springs dry run only):** SQLite databases under `/app/data/` are **ephemeral** in the container. Any machine restart, scale-to-zero cycle, or redeploy can wipe state. The pre-flight step *Re-seed (idempotent) or wipe-and-reseed for clean slate* is how the dry run handles that. For the **real** Springs pilot after Saturday, persistence is a **follow-up** decision (for example [AWS deployment spec](../specs/aws-deployment.md) / DynamoDB or Fly volumes)—not covered here. Do not rely on container SQLite for production customer of record.
+**Deviation (accepted for the Springs dry run only):** SQLite databases under `/app/data/` are **ephemeral** in the container. Any machine restart, scale-to-zero cycle, or redeploy can wipe state. The pre-flight step *Re-seed (idempotent) or wipe-and-reseed for clean slate* is how the dry run handles that. For any pilot exceeding 1 week — including the post-Saturday Springs pilot and any subsequent customer — **persistence is mandatory** per § 7 Pilot persistence below. The dry-run-ephemeral mode and the long-pilot persistent mode are two distinct deployment configurations.
+
+---
+
+## 7. Pilot persistence (3–6 month customer pilots)
+
+**Adopted 2026-05-15 (CEO direction).** This section is the persistence ladder for any customer pilot longer than the Springs dry run. It is **required** for evidence-grade reporting (MC-A* / MC-B* / MC-C* in [`program-metrics.md`](../specs/program-metrics.md)) because the signal-log, state-store, decision-store, and educator-feedback databases must survive the full pilot window for replay, audit, and the FERPA-safe research export.
+
+### What the server actually writes
+
+`src/server.ts` initializes **six** SQLite databases by default — all under `./data/`:
+
+| Env var | Default path | Purpose |
+|---------|--------------|---------|
+| `IDEMPOTENCY_DB_PATH` | `./data/idempotency.db` | Signal-id dedup |
+| `SIGNAL_LOG_DB_PATH` | `./data/signal-log.db` | Append-only signal log |
+| `STATE_STORE_DB_PATH` | `./data/state.db` | Versioned learner state |
+| `INGESTION_LOG_DB_PATH` | `./data/ingestion-log.db` | Accept/reject/duplicate audit |
+| `DECISION_DB_PATH` | `./data/decisions.db` | Decision receipts |
+| `FEEDBACK_DB_PATH` | `./data/feedback.db` | Educator feedback + view log (per `docs/specs/educator-feedback-api.md`) |
+
+A wipe of `/app/data/*.db` wipes **all** of the above, including months of educator feedback and decision receipts.
+
+### Recipe — solo-dev, ~$8–12/month all-in
+
+1. **Create a Fly Volume in the same region as the app:**
+
+   ```bash
+   fly volumes create data --region dfw --size 3
+   ```
+
+   3 GB is plenty for pilot volume (≤ 15 k decisions × 6 months ≈ tens of MBs); pay for headroom because Fly Volumes cannot easily shrink.
+
+2. **Mount it at `/app/data` in `fly.toml`:**
+
+   ```toml
+   [[mounts]]
+     source = "data"
+     destination = "/app/data"
+   ```
+
+3. **Pin a single writer.** Fly Volumes are region-bound and tied to one machine. Configure:
+
+   ```toml
+   [http_service]
+     min_machines_running = 1
+     auto_stop_machines  = "off"
+
+   # (and constrain the deploy)
+   ```
+
+   ```bash
+   fly scale count 1 --max-per-region 1
+   ```
+
+   This intentionally gives up scale-to-zero (~$5/mo) for persistence (~$8–12/mo). Worth it.
+
+4. **Nightly off-host backup.** Run a Fly Machines cron task or a GitHub Action that streams each SQLite file off-host:
+
+   ```bash
+   for db in idempotency signal-log state ingestion-log decisions feedback; do
+     sqlite3 /app/data/${db}.db ".backup /tmp/${db}.db"
+   done
+   tar czf /tmp/backup-$(date -u +%Y%m%dT%H%M%SZ).tgz /tmp/*.db
+   # upload to R2 / B2 / S3 with object-lock (immutable retention ≥ 6 months)
+   ```
+
+   Storage cost at pilot volume: well under $1/month on Cloudflare R2 / Backblaze B2.
+
+5. **Restore drill (run once before pilot starts).** Confirm a fresh machine can boot from a downloaded backup tarball into `/app/data/` and re-serve `/health` + `/v1/admin/program-metrics` against the same numbers as the source. Verifying backups work is the entire point of having them.
+
+6. **Data-loss tripwire.** A daily Fly Machines exec calling `sqlite3 decisions.db "SELECT COUNT(*) FROM decisions"` → POST to a free monitor (Healthchecks.io). If the count ever *decreases*, alert. Catches accidental wipes before the weekly evidence report exposes them.
+
+### Migration tripwires — when to leave Fly + SQLite
+
+Stay on Fly + SQLite + Volume **until any of the following becomes true**, then migrate to the AWS path in [`docs/specs/aws-deployment.md`](../specs/aws-deployment.md) (DynamoDB + Lambda):
+
+- `signal-log.db` exceeds **1 GB** OR sustained write rate exceeds **100 k signals/day**, OR
+- More than one Fly Machine needs to write (multi-region or HA), OR
+- Customer contract requires a SOC 2 / FERPA-attested data residency story Fly Volumes do not provide.
+
+At pilot scale none of these trigger; below them, SQLite-on-Fly is the right tool.
+
+### Cross-references
+
+- [`internal-docs/pilot-operations/pilot-readiness-definition.md`](../../internal-docs/pilot-operations/pilot-readiness-definition.md) § Pilot vs production readiness — this section is the **persistence ladder** the gate references.
+- [`internal-docs/foundation/roadmap.md`](../../internal-docs/foundation/roadmap.md) item 31 — adopts this recipe.
+- [`fly.toml`](../../fly.toml) — `[[mounts]]` block commented in place; uncomment when running a real pilot.
+
+---
 
 ---
 

@@ -54,6 +54,7 @@ vi.mock('../../../src/decision/dynamodb-repository.js', () => {
   class MockDecisionRepo {
     saveDecision = vi.fn().mockResolvedValue(undefined);
     getDecisions = vi.fn().mockResolvedValue({ decisions: [], hasMore: false });
+    getDecisionById = vi.fn().mockResolvedValue(null);
   }
   return { DynamoDbDecisionRepository: MockDecisionRepo };
 });

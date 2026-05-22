@@ -100,9 +100,11 @@ describe('dashboard passphrase gate', () => {
     const setCookie = res.headers['set-cookie'];
     const raw = Array.isArray(setCookie) ? setCookie.join(';') : String(setCookie ?? '');
     expect(raw).toMatch(/dp_session=/);
+    expect(raw).toMatch(/fb_session=/);
     expect(raw).toMatch(/HttpOnly/i);
     expect(raw).toMatch(/SameSite=Strict/i);
     expect(raw).toMatch(/Path=\/dashboard/i);
+    expect(raw).toMatch(/Path=\/v1\/decisions/i);
     await app.close();
   });
 
@@ -195,6 +197,7 @@ describe('dashboard passphrase gate', () => {
     const setCookie = res.headers['set-cookie'];
     const raw = Array.isArray(setCookie) ? setCookie.join(';') : String(setCookie ?? '');
     expect(raw).toMatch(/dp_session=/i);
+    expect(raw).toMatch(/fb_session=/i);
     expect(raw).toMatch(/Max-Age=0|Expires=/i);
     await app.close();
   });

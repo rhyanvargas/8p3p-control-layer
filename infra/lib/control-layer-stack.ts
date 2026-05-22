@@ -23,7 +23,8 @@ export interface ControlLayerStackProps extends cdk.StackProps {
  *
  * Provisions:
  *   - DynamoDB tables: SignalsTable, StateTable, AppliedSignalsTable, DecisionsTable,
- *     IdempotencyTable, IngestionLogTable, PoliciesTable, FieldMappingsTable, TenantsTable
+ *     IdempotencyTable, IngestionLogTable, PoliciesTable, FieldMappingsTable, TenantsTable,
+ *     FeedbackTable
  *   - Four Lambda functions: Ingest, Query, Inspect, Admin (arm64, Node.js 22)
  *   - REST API Gateway with usage plan, API key enforcement on /v1/*,
  *     public /health and /docs endpoints
@@ -40,6 +41,7 @@ export class ControlLayerStack extends cdk.Stack {
   readonly ingestionLogTable: dynamodb.Table;
   readonly fieldMappingsTable: dynamodb.Table;
   readonly tenantsTable: dynamodb.Table;
+  readonly feedbackTable: dynamodb.Table;
 
   readonly ingestFunction: lambda.Function;
   readonly queryFunction: lambda.Function;
@@ -143,6 +145,15 @@ export class ControlLayerStack extends cdk.Stack {
       removalPolicy: cdk.RemovalPolicy.RETAIN,
     });
 
+    this.feedbackTable = new dynamodb.Table(this, 'FeedbackTable', {
+      tableName: `control-layer-feedback-${stage}`,
+      partitionKey: { name: 'org_id', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'sk', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      pointInTimeRecovery: true,
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+    });
+
     // -------------------------------------------------------------------------
     // Common Lambda config
     // -------------------------------------------------------------------------
@@ -159,6 +170,7 @@ export class ControlLayerStack extends cdk.Stack {
       POLICIES_TABLE: this.policiesTable.tableName,
       FIELD_MAPPINGS_TABLE: this.fieldMappingsTable.tableName,
       TENANTS_TABLE: this.tenantsTable.tableName,
+      FEEDBACK_TABLE: this.feedbackTable.tableName,
       STAGE: stage,
     };
 
@@ -190,7 +202,7 @@ export class ControlLayerStack extends cdk.Stack {
       ...commonProps,
       functionName: `control-layer-query-${stage}`,
       handler: 'query.handler',
-      description: 'Read-path queries — GET /v1/signals, /v1/decisions, /v1/receipts',
+      description: 'Read-path queries — signals, decisions, receipts, educator feedback',
       environment: { ...commonEnv },
     });
 
@@ -239,6 +251,7 @@ export class ControlLayerStack extends cdk.Stack {
     // QueryFunction: read-only on data tables
     this.signalsTable.grantReadData(this.queryFunction);
     this.decisionsTable.grantReadData(this.queryFunction);
+    this.feedbackTable.grantReadWriteData(this.queryFunction);
     this.policiesTable.grantReadData(this.queryFunction);
 
     // InspectFunction: read-only
@@ -333,6 +346,16 @@ export class ControlLayerStack extends cdk.Stack {
     // GET /v1/decisions → QueryFunction
     const decisions = v1.addResource('decisions');
     decisions.addMethod('GET', new apigateway.LambdaIntegration(this.queryFunction));
+
+    const decisionsFeedbackPending = decisions.addResource('feedback').addResource('pending');
+    decisionsFeedbackPending.addMethod('GET', new apigateway.LambdaIntegration(this.queryFunction));
+
+    const decisionById = decisions.addResource('{decision_id}');
+    const decisionFeedback = decisionById.addResource('feedback');
+    decisionFeedback.addMethod('GET', new apigateway.LambdaIntegration(this.queryFunction));
+    decisionFeedback.addMethod('POST', new apigateway.LambdaIntegration(this.queryFunction));
+    const decisionView = decisionById.addResource('view');
+    decisionView.addMethod('POST', new apigateway.LambdaIntegration(this.queryFunction));
 
     // GET /v1/receipts → QueryFunction
     const receipts = v1.addResource('receipts');

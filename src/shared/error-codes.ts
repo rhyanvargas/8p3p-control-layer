@@ -167,6 +167,37 @@ export const ErrorCodes = {
    * @see docs/specs/tenant-field-mappings.md §Error Codes
    */
   INVALID_MAPPING_EXPRESSION: 'invalid_mapping_expression',
+
+  // ==========================================================================
+  // Educator Feedback API (v1.1)
+  // ==========================================================================
+
+  /** Missing or invalid `fb_session` cookie on a write endpoint (401) */
+  SESSION_REQUIRED: 'session_required',
+
+  /** decision_id does not exist or belongs to a different org (404) */
+  DECISION_NOT_FOUND: 'decision_not_found',
+
+  /** action not in {approve, reject, ignore} (400) */
+  INVALID_ACTION: 'invalid_action',
+
+  /** reason_category not in the closed set for the given action (400) */
+  INVALID_REASON_CATEGORY: 'invalid_reason_category',
+
+  /** reason_text exceeds 2000 characters (400) */
+  REASON_TEXT_TOO_LONG: 'reason_text_too_long',
+
+  /** reject + wrong_decision_type without suggested_decision_type (400) */
+  SUGGESTED_DECISION_TYPE_REQUIRED: 'suggested_decision_type_required',
+
+  /** suggested_decision_type present when reason_category is not wrong_decision_type (400) */
+  SUGGESTED_DECISION_TYPE_FORBIDDEN: 'suggested_decision_type_forbidden',
+
+  /**
+   * GET /v1/decisions/feedback/pending is not implemented on the DynamoDB deployment path (Phase 1).
+   * @see docs/specs/educator-feedback-api.md § Deployment Parity (Phase 1)
+   */
+  NOT_IMPLEMENTED_ON_CLOUD: 'not_implemented_on_cloud',
 } as const;
 
 export type ErrorCode = typeof ErrorCodes[keyof typeof ErrorCodes];

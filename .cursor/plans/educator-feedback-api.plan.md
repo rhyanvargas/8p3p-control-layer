@@ -1,58 +1,58 @@
 ---
 name: Educator Feedback API
-overview: "Implements the teacher-workflow evidence layer (`docs/specs/educator-feedback-api.md`) that backs the Decision Panel's Approve/Reject/Ignore buttons and the soft \"unreviewed decisions\" nudge. Ships four endpoints — `POST /v1/decisions/:id/feedback`, `GET /v1/decisions/:id/feedback`, `POST /v1/decisions/:id/view`, `GET /v1/feedback/pending` — behind API key + `fb_session` cookie gating for writes, with append-only SQLite + DynamoDB repositories, CDK `FeedbackTable`, OpenAPI updates, and full contract/integration test coverage (FEEDBACK-001..012). Unblocks MC-B01..B06, MC-C02, MC-C05, MC-C06 in `program-metrics`. Lifecycle stage: v1.1 pre-Month 0 / SBIR evidence layer. **Auth design (2026-04-23):** a sibling `fb_session` cookie (Path=`/v1/feedback`) is minted alongside `dp_session` at `/dashboard/login` so the dashboard SPA can authenticate `/v1/feedback/*` writes **without widening `dp_session` to `Path=/`** — preserving `dashboard-passphrase-gate.md`'s deliberate `/v1/*` isolation."
+overview: "Implements the teacher-workflow evidence layer (`docs/specs/educator-feedback-api.md`) that backs the Decision Panel's Approve/Reject/Ignore buttons and the soft \"unreviewed decisions\" nudge. Ships four endpoints — `POST /v1/decisions/:id/feedback`, `GET /v1/decisions/:id/feedback`, `POST /v1/decisions/:id/view`, `GET /v1/decisions/feedback/pending` — behind API key + `fb_session` cookie gating for writes, with append-only SQLite + DynamoDB repositories, CDK `FeedbackTable`, OpenAPI updates, and full contract/integration test coverage (FEEDBACK-001..014). Unblocks MC-B01..B06, MC-C02, MC-C05, MC-C06 in `program-metrics`. Lifecycle stage: v1.1 pre-Month 0 / SBIR evidence layer. **Auth design:** a sibling `fb_session` cookie (Path=`/v1/decisions`) is minted alongside `dp_session` at `/dashboard/login` so the dashboard SPA can authenticate educator-feedback writes **without widening `dp_session`** — preserving `dashboard-passphrase-gate.md` isolation from unscoped `/v1/*` traffic."
 todos:
   - id: TASK-001
     content: Add feedback error codes to shared/error-codes.ts
-    status: pending
+    status: completed
   - id: TASK-002
     content: Add feedback types (action enum, reason sets, records, requests) to src/shared/types.ts
-    status: pending
+    status: completed
   - id: TASK-003
     content: Define FeedbackRepository interface in src/feedback/repository.ts
-    status: pending
+    status: completed
   - id: TASK-004
     content: Implement SqliteFeedbackRepository with decision_feedback + decision_view_log tables
-    status: pending
+    status: completed
   - id: TASK-005
     content: Implement DynamoDbFeedbackRepository on a single FeedbackTable using DynamoDBDocumentClient
-    status: pending
+    status: completed
   - id: TASK-006
     content: Add feedbackSessionPreHandler that enforces fb_session cookie on write routes
-    status: pending
+    status: completed
   - id: TASK-007
     content: Build framework-agnostic handler-core (validation, dedup, pending count)
-    status: pending
+    status: completed
   - id: TASK-008
     content: Build Fastify handlers for POST/GET feedback, POST view, GET pending
-    status: pending
+    status: completed
   - id: TASK-009
     content: Register feedback routes with per-route session preHandler on writes
-    status: pending
+    status: completed
   - id: TASK-010
     content: Wire feedback store init/close + route registration into src/server.ts
-    status: pending
+    status: completed
   - id: TASK-011
-    content: Mint sibling fb_session cookie (Path=/v1/feedback) at /dashboard/login and clear on logout; update dashboard-passphrase-gate spec in same PR
-    status: pending
+    content: Mint sibling fb_session cookie (Path=/v1/decisions) at /dashboard/login and clear on logout; update dashboard-passphrase-gate spec in same PR
+    status: completed
   - id: TASK-012
     content: CDK — add FeedbackTable, IAM grants, FEEDBACK_TABLE env in control-layer-stack.ts
-    status: pending
+    status: completed
   - id: TASK-013
-    content: Lambda wiring — inject DynamoDbFeedbackRepository into Query + Ingest Lambdas
-    status: pending
+    content: Lambda wiring — extend Query Lambda for feedback routes + FEEDBACK_TABLE (Ingest unchanged)
+    status: completed
   - id: TASK-014
     content: OpenAPI — document the four new endpoints and error codes in docs/api/openapi.yaml
-    status: pending
+    status: completed
   - id: TASK-015
     content: Unit tests — SqliteFeedbackRepository (dedup window, latest_action ordering, append-only, org scope)
-    status: pending
+    status: completed
   - id: TASK-016
     content: Contract tests — auth, wrong-org, validation, cross-org pending, method-not-allowed, suggested_decision_type (FEEDBACK-003..007, 011..014)
-    status: pending
+    status: completed
   - id: TASK-017
     content: Integration tests — happy paths, dedup, pending count, latest_action (FEEDBACK-001, 002, 008, 009, 010)
-    status: pending
+    status: completed
 isProject: false
 ---
 
@@ -62,7 +62,7 @@ isProject: false
 
 ## Repo parity (`/post-impl-doc-sync`)
 
-As of this sync, **`src/` does not implement this plan yet**: there is no `src/feedback/`, no `/v1/decisions/:id/feedback` (or related) paths in `docs/api/openapi.yaml`, and **`src/shared/error-codes.ts`** does not export the Educator Feedback error codes from the spec. `docs/specs/educator-feedback-api.md` remains normative; implementation lands via the TASK list below (TASK-001 adds the seven codes to `error-codes.ts`).
+**Implemented:** `src/feedback/*`, `src/auth/feedback-session-preHandler.ts`, sibling `fb_session` in `src/auth/dashboard-login.ts` + `session-cookie.ts`, `FeedbackTable` + lambda wiring, OpenAPI entries, and tests under `tests/contracts/educator-feedback-api.test.ts` and `tests/integration/educator-feedback.test.ts`. `src/shared/error-codes.ts` exports the feedback codes including **`not_implemented_on_cloud`** (501 pending on DynamoDB path). Keep this section aligned with `docs/specs/educator-feedback-api.md` on every `/post-impl-doc-sync` pass.
 
 ## Spec Literals
 
@@ -76,7 +76,7 @@ As of this sync, **`src/` does not implement this plan yet**: there is no `src/f
 | `decision_id` | string | FK → `decisions.decision_id` (no DB-level FK in DynamoDB; validated at write time) |
 | `org_id` | string | Tenant scope (same value as `decisions.org_id`) |
 | `learner_reference` | string | Denormalized from the decision for cheap filtering |
-| `session_id` | string (opaque) | From the passphrase-gate session cookie; see `docs/specs/dashboard-passphrase-gate.md`. This is **not** an educator identity — the pilot uses shared passphrase access. |
+| `session_id` | string (opaque) | Derived from the `fb_session` cookie (sibling of `dp_session`, minted at `/dashboard/login`, scoped to `Path=/v1/decisions`); see `docs/specs/dashboard-passphrase-gate.md` § "Sibling cookie: `fb_session`". This is **not** an educator identity — the pilot uses shared passphrase access. |
 | `action` | string | One of: `approve`, `reject`, `ignore`. Closed set. |
 | `reason_category` | string or null | Optional structured reason. Closed set per action (see below). |
 | `reason_text` | string or null | Optional free-text (≤ 2000 chars). Never contains PII by policy; no enforcement (educators could paste PII — mitigated by pilot training + de-identification at export time per `pilot-research-export.md`). |
@@ -98,7 +98,7 @@ As of this sync, **`src/` does not implement this plan yet**: there is no `src/f
 | `view_id` | string (UUID) | PK |
 | `decision_id` | string | FK → `decisions.decision_id` |
 | `org_id` | string | Tenant scope |
-| `session_id` | string (opaque) | Same session cookie |
+| `session_id` | string (opaque) | Derived from `fb_session` (same cookie as `decision_feedback.session_id`) |
 | `viewed_at` | string (RFC3339) | Server-assigned |
 
 **Dedup:** writes for the same `(decision_id, session_id)` within 60 seconds are coalesced server-side (return 200 but do not insert).
@@ -106,12 +106,12 @@ As of this sync, **`src/` does not implement this plan yet**: there is no `src/f
 ### From spec § Data Model — Storage
 
 - **SQLite (local / pilot host):** two tables above with `(org_id, created_at)` and `(org_id, viewed_at)` indexes.
-- **DynamoDB (AWS path):** one table `FeedbackTable` with a composite key (`PK = org_id`, `SK = feedback|view#<timestamp>#<uuid>`) — follows the existing `PoliciesTable` pattern.
+- **DynamoDB (AWS path):** one table `FeedbackTable` with a composite key (`PK = org_id`, `SK` is either `feedback#<timestamp>#<uuid>` or `view#<timestamp>#<uuid>` — the `|` in the spec denotes disjunction, not a literal character). Follows the existing `PoliciesTable` pattern.
 - **Repository pattern:** `FeedbackRepository` interface + `SqliteFeedbackRepository` + `DynamoDbFeedbackRepository`, wired via `setFeedbackRepository()` / `getFeedbackRepository()`. Mirrors `docs/specs/liu-usage-meter.md` § Implementation Notes.
 
 ### From spec § Endpoints — `POST /v1/decisions/:decision_id/feedback`
 
-**Auth:** `x-api-key` (tenant) **AND** valid dashboard session cookie (per `docs/specs/dashboard-passphrase-gate.md`).
+**Auth:** `x-api-key` (tenant) **AND** valid `fb_session` cookie (per `docs/specs/dashboard-passphrase-gate.md` § sibling cookie).
 
 **Body:**
 
@@ -131,6 +131,8 @@ As of this sync, **`src/` does not implement this plan yet**: there is no `src/f
 - `action` is required and must be in the closed set
 - `reason_category` is optional; if present, must be in the closed set for the provided `action`
 - `reason_text` ≤ 2000 chars
+- When `action == "reject"` and `reason_category == "wrong_decision_type"`, `suggested_decision_type` is **required** and must be one of the four `DECISION_TYPES` values
+- When `reason_category` is not `wrong_decision_type`, `suggested_decision_type` **must be omitted** (Ajv `if`/`then` / `else` pattern)
 - The referenced `decision_id` must exist **and** belong to the caller's org (else `decision_not_found`)
 
 **Response (201):**
@@ -160,6 +162,7 @@ As of this sync, **`src/` does not implement this plan yet**: there is no `src/f
       "action": "approve",
       "reason_category": "agree_primary",
       "reason_text": "...",
+      "suggested_decision_type": null,
       "created_at": "2026-04-20T19:12:04Z"
     }
   ],
@@ -167,11 +170,11 @@ As of this sync, **`src/` does not implement this plan yet**: there is no `src/f
 }
 ```
 
-`latest_action` is `null` when the feedback array is empty.
+Each list item includes `suggested_decision_type` (JSON `null` when absent on the stored row). `latest_action` is `null` when the feedback array is empty.
 
 ### From spec § Endpoints — `POST /v1/decisions/:decision_id/view`
 
-**Auth:** `x-api-key` (tenant) **AND** valid dashboard session cookie.
+**Auth:** `x-api-key` (tenant) **AND** valid `fb_session` cookie (per `docs/specs/dashboard-passphrase-gate.md` § sibling cookie).
 
 **Body:** none.
 
@@ -183,15 +186,15 @@ As of this sync, **`src/` does not implement this plan yet**: there is no `src/f
 
 Or `{ "recorded": false, "reason": "dedup_window" }` if within the 60-second coalesce window.
 
-### From spec § Endpoints — `GET /v1/feedback/pending`
+### From spec § Endpoints — `GET /v1/decisions/feedback/pending`
 
-**Auth:** `x-api-key` (tenant) **AND** valid dashboard session cookie.
+**Auth:** `x-api-key` (tenant) **AND** valid `fb_session` cookie.
 
 **Query params:**
 
 | Param | Required | Description |
 |-------|----------|-------------|
-| `older_than_days` | No | Only count decisions ≥ N days old. Default 3. |
+| `older_than_days` | No | Only count decisions ≥ N days old. Default 3. Non-finite or negative values are treated as the default (same as omitting the param). |
 
 **Response (200):**
 
@@ -213,11 +216,12 @@ Computed as: `decisions WHERE decided_at ≤ NOW - older_than_days AND NOT EXIST
 |------|------|-------------|
 | `session_required` | 401 | Missing or invalid `fb_session` cookie on a write endpoint (`dp_session` alone is insufficient — path-scoped to `/dashboard` and never reaches `/v1/*`) |
 | `decision_not_found` | 404 | `decision_id` does not exist or belongs to a different org |
-| `invalid_action` | 400 | `action` not in `{approve, reject, ignore}` |
-| `invalid_reason_category` | 400 | `reason_category` not in the closed set for the given `action` |
+| `invalid_action` | 400 | `action` missing or not in `{approve, reject, ignore}`; on `POST .../feedback`, a non-object JSON body (e.g. an array) also returns this code |
+| `invalid_reason_category` | 400 | `reason_category` not in the closed set for the given `action`, or `suggested_decision_type` not one of the four decision types when `reason_category` is `wrong_decision_type` |
 | `suggested_decision_type_required` | 400 | `reject` + `wrong_decision_type` without `suggested_decision_type` |
 | `suggested_decision_type_forbidden` | 400 | `suggested_decision_type` present when `reason_category` is not `wrong_decision_type` |
 | `reason_text_too_long` | 400 | `reason_text` > 2000 chars |
+| `not_implemented_on_cloud` | 501 | `GET /v1/decisions/feedback/pending` on the DynamoDB deployment path (Phase 1); response body includes zeroed counts and `code` for machine clients |
 
 ### From spec § Contract Tests
 
@@ -230,10 +234,10 @@ Computed as: `decisions WHERE decided_at ≤ NOW - older_than_days AND NOT EXIST
 | FEEDBACK-005 | contract | Invalid action value → 400 `invalid_action` | 400 |
 | FEEDBACK-006 | contract | Mismatched `reason_category` for action → 400 `invalid_reason_category` | 400 |
 | FEEDBACK-007 | contract | `reason_text` > 2000 chars → 400 `reason_text_too_long` | 400 |
-| FEEDBACK-008 | integration | Two views within 30 s → second returns `{recorded:false, dedup}` | 200 |
-| FEEDBACK-009 | integration | 5 decisions, 2 with feedback, `GET /v1/feedback/pending?older_than_days=0` → `pending_count == 3` | 200 |
+| FEEDBACK-008 | integration | Two views within the 60 s dedup window (e.g. 10 s apart) → second returns `{recorded:false, reason: "dedup_window"}` | 200 |
+| FEEDBACK-009 | integration | 5 decisions, 2 with feedback, `GET /v1/decisions/feedback/pending?older_than_days=0` → `pending_count == 3` | 200 |
 | FEEDBACK-010 | integration | Multiple feedback rows on one decision; `latest_action` reflects most recent | 200 |
-| FEEDBACK-011 | contract | Cross-org isolation on `GET /v1/feedback/pending` | 200; no cross-org data |
+| FEEDBACK-011 | contract | Cross-org isolation on `GET /v1/decisions/feedback/pending` | 200; no cross-org data |
 | FEEDBACK-012 | unit | Append-only: attempted update returns `405 method_not_allowed` or no route exists | 404/405 |
 | FEEDBACK-013 | contract | `reject` + `wrong_decision_type` without `suggested_decision_type` → 400 | 400 |
 | FEEDBACK-014 | contract | `suggested_decision_type` with `reason_category=not_at_risk` (or any non-`wrong_decision_type`) → 400 | 400 |
@@ -248,7 +252,7 @@ src/
 │   ├── dynamodb-repository.ts     # DynamoDbFeedbackRepository (AWS)
 │   ├── handler-core.ts            # Framework-agnostic logic (validation, dedup)
 │   ├── handler.ts                 # Fastify route handlers
-│   └── routes.ts                  # Route registration under /v1/decisions/:id/feedback, /v1/decisions/:id/view, /v1/feedback/pending
+│   └── routes.ts                  # Route registration under /v1/decisions/:id/feedback, /v1/decisions/:id/view, /v1/decisions/feedback/pending
 ```
 
 ### From spec § Constraints (normative)
@@ -263,10 +267,10 @@ src/
 
 Before starting implementation:
 
-- [ ] {PREREQ-001} `docs/specs/dashboard-passphrase-gate.md` implemented — `SESSION_COOKIE_NAME = 'dp_session'` and `verifySession()` exist at `src/auth/session-cookie.ts`. **Status: complete.**
-- [ ] {PREREQ-002} `docs/specs/api-key-middleware.md` implemented — `apiKeyPreHandler` applied to `/v1/*` scope in `src/server.ts`. **Status: complete.**
-- [ ] {PREREQ-003} `docs/specs/decision-engine.md` implemented — `getDecisionById(orgId, decisionId)` exists in `src/decision/store.ts`. **Status: complete.**
-- [ ] {PREREQ-004} Repository pattern reference plans reviewed — `src/decision/repository.ts` + `src/admin/policies-dynamodb.ts` are the closest existing analogues. **Status: complete.**
+- [x] {PREREQ-001} `docs/specs/dashboard-passphrase-gate.md` implemented — `SESSION_COOKIE_NAME = 'dp_session'` and `verifySession()` exist at `src/auth/session-cookie.ts`.
+- [x] {PREREQ-002} `docs/specs/api-key-middleware.md` implemented — `apiKeyPreHandler` applied to `/v1/*` scope in `src/server.ts`.
+- [x] {PREREQ-003} `docs/specs/decision-engine.md` implemented — `getDecisionById(orgId, decisionId)` exists in `src/decision/store.ts`.
+- [x] {PREREQ-004} Repository pattern reference plans reviewed — `src/decision/repository.ts` + `src/admin/policies-dynamodb.ts` are the closest existing analogues.
 
 ---
 
@@ -277,7 +281,7 @@ Before starting implementation:
 ### TASK-001: Add feedback error codes to shared `ErrorCodes`
 - **Files**: `src/shared/error-codes.ts`
 - **Action**: Modify
-- **Details**: Append a new `Educator Feedback API (v1.1)` section to the `ErrorCodes` object with all **seven** codes quoted in Spec Literals § Error Codes — New:
+- **Details**: Append a new `Educator Feedback API (v1.1)` section to the `ErrorCodes` object with all **eight** string constants from the spec (§ Error Codes — New), including deployment parity:
   - `SESSION_REQUIRED = 'session_required'` (401)
   - `DECISION_NOT_FOUND = 'decision_not_found'` (404)
   - `INVALID_ACTION = 'invalid_action'` (400)
@@ -285,9 +289,10 @@ Before starting implementation:
   - `REASON_TEXT_TOO_LONG = 'reason_text_too_long'` (400)
   - `SUGGESTED_DECISION_TYPE_REQUIRED = 'suggested_decision_type_required'` (400)
   - `SUGGESTED_DECISION_TYPE_FORBIDDEN = 'suggested_decision_type_forbidden'` (400)
+  - `NOT_IMPLEMENTED_ON_CLOUD = 'not_implemented_on_cloud'` (501 — DynamoDB pending path only)
   HTTP status mapping is applied at the handler layer; the constants themselves carry no status. Reuse — do not redefine — `API_KEY_REQUIRED`, `API_KEY_INVALID`, `ORG_SCOPE_REQUIRED` per spec § Error Codes § Existing (reuse).
 - **Depends on**: none
-- **Verification**: `rg "session_required|decision_not_found|invalid_action|invalid_reason_category|reason_text_too_long|suggested_decision_type_required|suggested_decision_type_forbidden" src/shared/error-codes.ts` shows all seven; `npm run typecheck` passes.
+- **Verification**: `rg "session_required|decision_not_found|invalid_action|invalid_reason_category|reason_text_too_long|suggested_decision_type_required|suggested_decision_type_forbidden|not_implemented_on_cloud" src/shared/error-codes.ts` shows all eight; `npm run typecheck` passes.
 
 ### TASK-002: Add feedback types to shared types
 - **Files**: `src/shared/types.ts`
@@ -371,7 +376,7 @@ Before starting implementation:
   3. If the cookie is missing/invalid → return **401** with body `{ code: 'session_required', message: 'Dashboard session cookie required.' }` (literal code from Spec Literals § Error Codes § New).
   4. On success, attach an opaque `session_id` to `request` — use the signature hex (first 32 hex chars of the cookie's HMAC prefix) as the opaque `session_id` per spec § Data Model "From the passphrase-gate session cookie … opaque". Exposed via `request.feedbackSessionId: string` (declared via a module-augmentation `.d.ts` or ambient declaration in the same file).
 
-  **Why a sibling cookie instead of reusing `dp_session`?** `dashboard-passphrase-gate.md` § Implementation Notes explicitly scopes `dp_session` to `Path=/dashboard` so it is **not** sent to `/v1/*` — a deliberate FERPA-safety isolation. Widening that cookie would undo the spec author's isolation choice. Minting a sibling `fb_session` scoped to `Path=/v1/feedback` preserves the isolation while enabling `/v1/feedback/*` auth.
+  **Why a sibling cookie instead of reusing `dp_session`?** `dashboard-passphrase-gate.md` § Implementation Notes explicitly scopes `dp_session` to `Path=/dashboard` so it is **not** sent to `/v1/*` — a deliberate FERPA-safety isolation. Widening that cookie would undo the spec author's isolation choice. Minting a sibling `fb_session` scoped to `Path=/v1/decisions` preserves the isolation while enabling authenticated requests under `/v1/decisions/*` (feedback + pending routes).
 
   **Why not reuse `dashboardGatePreHandler`?** That preHandler **redirects** unauthenticated browser navigation to `/dashboard/login`. The feedback API must return a 401 JSON error (`session_required`). Two behaviors → two preHandlers.
 - **Depends on**: TASK-001, TASK-011 (needs `FEEDBACK_SESSION_COOKIE_NAME` export)
@@ -396,7 +401,7 @@ Before starting implementation:
     1. Verify decision exists (same 404 rule).
     2. `const rows = await repo.listFeedbackForDecision(orgId, decisionId)`.
     3. Compute `latest_action = rows.length === 0 ? null : rows[rows.length - 1].action` (rows are `created_at ASC`, so the last row is the newest — satisfies Spec Literals § `GET` — `latest_action is null when the feedback array is empty` and AC2 — `[reject, reject, approve] → latest_action == "approve"`).
-    4. Return `{statusCode: 200, body: {decision_id, feedback: rows, latest_action}}`.
+    4. Map rows to list DTOs (include `suggested_decision_type` per stored row). Return `{statusCode: 200, body: {decision_id, feedback, latest_action}}`.
 
   - `handleRecordViewCore({ orgId, decisionId, sessionId, now })`:
     1. 404 if decision doesn't exist.
@@ -405,9 +410,9 @@ Before starting implementation:
     4. Return either `{statusCode: 200, body: {recorded: true, viewed_at: now}}` or `{statusCode: 200, body: {recorded: false, reason: 'dedup_window'}}` — strings match Spec Literals § `POST view` response.
 
   - `handleGetPendingCore({ orgId, olderThanDays, now })`:
-    1. Default `olderThanDays = 3` if missing/invalid (literal default from Spec Literals § `GET /v1/feedback/pending` query params).
+    1. Default `olderThanDays = 3` if missing/invalid (literal default from Spec Literals § `GET /v1/decisions/feedback/pending` query params).
     2. `const { total, byType, oldestDecidedAt } = await repo.countPendingByType(orgId, olderThanDays, now)`.
-    3. Return `{statusCode: 200, body: {org_id: orgId, pending_count: total, pending_by_type: byType, oldest_decided_at: oldestDecidedAt, threshold_days: olderThanDays}}` — keys match Spec Literals § `GET /v1/feedback/pending` response exactly.
+    3. Return `{statusCode: 200, body: {org_id: orgId, pending_count: total, pending_by_type: byType, oldest_decided_at: oldestDecidedAt, threshold_days: olderThanDays}}` — keys match Spec Literals § `GET /v1/decisions/feedback/pending` response exactly.
 - **Depends on**: TASK-003, TASK-004, TASK-005
 - **Verification**: Unit tests (TASK-015) directly invoke handler-core functions with an in-memory fake repo; all four paths produce the literal response shapes.
 
@@ -431,7 +436,7 @@ Before starting implementation:
   - `app.post('/decisions/:decision_id/feedback', { preHandler: feedbackSessionPreHandler }, handleSubmitFeedback)`
   - `app.get('/decisions/:decision_id/feedback', handleGetFeedback)` — no session preHandler; API-key-only read per Spec Literals § `GET /v1/decisions/:decision_id/feedback` (`Auth: x-api-key (tenant). No session cookie needed`).
   - `app.post('/decisions/:decision_id/view', { preHandler: feedbackSessionPreHandler }, handleRecordView)`
-  - `app.get('/feedback/pending', { preHandler: feedbackSessionPreHandler }, handleGetPending)`
+  - `app.get('/decisions/feedback/pending', { preHandler: feedbackSessionPreHandler }, handleGetPending)`
 
   Do **not** register any `PUT`/`PATCH`/`DELETE` on feedback rows — Spec Literals § Constraints: "Append-only writes. No `UPDATE`/`DELETE` on feedback rows." Fastify returns the default 404 for unregistered methods, which satisfies FEEDBACK-012 (`404/405`).
 - **Depends on**: TASK-006, TASK-008
@@ -456,18 +461,18 @@ Before starting implementation:
 
   **In `src/auth/session-cookie.ts`:**
   - Add export `FEEDBACK_SESSION_COOKIE_NAME = 'fb_session'`.
-  - Add export `buildFeedbackCookieAttributes({ maxAgeSeconds, secure })` returning `{ path: '/v1/feedback', httpOnly: true, secure, sameSite: 'strict', maxAge: maxAgeSeconds }`. Same shape as `buildSetCookieAttributes` but with `path: '/v1/feedback'`.
+  - Add export `buildFeedbackCookieAttributes({ maxAgeSeconds, secure })` returning `{ path: '/v1/decisions', httpOnly: true, secure, sameSite: 'strict', maxAge: maxAgeSeconds }`. Same shape as `buildSetCookieAttributes` but with `path: '/v1/decisions'`.
   - Signing reuses the existing `signSession(secret, maxAgeSeconds)` — same `COOKIE_SECRET`, same HMAC-SHA256, same wire format.
 
   **In `src/auth/dashboard-login.ts`:**
   - On successful passphrase match (existing `reply.setCookie(SESSION_COOKIE_NAME, ...)` call), add a second `reply.setCookie(FEEDBACK_SESSION_COOKIE_NAME, signed, buildFeedbackCookieAttributes({ maxAgeSeconds, secure }))` using the **same `signed` value** (both cookies carry identical signatures so they expire together and `session_id` derivation stays stable across both).
-  - On `GET /dashboard/logout`, add a matching `reply.clearCookie(FEEDBACK_SESSION_COOKIE_NAME, { path: '/v1/feedback' })` call next to the existing `dp_session` clear.
+  - On `GET /dashboard/logout`, add a matching `reply.clearCookie(FEEDBACK_SESSION_COOKIE_NAME, { path: '/v1/decisions' })` call next to the existing `dp_session` clear.
 
   `HttpOnly`, `Secure`, `SameSite=strict` apply to both cookies — CSRF and script exfiltration protections unchanged. `dp_session` continues not to be sent on `/v1/*` requests (isolation preserved).
 
-  **In `docs/specs/dashboard-passphrase-gate.md`:** add a new § "Sibling cookie: `fb_session`" documenting that the login flow issues a second cookie scoped to `Path=/v1/feedback`, with the same signature, TTL, and attributes; cross-reference `educator-feedback-api.md`. Do **not** modify the `dp_session` cookie specification table.
+  **In `docs/specs/dashboard-passphrase-gate.md`:** add a new § "Sibling cookie: `fb_session`" documenting that the login flow issues a second cookie scoped to `Path=/v1/decisions`, with the same signature, TTL, and attributes; cross-reference `educator-feedback-api.md`. Do **not** modify the `dp_session` cookie specification table.
 - **Depends on**: none (parallelizable with TASK-001..010, but must land **before** TASK-006's preHandler is exercised by integration tests)
-- **Verification**: `rg "FEEDBACK_SESSION_COOKIE_NAME" src/auth/` shows the new constant in `session-cookie.ts` and both set/clear sites in `dashboard-login.ts`. Existing `tests/integration/dashboard-gate.test.ts` still passes unchanged (dp_session scope and gate behavior are untouched). New integration test GATE-004 in `tests/integration/dashboard-gate.test.ts` asserts that a successful login response contains **two** `Set-Cookie` headers — `dp_session` with `Path=/dashboard` and `fb_session` with `Path=/v1/feedback`. New integration test `tests/integration/educator-feedback.test.ts` logs in, then `fetch('/v1/decisions/:id/feedback', {credentials: 'include'})` succeeds; a separate fetch of `/dashboard/` succeeds with only `dp_session`; and a fetch of `/v1/signals` does **not** receive either cookie (isolation preserved).
+- **Verification**: `rg "FEEDBACK_SESSION_COOKIE_NAME" src/auth/` shows the new constant in `session-cookie.ts` and both set/clear sites in `dashboard-login.ts`. Existing `tests/integration/dashboard-gate.test.ts` still passes unchanged (dp_session scope and gate behavior are untouched). **GATE-002** asserts both cookies on login (`Path=/dashboard` + `Path=/v1/decisions`); **GATE-011** clears both on logout. `tests/integration/educator-feedback.test.ts` logs in, then `POST /v1/decisions/:id/feedback` with `fb_session` succeeds; `/dashboard/` works with `dp_session` only; `/v1/signals` receives neither cookie (isolation preserved).
 
 ### TASK-012: CDK — `FeedbackTable` + IAM + env
 - **Files**: `infra/lib/control-layer-stack.ts`
@@ -505,7 +510,7 @@ Before starting implementation:
 - **Action**: Modify
 - **Details**: Document all four endpoints with request/response schemas matching Spec Literals verbatim. Key points:
   - Security: `x-api-key` for all four; add a new `feedbackSessionCookie` security scheme (cookie auth, `name: fb_session`) referenced on the three write/soft-prompt endpoints (`POST feedback`, `POST view`, `GET pending`). `GET /v1/decisions/:id/feedback` lists only `x-api-key`.
-  - Responses: include `201` for `POST feedback`, `200` for `GET feedback` + `POST view` + `GET pending`, plus the five new error codes (`401 session_required`, `404 decision_not_found`, `400 invalid_action`, `400 invalid_reason_category`, `400 reason_text_too_long`) — codes literal per Spec Literals § Error Codes § New.
+  - Responses: include `201` for `POST feedback`, `200` for `GET feedback` + `POST view` + `GET pending`, plus all eight feedback error codes from Spec Literals § Error Codes § New (incl. `suggested_decision_type_*` and `501 not_implemented_on_cloud` on pending).
   - Schemas: `SubmitFeedbackRequest`, `SubmitFeedbackResponse`, `GetFeedbackResponse` (include `latest_action` with `type: string, nullable: true, enum: [approve, reject, ignore]`), `RecordViewResponse` (oneOf the two variants), `PendingFeedbackResponse`.
 - **Depends on**: TASK-001, TASK-002
 - **Verification**: `npm run validate:api` (redocly lint) passes; `npm run validate:contracts` passes.
@@ -532,19 +537,21 @@ Before starting implementation:
   - **FEEDBACK-005**: Body `{ action: 'maybe' }` → `400` `invalid_action`.
   - **FEEDBACK-006**: Body `{ action: 'approve', reason_category: 'not_at_risk' }` (valid for `reject`, not `approve`) → `400` `invalid_reason_category`.
   - **FEEDBACK-007**: `reason_text` of length 2001 → `400` `reason_text_too_long`.
-  - **FEEDBACK-011**: Seed decisions + feedback in `org_A` and `org_B`; `GET /v1/feedback/pending` with `org_B`'s key returns counts reflecting only `org_B`.
+  - **FEEDBACK-011**: Seed decisions + feedback in `org_A` and `org_B`; `GET /v1/decisions/feedback/pending` with `org_B`'s key returns counts reflecting only `org_B`.
   - **FEEDBACK-012**: `PUT /v1/decisions/:id/feedback` and `DELETE /v1/decisions/:id/feedback/:feedback_id` → status `404` (Fastify default for unregistered route). Assert neither route is in `app.printRoutes()` output.
+  - **FEEDBACK-013**: Body `{ action: 'reject', reason_category: 'wrong_decision_type' }` (no `suggested_decision_type`) → `400`, `code === 'suggested_decision_type_required'`.
+  - **FEEDBACK-014**: Body `{ action: 'reject', reason_category: 'not_at_risk', suggested_decision_type: 'advance' }` → `400`, `code === 'suggested_decision_type_forbidden'`.
 - **Depends on**: TASK-010
-- **Verification**: `npm run test:contracts` passes; coverage for the five new error codes.
+- **Verification**: `npm run test:contracts` passes; coverage for all eight feedback error codes (incl. `suggested_decision_type_*`).
 
 ### TASK-017: Integration tests
 - **Files**: `tests/integration/educator-feedback.test.ts` (create)
 - **Action**: Create
 - **Details**: Boot the full Fastify app (same harness as `tests/integration/dashboard-gate.test.ts`), seed a decision, then exercise end-to-end:
-  - **FEEDBACK-001**: POST a valid login → receive **both** `dp_session` (Path=/dashboard) and `fb_session` (Path=/v1/feedback) cookies. POST `{action: 'approve'}` with API key + `fb_session` → 201. Follow with `GET /v1/decisions/:id/feedback` → row present; `latest_action === 'approve'`. Additionally assert that `/v1/signals` (a non-feedback `/v1` endpoint) does not receive `fb_session` or `dp_session` (cookie isolation preserved).
+  - **FEEDBACK-001**: POST a valid login → receive **both** `dp_session` (Path=/dashboard) and `fb_session` (Path=/v1/decisions) cookies. POST `{action: 'approve'}` with API key + `fb_session` → 201. Follow with `GET /v1/decisions/:id/feedback` → row present; `latest_action === 'approve'`. Additionally assert that `/v1/signals` (a non-feedback `/v1` endpoint) does not receive `fb_session` or `dp_session` (cookie isolation preserved).
   - **FEEDBACK-002**: POST `{action: 'reject', reason_category: 'not_at_risk', reason_text: 'teacher note'}` → 201; GET → reason fields round-trip.
   - **FEEDBACK-008**: POST `.../view` at t=0 → `{recorded: true}`. POST again at t=10s (mock `Date.now`) → `{recorded: false, reason: 'dedup_window'}`. Direct DB assertion: only one `decision_view_log` row.
-  - **FEEDBACK-009**: Seed 5 decisions for `org_springs`; feedback on 2. `GET /v1/feedback/pending?older_than_days=0` → `pending_count === 3`.
+  - **FEEDBACK-009**: Seed 5 decisions for `org_springs`; feedback on 2. `GET /v1/decisions/feedback/pending?older_than_days=0` → `pending_count === 3`.
   - **FEEDBACK-010**: Submit three feedback rows in order `reject, reject, approve`. `GET` → `feedback.length === 3`; `latest_action === 'approve'`.
 - **Depends on**: TASK-010, TASK-011
 - **Verification**: `npm run test:integration` passes; all five FEEDBACK-00x IDs asserted in test names.
@@ -561,26 +568,27 @@ Before starting implementation:
 | `src/feedback/sqlite-repository.ts` | TASK-004 | SQLite adapter + module init/close API |
 | `src/feedback/dynamodb-repository.ts` | TASK-005 | DynamoDB adapter using DocumentClient |
 | `src/auth/feedback-session-preHandler.ts` | TASK-006 | Returns 401 `session_required` JSON (vs. gate's 302 redirect) |
+| `src/fastify-augmentation.d.ts` | TASK-006 | `FastifyRequest.feedbackSessionId` module augmentation |
 | `src/feedback/handler-core.ts` | TASK-007 | Framework-agnostic validation + orchestration |
 | `src/feedback/handler.ts` | TASK-008 | Fastify adapter handlers |
 | `src/feedback/routes.ts` | TASK-009 | Route registration for all four endpoints |
 | `tests/unit/feedback-store.test.ts` | TASK-015 | Repository unit tests |
-| `tests/contracts/educator-feedback-api.test.ts` | TASK-016 | Contract tests FEEDBACK-003..007, 011, 012 |
+| `tests/contracts/educator-feedback-api.test.ts` | TASK-016 | Contract tests FEEDBACK-003..007, 011..014, 012 |
 | `tests/integration/educator-feedback.test.ts` | TASK-017 | Integration tests FEEDBACK-001, 002, 008, 009, 010 |
 
 ### To Modify
 
 | File | Task | Changes |
 |------|------|---------|
-| `src/shared/error-codes.ts` | TASK-001 | Add `SESSION_REQUIRED`, `DECISION_NOT_FOUND`, `INVALID_ACTION`, `INVALID_REASON_CATEGORY`, `REASON_TEXT_TOO_LONG` |
+| `src/shared/error-codes.ts` | TASK-001 | Add feedback `ErrorCodes` including `NOT_IMPLEMENTED_ON_CLOUD` |
 | `src/shared/types.ts` | TASK-002 | Add `FeedbackAction`, `FEEDBACK_REASON_CATEGORIES`, `FeedbackRecord`, `DecisionViewRecord`, request/response DTOs |
 | `src/server.ts` | TASK-010 | Init/close feedback store; register routes under `/v1` scope |
-| `src/auth/session-cookie.ts` | TASK-011 | Add `FEEDBACK_SESSION_COOKIE_NAME = 'fb_session'` + `buildFeedbackCookieAttributes` (path=`/v1/feedback`); `dp_session` attributes unchanged |
+| `src/auth/session-cookie.ts` | TASK-011 | Add `FEEDBACK_SESSION_COOKIE_NAME = 'fb_session'` + `buildFeedbackCookieAttributes` (path=`/v1/decisions`); `dp_session` attributes unchanged |
 | `src/auth/dashboard-login.ts` | TASK-011 | Set + clear sibling `fb_session` cookie alongside existing `dp_session` on login/logout |
 | `docs/specs/dashboard-passphrase-gate.md` | TASK-011 | Add § "Sibling cookie: `fb_session`" documenting the second cookie; do not modify `dp_session` specification table |
 | `infra/lib/control-layer-stack.ts` | TASK-012 | Add `FeedbackTable` + IAM grants + `FEEDBACK_TABLE` env |
 | `src/lambda/*.ts` | TASK-013 | Inject `DynamoDbFeedbackRepository` via `setFeedbackRepository()` |
-| `docs/api/openapi.yaml` | TASK-014 | Document four endpoints + five new error codes |
+| `docs/api/openapi.yaml` | TASK-014 | Document four endpoints + new feedback error codes (incl. `not_implemented_on_cloud`) |
 
 ---
 
@@ -593,14 +601,14 @@ Before starting implementation:
 | `POST /v1/decisions/:id/feedback` persists a row to `decision_feedback` and returns the created row | spec § Requirements § Functional (FR1) | TASK-004, TASK-007, TASK-008, TASK-017 |
 | `POST /v1/decisions/:id/view` is idempotent within 60 s per `(decision_id, session_id)` | spec § Requirements § Functional (FR2) | TASK-004, TASK-007, TASK-015, TASK-017 |
 | `GET /v1/decisions/:id/feedback` returns all feedback rows for that decision in `created_at ASC` order | spec § Requirements § Functional (FR3) | TASK-004, TASK-007, TASK-015 |
-| `GET /v1/feedback/pending` returns counts that match a direct `SELECT` on the data | spec § Requirements § Functional (FR4) | TASK-004, TASK-007, TASK-015, TASK-017 |
+| `GET /v1/decisions/feedback/pending` returns counts that match a direct `SELECT` on the data | spec § Requirements § Functional (FR4) | TASK-004, TASK-007, TASK-015, TASK-017 |
 | Feedback and views are strictly org-scoped — a caller cannot read or write feedback for another org's decision | spec § Requirements § Functional (FR5) | TASK-004, TASK-007, TASK-016 |
 | Session cookie is required for writes; API-key-only requests to write endpoints return 401 `session_required` | spec § Requirements § Functional (FR6) | TASK-006, TASK-009, TASK-016 |
 | Given a decision exists for `org_springs`, when a gated educator submits `{action: "approve"}`, then a row is persisted and `GET /v1/decisions/:id/feedback` includes it | spec § Acceptance Criteria (AC1) | TASK-017 (FEEDBACK-001) |
 | Given 3 feedback rows `[reject, reject, approve]`, then `latest_action == "approve"` | spec § Acceptance Criteria (AC2) | TASK-007, TASK-017 (FEEDBACK-010) |
 | Given an educator calls `POST .../view` twice within 10 s, then second returns `{recorded:false, reason:"dedup_window"}` and only one row exists | spec § Acceptance Criteria (AC3) | TASK-004, TASK-015, TASK-017 (FEEDBACK-008) |
 | Given API-key-only request (no session cookie) to `POST .../feedback`, response is 401 `session_required` | spec § Acceptance Criteria (AC4) | TASK-006, TASK-016 (FEEDBACK-003) |
-| Given 5 decisions in `org_A` and 3 in `org_B`, `GET /v1/feedback/pending` with `org_A`'s key counts only `org_A` | spec § Acceptance Criteria (AC5) | TASK-004, TASK-016 (FEEDBACK-011) |
+| Given 5 decisions in `org_A` and 3 in `org_B`, `GET /v1/decisions/feedback/pending` with `org_A`'s key counts only `org_A` | spec § Acceptance Criteria (AC5) | TASK-004, TASK-016 (FEEDBACK-011) |
 | Append-only writes; no `UPDATE`/`DELETE` on feedback rows | spec § Constraints | TASK-004, TASK-009, TASK-016 (FEEDBACK-012) |
 | No PII validation on `reason_text` | spec § Constraints | TASK: DEFERRED — explicit non-requirement; no-op |
 | No write rate limiting beyond dashboard passphrase gate | spec § Constraints | TASK: DEFERRED — explicit non-requirement; no-op |
@@ -619,10 +627,12 @@ Before starting implementation:
 | FEEDBACK-005 | contract | Invalid action value → 400 `invalid_action` | TASK-016 |
 | FEEDBACK-006 | contract | Mismatched `reason_category` for action → 400 `invalid_reason_category` | TASK-016 |
 | FEEDBACK-007 | contract | `reason_text` > 2000 chars → 400 `reason_text_too_long` | TASK-016 |
-| FEEDBACK-008 | integration | Two views within 30 s → second returns `{recorded:false, reason:"dedup_window"}`; one log row | TASK-017 (also unit-level in TASK-015) |
-| FEEDBACK-009 | integration | 5 decisions, 2 with feedback, `GET /v1/feedback/pending?older_than_days=0` → `pending_count == 3` | TASK-017 (also unit-level in TASK-015) |
+| FEEDBACK-008 | integration | Two views within the 60 s dedup window (e.g. 10 s apart) → second returns `{recorded:false, reason:"dedup_window"}`; one log row | TASK-017 (also unit-level in TASK-015) |
+| FEEDBACK-013 | contract | `reject` + `wrong_decision_type` without `suggested_decision_type` → 400 `suggested_decision_type_required` | TASK-016 |
+| FEEDBACK-014 | contract | `suggested_decision_type` present with `reason_category=not_at_risk` → 400 `suggested_decision_type_forbidden` | TASK-016 |
+| FEEDBACK-009 | integration | 5 decisions, 2 with feedback, `GET /v1/decisions/feedback/pending?older_than_days=0` → `pending_count == 3` | TASK-017 (also unit-level in TASK-015) |
 | FEEDBACK-010 | integration | Multiple feedback rows; `latest_action` reflects most recent | TASK-017 |
-| FEEDBACK-011 | contract | Cross-org isolation on `GET /v1/feedback/pending` | TASK-016 |
+| FEEDBACK-011 | contract | Cross-org isolation on `GET /v1/decisions/feedback/pending` | TASK-016 |
 | FEEDBACK-012 | unit/contract | Append-only: `PUT`/`DELETE` on feedback → 404/405 | TASK-016 |
 | FEEDBACK-013 | contract | `reject` + `wrong_decision_type` without `suggested_decision_type` → 400 `suggested_decision_type_required` | TASK-016 |
 | FEEDBACK-014 | contract | `suggested_decision_type` present with `reason_category=not_at_risk` → 400 `suggested_decision_type_forbidden` | TASK-016 |
@@ -633,10 +643,11 @@ Before starting implementation:
 
 | Spec section | Spec says | Plan does | Resolution |
 |--------------|-----------|-----------|------------|
-| `dashboard-passphrase-gate.md` § Implementation Notes | `dp_session` is deliberately scoped to `Path=/dashboard` and not sent to `/v1/*` (FERPA isolation) | Plan **preserves** that isolation: `dp_session` is untouched. Instead, a **sibling `fb_session` cookie** (`Path=/v1/feedback`, same HMAC, same TTL, same `HttpOnly`/`Secure`/`SameSite=strict`) is minted at `/dashboard/login` and cleared on logout. | **Additive spec update** — `dashboard-passphrase-gate.md` gains a new § "Sibling cookie: `fb_session`" in the same PR. The original `dp_session` cookie specification table is NOT modified. This resolves the original structural conflict flagged during `/review` on 2026-04-23 (Option A per product decision). |
+| `dashboard-passphrase-gate.md` § Implementation Notes | `dp_session` is deliberately scoped to `Path=/dashboard` and not sent to `/v1/*` (FERPA isolation) | Plan **preserves** that isolation: `dp_session` is untouched. Instead, a **sibling `fb_session` cookie** (`Path=/v1/decisions`, same HMAC, same TTL, same `HttpOnly`/`Secure`/`SameSite=strict`) is minted at `/dashboard/login` and cleared on logout. | **Additive spec update** — `dashboard-passphrase-gate.md` gains a new § "Sibling cookie: `fb_session`" in the same PR. The original `dp_session` cookie specification table is NOT modified. This resolves the original structural conflict flagged during `/review` on 2026-04-23 (Option A per product decision). |
 | Spec § Data Model § DynamoDB `SK = feedback\|view#<timestamp>#<uuid>` | `\|` is disjunction, not a literal delimiter | SK encoded as `feedback#<ts>#<uuid>` OR `view#<ts>#<uuid>` | **Resolved in spec 2026-04-23** — `educator-feedback-api.md` § Data Model now explicitly states the kind-prefix pattern and clarifies the disjunction. Plan literals match spec exactly. |
-| Spec § Endpoints § `GET /v1/feedback/pending` | Endpoint works in all deployments | Phase 1 DynamoDB path returns `501 not_implemented_on_cloud` for `countPendingByType` (SQLite host only) | **Resolved in spec 2026-04-23** — `educator-feedback-api.md` § "Deployment Parity (Phase 1)" documents the 501, the Phase-1 mitigation (Decision Panel consumes pending only via SQLite; AWS dashboards read from export bundle), and the follow-up (`feedback-pending-counter.plan.md`, not blocking Wave 3). |
+| Spec § Endpoints § `GET /v1/decisions/feedback/pending` | Endpoint works in all deployments | Phase 1 DynamoDB path returns `501 not_implemented_on_cloud` for `countPendingByType` (SQLite host only) | **Resolved in spec 2026-04-23** — `educator-feedback-api.md` § "Deployment Parity (Phase 1)" documents the 501, the Phase-1 mitigation (Decision Panel consumes pending only via SQLite; AWS dashboards read from export bundle), and the follow-up (`feedback-pending-counter.plan.md`, not blocking Wave 3). |
 | OpenAPI updates | Not explicitly required in spec | Plan adds them (TASK-014) | **Implementation detail — spec silent** — OpenAPI is a repo convention, not a spec requirement |
+| Plan § TASK-011 (2026-04-23) | `fb_session` Path=`/v1/feedback` cannot reach `POST /v1/decisions/:id/feedback` (browser cookie path rules) | `fb_session` Path=`/v1/decisions`; pending moved to `GET /v1/decisions/feedback/pending` | **Resolved 2026-05-14** — `dashboard-passphrase-gate.md` + `educator-feedback-api.md` updated in this PR; isolation test still ensures `/v1/signals` does not receive `dp_session`. |
 
 ---
 
@@ -644,7 +655,7 @@ Before starting implementation:
 
 | Risk | Impact | Mitigation |
 |------|--------|------------|
-| Sibling `fb_session` cookie doubles the login-flow surface area (two set-cookie headers to keep in sync on TTL/secret rotation) | Low | Both cookies share `signSession()` + `COOKIE_SECRET` + `maxAgeSeconds`; GATE-004 integration test asserts both cookies are set atomically and carry identical signatures, catching any future drift. Logout clears both paths. |
+| Sibling `fb_session` cookie doubles the login-flow surface area (two set-cookie headers to keep in sync on TTL/secret rotation) | Low | Both cookies share `signSession()` + `COOKIE_SECRET` + `maxAgeSeconds`; GATE-002 / GATE-011 integration tests assert both cookies are set and cleared atomically with identical signatures. |
 | `countPendingByType` SQL joins against `decisions` table but `SqliteFeedbackRepository` and `SqliteDecisionRepository` are separate DB files | Medium | Accept `SqliteDecisionRepository` (or its DB handle) as a constructor argument so both tables are reachable from one connection, OR `ATTACH DATABASE` at init time. Pick one at TASK-004 kickoff. |
 | DynamoDB `Query` with `begins_with(sk, 'feedback#')` + `FilterExpression decision_id = ...` scans all feedback rows for an org | Low at pilot scale | Add a `GSI1 (org_id, decision_id#created_at)` in a Phase 2 follow-up if latency exceeds p95 50ms. Note in plan, not built now. |
 | `session_id` derived from HMAC prefix is **not** stable across cookie rotations | Low | Shared-passphrase pilot doesn't rotate within a session; documented as Phase II gap per spec § Constraints |
@@ -661,11 +672,11 @@ Before starting implementation:
 - [ ] `npm run validate:api` (redocly) passes
 - [ ] `npm run validate:contracts` passes
 - [ ] `npm run cdk:synth` passes with `FeedbackTable` present
-- [ ] All 12 `FEEDBACK-0xx` test IDs appear as named cases in the test suite
+- [ ] All 14 `FEEDBACK-0xx` test IDs appear as named cases in the test suite
 - [ ] Manual check: `POST /v1/decisions/:id/feedback` without `fb_session` cookie returns `{ code: "session_required" }` JSON, not a 302 redirect
-- [ ] Manual check: `/dashboard/login` response contains two Set-Cookie headers — `dp_session; Path=/dashboard` and `fb_session; Path=/v1/feedback` — and `dp_session` is NOT sent when fetching `/v1/signals` (cookie isolation preserved)
+- [ ] Manual check: `/dashboard/login` response contains two Set-Cookie headers — `dp_session; Path=/dashboard` and `fb_session; Path=/v1/decisions` — and `dp_session` is NOT sent when fetching `/v1/signals` (cookie isolation preserved)
 - [ ] Manual check: `latest_action` reflects most recent row on a decision with 3+ feedback entries
-- [ ] Manual check: `GET /v1/feedback/pending` numbers match a direct SQL count on `decisions.db`
+- [ ] Manual check: `GET /v1/decisions/feedback/pending` numbers match a direct SQL count on `decisions.db`
 - [ ] Deviations from spec § documented and resolved
 
 ---

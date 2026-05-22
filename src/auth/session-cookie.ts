@@ -3,6 +3,9 @@ import { createHmac, timingSafeEqual } from 'crypto';
 /** Session cookie name (path-scoped to `/dashboard`). */
 export const SESSION_COOKIE_NAME = 'dp_session';
 
+/** Sibling cookie for educator feedback under `/v1/decisions/*` — see docs/specs/dashboard-passphrase-gate.md */
+export const FEEDBACK_SESSION_COOKIE_NAME = 'fb_session';
+
 const HMAC_ALGO = 'sha256';
 
 function base64UrlEncodeUtf8(payloadJson: string): string {
@@ -89,6 +92,26 @@ export function buildSetCookieAttributes(opts: {
 } {
   return {
     path: '/dashboard',
+    httpOnly: true,
+    secure: opts.secure,
+    sameSite: 'strict',
+    maxAge: opts.maxAgeSeconds,
+  };
+}
+
+/** Cookie attributes for `fb_session` (Path=/v1/decisions). Same signing/TTL model as `dp_session`. */
+export function buildFeedbackCookieAttributes(opts: {
+  maxAgeSeconds: number;
+  secure: boolean;
+}): {
+  path: string;
+  httpOnly: boolean;
+  secure: boolean;
+  sameSite: 'strict';
+  maxAge: number;
+} {
+  return {
+    path: '/v1/decisions',
     httpOnly: true,
     secure: opts.secure,
     sameSite: 'strict',

@@ -1,10 +1,13 @@
 # Fly.io template (Decision 1 Option A). App name is set when Decision 1 lands
 # (e.g. fly launch --name 8p3p-pilot-springs).
 #
-# SQLite / dry run: `internal-docs/pilot-operations/dry-run-script.md` § Saturday
-# 12:00–12:45 PM pre-flight says to re-seed after a clean slate. Re-seed after any
-# machine stop/start or deploy that wipes the ephemeral volume (SQLite under /app/data).
-# No persistent volume for this dry-run artifact — add volumes when the real pilot starts.
+# Persistence ladder (2026-05-15 CEO direction):
+#   * Dry run only      → leave [[mounts]] commented; SQLite under /app/data is ephemeral,
+#                         re-seed per dry-run-script.md § Saturday 12:00–12:45 PM pre-flight.
+#   * Real pilot (≥1wk) → uncomment [[mounts]] below + set min_machines_running = 1;
+#                         see docs/guides/pilot-host-deployment.md § 7 Pilot persistence.
+#   * Production        → migrate to AWS deployment (DynamoDB) per docs/specs/aws-deployment.md
+#                         once tripwires in § 7 are hit.
 
 # Template — app name filled Thursday evening when Decision 1 lands.
 # app = "8p3p-pilot-springs"  # set via: fly launch --name 8p3p-pilot-springs
@@ -37,7 +40,10 @@ primary_region = "dfw"
 [http_service]
   internal_port = 3000
   force_https = true
-  auto_stop_machines = "stop"     # idle scale-to-zero to hit the $5/month target
+  # Dry run: keep scale-to-zero for ~$5/month.
+  # Real pilot (≥1 week): set auto_stop_machines = "off" and min_machines_running = 1
+  # (Fly Volumes are region-pinned to a single machine — see § 7 Pilot persistence).
+  auto_stop_machines = "stop"
   auto_start_machines = true
   min_machines_running = 0
 
@@ -52,3 +58,11 @@ primary_region = "dfw"
   memory = "512mb"
   cpu_kind = "shared"
   cpus = 1
+
+# Persistent volume for SQLite — UNCOMMENT for any pilot longer than the Springs dry run.
+# Provision once: `fly volumes create data --region dfw --size 3`.
+# Persistence recipe + backup cron + tripwires: docs/guides/pilot-host-deployment.md § 7.
+#
+# [[mounts]]
+#   source      = "data"
+#   destination = "/app/data"

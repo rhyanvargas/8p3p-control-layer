@@ -11,11 +11,11 @@ This spec adds:
 1. A **feedback write endpoint** — `POST /v1/decisions/:decision_id/feedback`
 2. A **feedback read endpoint** — `GET /v1/decisions/:decision_id/feedback`
 3. A **lightweight view log** — `POST /v1/decisions/:decision_id/view` (records that an authenticated educator session opened this decision)
-4. A **soft-prompt state** — `GET /v1/feedback/pending` returning the count of unreviewed decisions ≥ N days old for the calling session (drives a gentle "You have 12 unreviewed decisions" nudge in the panel; not a hard gate)
+4. A **soft-prompt state** — `GET /v1/decisions/feedback/pending` returning the count of unreviewed decisions ≥ N days old for the calling session (drives a gentle "You have 12 unreviewed decisions" nudge in the panel; not a hard gate)
 
 All writes are **append-only** (immutability mirror of signal log). An educator can submit a second feedback row for the same decision (e.g. they change their mind); the latest row is authoritative for MC-B* aggregates.
 
-**Implementation status:** Normative only — this repository does not yet include `src/feedback/`, the HTTP routes below, or matching OpenAPI paths. Track delivery in `.cursor/plans/educator-feedback-api.plan.md`.
+**Implementation status:** Implemented in `src/feedback/` with routes under `/v1/decisions/…` and `GET /v1/decisions/feedback/pending`; see `.cursor/plans/educator-feedback-api.plan.md` for task history.
 
 ---
 
@@ -40,7 +40,7 @@ All writes are **append-only** (immutability mirror of signal log). An educator 
 | `decision_id` | string | FK → `decisions.decision_id` (no DB-level FK in DynamoDB; validated at write time) |
 | `org_id` | string | Tenant scope (same value as `decisions.org_id`) |
 | `learner_reference` | string | Denormalized from the decision for cheap filtering |
-| `session_id` | string (opaque) | Derived from the `fb_session` cookie (sibling of `dp_session`, minted at `/dashboard/login`, scoped to `Path=/v1/feedback`); see `docs/specs/dashboard-passphrase-gate.md` § "Sibling cookie: `fb_session`". This is **not** an educator identity — the pilot uses shared passphrase access. |
+| `session_id` | string (opaque) | Derived from the `fb_session` cookie (sibling of `dp_session`, minted at `/dashboard/login`, scoped to `Path=/v1/decisions`); see `docs/specs/dashboard-passphrase-gate.md` § "Sibling cookie: `fb_session`". This is **not** an educator identity — the pilot uses shared passphrase access. |
 | `action` | string | One of: `approve`, `reject`, `ignore`. Closed set. |
 | `reason_category` | string or null | Optional structured reason. Closed set per action (see below). |
 | `reason_text` | string or null | Optional free-text (≤ 2000 chars). Never contains PII by policy; no enforcement (educators could paste PII — mitigated by pilot training + de-identification at export time per `pilot-research-export.md`). |
@@ -79,7 +79,7 @@ All writes are **append-only** (immutability mirror of signal log). An educator 
 
 ### `POST /v1/decisions/:decision_id/feedback`
 
-**Auth:** `x-api-key` (tenant) **AND** valid `fb_session` cookie (sibling of `dp_session`, minted at `/dashboard/login`; see `docs/specs/dashboard-passphrase-gate.md` § "Sibling cookie: `fb_session`"). Both are required — the API key scopes the org, the `fb_session` cookie is the proxy for "a human educator in the gated dashboard submitted this." `dp_session` alone is not accepted (it is path-scoped to `/dashboard` and is never sent to `/v1/*` endpoints). Server-to-server integrations cannot submit feedback.
+**Auth:** `x-api-key` (tenant) **AND** valid `fb_session` cookie (sibling of `dp_session`, minted at `/dashboard/login`; see `docs/specs/dashboard-passphrase-gate.md` § "Sibling cookie: `fb_session`"). Both are required — the API key scopes the org, the `fb_session` cookie is the proxy for "a human educator in the gated dashboard submitted this." `dp_session` alone is not accepted (it is path-scoped to `/dashboard` and is never sent to `/v1/decisions/*` endpoints). Server-to-server integrations cannot submit feedback.
 
 **Body:**
 
@@ -130,6 +130,7 @@ All writes are **append-only** (immutability mirror of signal log). An educator 
       "action": "approve",
       "reason_category": "agree_primary",
       "reason_text": "...",
+      "suggested_decision_type": null,
       "created_at": "2026-04-20T19:12:04Z"
     }
   ],
@@ -137,7 +138,7 @@ All writes are **append-only** (immutability mirror of signal log). An educator 
 }
 ```
 
-`latest_action` is `null` when the feedback array is empty.
+Each list item includes `suggested_decision_type` (JSON `null` when absent on the stored row). `latest_action` is `null` when the feedback array is empty.
 
 ### `POST /v1/decisions/:decision_id/view`
 
@@ -153,7 +154,7 @@ All writes are **append-only** (immutability mirror of signal log). An educator 
 
 Or `{ "recorded": false, "reason": "dedup_window" }` if within the 60-second coalesce window.
 
-### `GET /v1/feedback/pending`
+### `GET /v1/decisions/feedback/pending`
 
 **Auth:** `x-api-key` (tenant) **AND** valid `fb_session` cookie. The cookie is required because this drives the educator UX nudge.
 
@@ -161,7 +162,7 @@ Or `{ "recorded": false, "reason": "dedup_window" }` if within the 60-second coa
 
 | Param | Required | Description |
 |-------|----------|-------------|
-| `older_than_days` | No | Only count decisions ≥ N days old. Default 3. |
+| `older_than_days` | No | Only count decisions ≥ N days old. Default 3. Non-finite or negative values are treated as the default (same as omitting the param). |
 
 **Response (200):**
 
@@ -181,7 +182,7 @@ Computed as: `decisions WHERE decided_at ≤ NOW - older_than_days AND NOT EXIST
 
 ## Integration Points
 
-1. **Decision Panel (`dashboard/src`).** The *What To Do?* panel's existing Approve / Reject buttons wire to `POST /v1/decisions/:id/feedback`. A new `POST /v1/decisions/:id/view` is called automatically when a card is scrolled into the viewport for ≥ 2 seconds (debounced). A toast appears when `GET /v1/feedback/pending` returns `pending_count ≥ 10` — non-blocking, dismissible.
+1. **Decision Panel (`dashboard/src`).** The *What To Do?* panel's existing Approve / Reject buttons wire to `POST /v1/decisions/:id/feedback`. A new `POST /v1/decisions/:id/view` is called automatically when a card is scrolled into the viewport for ≥ 2 seconds (debounced). A toast appears when `GET /v1/decisions/feedback/pending` returns `pending_count ≥ 10` — non-blocking, dismissible.
 2. **Program-metrics composition.** `GET /v1/admin/program-metrics` (per `program-metrics.md`) reads `decision_feedback` + `decision_view_log` to compute MC-B01..MC-B06, MC-C02 (action-confirmed intervene outcomes), MC-C05 (early-identification), MC-C06 (false-positive rate).
 3. **Research export.** `pilot-research-export.md` includes feedback rows (de-identified) alongside decisions and state deltas.
 
@@ -191,20 +192,20 @@ Computed as: `decisions WHERE decided_at ≤ NOW - older_than_days AND NOT EXIST
 
 ### Functional
 
-- [ ] `POST /v1/decisions/:id/feedback` persists a row to `decision_feedback` and returns the created row
-- [ ] `POST /v1/decisions/:id/view` is idempotent within 60 s per `(decision_id, session_id)`
-- [ ] `GET /v1/decisions/:id/feedback` returns all feedback rows for that decision in `created_at ASC` order
-- [ ] `GET /v1/feedback/pending` returns counts that match a direct `SELECT` on the data
-- [ ] Feedback and views are strictly org-scoped — a caller cannot read or write feedback for another org's decision
-- [ ] Session cookie is required for writes; API-key-only requests to write endpoints return 401 `session_required`
+- [x] `POST /v1/decisions/:id/feedback` persists a row to `decision_feedback` and returns the created row
+- [x] `POST /v1/decisions/:id/view` is idempotent within 60 s per `(decision_id, session_id)`
+- [x] `GET /v1/decisions/:id/feedback` returns all feedback rows for that decision in `created_at ASC` order
+- [x] `GET /v1/decisions/feedback/pending` returns counts that match a direct `SELECT` on the data (SQLite path)
+- [x] Feedback and views are strictly org-scoped — a caller cannot read or write feedback for another org's decision
+- [x] Session cookie is required for writes; API-key-only requests to write endpoints return 401 `session_required`
 
 ### Acceptance Criteria
 
 - Given a decision exists for `org_springs`, when a gated educator submits `{action: "approve"}`, then a row is persisted and the decision's `GET /v1/decisions/:id/feedback` response includes it
 - Given 3 feedback rows exist for one decision with actions `[reject, reject, approve]`, then `latest_action == "approve"`
-- Given an educator calls `POST .../view` twice within 10 s, then the second call returns `{recorded: false, reason: "dedup_window"}` and only one `decision_view_log` row exists
+- Given an educator calls `POST .../view` twice within the 60-second dedup window (e.g. 10 s apart), then the second call returns `{recorded: false, reason: "dedup_window"}` and only one `decision_view_log` row exists
 - Given an API-key-only request (no `fb_session` cookie) to `POST .../feedback`, then response is 401 `session_required`
-- Given 5 decisions in `org_A` and 3 in `org_B`, when `GET /v1/feedback/pending` is called with `org_A`'s key, then response counts only `org_A` decisions
+- Given 5 decisions in `org_A` and 3 in `org_B`, when `GET /v1/decisions/feedback/pending` is called with `org_A`'s key, then response counts only `org_A` decisions
 
 ---
 
@@ -217,16 +218,16 @@ Computed as: `decisions WHERE decided_at ≤ NOW - older_than_days AND NOT EXIST
 
 ## Deployment Parity (Phase 1)
 
-The four endpoints have identical behavior across SQLite (local/pilot host) and DynamoDB (AWS) deployments **except** for `GET /v1/feedback/pending`:
+The four endpoints have identical behavior across SQLite (local/pilot host) and DynamoDB (AWS) deployments **except** for `GET /v1/decisions/feedback/pending`:
 
 | Endpoint | SQLite (pilot host) | DynamoDB (AWS) |
 |----------|---------------------|----------------|
 | `POST /v1/decisions/:id/feedback` | ✅ Full parity | ✅ Full parity |
 | `GET /v1/decisions/:id/feedback` | ✅ Full parity | ✅ Full parity |
 | `POST /v1/decisions/:id/view` | ✅ Full parity | ✅ Full parity |
-| `GET /v1/feedback/pending` | ✅ Joins `decisions` + `decision_feedback` via SQL | ⚠️ **Phase 1: returns `501 not_implemented_on_cloud`** — an efficient `countPendingByType` requires either (a) a materialized pending-counter item updated on every decision/feedback write, or (b) a GSI with `(org_id, decided_at)` — both are out-of-scope for Wave 3 |
+| `GET /v1/decisions/feedback/pending` | ✅ Joins `decisions` + `decision_feedback` via SQL | ⚠️ **Phase 1: returns `501 not_implemented_on_cloud`** — an efficient `countPendingByType` requires either (a) a materialized pending-counter item updated on every decision/feedback write, or (b) a GSI with `(org_id, decided_at)` — both are out-of-scope for Wave 3 |
 
-**Phase 1 mitigation.** The Decision Panel consumes `GET /v1/feedback/pending` only when running against the pilot SQLite host. AWS dashboards for DOE reviewers read the pending-count value from the static `pilot-research-export.md` bundle (`MANIFEST.counts`) rather than calling the live endpoint, so the 501 is not user-facing in Phase 1.
+**Phase 1 mitigation.** The Decision Panel consumes `GET /v1/decisions/feedback/pending` only when running against the pilot SQLite host. AWS dashboards for DOE reviewers read the pending-count value from the static `pilot-research-export.md` bundle (`MANIFEST.counts`) rather than calling the live endpoint, so the 501 is not user-facing in Phase 1.
 
 **Follow-up.** A later plan (`.cursor/plans/feedback-pending-counter.plan.md`, TBD) will add the materialized counter for DynamoDB and remove the 501. That plan is **not blocking** for Wave 3 SBIR evidence delivery.
 
@@ -279,13 +280,24 @@ The four endpoints have identical behavior across SQLite (local/pilot host) and 
 
 | Code | HTTP | Description |
 |------|------|-------------|
-| `session_required` | 401 | Missing or invalid `fb_session` cookie on a write endpoint (note: `dp_session` alone is insufficient — it is path-scoped to `/dashboard` and never reaches `/v1/*`) |
+| `session_required` | 401 | Missing or invalid `fb_session` cookie on a write endpoint (note: `dp_session` alone is insufficient — it is path-scoped to `/dashboard` and never reaches `/v1/decisions/*`) |
 | `decision_not_found` | 404 | `decision_id` does not exist or belongs to a different org |
-| `invalid_action` | 400 | `action` not in `{approve, reject, ignore}` |
-| `invalid_reason_category` | 400 | `reason_category` not in the closed set for the given `action` |
+| `invalid_action` | 400 | `action` missing or not in `{approve, reject, ignore}`; on `POST .../feedback`, a non-object JSON body (e.g. an array) also returns this code |
+| `invalid_reason_category` | 400 | `reason_category` not in the closed set for the given `action`, or `suggested_decision_type` not one of the four decision types when `reason_category` is `wrong_decision_type` |
 | `suggested_decision_type_required` | 400 | `reject` + `wrong_decision_type` without `suggested_decision_type` |
 | `suggested_decision_type_forbidden` | 400 | `suggested_decision_type` present when `reason_category` is not `wrong_decision_type` |
 | `reason_text_too_long` | 400 | `reason_text` > 2000 chars |
+| `not_implemented_on_cloud` | 501 | `GET /v1/decisions/feedback/pending` on the DynamoDB deployment path (Phase 1); response body includes zeroed counts and `code` for machine clients |
+
+---
+
+## Implementation Notes
+
+- **Org resolution on writes:** Handlers resolve `org_id` from the JSON body, the query string, or `API_KEY_ORG_ID` (dev override), consistent with other `/v1` routes — the API key still scopes the tenant; the body/query `org_id` must match operational expectations for the deployment.
+- **Empty optional strings:** `reason_category`, `reason_text`, and `suggested_decision_type` sent as `""` are treated as absent (`null`) before validation and persistence — same as omitting the field. Closed-set checks for `reason_category` apply only when a non-empty string is present.
+- **Non-object body on `POST .../feedback`:** If the parsed JSON body is not a plain object (e.g. an array), the server responds with **400** and code `invalid_action` (same code as a missing/invalid `action` field). This project does not emit `invalid_request_body` on this route.
+- **Invalid `suggested_decision_type` value:** When `action == "reject"` and `reason_category == "wrong_decision_type"` but `suggested_decision_type` is not one of the four `DECISION_TYPES` values, the server responds with **400** and code `invalid_reason_category` (message clarifies the decision-type constraint).
+- **501 pending (cloud):** The JSON body includes `org_id`, `pending_count: 0`, empty `pending_by_type`, `oldest_decided_at: null`, and `threshold_days` echoing the request, alongside `code: "not_implemented_on_cloud"`.
 
 ---
 
@@ -300,10 +312,10 @@ The four endpoints have identical behavior across SQLite (local/pilot host) and 
 | FEEDBACK-005 | contract | Invalid action value → 400 `invalid_action` | 400 |
 | FEEDBACK-006 | contract | Mismatched `reason_category` for action → 400 `invalid_reason_category` | 400 |
 | FEEDBACK-007 | contract | `reason_text` > 2000 chars → 400 `reason_text_too_long` | 400 |
-| FEEDBACK-008 | integration | Two views within 30 s → second returns `{recorded:false, dedup}` | 200 |
-| FEEDBACK-009 | integration | 5 decisions, 2 with feedback, `GET /v1/feedback/pending?older_than_days=0` → `pending_count == 3` | 200 |
+| FEEDBACK-008 | integration | Two views within the 60 s dedup window (e.g. 10 s apart) → second returns `{recorded:false, reason: "dedup_window"}` | 200 |
+| FEEDBACK-009 | integration | 5 decisions, 2 with feedback, `GET /v1/decisions/feedback/pending?older_than_days=0` → `pending_count == 3` | 200 |
 | FEEDBACK-010 | integration | Multiple feedback rows on one decision; `latest_action` reflects most recent | 200 |
-| FEEDBACK-011 | contract | Cross-org isolation on `GET /v1/feedback/pending` | 200; no cross-org data |
+| FEEDBACK-011 | contract | Cross-org isolation on `GET /v1/decisions/feedback/pending` | 200; no cross-org data |
 | FEEDBACK-012 | unit | Append-only: attempted update returns `405 method_not_allowed` or no route exists | 404/405 |
 | FEEDBACK-013 | contract | `reject` + `wrong_decision_type` without `suggested_decision_type` → 400 | 400 |
 | FEEDBACK-014 | contract | `suggested_decision_type` with `reason_category=not_at_risk` (or any non-`wrong_decision_type`) → 400 | 400 |
@@ -320,7 +332,7 @@ src/
 │   ├── dynamodb-repository.ts     # DynamoDbFeedbackRepository (AWS)
 │   ├── handler-core.ts            # Framework-agnostic logic (validation, dedup)
 │   ├── handler.ts                 # Fastify route handlers
-│   └── routes.ts                  # Route registration under /v1/decisions/:id/feedback, /v1/decisions/:id/view, /v1/feedback/pending
+│   └── routes.ts                  # Route registration under /v1/decisions/:id/feedback, /v1/decisions/:id/view, /v1/decisions/feedback/pending
 ```
 
 ---
