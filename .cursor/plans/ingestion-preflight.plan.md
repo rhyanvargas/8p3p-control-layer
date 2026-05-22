@@ -2,54 +2,57 @@
 name: Ingestion Preflight (Forbidden-Key Categorization + Dry-Run Endpoint)
 overview: Split FORBIDDEN_KEYS into PII and semantic subsets (keeping the union for backward compat), extend detectForbiddenKeys to return the matched category, add a structured-log category field to the existing /v1/signals rejection path, and ship POST /v1/admin/ingestion/preflight — an admin-only, side-effect-free dry-run endpoint that analyses a raw customer sample, optionally simulates tenant field-mapping via resolveTenantPayloadMappingForIngest + normalizeAndValidateTenantPayload, and returns { forbidden_pii, forbidden_semantic_raw, forbidden_semantic_after_mapping, mapping_suggestions, verdict } keyed to a static per-source-system suggestion catalog. Zero change to live /v1/signals rejection contract. Ships alongside the new error code preflight_missing_scope_pair, OpenAPI updates, Lambda/CDK wiring for AdminFunction, contract tests INGEST-PREFLIGHT-001–012, unit tests FORBIDDEN-KEYS-SPLIT-001–005, and a one-line pilot-readiness gate edit.
 todos:
-  - id: "TASK-001"
+  - id: TASK-000
+    content: Pre-implementation consistency cleanup (3 spec deviations + 1 strategy-report correction)
+    status: pending
+  - id: TASK-001
     content: Add preflight_missing_scope_pair error code
-    status: "pending"
-  - id: "TASK-002"
+    status: pending
+  - id: TASK-002
     content: Extend ForbiddenKeyResult with category field
-    status: "pending"
-  - id: "TASK-003"
+    status: pending
+  - id: TASK-003
     content: Split forbidden-keys.ts into PII + semantic sets (keep union)
-    status: "pending"
-  - id: "TASK-004"
+    status: pending
+  - id: TASK-004
     content: Update detectForbiddenKeys to return category
-    status: "pending"
-  - id: "TASK-005"
+    status: pending
+  - id: TASK-005
     content: Add category to /v1/signals rejection structured log (no contract change)
-    status: "pending"
-  - id: "TASK-006"
+    status: pending
+  - id: TASK-006
     content: Unit tests FORBIDDEN-KEYS-SPLIT-001..005
-    status: "pending"
-  - id: "TASK-007"
+    status: pending
+  - id: TASK-007
     content: Add ulid dependency for pf_<ulid> preflight IDs
-    status: "pending"
-  - id: "TASK-008"
+    status: pending
+  - id: TASK-008
     content: Create mapping suggestions catalog (static, per-source-system)
-    status: "pending"
-  - id: "TASK-009"
+    status: pending
+  - id: TASK-009
     content: Implement framework-agnostic preflight handler core (no side effects)
-    status: "pending"
-  - id: "TASK-010"
+    status: pending
+  - id: TASK-010
     content: Register POST /v1/admin/ingestion/preflight Fastify route
-    status: "pending"
-  - id: "TASK-011"
+    status: pending
+  - id: TASK-011
     content: Wire preflight route into src/server.ts admin scope
-    status: "pending"
-  - id: "TASK-012"
+    status: pending
+  - id: TASK-012
     content: Wire preflight route into src/lambda/admin-handler.ts
-    status: "pending"
-  - id: "TASK-013"
+    status: pending
+  - id: TASK-013
     content: Add API Gateway route /v1/admin/ingestion/preflight in CDK
-    status: "pending"
-  - id: "TASK-014"
+    status: pending
+  - id: TASK-014
     content: Document POST /v1/admin/ingestion/preflight in openapi.yaml
-    status: "pending"
-  - id: "TASK-015"
+    status: pending
+  - id: TASK-015
     content: Contract tests INGEST-PREFLIGHT-001..012
-    status: "pending"
-  - id: "TASK-016"
+    status: pending
+  - id: TASK-016
     content: Add pilot readiness gate row to pilot-readiness-definition.md
-    status: "pending"
+    status: pending
 isProject: false
 ---
 
@@ -287,6 +290,17 @@ Before starting implementation:
 
 > **Status tracking**: Task status lives **only** in the YAML frontmatter `todos` list to prevent drift. Do not duplicate per-task status inside the task bodies.
 
+### TASK-000: Pre-implementation consistency cleanup
+- **Files**: `docs/specs/ingestion-preflight.md`, `docs/reports/2026-05-15-ingestion-strategy-decision.md`
+- **Action**: Modify
+- **Details**: Doc-only gate before TASK-001..016. Four atomic edits:
+  1. **PII key count** — In `docs/specs/ingestion-preflight.md` § Contract Tests, FORBIDDEN-KEYS-SPLIT-001 row: change *"all 27 PII keys"* → *"all 28 PII keys"* (literal § Requirements list and `src/ingestion/forbidden-keys.ts` lines 59–86 enumerate 28 entries).
+  2. **MappingSuggestion nullability** — Same file § Mapping Suggestion Catalog `MappingSuggestion` interface: `suggested_canonical: string` → `suggested_canonical: string | null` (v1 `status` row has no canonical).
+  3. **INGEST-PREFLIGHT-004 Expected column** — Same file § Contract Tests row: align with § Test strategy note + § Acceptance Criteria — `forbidden_semantic_after_mapping: [{ key: 'score', path: 'payload.submission.score' }]`, `verdict: "semantic_blocking"` (additive normalization retains raw `score`).
+  4. **Strategy report accuracy** — In `docs/reports/2026-05-15-ingestion-strategy-decision.md` § What Changed Tier 1: replace the bullet that claimed `pilot-readiness-definition.md` was already rewritten with preflight gate; state gate is **scheduled in TASK-016**; not yet on disk. Adjust the `docs/specs/ingestion-preflight.md` bullet so it does not claim readiness rows already reference the spec on disk.
+- **Depends on**: none
+- **Verification**: `npm run validate:api` passes; `rg "27 PII keys" docs/specs/ingestion-preflight.md` returns no matches; `rg "string \\| null" docs/specs/ingestion-preflight.md` matches MappingSuggestion shape; `rg "scheduled in TASK-016" docs/reports/2026-05-15-ingestion-strategy-decision.md` returns one match; § Deviations rows for PII count, MappingSuggestion, and INGEST-PREFLIGHT-004 show Resolution **Resolved by TASK-000**.
+
 ### TASK-001: Add `preflight_missing_scope_pair` error code
 - **Files**: `src/shared/error-codes.ts`
 - **Action**: Modify
@@ -343,7 +357,7 @@ if (FORBIDDEN_SEMANTIC_KEYS.has(key)) return { key, path: currentPath, category:
 - **Files**: `tests/unit/forbidden-keys.test.ts`
 - **Action**: Modify
 - **Details**: Extend the existing file (do not create a new one — all forbidden-key unit tests live in this file). Add a new `describe('FORBIDDEN-KEYS-SPLIT', …)` block with:
-  - **FORBIDDEN-KEYS-SPLIT-001**: import `FORBIDDEN_PII_KEYS`, assert `.size === 28` (count the spec § Requirements PII list literally: `firstName`, `lastName`, `first_name`, `last_name`, `fullName`, `full_name`, `email`, `emailAddress`, `email_address`, `phone`, `phoneNumber`, `phone_number`, `ssn`, `social_security`, `socialSecurity`, `birthdate`, `birthday`, `birth_date`, `date_of_birth`, `dateOfBirth`, `dob`, `address`, `streetAddress`, `street_address`, `zipCode`, `zip_code`, `postalCode`, `postal_code` = 28 keys — note spec § Requirements says "all 27 PII keys" in the test narrative but enumerates 28 literal entries; **deviation** tracked in § Deviations below), and assert every item from the semantic list is absent.
+  - **FORBIDDEN-KEYS-SPLIT-001**: import `FORBIDDEN_PII_KEYS`, assert `.size === 28` (count the spec § Requirements PII list literally: `firstName`, `lastName`, `first_name`, `last_name`, `fullName`, `full_name`, `email`, `emailAddress`, `email_address`, `phone`, `phoneNumber`, `phone_number`, `ssn`, `social_security`, `socialSecurity`, `birthdate`, `birthday`, `birth_date`, `date_of_birth`, `dateOfBirth`, `dob`, `address`, `streetAddress`, `street_address`, `zipCode`, `zip_code`, `postalCode`, `postal_code` = 28 keys; spec narrative aligned in TASK-000), and assert every item from the semantic list is absent.
   - **FORBIDDEN-KEYS-SPLIT-002**: import `FORBIDDEN_SEMANTIC_KEYS`, assert `.size === 28` (spec § Requirements enumerates 28 keys), and assert every PII key is absent.
   - **FORBIDDEN-KEYS-SPLIT-003**: assert `FORBIDDEN_KEYS.size === FORBIDDEN_PII_KEYS.size + FORBIDDEN_SEMANTIC_KEYS.size` and that every member of each subset appears in the union.
   - **FORBIDDEN-KEYS-SPLIT-004**: `detectForbiddenKeys({ email: 'x' }, 'payload')` returns `{ key: 'email', path: 'payload.email', category: 'pii' }` and `detectForbiddenKeys({ score: 5 }, 'payload')` returns `{ key: 'score', path: 'payload.score', category: 'semantic' }`.
@@ -546,6 +560,8 @@ export async function handlePreflightCore(
 
 | File | Task | Changes |
 |------|------|---------|
+| `docs/specs/ingestion-preflight.md` | TASK-000 | Resolve 3 spec-internal deviations (PII count, MappingSuggestion null, INGEST-PREFLIGHT-004) |
+| `docs/reports/2026-05-15-ingestion-strategy-decision.md` | TASK-000 | Correct readiness-doc claim; gate scheduled in TASK-016 |
 | `src/shared/error-codes.ts` | TASK-001 | Add `PREFLIGHT_MISSING_SCOPE_PAIR` |
 | `src/shared/types.ts` | TASK-002 | Extend `ForbiddenKeyResult` with `category: 'pii' \| 'semantic'` |
 | `src/ingestion/forbidden-keys.ts` | TASK-003, TASK-004 | Split sets; return category in `detectForbiddenKeys` |
@@ -616,9 +632,9 @@ export async function handlePreflightCore(
 
 | Spec section | Spec says | Plan does | Resolution |
 |--------------|-----------|-----------|------------|
-| § Requirements — Forbidden-key categorization | "exactly the PII keys currently at lines 58–86" and test narrative "**all 27 PII keys** listed in § Requirements" | Plan tests assert `FORBIDDEN_PII_KEYS.size === 28` because the enumerated literal list contains 28 entries (`firstName, lastName, first_name, last_name, fullName, full_name, email, emailAddress, email_address, phone, phoneNumber, phone_number, ssn, social_security, socialSecurity, birthdate, birthday, birth_date, date_of_birth, dateOfBirth, dob, address, streetAddress, street_address, zipCode, zip_code, postalCode, postal_code`). The current `src/ingestion/forbidden-keys.ts` also lists 28 (lines 59–86). | **Update spec in same PR** — correct the test-narrative "27" to "28" in § Contract Tests FORBIDDEN-KEYS-SPLIT-001. |
-| § Mapping Suggestion Catalog — `status` row | `suggested_canonical = —` (em dash) | Plan represents the `status` row with `suggested_canonical: null` in the `MappingSuggestion` interface (adds `| null` to the type) so the catalog stays a flat array and matches JSON serialisation in the endpoint response. Alternative was to simply omit the row — rejected because spec prose says *"preflight flags but does not auto-map"* for `status`, which only holds if the row is present and exposed to telemetry. | **Update spec in same PR** — amend § MappingSuggestion shape to `suggested_canonical: string \| null`. |
-| § Contract Tests — INGEST-PREFLIGHT-004 "Expected" column | `forbidden_semantic_after_mapping: []` (mapping added `masteryScore` — the `score` key is still present but is a raw-layer concern) | § Acceptance Criteria bullet 2 and § Test strategy note both say the after-mapping array **includes** `score` because normalization is additive. The plan assertion follows § Test strategy note (the more specific guidance): expect `forbidden_semantic_after_mapping: [{ key: 'score', path: 'payload.submission.score' }]`, `verdict: 'semantic_blocking'`. The § Contract Tests row and § Acceptance Criteria disagree with each other inside the spec itself. | **Update spec in same PR** — align § Contract Tests row's "Expected" column with § Test strategy note + § Acceptance Criteria: hit list retains `score`, verdict is `semantic_blocking`. |
+| § Requirements — Forbidden-key categorization | "exactly the PII keys currently at lines 58–86" and test narrative "**all 27 PII keys** listed in § Requirements" | Plan tests assert `FORBIDDEN_PII_KEYS.size === 28` because the enumerated literal list contains 28 entries (`firstName, lastName, first_name, last_name, fullName, full_name, email, emailAddress, email_address, phone, phoneNumber, phone_number, ssn, social_security, socialSecurity, birthdate, birthday, birth_date, date_of_birth, dateOfBirth, dob, address, streetAddress, street_address, zipCode, zip_code, postalCode, postal_code`). The current `src/ingestion/forbidden-keys.ts` also lists 28 (lines 59–86). | **Resolved by TASK-000** — correct the test-narrative "27" to "28" in § Contract Tests FORBIDDEN-KEYS-SPLIT-001. |
+| § Mapping Suggestion Catalog — `status` row | `suggested_canonical = —` (em dash) | Plan represents the `status` row with `suggested_canonical: null` in the `MappingSuggestion` interface (adds `| null` to the type) so the catalog stays a flat array and matches JSON serialisation in the endpoint response. Alternative was to simply omit the row — rejected because spec prose says *"preflight flags but does not auto-map"* for `status`, which only holds if the row is present and exposed to telemetry. | **Resolved by TASK-000** — amend § MappingSuggestion shape to `suggested_canonical: string \| null`. |
+| § Contract Tests — INGEST-PREFLIGHT-004 "Expected" column | `forbidden_semantic_after_mapping: []` (mapping added `masteryScore` — the `score` key is still present but is a raw-layer concern) | § Acceptance Criteria bullet 2 and § Test strategy note both say the after-mapping array **includes** `score` because normalization is additive. The plan assertion follows § Test strategy note (the more specific guidance): expect `forbidden_semantic_after_mapping: [{ key: 'score', path: 'payload.submission.score' }]`, `verdict: 'semantic_blocking'`. The § Contract Tests row and § Acceptance Criteria disagree with each other inside the spec itself. | **Resolved by TASK-000** — align § Contract Tests row's "Expected" column with § Test strategy note + § Acceptance Criteria: hit list retains `score`, verdict is `semantic_blocking`. |
 | § Concrete Values — Routes registered | `/v1/admin/ingestion/preflight` | Plan implements route path exactly as written. | **Reverted — plan now matches spec.** |
 | § Requirements — response body `mapping_suggestions[]` entry shape | Each entry has `raw_key`, `raw_path`, `suggested_canonical`, `rationale`, `source` | Plan emits entries with exactly those five fields; when the catalog matches multiple suggestions for a raw key (e.g. future expansion), all are emitted — spec is silent on single-vs-multiple but v1 catalog has at most one match per `(raw_key, source_system)`. | Implementation detail — spec silent. |
 
@@ -644,20 +660,40 @@ export async function handlePreflightCore(
 - [ ] CDK synth succeeds (`cd infra && npx cdk synth`)
 - [ ] `rg -n "checkAndStore|appendSignal|appendIngestionOutcome|applySignals|evaluateState|validateSignalEnvelope" src/ingestion/preflight-handler-core.ts` returns no matches
 - [ ] `tests/contracts/signal-ingestion.test.ts` is **unchanged** on disk (regression guarantee for AC-5)
-- [ ] Spec deviations (rows in § Deviations) resolved in the same PR via a follow-up spec edit or reverted
+- [ ] TASK-000 completed before any of TASK-001..016 (§ Deviations Resolution column points at TASK-000)
 
 ## Implementation Order
 
 ```
-TASK-001 ─┐
-TASK-002 ─┤
-TASK-003 ─┼─▶ TASK-004 ─▶ TASK-005 ─▶ TASK-006
-TASK-007 ─┤                              │
-TASK-008 ─┘                              │
-                                         ▼
-                                     TASK-009 ─▶ TASK-010 ─▶ TASK-011 ─▶ TASK-012 ─▶ TASK-013
-                                                                │
-                                                                ├─▶ TASK-014
-                                                                ├─▶ TASK-015
-                                                                └─▶ TASK-016
+TASK-000 ─┬─▶ TASK-001 ─┐
+          ├─▶ TASK-002 ─┤
+          ├─▶ TASK-003 ─┼─▶ TASK-004 ─▶ TASK-005 ─▶ TASK-006
+          ├─▶ TASK-007 ─┤                              │
+          └─▶ TASK-008 ─┘                              │
+                                                       ▼
+                                                   TASK-009 ─▶ TASK-010 ─▶ TASK-011 ─▶ TASK-012 ─▶ TASK-013
+                                                                          │
+                                                                          ├─▶ TASK-014
+                                                                          ├─▶ TASK-015
+                                                                          └─▶ TASK-016
+```
+
+```mermaid
+graph LR
+    T000[TASK-000 cleanup] --> T001
+    T000 --> T002
+    T000 --> T003
+    T000 --> T007
+    T000 --> T008
+    T001 --> T004
+    T002 --> T004
+    T003 --> T004
+    T004 --> T005 --> T006
+    T007 --> T009
+    T008 --> T009
+    T004 --> T009
+    T009 --> T010 --> T011 --> T012 --> T013
+    T010 --> T014
+    T010 --> T015
+    T010 --> T016
 ```

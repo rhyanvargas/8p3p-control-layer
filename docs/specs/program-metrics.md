@@ -97,6 +97,8 @@ These metrics rely on **`docs/specs/decision-outcomes.md`** (derived view joinin
 | Phase 0 (Springs) | 8 weeks from first onboarded educator | Weekly pull; final report at week 8 | `internal-docs/reports/YYYY-MM-DD-springs-pilot-evidence.md` |
 | Phase I (SBIR) | 6 months from site activation | Bi-weekly pull; interim report at month 3; final report at month 6 | `internal-docs/reports/YYYY-MM-DD-sbir-phase-i-evidence.md`; plus a de-identified export per `pilot-research-export.md` for external review |
 
+> **Reporting cadence ≠ ingestion cadence (2026-05-15 CEO direction).** The weekly/bi-weekly cadence above is the **reporting** rhythm (the pull frequency for `GET /v1/admin/program-metrics` and the evidence report). It is **independent** of the **ingestion** cadence — how often the customer sends data. Pilot ingestion is continuous-by-default per `internal-docs/foundation/roadmap.md` item 29 (streaming + preflight + mappings); customers may push hourly via webhooks, daily via SFTP, or any other cadence, with an 8P3P-side watcher converting their cadence to per-event signals. MC-A04 (signal → decision latency, P95 ≤ 300 s) and MC-B05 (decision-to-action latency, ≤ 48 h) **assume continuous ingestion**; weekly batch ingestion would break both budgets by construction. If a pilot is forced into weekly-only ingestion (fallback path only — see `pilot-readiness-definition.md` § Integration), MC-A04 and MC-B05 must be reported as `degraded_by_ingestion_cadence` in that pilot's evidence report rather than computed normally.
+
 ---
 
 ## Requirements
