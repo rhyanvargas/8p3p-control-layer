@@ -10,10 +10,10 @@ todos:
     status: completed
   - id: wave1-templates
     content: "Wave 1 · TASK-W1-3: Execute existing .cursor/plans/integration-templates.plan.md (audit status first; seed Canvas/I-Ready/Branching Minds templates into FieldMappingsTable)"
-    status: pending
+    status: completed
   - id: wave1-gate
     content: "Wave 1 Gate: full test suite green, contracts validate, Springs pilot ingests Canvas webhook end-to-end, pilot-readiness gate row on disk"
-    status: pending
+    status: completed
   - id: wave2-trajectory
     content: "Wave 2 · TASK-W2-1: Open .cursor/plans/learner-trajectory-api.plan.md and execute (getStateVersionRange, trajectory handler core, route, OpenAPI, contract tests)"
     status: pending
