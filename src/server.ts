@@ -144,6 +144,19 @@ const server = Fastify({
   }
 });
 
+const registeredEndpoints = new Set<string>();
+const INTERNAL_ROUTE_PREFIXES = ['/docs/', '/*'];
+server.addHook('onRoute', (routeOptions) => {
+  const url = routeOptions.url;
+  if (
+    url === '/' ||
+    url === '' ||
+    INTERNAL_ROUTE_PREFIXES.some((p) => url.startsWith(p)) ||
+    url.endsWith('/*')
+  ) return;
+  registeredEndpoints.add(url);
+});
+
 const apiSpecDir = resolve(__dirname, '..', 'docs', 'api');
 const swaggerBrandThemeCss = `
   :root {
@@ -297,7 +310,7 @@ server.get('/', async () => {
   return {
     name: '8P3P Control Layer',
     version: '0.1.0',
-    endpoints: ['/health', '/v1/signals', '/v1/webhooks/:source_system', '/v1/ingestion', '/v1/state', '/v1/state/list', '/v1/decisions', '/v1/decisions/:decision_id/feedback', '/v1/decisions/:decision_id/view', '/v1/decisions/feedback/pending', '/v1/receipts', '/v1/policies', '/v1/policies/:policy_key', '/inspect', '/dashboard', '/docs']
+    endpoints: [...registeredEndpoints].sort(),
   };
 });
 

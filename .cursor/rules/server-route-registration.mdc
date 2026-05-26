@@ -1,0 +1,13 @@
+---
+description: "Route registration in server.ts — endpoints are auto-collected via onRoute hook"
+globs: src/server.ts
+alwaysApply: false
+---
+
+# Server Route Registration
+
+The `GET /` endpoint listing is **auto-generated** via Fastify's `onRoute` hook. A module-level `registeredEndpoints` Set collects every route URL at registration time. Internal routes (`/`, `/docs/*`, wildcard catch-alls) are filtered out.
+
+**No manual endpoint array maintenance required.** Adding a new route via `registerXxxRoutes(app)` inside a scoped plugin automatically includes it in `GET /`.
+
+If a new route should be **excluded** from the listing, add its prefix to `INTERNAL_ROUTE_PREFIXES`.
