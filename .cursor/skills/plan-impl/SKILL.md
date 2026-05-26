@@ -71,19 +71,32 @@ When the user invokes `/plan-impl`:
 
 > **Parity rule of thumb**: If the plan and the spec disagree on any literal value, the disagreement belongs in the `Deviations from Spec` table **with a chosen resolution before coding starts**. A deviation hidden in a task body (JSDoc, risks, or rationale prose) is treated as a drift defect by `/review --spec`.
 
+## YAML Frontmatter Rules
+
+The plan frontmatter **must** parse cleanly as YAML and render correctly in Cursor's plan UI. Follow these rules exactly:
+
+1. **`id` values** — always unquoted: `id: TASK-001`, not `id: "TASK-001"`.
+2. **`status` values** — always unquoted: `status: pending`, not `status: "pending"`. Valid values: `pending`, `in_progress`, `completed`.
+3. **`content` values** — quote with `"..."` **only** when the value contains a YAML-ambiguous character (`: ` followed by a space, `{`, `}`, `#`, `[`, `]`). Otherwise leave unquoted. Never use backticks, `→`, `|`, or markdown formatting (`**bold**`) inside content values.
+4. **`overview` value** — always wrap in `"..."` quotes. Keep it to 1–2 sentences (under 300 chars). No backticks, no markdown bold/italic, no em-dashes. Use plain ASCII. If you need to reference a function name, write it without backticks (e.g. `handleSignalIngestionCore` not `` `handleSignalIngestionCore` ``).
+5. **`name` value** — short plain text, no quotes needed unless it contains a colon.
+6. **No Unicode arrows or special chars** in any frontmatter value — use `to` instead of `→`, `or` instead of `|`, plain hyphen `-` instead of em-dash `—`.
+
+> **Why**: Cursor's plan feature parses the YAML frontmatter to populate the task sidebar. Quoted `id`/`status` values, backticks in `content`, and overlong `overview` strings break rendering or produce phantom tasks.
+
 ## Plan Template
 
 ```markdown
 ---
 name: {Feature Name}
-overview: {One paragraph summary of what will be implemented, including lifecycle stage and key requirements}
+overview: "{One plain-text sentence summarizing what will be implemented and the key constraint.}"
 todos:
-  - id: "TASK-001"
+  - id: TASK-001
     content: {Step Title}
-    status: "pending"
-  - id: "TASK-002"
+    status: pending
+  - id: TASK-002
     content: {Step Title}
-    status: "pending"
+    status: pending
     #... etc
 isProject: false
 ---
