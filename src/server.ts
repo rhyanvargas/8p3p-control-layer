@@ -38,6 +38,7 @@ import { registerPolicyManagementRoutes } from './admin/policy-management-routes
 import { registerPolicyInspectionRoutes } from './policies/routes.js';
 import { registerAdminFieldMappingsRoutes } from './routes/admin-field-mappings.js';
 import { registerAdminIngestionPreflightRoutes } from './routes/admin-ingestion-preflight.js';
+import { registerWebhookRoutes } from './routes/webhooks.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -296,7 +297,7 @@ server.get('/', async () => {
   return {
     name: '8P3P Control Layer',
     version: '0.1.0',
-    endpoints: ['/health', '/v1/signals', '/v1/ingestion', '/v1/state', '/v1/state/list', '/v1/decisions', '/v1/decisions/:decision_id/feedback', '/v1/decisions/:decision_id/view', '/v1/decisions/feedback/pending', '/v1/receipts', '/v1/policies', '/v1/policies/:policy_key', '/inspect', '/dashboard', '/docs']
+    endpoints: ['/health', '/v1/signals', '/v1/webhooks/:source_system', '/v1/ingestion', '/v1/state', '/v1/state/list', '/v1/decisions', '/v1/decisions/:decision_id/feedback', '/v1/decisions/:decision_id/view', '/v1/decisions/feedback/pending', '/v1/receipts', '/v1/policies', '/v1/policies/:policy_key', '/inspect', '/dashboard', '/docs']
   };
 });
 
@@ -313,6 +314,7 @@ server.register(async (v1) => {
   registerDecisionRoutes(v1);
   registerFeedbackRoutes(v1);
   registerPolicyInspectionRoutes(v1);
+  registerWebhookRoutes(v1);
 }, { prefix: '/v1' });
 
 // Register /v1/admin routes — separate scope with admin-only auth.

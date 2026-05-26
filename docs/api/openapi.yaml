@@ -219,6 +219,104 @@ paths:
               schema:
                 $ref: '#/components/schemas/SignalLogError'
 
+  /v1/webhooks/{source_system}:
+    post:
+      tags: [Ingest]
+      operationId: ingestWebhook
+      summary: Ingest a raw LMS webhook
+      description: |
+        **What it does:** Accepts a raw LMS webhook payload, extracts envelope fields using a declarative
+        config stored in FieldMappingsTable, constructs a valid SignalEnvelope, and passes it to the
+        existing ingestion pipeline (same logic as POST /v1/signals — no duplication).
+
+        **When to use:** Configure your LMS (Canvas, iReady, Branching Minds, etc.) to fire webhooks at
+        this endpoint. No client-side SignalEnvelope construction required — the adapter handles extraction.
+
+        **How:** POST the raw LMS webhook body with `x-api-key` header. The source_system path parameter
+        must match a configured envelope mapping in FieldMappingsTable.
+      parameters:
+        - name: source_system
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 64
+          description: LMS identifier matching a configured envelope mapping (e.g. canvas-lms, iready)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+              description: Raw LMS webhook JSON body (opaque to 8P3P; transformed via envelope mapping config)
+            example:
+              submission:
+                id: sub_98765
+                user_id: canvas_student_001
+                submitted_at: '2026-03-28T10:30:00Z'
+                score: 68
+                assignment:
+                  points_possible: 100
+              event_type: submission_created
+      responses:
+        '200':
+          description: Signal accepted or duplicate (same shape as POST /v1/signals)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignalIngestResult'
+              example:
+                org_id: springs
+                signal_id: sub_98765
+                source_system: canvas-lms
+                status: accepted
+                received_at: '2026-03-28T10:30:01Z'
+        '204':
+          description: Event type filtered out (silently dropped). No body. No signal created, no LIU consumed.
+        '400':
+          description: Missing envelope mapping or envelope extraction failure
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                        enum: [missing_envelope_mapping, envelope_extraction_failed, payload_not_object]
+                      message:
+                        type: string
+                    required: [code, message]
+              examples:
+                missing_mapping:
+                  summary: No envelope mapping configured
+                  value:
+                    error:
+                      code: missing_envelope_mapping
+                      message: "No envelope mapping configured for org 'springs' + source_system 'canvas-lms'. Use PUT /v1/admin/mappings/springs/canvas-lms to configure."
+                extraction_failed:
+                  summary: Envelope extraction failure
+                  value:
+                    error:
+                      code: envelope_extraction_failed
+                      message: "Cannot extract learner_reference: path 'submission.user_id' not found in webhook body."
+        '401':
+          description: Unauthorized (missing or invalid API key)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: string
+                    enum: [api_key_required, api_key_invalid]
+                  message:
+                    type: string
+
   /v1/ingestion:
     get:
       tags: [Ingest]

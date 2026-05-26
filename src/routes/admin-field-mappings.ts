@@ -17,7 +17,7 @@ import {
   putFieldMappingItem,
   listFieldMappingItemsForOrg,
 } from '../config/field-mappings-dynamo.js';
-import type { TenantPayloadMapping, TransformRule } from '../config/tenant-field-mappings.js';
+import type { TenantPayloadMapping, TransformRule, EnvelopeMapping } from '../config/tenant-field-mappings.js';
 
 // ---------------------------------------------------------------------------
 // Request type helpers
@@ -165,6 +165,49 @@ function validateMappingBody(body: unknown): ValidationResult {
         }
       }
     }
+  }
+
+  if ((body as Record<string, unknown>).envelope !== undefined) {
+    const rawEnvelope = (body as Record<string, unknown>).envelope;
+    if (rawEnvelope === null || typeof rawEnvelope !== 'object' || Array.isArray(rawEnvelope)) {
+      return { ok: false, code: ErrorCodes.INVALID_FORMAT, message: '"envelope" must be a JSON object when present' };
+    }
+    const env = rawEnvelope as Record<string, unknown>;
+
+    const ALLOWED_ENVELOPE_KEYS = new Set(['learner_reference_path', 'signal_id_path', 'timestamp_path', 'event_type_path', 'allowed_event_types']);
+    for (const key of Object.keys(env)) {
+      if (!ALLOWED_ENVELOPE_KEYS.has(key)) {
+        return { ok: false, code: ErrorCodes.INVALID_FORMAT, message: `envelope contains unknown key "${key}"` };
+      }
+    }
+
+    if (typeof env.learner_reference_path !== 'string' || env.learner_reference_path.trim() === '') {
+      return { ok: false, code: ErrorCodes.INVALID_FORMAT, message: 'envelope.learner_reference_path is required and must be a non-empty string' };
+    }
+    if (env.signal_id_path !== undefined && (typeof env.signal_id_path !== 'string' || env.signal_id_path.trim() === '')) {
+      return { ok: false, code: ErrorCodes.INVALID_FORMAT, message: 'envelope.signal_id_path must be a non-empty string when present' };
+    }
+    if (env.timestamp_path !== undefined && (typeof env.timestamp_path !== 'string' || env.timestamp_path.trim() === '')) {
+      return { ok: false, code: ErrorCodes.INVALID_FORMAT, message: 'envelope.timestamp_path must be a non-empty string when present' };
+    }
+    if (env.event_type_path !== undefined && (typeof env.event_type_path !== 'string' || env.event_type_path.trim() === '')) {
+      return { ok: false, code: ErrorCodes.INVALID_FORMAT, message: 'envelope.event_type_path must be a non-empty string when present' };
+    }
+    if (env.allowed_event_types !== undefined) {
+      if (!Array.isArray(env.allowed_event_types)) {
+        return { ok: false, code: ErrorCodes.INVALID_FORMAT, message: 'envelope.allowed_event_types must be an array when present' };
+      }
+      for (let i = 0; i < env.allowed_event_types.length; i++) {
+        if (typeof env.allowed_event_types[i] !== 'string' || (env.allowed_event_types[i] as string).trim() === '') {
+          return { ok: false, code: ErrorCodes.INVALID_FORMAT, message: `envelope.allowed_event_types[${i}] must be a non-empty string` };
+        }
+      }
+      if (env.event_type_path === undefined) {
+        return { ok: false, code: ErrorCodes.INVALID_FORMAT, message: 'envelope.allowed_event_types requires envelope.event_type_path to be configured' };
+      }
+    }
+
+    mapping.envelope = env as unknown as EnvelopeMapping;
   }
 
   return { ok: true, mapping };

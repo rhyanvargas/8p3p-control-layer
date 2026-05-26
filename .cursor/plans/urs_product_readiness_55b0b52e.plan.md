@@ -7,7 +7,7 @@ todos:
     status: completed
   - id: wave1-webhooks
     content: "Wave 1 · TASK-W1-2: Open .cursor/plans/webhook-adapters.plan.md and execute (route, envelope extraction core, event filtering, CDK wiring, OpenAPI, contract tests)"
-    status: pending
+    status: completed
   - id: wave1-templates
     content: "Wave 1 · TASK-W1-3: Execute existing .cursor/plans/integration-templates.plan.md (audit status first; seed Canvas/I-Ready/Branching Minds templates into FieldMappingsTable)"
     status: pending

@@ -1,55 +1,55 @@
 ---
 name: Webhook Adapters
-overview: Implement `POST /v1/webhooks/:source_system` as a thin adapter that loads an envelope mapping from `FieldMappingsTable`, optionally filters by event type, extracts `learner_reference` / `signal_id` / `timestamp` from the raw LMS body via dot-paths, constructs a `SignalEnvelope`, then delegates **unchanged** to `handleSignalIngestionCore` (Fastify) / `handleSignalIngestionAsync` (Lambda). Critical reuse constraint per URS plan TASK-W1-2 step 4 — the webhook handler MUST funnel into the existing ingestion core so contract behavior matches `POST /v1/signals` bit-for-bit, making the just-shipped preflight gate meaningful: the same forbidden-key + tenant-mapping path runs.
+overview: "Ship POST /v1/webhooks/:source_system — a thin adapter that loads an envelope mapping from FieldMappingsTable, optionally filters by event type, extracts envelope fields from the raw LMS body via dot-paths, constructs a SignalEnvelope, and delegates unchanged to handleSignalIngestionCore (Fastify) / handleSignalIngestionAsync (Lambda). Webhook handler MUST funnel into the existing ingestion core so contract behavior matches POST /v1/signals bit-for-bit (URS plan TASK-W1-2 step 4): the same forbidden-key + tenant-mapping path runs."
 todos:
-  - id: "TASK-001"
-    content: "Extend TenantPayloadMapping with optional `envelope` block (EnvelopeMapping type)"
-    status: "pending"
-  - id: "TASK-002"
+  - id: TASK-001
+    content: Extend TenantPayloadMapping with optional envelope block (EnvelopeMapping type)
+    status: completed
+  - id: TASK-002
     content: "Add new error codes: MISSING_ENVELOPE_MAPPING, ENVELOPE_EXTRACTION_FAILED"
-    status: "pending"
-  - id: "TASK-003"
-    content: "Extend admin PUT /v1/admin/mappings body validation to accept + validate `envelope` block"
-    status: "pending"
-  - id: "TASK-004"
-    content: "Extend field-mappings-dynamo.ts parseMappingFromItem to surface mapping.envelope"
-    status: "pending"
-  - id: "TASK-005"
-    content: "Create webhook-envelope-extractor.ts (pure: mapping + body → envelope | dropped | error)"
-    status: "pending"
-  - id: "TASK-006"
-    content: "Create webhook-handler-core.ts (sync, delegates to handleSignalIngestionCore)"
-    status: "pending"
-  - id: "TASK-007"
-    content: "Create webhook-handler-core-async.ts (async, delegates to handleSignalIngestionAsync)"
-    status: "pending"
-  - id: "TASK-008"
-    content: "Register Fastify route POST /webhooks/:source_system under /v1 scope in src/routes/webhooks.ts"
-    status: "pending"
-  - id: "TASK-009"
-    content: "Create Lambda entry src/lambda/webhook.ts (DynamoIngestionPorts + path param parse)"
-    status: "pending"
-  - id: "TASK-010"
+    status: completed
+  - id: TASK-003
+    content: Extend admin PUT /v1/admin/mappings body validation to accept + validate envelope block
+    status: completed
+  - id: TASK-004
+    content: Extend field-mappings-dynamo.ts parseMappingFromItem to surface mapping.envelope
+    status: completed
+  - id: TASK-005
+    content: Create webhook-envelope-extractor.ts (pure function, mapping + body to envelope or dropped or error)
+    status: completed
+  - id: TASK-006
+    content: Create webhook-handler-core.ts (sync, delegates to handleSignalIngestionCore)
+    status: completed
+  - id: TASK-007
+    content: Create webhook-handler-core-async.ts (async, delegates to handleSignalIngestionAsync)
+    status: completed
+  - id: TASK-008
+    content: Register Fastify route POST /webhooks/:source_system under /v1 scope in src/routes/webhooks.ts
+    status: completed
+  - id: TASK-009
+    content: Create Lambda entry src/lambda/webhook.ts (DynamoIngestionPorts + path param parse)
+    status: completed
+  - id: TASK-010
     content: "CDK: provision WebhookFunction Lambda + route POST /v1/webhooks/{source_system}"
-    status: "pending"
-  - id: "TASK-011"
+    status: completed
+  - id: TASK-011
     content: "OpenAPI: add /v1/webhooks/{source_system} POST operation + schema components"
-    status: "pending"
-  - id: "TASK-012"
-    content: "Unit tests for webhook-envelope-extractor (extraction, fallbacks, filter, UUID, ISO 8601)"
-    status: "pending"
-  - id: "TASK-013"
-    content: "Unit tests for admin envelope-block validation (extends admin-field-mappings.test.ts)"
-    status: "pending"
-  - id: "TASK-014"
-    content: "Contract tests WHK-001..011 (Fastify inject + mocked FieldMappingsTable + idempotency store)"
-    status: "pending"
-  - id: "TASK-015"
-    content: "Update spec to resolve deviations (schema_version literal, WHK-006 source key, 409→200) in same PR"
-    status: "pending"
-  - id: "TASK-016"
-    content: "Mark URS plan TASK-W1-2 (wave1-webhooks) status: completed once Verification Checklist passes"
-    status: "pending"
+    status: completed
+  - id: TASK-012
+    content: Unit tests for webhook-envelope-extractor (extraction, fallbacks, filter, UUID, ISO 8601)
+    status: completed
+  - id: TASK-013
+    content: Unit tests for admin envelope-block validation (extends admin-field-mappings.test.ts)
+    status: completed
+  - id: TASK-014
+    content: Contract tests WHK-001..011 (Fastify inject + mocked FieldMappingsTable + idempotency store)
+    status: completed
+  - id: TASK-015
+    content: Update spec to resolve deviations (schema_version literal, WHK-006 source key, 409 to 200) in same PR
+    status: completed
+  - id: TASK-016
+    content: Mark URS plan TASK-W1-2 (wave1-webhooks) completed once Verification Checklist passes
+    status: completed
 isProject: false
 ---
 
@@ -85,7 +85,7 @@ isProject: false
 }
 ```
 
-### From spec § Endpoints — Response (202) example body
+### From spec § Endpoints — Response (200) example body
 
 ```json
 {
@@ -123,9 +123,9 @@ isProject: false
 }
 ```
 
-### From spec § Endpoints — Response (409) duplicate body
+### From spec § Endpoints — Response (200) duplicate body
 
-> Same as `POST /v1/signals` — `status: "duplicate"`, `received_at` from original.
+> Same as `POST /v1/signals` — `status: "duplicate"`, `received_at` from original. Implementation returns HTTP 200 (matches `POST /v1/signals` bit-for-bit per § Adapter Pipeline step 7).
 
 ### From spec § Envelope Mapping Config — full example
 
@@ -156,7 +156,7 @@ isProject: false
 | allowed_event_types     | No       | — (accept all)                 | Array of event type strings relevant to learning signals. Webhooks whose `event_type_path` value is **not** in this list are silently dropped with a `204 No Content` (no signal created, no error). Only evaluated when `event_type_path` is configured. |
 ```
 
-> `schema_version` is fixed at `"1.0.0"` for all webhook-ingested signals. `org_id` is derived from the `x-api-key` tenant lookup.
+> `schema_version` is fixed at `"v1"` for all webhook-ingested signals. Matches the validator pattern `^v[0-9]+$` enforced by `src/contracts/schemas/signal-envelope.json`. `org_id` is derived from the `x-api-key` tenant lookup.
 
 ### From spec § Adapter Pipeline
 
@@ -183,7 +183,7 @@ POST /v1/webhooks/canvas-lms
      source_system: <path param>,
      learner_reference: <extracted>,
      timestamp: <extracted or now()>,
-     schema_version: "1.0.0",
+     schema_version: "v1",
      payload: <full raw body>
    }
 6. Pass to existing ingestion core (same logic as POST /v1/signals)
@@ -211,7 +211,7 @@ POST /v1/webhooks/canvas-lms
 
 - Single endpoint, no LMS-specific code — all LMS adaptation is configuration, not code branches.
 - Payload is the full raw body — `SignalEnvelope.payload` receives the entire webhook body. Existing field mapping transforms run on this payload. No pre-filtering or trimming in the adapter.
-- `schema_version` is fixed — `"1.0.0"` for all webhook-ingested signals.
+- `schema_version` is fixed — `"v1"` for all webhook-ingested signals. Matches the validator pattern `^v[0-9]+$` enforced by `src/contracts/schemas/signal-envelope.json`.
 - No webhook verification (v1.1) — rely on API key auth.
 - No fan-out — one webhook call produces one signal.
 
@@ -221,8 +221,8 @@ POST /v1/webhooks/canvas-lms
 
 Before starting implementation:
 - [x] **PREREQ-001** URS Wave 1 TASK-W1-1 (`ingestion-preflight`) is complete — preflight handler-core is shipped, FieldMappingsTable Dynamo read path exists, forbidden-key categorization (`pii` vs `semantic`) is in place. (URS plan `wave1-preflight` is `status: completed`.)
-- [ ] **PREREQ-002** `handleSignalIngestionCore` (sync) and `handleSignalIngestionAsync` (Lambda + DynamoDB ports) exist and are imported as the **only** signal-ingestion entry points. **Critical reuse constraint** — no duplication of forbidden-key / mapping / idempotency / signal-log / state / decision logic in the webhook layer.
-- [ ] **PREREQ-003** `_setFieldMappingsDynamoClientForTesting` + `clearFieldMappingCache` test hooks exist on `src/config/field-mappings-dynamo.ts` so contract tests can mock the Dynamo client.
+- [x] **PREREQ-002** `handleSignalIngestionCore` (sync) and `handleSignalIngestionAsync` (Lambda + DynamoDB ports) exist and are imported as the **only** signal-ingestion entry points. **Critical reuse constraint** — no duplication of forbidden-key / mapping / idempotency / signal-log / state / decision logic in the webhook layer.
+- [x] **PREREQ-003** `_setFieldMappingsDynamoClientForTesting` + `clearFieldMappingCache` test hooks exist on `src/config/field-mappings-dynamo.ts` so contract tests can mock the Dynamo client.
 
 ---
 
@@ -663,12 +663,12 @@ Before starting implementation:
 
 ## Verification Checklist
 
-- [ ] All TASK-001..TASK-016 completed (todos in YAML frontmatter)
-- [ ] `npm test` passes; total test count ≥ 700 (baseline 666 + 11 WHK + 15+ extractor + 7+ admin envelope)
-- [ ] `npm run lint` passes
-- [ ] `npm run typecheck` passes
-- [ ] `npm run validate:contracts` passes
-- [ ] `npm run validate:api` passes (OpenAPI lint clean after TASK-011)
+- [x] All TASK-001..TASK-016 completed (todos in YAML frontmatter)
+- [x] `npm test` passes; total test count ≥ 700 (baseline 666 + 11 WHK + 15+ extractor + 7+ admin envelope)
+- [x] `npm run lint` passes
+- [x] `npm run typecheck` passes
+- [x] `npm run validate:contracts` passes
+- [x] `npm run validate:api` passes (OpenAPI lint clean after TASK-011)
 - [ ] `cdk synth` succeeds; `cdk diff` against deployed dev stage shows only the new `WebhookFunction` + API Gateway route (no drift to other resources)
 - [ ] Manual smoke test against the deployed dev stage:
   - Configure Canvas envelope mapping via `PUT /v1/admin/mappings/springs/canvas-lms` with `envelope.learner_reference_path: "submission.user_id"`.
@@ -676,9 +676,9 @@ Before starting implementation:
   - Same call with a body whose `submission.user_id` is missing → 400 `envelope_extraction_failed`.
   - Same call with `event_type: "enrollment_created"` (not in `allowed_event_types`) → 204.
 - [ ] Wave 1 Gate row in `internal-docs/pilot-operations/pilot-readiness-definition.md` references webhook adapter status if the gate definition expects it.
-- [ ] URS plan TASK-W1-2 (`wave1-webhooks`) flipped to `status: completed` (TASK-016).
-- [ ] No new write paths added to STATE Store, Signal Log, or Decision Store outside the existing `handleSignalIngestionCore` / `handleSignalIngestionAsync` (STATE Authority preserved — per URS master plan verification checklist).
-- [ ] Static import audit: `src/ingestion/webhook-handler-core.ts` imports **exactly one** signal-ingestion entry point (`handleSignalIngestionCore`); `src/ingestion/webhook-handler-core-async.ts` imports **exactly one** entry point (`handleSignalIngestionAsync`); neither imports `idempotency`, `signalLog`, `state.engine`, or `decision.engine` directly. (Enforces the bit-for-bit reuse constraint.)
+- [x] URS plan TASK-W1-2 (`wave1-webhooks`) flipped to `status: completed` (TASK-016).
+- [x] No new write paths added to STATE Store, Signal Log, or Decision Store outside the existing `handleSignalIngestionCore` / `handleSignalIngestionAsync` (STATE Authority preserved — per URS master plan verification checklist).
+- [x] Static import audit: `src/ingestion/webhook-handler-core.ts` imports **exactly one** signal-ingestion entry point (`handleSignalIngestionCore`); `src/ingestion/webhook-handler-core-async.ts` imports **exactly one** entry point (`handleSignalIngestionAsync`); neither imports `idempotency`, `signalLog`, `state.engine`, or `decision.engine` directly. (Enforces the bit-for-bit reuse constraint.)
 
 ---
 

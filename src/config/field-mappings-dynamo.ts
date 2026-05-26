@@ -6,7 +6,7 @@
 
 import { DynamoDBClient, ProvisionedThroughputExceededException } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, GetCommand, PutCommand, DeleteCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
-import type { TenantPayloadMapping, TransformRule } from './tenant-field-mappings.js';
+import type { TenantPayloadMapping, TransformRule, EnvelopeMapping } from './tenant-field-mappings.js';
 
 const DEFAULT_CACHE_TTL_MS = 5 * 60 * 1000;
 
@@ -89,6 +89,26 @@ function parseMappingFromItem(item: Record<string, unknown>): TenantPayloadMappi
   }
   if (typeof mapping.strict_transforms === 'boolean') {
     out.strict_transforms = mapping.strict_transforms;
+  }
+  if (mapping.envelope && typeof mapping.envelope === 'object' && !Array.isArray(mapping.envelope)) {
+    const raw = mapping.envelope as Record<string, unknown>;
+    if (typeof raw.learner_reference_path === 'string' && raw.learner_reference_path.trim() !== '') {
+      const env: EnvelopeMapping = { learner_reference_path: raw.learner_reference_path };
+      if (typeof raw.signal_id_path === 'string' && raw.signal_id_path.trim() !== '') {
+        env.signal_id_path = raw.signal_id_path;
+      }
+      if (typeof raw.timestamp_path === 'string' && raw.timestamp_path.trim() !== '') {
+        env.timestamp_path = raw.timestamp_path;
+      }
+      if (typeof raw.event_type_path === 'string' && raw.event_type_path.trim() !== '') {
+        env.event_type_path = raw.event_type_path;
+      }
+      if (Array.isArray(raw.allowed_event_types)) {
+        const filtered = raw.allowed_event_types.filter((x): x is string => typeof x === 'string' && x.trim() !== '');
+        if (filtered.length > 0) env.allowed_event_types = filtered;
+      }
+      out.envelope = env;
+    }
   }
   return out;
 }

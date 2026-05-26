@@ -44,6 +44,7 @@ export class ControlLayerStack extends cdk.Stack {
   readonly feedbackTable: dynamodb.Table;
 
   readonly ingestFunction: lambda.Function;
+  readonly webhookFunction: lambda.Function;
   readonly queryFunction: lambda.Function;
   readonly inspectFunction: lambda.Function;
   readonly adminFunction: lambda.Function;
@@ -195,6 +196,18 @@ export class ControlLayerStack extends cdk.Stack {
     });
 
     // -------------------------------------------------------------------------
+    // Lambda: WebhookFunction — POST /v1/webhooks/{source_system}
+    // -------------------------------------------------------------------------
+
+    this.webhookFunction = new lambda.Function(this, 'WebhookFunction', {
+      ...commonProps,
+      functionName: `control-layer-webhook-${stage}`,
+      handler: 'webhook.handler',
+      description: 'Webhook adapter — POST /v1/webhooks/{source_system}',
+      environment: { ...commonEnv },
+    });
+
+    // -------------------------------------------------------------------------
     // Lambda: QueryFunction — GET /v1/signals, /v1/decisions, /v1/receipts
     // -------------------------------------------------------------------------
 
@@ -247,6 +260,17 @@ export class ControlLayerStack extends cdk.Stack {
     this.policiesTable.grantReadData(this.ingestFunction);
     this.fieldMappingsTable.grantReadData(this.ingestFunction);
     this.tenantsTable.grantReadData(this.ingestFunction);
+
+    // WebhookFunction: same grants as IngestFunction (delegates to same ingestion core)
+    this.signalsTable.grantReadWriteData(this.webhookFunction);
+    this.stateTable.grantReadWriteData(this.webhookFunction);
+    this.appliedSignalsTable.grantReadWriteData(this.webhookFunction);
+    this.decisionsTable.grantReadWriteData(this.webhookFunction);
+    this.idempotencyTable.grantReadWriteData(this.webhookFunction);
+    this.ingestionLogTable.grantReadWriteData(this.webhookFunction);
+    this.policiesTable.grantReadData(this.webhookFunction);
+    this.fieldMappingsTable.grantReadData(this.webhookFunction);
+    this.tenantsTable.grantReadData(this.webhookFunction);
 
     // QueryFunction: read-only on data tables
     this.signalsTable.grantReadData(this.queryFunction);
@@ -373,6 +397,11 @@ export class ControlLayerStack extends cdk.Stack {
     const ingestion = v1.addResource('ingestion');
     ingestion.addMethod('GET', new apigateway.LambdaIntegration(this.inspectFunction));
 
+    // POST /v1/webhooks/{source_system} → WebhookFunction
+    const webhooks = v1.addResource('webhooks');
+    const webhookSource = webhooks.addResource('{source_system}');
+    webhookSource.addMethod('POST', new apigateway.LambdaIntegration(this.webhookFunction));
+
     // /v1/admin/* → AdminFunction (still API key required, but admin-key checked in Lambda)
     const admin = v1.addResource('admin');
     const adminPolicies = admin.addResource('policies');
@@ -415,6 +444,10 @@ export class ControlLayerStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'IngestFunctionName', {
       value: this.ingestFunction.functionName,
       exportName: `ControlLayer-IngestFunctionName-${stage}`,
+    });
+    new cdk.CfnOutput(this, 'WebhookFunctionName', {
+      value: this.webhookFunction.functionName,
+      exportName: `ControlLayer-WebhookFunctionName-${stage}`,
     });
 
     // -------------------------------------------------------------------------

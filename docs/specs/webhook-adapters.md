@@ -56,7 +56,7 @@ Raw LMS webhook JSON. Not an 8P3P `SignalEnvelope`. Shape is LMS-specific and op
 }
 ```
 
-**Response (202):**
+**Response (200):**
 
 ```json
 {
@@ -67,6 +67,8 @@ Raw LMS webhook JSON. Not an 8P3P `SignalEnvelope`. Shape is LMS-specific and op
   "received_at": "2026-03-28T10:30:01Z"
 }
 ```
+
+Implementation returns HTTP 200 (matches `POST /v1/signals` bit-for-bit per § Adapter Pipeline step 7).
 
 **Response (204) — event type filtered out (silently dropped):**
 
@@ -94,9 +96,9 @@ Returned when the webhook body's event type is not in the configured `allowed_ev
 }
 ```
 
-**Response (409) — duplicate signal (idempotency):**
+**Response (200) — duplicate signal (idempotency):**
 
-Same as `POST /v1/signals` — `status: "duplicate"`, `received_at` from original.
+Same as `POST /v1/signals` — `status: "duplicate"`, `received_at` from original. Implementation returns HTTP 200 (matches `POST /v1/signals` bit-for-bit per § Adapter Pipeline step 7).
 
 ---
 
@@ -136,7 +138,7 @@ The `envelope` block within a tenant mapping config defines how to extract `Sign
 | `event_type_path` | No | — | Dot-path to an event type discriminator in the webhook body (e.g. `event_type`). When set, the adapter reads this field and checks it against `allowed_event_types`. When absent, all webhooks are processed. |
 | `allowed_event_types` | No | — (accept all) | Array of event type strings relevant to learning signals. Webhooks whose `event_type_path` value is **not** in this list are silently dropped with a `204 No Content` (no signal created, no error). Only evaluated when `event_type_path` is configured. LMS platforms emit many event types (e.g. Canvas fires `enrollment_created`, `grade_change`, `submission_created`, etc.); this filter ensures only pedagogically relevant events consume LIUs. |
 
-`schema_version` is fixed at `"1.0.0"` for all webhook-ingested signals. `org_id` is derived from the `x-api-key` tenant lookup (same as all `/v1/*` routes).
+`schema_version` is fixed at `"v1"` for all webhook-ingested signals. Matches the validator pattern `^v[0-9]+$` enforced by `src/contracts/schemas/signal-envelope.json`. `org_id` is derived from the `x-api-key` tenant lookup (same as all `/v1/*` routes).
 
 ---
 
@@ -165,7 +167,7 @@ POST /v1/webhooks/canvas-lms
      source_system: <path param>,
      learner_reference: <extracted>,
      timestamp: <extracted or now()>,
-     schema_version: "1.0.0",
+     schema_version: "v1",
      payload: <full raw body>
    }
 6. Pass to existing ingestion core (same logic as POST /v1/signals)
@@ -218,7 +220,7 @@ POST /v1/webhooks/canvas-lms
 
 - **Single endpoint, no LMS-specific code** — all LMS adaptation is configuration, not code branches. Canvas, iReady, Branching Minds, etc. are all handled identically via their respective config.
 - **Payload is the full raw body** — `SignalEnvelope.payload` receives the entire webhook body. Existing field mapping transforms run on this payload. No pre-filtering or trimming in the adapter.
-- **`schema_version` is fixed** — `"1.0.0"` for all webhook-ingested signals. If schema versioning per LMS is needed, defer to a future micro-spec.
+- **`schema_version` is fixed** — `"v1"` for all webhook-ingested signals. Matches the validator pattern `^v[0-9]+$` enforced by signal-envelope.json. If schema versioning per LMS is needed, defer to a future micro-spec.
 - **No webhook verification (v1.1)** — LMS-specific HMAC signature verification (e.g., Canvas webhook shared secret) is out of scope for pilot. Rely on API key auth.
 - **No fan-out** — one webhook call produces one signal. LMS batched webhook events (multiple submissions in one body) are not supported in v1.1.
 
@@ -289,7 +291,7 @@ POST /v1/webhooks/canvas-lms
 | WHK-003 | Envelope extraction failure — learner_reference path missing | Body has no `submission.user_id`; mapping expects it | 400 `envelope_extraction_failed` |
 | WHK-004 | Auto-generated signal_id | Mapping has no `signal_id_path`; valid body | 200 `accepted`; `signal_id` in response is a valid UUID v4 |
 | WHK-005 | Idempotency — duplicate webhook | Same body sent twice (same extracted `signal_id`) | Second response: 200 `status: "duplicate"`, `received_at` from first call |
-| WHK-006 | Tenant field mapping transforms execute on payload | Body: `{ submission: { score: 65 } }`; mapping has transform `value/100 → stabilityScore` | Signal accepted; state contains `stabilityScore: 0.65` |
+| WHK-006 | Tenant field mapping transforms execute on payload | Body: `{ submission: { points: 65 } }`; mapping has transform `source: "submission.points"`, `value/100 → stabilityScore` | Signal accepted; state contains `stabilityScore: 0.65` |
 | WHK-007 | Auth required | No `x-api-key` header | 401 |
 | WHK-008 | Timestamp fallback | Mapping has no `timestamp_path`; valid body | Signal accepted; `timestamp` in stored signal is a valid ISO 8601 server-time |
 | WHK-009 | Event type filter — allowed event proceeds | `event_type_path: "event_type"`, `allowed_event_types: ["submission_created"]`; body `event_type: "submission_created"` | 200 `accepted` — signal created |
@@ -297,6 +299,8 @@ POST /v1/webhooks/canvas-lms
 | WHK-011 | Event type filter — no filter configured, all events pass | No `event_type_path` in mapping config; any body | Signal proceeds to ingestion normally |
 
 > **Test strategy:** WHK-001 through WHK-011 are integration tests using Fastify `inject` with mocked `FieldMappingsTable` GetItem. WHK-005 requires inserting a signal into the idempotency store before the second call. WHK-006 requires a matching tenant field mapping with a transform fixture. WHK-009 through WHK-011 test event type filtering at the adapter layer before envelope extraction.
+
+> **WHK-006 note:** WHK-006 deliberately uses `submission.points` (not a forbidden semantic key) so it can ingest via the bit-for-bit `handleSignalIngestionCore` delegation. Customers whose LMS body contains forbidden keys at the source path (e.g. raw `score`, `grade`) must run preflight first (`POST /v1/admin/ingestion/preflight`) and either remap the source path or strip the forbidden keys upstream.
 
 ---
 

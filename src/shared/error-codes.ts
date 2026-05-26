@@ -209,6 +209,16 @@ export const ErrorCodes = {
    * @see docs/specs/ingestion-preflight.md § Error Codes
    */
   PREFLIGHT_MISSING_SCOPE_PAIR: 'preflight_missing_scope_pair',
+
+  // ==========================================================================
+  // Webhook Adapters (v1.1)
+  // ==========================================================================
+
+  /** No envelope mapping configured for org + source_system (400) */
+  MISSING_ENVELOPE_MAPPING: 'missing_envelope_mapping',
+
+  /** Required envelope field could not be extracted from webhook body (400) */
+  ENVELOPE_EXTRACTION_FAILED: 'envelope_extraction_failed',
 } as const;
 
 export type ErrorCode = typeof ErrorCodes[keyof typeof ErrorCodes];

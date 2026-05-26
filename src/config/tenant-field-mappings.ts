@@ -22,6 +22,25 @@ export interface TransformRule {
   expression: string;
 }
 
+/**
+ * Declarative envelope extraction config for the webhook adapter.
+ * Consumed only by the webhook adapter layer (POST /v1/webhooks/:source_system).
+ * The canonical ingestion pipeline (normalizeAndValidateTenantPayload) ignores this field.
+ * @see docs/specs/webhook-adapters.md §Envelope Mapping Config
+ */
+export interface EnvelopeMapping {
+  /** Dot-path to learner identifier in webhook body (must resolve to a string or number). */
+  learner_reference_path: string;
+  /** Dot-path to a unique signal identifier. If absent or empty, a UUID is generated. */
+  signal_id_path?: string;
+  /** Dot-path to a timestamp field. If absent or not parseable ISO 8601, falls back to ingestion time. */
+  timestamp_path?: string;
+  /** Dot-path to an event type discriminator in the webhook body. */
+  event_type_path?: string;
+  /** Array of event type strings; webhooks not matching are silently dropped (204). Only evaluated when event_type_path is configured. */
+  allowed_event_types?: string[];
+}
+
 export interface TenantPayloadMapping {
   /**
    * Dot-paths required in payload after normalization (e.g. "stabilityScore", "metrics.score").
@@ -47,6 +66,12 @@ export interface TenantPayloadMapping {
    * Default: false (skip the transform when a required path is absent).
    */
   strict_transforms?: boolean;
+  /**
+   * Webhook envelope extraction config. Consumed by the webhook adapter only;
+   * normalizeAndValidateTenantPayload ignores this field entirely.
+   * @see docs/specs/webhook-adapters.md §Envelope Mapping Config
+   */
+  envelope?: EnvelopeMapping;
 }
 
 /** v1 file shape — `tenants[org_id].payload` applies to all source_system values. */
