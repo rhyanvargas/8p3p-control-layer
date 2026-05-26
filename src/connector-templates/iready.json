@@ -1,0 +1,22 @@
+{
+  "template_id": "iready-v1",
+  "template_version": "1.0.0",
+  "source_system": "iready",
+  "display_name": "I-Ready",
+  "description": "Ingests diagnostic and instructional data from Curriculum Associates I-Ready.",
+  "setup_instructions": "TODO — populate after validating I-Ready webhook schema against a real customer payload. Run POST /v1/admin/ingestion/preflight on the raw sample before promoting this template out of stub status.",
+  "default_event_types": [],
+  "available_event_types": [],
+  "mapping": {
+    "envelope": {
+      "learner_reference_path": "TODO",
+      "signal_id_path": "TODO",
+      "timestamp_path": "TODO"
+    },
+    "required": ["TODO"],
+    "aliases": {},
+    "types": {},
+    "transforms": []
+  },
+  "test_payload": {}
+}

@@ -1,293 +1,130 @@
 ---
-name: Integration Templates (Connector Layer — Activation UX)
-overview: >
-  Implements Layer 3 of the Connector Layer stack: a pre-built connector registry
-  (bundled JSON files) and six admin endpoints that let an operator activate an LMS
-  connector in a single API call. Activation copies the bundled template into the
-  existing FieldMappingsTable; subsequent webhook signals flow through Layers 1 and 2
-  unchanged. Ships three pilot templates (Canvas, I-Ready stub, Branching Minds stub)
-  and a dry-run test endpoint that exercises the full ingestion pipeline without
-  persisting signals or consuming LIUs.
+name: Integration Templates (Connector Layer — Pilot Slice)
+overview: |
+  Pilot slice of Layer 3 (Connector Layer). Ships three bundled connector templates (Canvas full, I-Ready stub, Branching Minds stub), a registry loader, and two admin endpoints — `GET /v1/admin/connectors` and `POST /v1/admin/connectors/activate` — plus a thin `apply-template` CLI. Activation copies the template into the existing FieldMappingsTable; Layers 1/2 (transforms + webhook adapter) consume it unchanged. Wizard UX endpoints (PUT config, GET detail, DELETE, POST test) and connection health are deferred to Phase 2 with the admin dashboard.
 todos:
-  - id: "TASK-001"
-    content: "Create connector template JSON files (canvas-lms-v1, iready-v1, branching-minds-v1)"
-    status: "pending"
-  - id: "TASK-002"
-    content: "Create template registry loader — src/connectors/template-registry.ts"
-    status: "pending"
-  - id: "TASK-003"
-    content: "Extend FieldMappingsTable DynamoDB layer with connector write/read/delete ops"
-    status: "pending"
-  - id: "TASK-004"
-    content: "Create connector routes handler file — src/connectors/connector-routes.ts"
-    status: "pending"
-  - id: "TASK-005"
-    content: "Add dry-run mode to ingestion pipeline for /test endpoint"
-    status: "pending"
-  - id: "TASK-006"
-    content: "Add connection health query to signal log DynamoDB repository"
-    status: "pending"
-  - id: "TASK-007"
-    content: "Add new connector error codes to src/shared/error-codes.ts"
-    status: "pending"
-  - id: "TASK-008"
-    content: "Register connector routes in server.ts; add WEBHOOK_BASE_URL env"
-    status: "pending"
-  - id: "TASK-009"
-    content: "Write contract tests INT-001 through INT-023"
-    status: "pending"
+  - id: TASK-007
+    content: Add 4 connector error codes to src/shared/error-codes.ts (template_not_found, template_not_ready, connector_already_activated, custom_mapping_exists)
+    status: completed
+  - id: TASK-001
+    content: Create 3 connector template JSON files (canvas-lms.json full; iready.json + branching-minds.json stubs)
+    status: completed
+  - id: TASK-002
+    content: Create template registry loader — src/connectors/template-registry.ts
+    status: completed
+  - id: TASK-003
+    content: Add getFieldMappingRecord(orgId, sourceSystem) to existing src/config/field-mappings-dynamo.ts
+    status: completed
+  - id: TASK-004
+    content: Create src/connectors/connector-routes.ts with GET /connectors + POST /connectors/activate
+    status: completed
+  - id: TASK-008
+    content: Register connector routes + initTemplateRegistry in server.ts; document WEBHOOK_BASE_URL env
+    status: completed
+  - id: TASK-009
+    content: Contract tests INT-001..007, INT-015, INT-016 in tests/contracts/connector-routes.test.ts
+    status: completed
+  - id: TASK-010
+    content: scripts/apply-template.ts — thin CLI wrapper around POST /v1/admin/connectors/activate
+    status: completed
 isProject: false
 ---
 
-# Integration Templates (Connector Layer — Activation UX)
+# Integration Templates (Connector Layer — Pilot Slice)
 
 **Spec**: `docs/specs/integration-templates.md`
 
+## Pilot Scope Justification
+
+Per `urs_product_readiness_55b0b52e.plan.md` TASK-W1-3 verification — *"`apply-template canvas-lms --org-id <id>` results in functional end-to-end ingest from a recorded Canvas webhook payload"* — pilot value is a one-call seed of `FieldMappingsTable`, not a 6-endpoint activation wizard. Spec `§Admin Dashboard Timing` explicitly defers the dashboard (and the wizard endpoints it consumes) to Phase 2. URS master plan `§Scope boundary` also defers dashboard work.
+
+Deferred to Phase 2 (when dashboard ships): `PUT /:source_system/config`, `GET /:source_system` (detail with `connection_health` + `active_policy`), `DELETE /:source_system`, `POST /:source_system/test` (dry-run), and the corresponding error codes `connector_not_activated` and `invalid_event_type`.
+
 ## Prerequisites
 
-Before starting implementation:
-- [x] PREREQ-001 `FieldMappingsTable` DynamoDB table exists (`docs/specs/tenant-field-mappings.md` v1.1 — spec'd)
-- [x] PREREQ-002 `invalidateFieldMappingCache(orgId, sourceSystem)` implemented in `src/config/field-mappings-dynamo.ts`
-- [x] PREREQ-003 Admin API key middleware exists at `src/auth/admin-api-key-middleware.ts`
-- [x] PREREQ-004 `POST /v1/webhooks/:source_system` defined in `docs/specs/webhook-adapters.md` (may not yet be implemented — see TASK-003 note)
-- [ ] PREREQ-005 `FieldMappingsTable` items support `template_id` + `template_version` attributes (additive — no migration needed per spec)
-- [ ] PREREQ-006 Signal log DynamoDB repository supports Query by `org_id + source_system` with `outcome` filter (needed for connection health — TASK-006)
+- [x] PREREQ-001 `FieldMappingsTable` exists (`docs/specs/tenant-field-mappings.md` v1.1)
+- [x] PREREQ-002 `invalidateFieldMappingCache(orgId, sourceSystem)` in `src/config/field-mappings-dynamo.ts`
+- [x] PREREQ-003 `adminApiKeyPreHandler` at `src/auth/admin-api-key-middleware.ts`
+- [x] PREREQ-004 `POST /v1/webhooks/:source_system` implemented (`src/routes/webhooks.ts`)
+- [x] PREREQ-005 `FieldMappingsTable` items support `template_id` + `template_version` (additive; already in `FieldMappingRecord`)
+- [x] PREREQ-006 `validateTransformExpression` exported from `src/config/transform-expression.ts:274`
+- [x] PREREQ-007 Existing `field-mappings-dynamo.ts` already exports `putFieldMappingItem`, `listFieldMappingItemsForOrg`, `deleteFieldMappingItem`, `getMappingFromDynamoDB` (TASK-003 reuses this; no parallel module)
+
+## Spec Literals (locked)
+
+These values are reproduced verbatim from `docs/specs/integration-templates.md` and must appear identically in plan TASK details and implementation:
+
+| Literal | Value | Source |
+|---|---|---|
+| Template file location | `src/connector-templates/{source_system}.json` | Spec § Template Registry |
+| Canvas `template_id` | `canvas-lms-v1` | Spec § Template Shape example |
+| Canvas `source_system` | `canvas-lms` | Spec § Pilot Templates |
+| Canvas `template_version` | `1.0.0` | Spec § Template Shape example |
+| I-Ready `template_id` | `iready-v1` (stub) | Spec § Pilot Templates |
+| I-Ready `source_system` | `iready` | Spec § Pilot Templates |
+| Branching Minds `template_id` | `branching-minds-v1` (stub) | Spec § Pilot Templates |
+| Branching Minds `source_system` | `branching-minds` | Spec § Pilot Templates |
+| Stub marker | string literal `"TODO"` in any `mapping` value (deep) | Spec § Pilot Templates note |
+| `template_not_found` HTTP | 404 | Spec § Error Codes — New |
+| `template_not_ready` HTTP | 400 | Spec § Error Codes — New |
+| `connector_already_activated` HTTP | 409 | Spec § Error Codes — New |
+| `custom_mapping_exists` HTTP | 409 | Spec § Error Codes — New |
+| `ADMIN_KEY_REQUIRED` HTTP | 401 | `src/shared/error-codes.ts:144` (existing) |
+| `WEBHOOK_BASE_URL` default | `http://localhost:3000` | Spec § Webhook URL Construction |
+| Webhook URL pattern | `{WEBHOOK_BASE_URL}/v1/webhooks/{source_system}` | Spec § Webhook URL Construction |
+| Activation request body | `{ org_id, source_system, force? }` | Spec § Notes (org resolution); spec endpoint example updated for parity |
+| `mapping_version` on activation | `1` | Spec § Activation internals step 4 |
+| `updated_by` on activation | admin API key value (forwarded to `putFieldMappingItem.updatedBy`) | Spec § Activation internals step 4; matches existing `field-mappings-dynamo.ts:215` pattern |
+| Status: `available` | template exists, no row in `FieldMappingsTable` | Spec § GET list status values |
+| Status: `activated` | row with matching `template_id` exists | Spec § GET list status values |
+| Status: `not_ready` | template is a stub (`isStubTemplate` returns true) | Spec § GET list status values |
+
+## Deviations from Spec (PR will update spec for parity)
+
+| # | Spec text | Plan / impl divergence | Resolution |
+|---|---|---|---|
+| D-1 | Spec activate body example shows only `{ "source_system": "canvas-lms" }` | Plan/impl uses `{ org_id, source_system, force? }` per spec § Notes | Update spec § POST /v1/admin/connectors/activate body example in same PR |
+| D-2 | Spec INT-007 expects mixed statuses including `available` for I-Ready | I-Ready ships as a stub (`not_ready`) per § Pilot Templates; no non-stub second template exists for pilot | Update spec INT-007 to expect `{ activated, not_ready, not_ready }` (Canvas + 2 stubs) |
+| D-3 | Spec § Requirements includes `PUT config`, `GET detail`, `DELETE`, `POST test`, `connection_health`, `active_policy`, `upgrade_available` | Pilot defers all to Phase 2 with the dashboard | Add a § Pilot Implementation Scope note to spec; do NOT remove the deferred requirements (Phase 2 will re-pick them up) |
+| D-4 | Spec § Activation internals step 4 implies `UpdateItem` semantics | Pilot uses existing `putFieldMappingItem` (full `PutCommand`) — matches existing admin field-mappings route pattern; no optimistic lock | Document as accepted pilot pattern in spec § Pilot Implementation Scope; Phase 2 will add condition expression when concurrent writers (dashboard) appear |
+
+> **Reverted plan-only divergences**: Prior draft used `{template_id}.json` filenames; corrected to `{source_system}.json` to match spec verbatim — no spec edit needed.
+
+## Requirements Traceability
+
+| Spec § Requirements item | Mapped TASK(s) | Notes |
+|---|---|---|
+| Template registry loads bundled JSON at startup | TASK-002 | `initTemplateRegistry` called from `server.ts` (TASK-008) |
+| `GET /v1/admin/connectors` lists templates with per-org activation status | TASK-004 | Uses `listFieldMappingItemsForOrg` (existing) |
+| `POST /v1/admin/connectors/activate` copies template mapping into `FieldMappingsTable` with `template_id` + `template_version` | TASK-004 | Uses `putFieldMappingItem` (existing) |
+| Activation response returns `webhook_url`, `setup_instructions`, `default_event_types` | TASK-004 | |
+| Activation rejects stubs with 400 `template_not_ready` | TASK-002 (`isStubTemplate`), TASK-004 | |
+| Activation rejects already-activated with 409 `connector_already_activated` (unless `force`) | TASK-004 | Uses `getFieldMappingRecord` from TASK-003 |
+| Activation rejects custom mapping with 409 `custom_mapping_exists` (unless `force`) | TASK-004 | |
+| All endpoints require `x-admin-api-key` | TASK-008 | Scope-level `adminApiKeyPreHandler` (existing pattern from `policy-management-routes`) |
+| All write ops invalidate field mapping cache | TASK-003 reuses existing | `putFieldMappingItem` already calls `invalidateFieldMappingCache` (`field-mappings-dynamo.ts:221`) |
+| `webhook_url` constructed from `WEBHOOK_BASE_URL` env | TASK-004 | Default `http://localhost:3000` |
+| No new DynamoDB tables | (architectural) | Activation writes into existing `FieldMappingsTable` |
+| `PUT config` updates `allowed_event_types` | **DEFERRED to Phase 2** | Per § Pilot Scope Justification |
+| `GET detail` returns `upgrade_available`, `connection_health`, `active_policy` | **DEFERRED to Phase 2** | Per § Pilot Scope Justification |
+| `DELETE` removes row + invalidates cache | **DEFERRED to Phase 2** | Per § Pilot Scope Justification |
+| `POST test` dry-run + `test_` prefixed IDs | **DEFERRED to Phase 2** | Per § Pilot Scope Justification |
 
 ## Tasks
 
-> **Status tracking**: Task status lives **only** in the YAML frontmatter `todos` list to prevent drift. Do not duplicate per-task status inside the task bodies.
+> **Status tracking**: lives only in the YAML frontmatter `todos` list.
 
 ---
 
-### TASK-001: Create connector template JSON files
-
-- **Files**:
-  - `src/connector-templates/canvas-lms-v1.json` ← create
-  - `src/connector-templates/iready-v1.json` ← create
-  - `src/connector-templates/branching-minds-v1.json` ← create
-- **Action**: Create
-- **Details**:
-  - `canvas-lms-v1.json` — fully populated, non-stub. Includes `envelope`, `transforms`, `required`, `types`, `aliases`, `available_event_types`, `default_event_types`, `setup_instructions`, and a realistic `test_payload`. Matches the shape defined in `docs/specs/integration-templates.md §Template Shape`.
-  - `iready-v1.json` and `branching-minds-v1.json` — stub templates: `mapping` fields use `"TODO"` markers (string literal) so the stub check fires. `available_event_types` may be empty or placeholder. Activation of stubs returns `400 template_not_ready`.
-  - All three files: `template_id`, `template_version`, `source_system`, `display_name`, `description` must be present.
-- **Depends on**: none
-- **Verification**:
-  - `canvas-lms-v1.json` passes a local JSON parse without errors.
-  - `iready-v1.json` and `branching-minds-v1.json` contain at least one `"TODO"` string in the `mapping` object.
-  - Running `node -e "import('./src/connector-templates/canvas-lms-v1.json', {assert:{type:'json'}}).then(m => console.log(m.default.template_id))"` prints `canvas-lms-v1`.
-
----
-
-### TASK-002: Create template registry loader
-
-- **Files**: `src/connectors/template-registry.ts` ← create
-- **Action**: Create
-- **Details**:
-  Implement and export:
-  ```ts
-  export interface ConnectorTemplate { /* all fields from spec */ }
-  export function loadTemplateRegistry(): ConnectorTemplate[]
-  export function getTemplate(sourceSystem: string): ConnectorTemplate | undefined
-  export function isStubTemplate(template: ConnectorTemplate): boolean
-  ```
-  - `loadTemplateRegistry()` reads all `*.json` files from `src/connector-templates/` using `fs.readdirSync` + `JSON.parse`. Called once at server startup; results cached in module-level variable.
-  - `isStubTemplate()` returns `true` if any value in the `mapping` object (deep) is the string `"TODO"`.
-  - Add startup validation: for each template, call `validateTransformExpression()` from `src/config/tenant-field-mappings.ts` on each transform expression. Log a structured warning (`event: 'template_validation_warning'`) and mark the template as `not_ready` if validation fails — do NOT throw / crash.
-  - Export `initTemplateRegistry()` that wraps `loadTemplateRegistry()` with the startup warning logic; called from `server.ts`.
-- **Depends on**: TASK-001
-- **Verification**:
-  - Unit test: `getTemplate('canvas-lms')` returns the Canvas template object.
-  - Unit test: `isStubTemplate(ireadyTemplate)` returns `true`.
-  - Unit test: `isStubTemplate(canvasTemplate)` returns `false`.
-
----
-
-### TASK-003: Extend FieldMappingsTable DynamoDB layer for connector operations
-
-- **Files**: `src/connectors/connector-dynamo.ts` ← create
-- **Action**: Create
-- **Details**:
-  New module wrapping DynamoDB calls needed by connector routes. Keeps connector logic separate from the existing `src/config/field-mappings-dynamo.ts` (which handles the read path for signal ingestion).
-
-  Export:
-  ```ts
-  export interface FieldMappingsItem {
-    org_id: string;
-    source_system: string;
-    mapping: Record<string, unknown>;
-    template_id?: string;
-    template_version?: string;
-    mapping_version: number;
-    updated_at: string;
-    updated_by: string;
-  }
-
-  export async function getFieldMappingItem(orgId: string, sourceSystem: string): Promise<FieldMappingsItem | null>
-  export async function putFieldMappingItem(item: FieldMappingsItem): Promise<void>
-  export async function deleteFieldMappingItem(orgId: string, sourceSystem: string): Promise<void>
-  export async function listFieldMappingItemsForOrg(orgId: string): Promise<FieldMappingsItem[]>
-  ```
-
-  - `putFieldMappingItem` uses `PutItem` (full overwrite — no condition expression needed because callers handle conflict logic before writing).
-  - `listFieldMappingItemsForOrg` uses `Query(PK=org_id)` — needed to derive per-org activation status in `GET /v1/admin/connectors`.
-  - Use `FIELD_MAPPINGS_TABLE` env var (same as the existing read layer).
-  - After `putFieldMappingItem` or `deleteFieldMappingItem`, call `invalidateFieldMappingCache(orgId, sourceSystem)` from `src/config/field-mappings-dynamo.ts`.
-
-  > **Note**: The webhook adapter endpoint (`POST /v1/webhooks/:source_system`) is defined in `docs/specs/webhook-adapters.md`. If it is not yet implemented in `src/`, the connector routes depend on it existing at runtime (status after deactivation: `400 missing_envelope_mapping`). The connector implementation itself does not call the webhook adapter; the dependency is behavioural only.
-
-- **Depends on**: none (uses existing AWS SDK already in project)
-- **Verification**:
-  - Unit tests with mocked DynamoDB client: `putFieldMappingItem` calls `PutItemCommand`; `getFieldMappingItem` calls `GetItemCommand`; `deleteFieldMappingItem` calls `DeleteItemCommand`; `listFieldMappingItemsForOrg` calls `QueryCommand`.
-  - `invalidateFieldMappingCache` is called after put and delete.
-
----
-
-### TASK-004: Create connector routes
-
-- **Files**: `src/connectors/connector-routes.ts` ← create
-- **Action**: Create
-- **Details**:
-  Register all six connector endpoints. All require `x-admin-api-key` (enforced at the scope level in `server.ts` — same pattern as `registerPolicyManagementRoutes`).
-
-  **Org resolution (pilot approach per spec §Notes)**: Extract `org_id` from the request body (for POST activate) or from a query param / path-derived lookup. Per spec, pilot adds `org_id` as a required field in the activation request body. For other endpoints (PUT, GET, DELETE), derive `org_id` from the admin key using a helper — if a single `ADMIN_API_KEY` is in use, require `org_id` as a query param on those routes too. Alternatively, store the org_id in the `FieldMappingsTable` row at activation time and look it up. **Decision**: require `org_id` query param on all connector routes for pilot simplicity; document this as pilot behaviour.
-
-  **Endpoints to implement**:
-
-  1. **`GET /connectors`** — list all templates with per-org activation status.
-     - `loadTemplateRegistry()` → array of templates.
-     - `listFieldMappingItemsForOrg(orgId)` → existing rows.
-     - Derive status per template: if matching row with `template_id` → `activated`; if template `isStubTemplate` → `not_ready`; else → `available`.
-     - Return `connectors[]` with `webhook_url` (non-null for activated), `event_types` (non-null for activated).
-
-  2. **`POST /connectors/activate`** — activate a connector.
-     - Body: `{ org_id, source_system, force?: boolean }`.
-     - Template lookup → 404 `template_not_found` if missing.
-     - Stub check → 400 `template_not_ready`.
-     - Existing row check: if `template_id` present → 409 `connector_already_activated` (unless `force`). If row has no `template_id` → 409 `custom_mapping_exists` (unless `force`).
-     - `putFieldMappingItem(...)` with full template mapping, `mapping_version: 1`, `updated_by: adminKeyPrefix`.
-     - Construct `webhook_url` from `WEBHOOK_BASE_URL` env (default `http://localhost:3000`).
-     - Return 201 with activation response.
-
-  3. **`PUT /connectors/:source_system/config`** — update event types.
-     - Load existing row → 404 `connector_not_activated` if absent or no `template_id`.
-     - Validate each event type against template's `available_event_types` → 400 `invalid_event_type`.
-     - Update `mapping.envelope.allowed_event_types`.
-     - Optimistic lock on `mapping_version` (increment).
-     - `putFieldMappingItem(...)` → `invalidateFieldMappingCache`.
-     - Return 200.
-
-  4. **`GET /connectors/:source_system`** — connector detail.
-     - Load template (404 `template_not_found` if missing).
-     - Load row from `FieldMappingsTable`.
-     - Derive `upgrade_available`: `semver.gt(bundledVersion, rowVersion)`.
-     - Query signal log for `connection_health` (via TASK-006 helper).
-     - Query PoliciesTable for active org policy (read via `listPolicies(orgId)` from `src/admin/policies-dynamodb.ts`).
-     - Return full detail response.
-
-  5. **`DELETE /connectors/:source_system`** — deactivate connector.
-     - Load row → 404 `connector_not_activated` if absent.
-     - `deleteFieldMappingItem(orgId, sourceSystem)`.
-     - Return 200.
-
-  6. **`POST /connectors/:source_system/test`** — dry-run test.
-     - Load row → 404 `connector_not_activated`.
-     - Load template's `test_payload`.
-     - Run ingestion pipeline in dry-run mode (TASK-005).
-     - Return step-by-step result, pass/fail, `elapsed_ms`.
-
-- **Depends on**: TASK-002, TASK-003, TASK-005, TASK-006, TASK-007
-- **Verification**:
-  - Integration tests (Fastify `inject`) for all six endpoints covering the happy paths listed in `§Acceptance Criteria`.
-  - Auth missing → 401 (via scope-level middleware, not tested here per middleware test).
-
----
-
-### TASK-005: Add dry-run mode to ingestion pipeline
-
-- **Files**: `src/ingestion/handler-core.ts` ← modify
-- **Action**: Modify
-- **Details**:
-  The test endpoint must run the full pipeline without writing to signal log, state, decisions, or consuming idempotency slots.
-
-  Add optional `dryRun?: boolean` to the options parameter of `handleSignalIngestionCore`:
-
-  ```ts
-  export async function handleSignalIngestionCore(
-    body: unknown,
-    log: Logger,
-    options?: { dryRun?: boolean }
-  ): Promise<HandlerResult<SignalIngestResult> | DryRunResult>
-  ```
-
-  When `dryRun: true`:
-  - Run all validation steps (envelope, forbidden keys, tenant field mapping/transforms).
-  - **Skip**: `checkAndStore`, `appendSignal`, `appendIngestionOutcome`, `applySignals`, `evaluateState` persist calls.
-  - Capture each step result (pass/fail, detail) in a `pipeline_steps` array.
-  - Return a `DryRunResult` shape (not `HandlerResult`) with `test_result: "pass" | "fail"`, `failed_at`, `pipeline_steps`, `elapsed_ms`.
-
-  Define `DryRunResult` in `src/connectors/types.ts` (new file, see TASK-004 files).
-
-  The dry-run path wraps the existing pipeline steps as a sequential check list, capturing step outcome at each stage, and short-circuits on first failure (still returns all steps attempted with their status).
-
-  > **Non-breaking constraint**: existing callers pass no third argument — `options` defaults to `undefined`, behaviour is identical to current.
-
-- **Depends on**: none (modifies existing file)
-- **Verification**:
-  - Unit test: `handleSignalIngestionCore(validBody, {}, { dryRun: true })` returns `test_result: "pass"` with `pipeline_steps` array; no writes to SQLite signal log (mock or check store is empty).
-  - Unit test: body with a missing required field in dry-run returns `test_result: "fail"` at `field_mapping` step.
-  - Existing ingestion tests still pass (no regression).
-
----
-
-### TASK-006: Add connection health query to signal log DynamoDB repository
-
-- **Files**: `src/connectors/connection-health.ts` ← create
-- **Action**: Create
-- **Details**:
-  Implement:
-  ```ts
-  export interface ConnectionHealth {
-    status: 'receiving' | 'idle' | 'stale' | 'error';
-    last_signal_at: string | null;
-    signals_24h: number;
-    errors_24h: number;
-  }
-
-  export async function getConnectionHealth(orgId: string, sourceSystem: string): Promise<ConnectionHealth>
-  ```
-
-  Logic:
-  - Query signal log DynamoDB table (env: `SIGNAL_LOG_TABLE`) filtered by `org_id` + `source_system`, last 24 hours.
-  - If `SIGNAL_LOG_TABLE` not set → return `{ status: 'idle', last_signal_at: null, signals_24h: 0, errors_24h: 0 }` (local dev graceful degradation).
-  - Count rows where `outcome = 'rejected'` → `errors_24h`.
-  - Count total rows → `signals_24h`.
-  - Most recent `received_at` → `last_signal_at`.
-  - Status derivation per spec:
-    - `signals_24h > 0` → `receiving`
-    - `signals_24h === 0` AND `last_signal_at !== null` (historical signals exist outside 24h window — need a secondary query or flag) → `stale`
-    - `last_signal_at === null` (never received any) → `idle`
-    - Last N signals all rejected → `error`
-  - Use `SIGNAL_LOG_TABLE` GSI or scan — check existing `src/signalLog/dynamodb-repository.ts` for the available index structure.
-
-- **Depends on**: none
-- **Verification**:
-  - Unit test with mocked DynamoDB: 47 signals in last 24h → `status: 'receiving'`, `signals_24h: 47`.
-  - Unit test: zero rows ever → `status: 'idle'`.
-  - Unit test: rows exist but all older than 24h → `status: 'stale'`.
-  - Unit test: `SIGNAL_LOG_TABLE` unset → graceful degradation returns `idle`.
-
----
-
-### TASK-007: Add connector error codes to shared/error-codes.ts
+### TASK-007: Add connector error codes (pilot subset)
 
 - **Files**: `src/shared/error-codes.ts` ← modify
 - **Action**: Modify
 - **Details**:
-  Add the following new error codes (all from spec `§Error Codes — New`):
-
+  Append after the existing Webhook Adapters block:
   ```ts
   // ==========================================================================
-  // Integration Templates / Connector Layer (Layer 3)
+  // Integration Templates / Connector Layer (Layer 3 — Pilot)
   // ==========================================================================
 
   /** source_system does not match any bundled template (404) */
@@ -301,94 +138,204 @@ Before starting implementation:
 
   /** A custom (non-template) mapping exists for this org + source_system (409) */
   CUSTOM_MAPPING_EXISTS: 'custom_mapping_exists',
-
-  /** No activated connector exists for this org + source_system (404) */
-  CONNECTOR_NOT_ACTIVATED: 'connector_not_activated',
-
-  /** One or more event types in the request are not in the template's available_event_types (400) */
-  INVALID_EVENT_TYPE: 'invalid_event_type',
   ```
-
+  Phase 2 will add `CONNECTOR_NOT_ACTIVATED` and `INVALID_EVENT_TYPE` when the deferred endpoints land.
 - **Depends on**: none
-- **Verification**:
-  - TypeScript compiles without errors after addition.
-  - All new codes are accessible as `ErrorCodes.TEMPLATE_NOT_FOUND` etc.
+- **Verification**: TypeScript compiles; `ErrorCodes.TEMPLATE_NOT_FOUND` etc. accessible.
 
 ---
 
-### TASK-008: Register connector routes in server.ts; add WEBHOOK_BASE_URL env
+### TASK-001: Create connector template JSON files
+
+- **Files**:
+  - `src/connector-templates/canvas-lms.json` ← create (full)
+  - `src/connector-templates/iready.json` ← create (stub)
+  - `src/connector-templates/branching-minds.json` ← create (stub)
+- **Action**: Create
+- **Details**:
+  All three files share the shape from spec § Template Shape: `template_id`, `template_version`, `source_system`, `display_name`, `description`, `setup_instructions`, `default_event_types`, `available_event_types`, `mapping`, `test_payload` (test_payload is bundled now for forward-compatibility with Phase 2 dry-run; pilot does not consume it).
+
+  - `canvas-lms.json` — full non-stub. `template_id: "canvas-lms-v1"`, `template_version: "1.0.0"`, `source_system: "canvas-lms"`. `mapping.envelope` populated; one `value / 100` transform on `stabilityScore`. Realistic `test_payload`.
+  - `iready.json` — stub. `template_id: "iready-v1"`, `source_system: "iready"`. At least one `"TODO"` string in `mapping` so `isStubTemplate` returns `true`.
+  - `branching-minds.json` — stub. `template_id: "branching-minds-v1"`, `source_system: "branching-minds"`. Same stub pattern.
+- **Depends on**: none
+- **Verification**: All three parse as JSON; `iready.json` and `branching-minds.json` contain `"TODO"` strings; `canvas-lms.json` does NOT contain `"TODO"`.
+
+---
+
+### TASK-002: Create template registry loader
+
+- **Files**: `src/connectors/template-registry.ts` ← create
+- **Action**: Create
+- **Details**:
+  Exports:
+  ```ts
+  export interface ConnectorTemplate {
+    template_id: string;
+    template_version: string;
+    source_system: string;
+    display_name: string;
+    description: string;
+    setup_instructions: string;
+    default_event_types: string[];
+    available_event_types: Array<{ event_type: string; description: string }>;
+    mapping: Record<string, unknown>;
+    test_payload?: Record<string, unknown>;
+  }
+  export function loadTemplateRegistry(): ConnectorTemplate[];
+  export function getTemplate(sourceSystem: string): ConnectorTemplate | undefined;
+  export function isStubTemplate(template: ConnectorTemplate): boolean;
+  export function initTemplateRegistry(log?: { warn?: (obj: unknown, msg: string) => void }): ConnectorTemplate[];
+  ```
+  - Resolve `src/connector-templates/` relative to the module (`import.meta.url`) so it works under `tsx` (dev) and compiled `dist/` (build).
+  - `loadTemplateRegistry()` uses `fs.readdirSync` + `JSON.parse`; results cached at module scope on first call.
+  - `isStubTemplate()` performs a deep walk of `template.mapping`; returns `true` if any string value equals `"TODO"` exactly.
+  - `initTemplateRegistry()` loads + walks every template's `mapping.transforms[].expression` (when present) through `validateTransformExpression(expr, sourceKeys?)`. On failure, log a structured warning `event: 'template_validation_warning'` and do NOT throw. Returns the loaded array.
+- **Depends on**: TASK-001
+- **Verification**:
+  - `getTemplate('canvas-lms')?.template_id === 'canvas-lms-v1'`
+  - `isStubTemplate(iready)` === `true`; `isStubTemplate(canvas)` === `false`
+  - `initTemplateRegistry()` produces no warnings for `canvas-lms.json`
+
+---
+
+### TASK-003: Add `getFieldMappingRecord` to existing field-mappings-dynamo
+
+- **Files**: `src/config/field-mappings-dynamo.ts` ← modify
+- **Action**: Modify
+- **Details**:
+  Add (do NOT create a parallel module; the existing module already exports `putFieldMappingItem`, `listFieldMappingItemsForOrg`, `deleteFieldMappingItem`, and `FieldMappingRecord` with `template_id`/`template_version`):
+  ```ts
+  export async function getFieldMappingRecord(
+    orgId: string,
+    sourceSystem: string
+  ): Promise<FieldMappingRecord | null>
+  ```
+  Implementation mirrors `getMappingFromDynamoDB` but returns the full `FieldMappingRecord` (mapping + metadata) instead of only the mapping. Uses `GetCommand`. Does NOT use the TTL cache (callers need fresh template_id state for conflict checks).
+- **Depends on**: none
+- **Verification**:
+  - Unit test (mocked `DynamoDBDocumentClient`): returns `null` when `Item` is absent or `FIELD_MAPPINGS_TABLE` is unset
+  - Returns `FieldMappingRecord` with `template_id`/`template_version` when present in the item
+
+---
+
+### TASK-004: Create connector routes (pilot — 2 endpoints)
+
+- **Files**: `src/connectors/connector-routes.ts` ← create
+- **Action**: Create
+- **Details**:
+  Export `registerConnectorRoutes(app: FastifyInstance): void`. Routes are registered inside the existing `/v1/admin` scope (TASK-008), so `adminApiKeyPreHandler` enforces auth at the scope level — no per-route auth check.
+
+  **Org resolution (pilot)**: `org_id` is required on every connector route — query param for `GET /connectors`, body field for `POST /connectors/activate`. Matches spec § Notes.
+
+  1. **`GET /connectors?org_id=<id>`** — list all templates with per-org activation status.
+     - 400 if `org_id` missing or empty.
+     - `loadTemplateRegistry()` → array of templates.
+     - `listFieldMappingItemsForOrg(orgId)` → existing rows.
+     - For each template, derive status:
+       - matching row with same `template_id` → `activated`
+       - `isStubTemplate(template)` → `not_ready`
+       - else → `available`
+     - For activated entries: include `template_version`, `event_types` (from `row.mapping.envelope.allowed_event_types` or template's `default_event_types`), `activated_at` (from `row.updated_at`), `webhook_url` (`${WEBHOOK_BASE_URL}/v1/webhooks/${source_system}`).
+     - For non-activated entries: `event_types: null`, `activated_at: null`, `webhook_url: null`.
+     - Response: `{ connectors: [...] }` matching spec § GET response shape (excluding deferred wizard fields).
+
+  2. **`POST /connectors/activate`** body `{ org_id, source_system, force? }`:
+     - 400 if `org_id` or `source_system` missing/blank.
+     - `getTemplate(source_system)` → 404 `template_not_found` if `undefined`.
+     - `isStubTemplate(template)` → 400 `template_not_ready`.
+     - `getFieldMappingRecord(orgId, sourceSystem)`:
+       - if record exists with `template_id` set AND `!force` → 409 `connector_already_activated`
+       - if record exists without `template_id` AND `!force` → 409 `custom_mapping_exists`
+       - if `force` or no record → proceed
+     - `putFieldMappingItem({ orgId, sourceSystem, mapping: <deep copy of template.mapping>, updatedBy: <admin key value>, templateId: template.template_id, templateVersion: template.template_version, mappingVersion: 0 })` — `nextVersion` becomes `1` per existing implementation (`field-mappings-dynamo.ts:203`).
+     - Construct `webhook_url` = `${process.env.WEBHOOK_BASE_URL ?? 'http://localhost:3000'}/v1/webhooks/${source_system}`.
+     - Respond 201 with `{ source_system, status: "activated", webhook_url, event_types: template.default_event_types, setup_instructions: template.setup_instructions, template_id: template.template_id, template_version: template.template_version, activated_at: <record.updated_at> }`.
+
+  Helpers (module-private): `getAdminKey(request)` mirroring `policy-management-routes.ts:46`; `webhookBaseUrl()` returning `process.env.WEBHOOK_BASE_URL?.replace(/\/$/, '') ?? 'http://localhost:3000'`.
+
+  > Deferred to Phase 2: `PUT /:source_system/config`, `GET /:source_system` (detail), `DELETE /:source_system`, `POST /:source_system/test`. Do not stub these — leaving them out keeps the auth/registration surface narrow.
+- **Depends on**: TASK-002, TASK-003, TASK-007
+- **Verification**: Covered by TASK-009.
+
+---
+
+### TASK-008: Wire connector routes into server.ts
 
 - **Files**: `src/server.ts` ← modify
 - **Action**: Modify
 - **Details**:
-  1. Import `registerConnectorRoutes` from `src/connectors/connector-routes.ts`.
-  2. Import `initTemplateRegistry` from `src/connectors/template-registry.ts`.
-  3. Call `initTemplateRegistry()` before route registration (after existing store inits) — logs any template validation warnings at startup.
-  4. Register routes inside the existing `/v1/admin` scope (same scope that runs `adminApiKeyPreHandler`):
+  1. Add imports near the existing route imports:
+     ```ts
+     import { initTemplateRegistry } from './connectors/template-registry.js';
+     import { registerConnectorRoutes } from './connectors/connector-routes.js';
+     ```
+  2. Call `initTemplateRegistry(server.log)` after `loadPolicy()` and after the optional `loadTenantFieldMappingsFromFile(...)` block (so Fastify's logger exists). The function MUST NOT throw on warning; it logs and continues.
+  3. Inside the existing `/v1/admin` scope registration:
      ```ts
      server.register(async (admin) => {
        admin.addHook('preHandler', adminApiKeyPreHandler);
        registerPolicyManagementRoutes(admin);
+       registerAdminFieldMappingsRoutes(admin);
+       registerAdminIngestionPreflightRoutes(admin);
        registerConnectorRoutes(admin);   // ← add
      }, { prefix: '/v1/admin' });
      ```
-  5. Add `WEBHOOK_BASE_URL` to `.env.example` (if it exists) or document in README. The env var has a default of `http://localhost:3000` — no startup error if unset.
-  6. Update `GET /` endpoints list to include `/v1/admin/connectors`.
+  4. `WEBHOOK_BASE_URL` env var: no schema validation, no fail-on-missing — just reads `process.env.WEBHOOK_BASE_URL` at call-site with the `http://localhost:3000` default (per spec § Webhook URL Construction). Add a single-line comment in `server.ts` documenting the env var.
 
-- **Depends on**: TASK-004
+  > **Note**: `initTemplateRegistry` MUST be called after `loadPolicy()` because `server.log` is created when Fastify is instantiated; the function accepts an optional logger and falls back to `console.warn`.
+- **Depends on**: TASK-002, TASK-004
 - **Verification**:
-  - `npm run build` succeeds with no TypeScript errors.
-  - `GET /v1/admin/connectors?org_id=springs` returns 401 without admin key; returns 200 with valid key.
-  - Server starts without warnings from template registry for `canvas-lms-v1.json`.
+  - `npm run build` clean; `npm run typecheck` clean
+  - `GET /v1/admin/connectors?org_id=springs` returns 401 without admin key; 200 with valid key
+  - Server starts without warning on `canvas-lms.json`
 
 ---
 
-### TASK-009: Write contract tests INT-001 through INT-023
+### TASK-009: Contract tests (pilot subset)
 
-- **Files**: `src/connectors/__tests__/connector-routes.test.ts` ← create
+- **Files**: `tests/contracts/connector-routes.test.ts` ← create
 - **Action**: Create
 - **Details**:
-  Using Fastify `inject` with mocked DynamoDB (same pattern as existing admin policy tests).
-  Template registry loaded from test fixtures (`src/connector-templates/`) to isolate from production templates.
+  Mirror the established pattern from `tests/contracts/admin-field-mappings.test.ts`: Fastify `inject`, mocked `DynamoDBDocumentClient` via `_setFieldMappingsDynamoClientForTesting`, `clearFieldMappingCache()` in `beforeEach`/`afterEach`.
 
-  Cover all 23 contract tests from `docs/specs/integration-templates.md §Contract Tests`:
+  Override the template registry for tests by setting `process.env.CONNECTOR_TEMPLATES_DIR` to a fixtures directory under `tests/fixtures/connector-templates/` containing test-only copies of all three templates — keeps production templates immutable from tests. (Add this env override in `template-registry.ts`: if set and non-empty, use it; else resolve relative to `import.meta.url`.)
 
+  Tests (numbered per spec § Contract Tests, pilot subset):
   | Test ID | Focus |
-  |---------|-------|
-  | INT-001 | Happy path activate Canvas |
-  | INT-002 | Activate already-activated (no force) → 409 |
-  | INT-003 | Activate with force override → 201 |
-  | INT-004 | Activate with custom mapping (no force) → 409 |
-  | INT-005 | Activate stub template → 400 |
-  | INT-006 | Activate unknown source_system → 404 |
-  | INT-007 | List connectors — mixed statuses |
-  | INT-008 | Configure event types — valid |
-  | INT-009 | Configure event types — invalid type → 400 |
-  | INT-010 | Configure event types — not activated → 404 |
-  | INT-011 | Deactivate connector |
-  | INT-012 | Deactivate — not activated → 404 |
-  | INT-013 | Get connector detail — activated |
-  | INT-014 | Get connector detail — upgrade available |
-  | INT-015 | Auth required on all endpoints → 401 |
-  | INT-016 | End-to-end: activate → webhook → signal (requires full ingestion pipeline) |
-  | INT-017 | Test webhook — pass (dry-run, no signal persisted) |
-  | INT-018 | Test webhook — mapping failure (dry-run fail) |
-  | INT-019 | Test webhook — not activated → 404 |
-  | INT-020 | Connection health — receiving |
-  | INT-021 | Connection health — idle |
-  | INT-022 | Connection health — stale |
-  | INT-023 | Policy association in detail response |
+  |---|---|
+  | INT-001 | Happy path: `POST /activate { org_id: "springs", source_system: "canvas-lms" }` → 201; `PutCommand` called with `template_id: "canvas-lms-v1"`, `mapping_version: 1`; response has `webhook_url`, `setup_instructions`, `event_types` |
+  | INT-002 | Already-activated (no `force`): existing record with `template_id` set → 409 `connector_already_activated`; no `PutCommand` issued |
+  | INT-003 | `force: true` over existing activated row → 201; `PutCommand` called with new `mapping_version` (current `+ 1` per existing put logic) |
+  | INT-004 | Custom mapping (existing row without `template_id`) without `force` → 409 `custom_mapping_exists` |
+  | INT-005 | Stub template (`source_system: "iready"`) → 400 `template_not_ready`; no DynamoDB call |
+  | INT-006 | Unknown `source_system: "unknown-lms"` → 404 `template_not_found`; no DynamoDB call |
+  | INT-007 | `GET /connectors?org_id=springs` with Canvas activated, I-Ready + Branching Minds stubs → 200; statuses `{ activated, not_ready, not_ready }`; Canvas entry has `webhook_url`, others have `webhook_url: null` |
+  | INT-015 | Auth: `GET /connectors` and `POST /connectors/activate` without `x-admin-api-key` → 401 `admin_key_required` |
+  | INT-016 | E2E: activate Canvas → `POST /v1/webhooks/canvas-lms` with Canvas-shaped body → accepted signal appears in signal log (matches URS TASK-W1-3 verification). Mocks: webhook adapter pipeline through to `appendSignal`; verify call. |
 
-  INT-016 is an end-to-end test that requires the webhook adapter (`POST /v1/webhooks/:source_system`) to be implemented. If not available, mark as `skip` with a TODO comment.
+  Deferred to Phase 2 (not in this PR): INT-008..014, INT-017..023.
+- **Depends on**: TASK-001..008
+- **Verification**: `npm test -- tests/contracts/connector-routes.test.ts` all green.
 
-  INT-017 and INT-018: assert no DynamoDB write to signal log table (mock and verify `PutItemCommand` was NOT called).
+---
 
-  INT-020–022: mock `getConnectionHealth` or the underlying DynamoDB query.
+### TASK-010: `apply-template` CLI
 
-- **Depends on**: TASK-001 through TASK-008
-- **Verification**:
-  - `npm test -- --grep "INT-"` runs all 23 tests; INT-016 may be skipped if webhook adapter is absent.
-  - All non-skipped tests pass.
+- **Files**: `scripts/apply-template.ts` ← create
+- **Action**: Create
+- **Details**:
+  Thin wrapper mirroring `scripts/upload-policy.ts:1-77` (HTTP POST + exit-code reporting). Usage:
+  ```
+  ADMIN_API_KEY=<key> CONTROL_LAYER_URL=http://localhost:3000 \
+    npx tsx scripts/apply-template.ts <source_system> --org-id <org_id> [--force]
+  ```
+  - Defaults: `CONTROL_LAYER_URL` = `http://localhost:3000`
+  - Sends `POST /v1/admin/connectors/activate` with body `{ org_id, source_system, force? }` and header `x-admin-api-key: $ADMIN_API_KEY`.
+  - Prints response JSON; exits 0 on 2xx, 1 otherwise.
+  - This is the artifact called out in URS TASK-W1-3 verification (`apply-template canvas-lms --org-id <id>`).
+- **Depends on**: TASK-004, TASK-008
+- **Verification**: Manual: with server running, `npx tsx scripts/apply-template.ts canvas-lms --org-id springs` returns 201 JSON; second run returns 409 `connector_already_activated`; with `--force` returns 201.
 
 ---
 
@@ -397,100 +344,78 @@ Before starting implementation:
 ### To Create
 
 | File | Task | Purpose |
-|------|------|---------|
-| `src/connector-templates/canvas-lms-v1.json` | TASK-001 | Canvas LMS connector template (full, non-stub) |
-| `src/connector-templates/iready-v1.json` | TASK-001 | I-Ready stub template |
-| `src/connector-templates/branching-minds-v1.json` | TASK-001 | Branching Minds stub template |
+|---|---|---|
+| `src/connector-templates/canvas-lms.json` | TASK-001 | Canvas LMS connector template (full, non-stub) |
+| `src/connector-templates/iready.json` | TASK-001 | I-Ready stub template |
+| `src/connector-templates/branching-minds.json` | TASK-001 | Branching Minds stub template |
 | `src/connectors/template-registry.ts` | TASK-002 | Loads + caches bundled templates; startup validation |
-| `src/connectors/connector-dynamo.ts` | TASK-003 | DynamoDB ops for FieldMappingsTable (connector write path) |
-| `src/connectors/connector-routes.ts` | TASK-004 | All 6 connector admin endpoints |
-| `src/connectors/types.ts` | TASK-005 | `DryRunResult`, `ConnectorStatus`, shared connector types |
-| `src/connectors/connection-health.ts` | TASK-006 | Signal log query → `ConnectionHealth` |
-| `src/connectors/__tests__/connector-routes.test.ts` | TASK-009 | INT-001 through INT-023 contract tests |
+| `src/connectors/connector-routes.ts` | TASK-004 | `GET /connectors` + `POST /connectors/activate` |
+| `tests/contracts/connector-routes.test.ts` | TASK-009 | INT-001..007, INT-015, INT-016 |
+| `tests/fixtures/connector-templates/*.json` | TASK-009 | Test-only template copies |
+| `scripts/apply-template.ts` | TASK-010 | CLI wrapper for activation endpoint |
 
 ### To Modify
 
-| File | Task | Changes |
-|------|------|---------|
-| `src/ingestion/handler-core.ts` | TASK-005 | Add optional `dryRun` mode; return `DryRunResult` |
-| `src/shared/error-codes.ts` | TASK-007 | Add 6 new connector error codes |
-| `src/server.ts` | TASK-008 | Import + register `initTemplateRegistry` + `registerConnectorRoutes` |
+| File | Task | Change |
+|---|---|---|
+| `src/shared/error-codes.ts` | TASK-007 | Add 4 new connector error codes |
+| `src/config/field-mappings-dynamo.ts` | TASK-003 | Add `getFieldMappingRecord()` |
+| `src/server.ts` | TASK-008 | Import + call `initTemplateRegistry`, register routes |
+| `docs/specs/integration-templates.md` | TASK-004/009 | Spec parity edits (D-1, D-2, D-3, D-4 in Deviations table) |
+
+---
+
+## Spec Edits Required (Same PR)
+
+Per `.cursor/skills/implement-spec/SKILL.md` § Deviations: every row in the Deviations table marked "Update spec in same PR" must land with this PR.
+
+1. **D-1**: Spec § `POST /v1/admin/connectors/activate` — Request Body example becomes `{ "org_id": "springs", "source_system": "canvas-lms" }`.
+2. **D-2**: Spec § Contract Tests INT-007 row — change input/expected to match `{ activated, not_ready, not_ready }` (Canvas + I-Ready stub + Branching Minds stub).
+3. **D-3**: Add a new § Pilot Implementation Scope subsection at the top of § Requirements documenting which functional requirements are in pilot vs Phase 2 (mirror this plan's Requirements Traceability).
+4. **D-4**: In § Activation internals step 4, add a parenthetical: *"Pilot writes a full `PutItem`; Phase 2 will add a `mapping_version` condition expression when concurrent writers (admin dashboard) appear."*
 
 ---
 
 ## Test Plan
 
 | Test ID | Type | Description | Task |
-|---------|------|-------------|------|
-| INT-001 | contract | Happy path activate Canvas — 201, row created, webhook_url returned | TASK-009 |
-| INT-002 | contract | Activate already-activated (no force) → 409 connector_already_activated | TASK-009 |
-| INT-003 | contract | Activate with force override — 201, row overwritten | TASK-009 |
-| INT-004 | contract | Activate with custom mapping (no force) → 409 custom_mapping_exists | TASK-009 |
-| INT-005 | contract | Activate stub template → 400 template_not_ready | TASK-009 |
-| INT-006 | contract | Activate unknown source_system → 404 template_not_found | TASK-009 |
-| INT-007 | contract | List connectors — mixed statuses (activated, available, not_ready) | TASK-009 |
-| INT-008 | contract | Configure event types — valid update | TASK-009 |
-| INT-009 | contract | Configure event types — invalid type → 400 | TASK-009 |
-| INT-010 | contract | Configure event types — connector not activated → 404 | TASK-009 |
-| INT-011 | contract | Deactivate connector — row removed | TASK-009 |
-| INT-012 | contract | Deactivate not-activated → 404 | TASK-009 |
-| INT-013 | contract | Get detail — activated, includes webhook_url + upgrade_available | TASK-009 |
-| INT-014 | contract | Get detail — upgrade_available: true when bundled version > row version | TASK-009 |
-| INT-015 | contract | Auth required on all endpoints → 401 | TASK-009 |
-| INT-016 | e2e | Activate → POST /v1/webhooks/canvas-lms → signal created | TASK-009 |
-| INT-017 | contract | Test endpoint — dry-run pass, no signal persisted | TASK-009 |
-| INT-018 | contract | Test endpoint — dry-run fail at field_mapping | TASK-009 |
-| INT-019 | contract | Test endpoint — not activated → 404 | TASK-009 |
-| INT-020 | contract | Connection health: receiving (47 signals in 24h) | TASK-009 |
-| INT-021 | contract | Connection health: idle (never received) | TASK-009 |
-| INT-022 | contract | Connection health: stale (last signal >24h ago) | TASK-009 |
-| INT-023 | contract | Policy association in connector detail response | TASK-009 |
-| unit | unit | isStubTemplate() returns true for iready stub | TASK-002 |
-| unit | unit | getTemplate() returns Canvas template | TASK-002 |
-| unit | unit | DryRun mode: no writes, pipeline_steps returned | TASK-005 |
-| unit | unit | ConnectionHealth: graceful degradation when SIGNAL_LOG_TABLE unset | TASK-006 |
+|---|---|---|---|
+| INT-001 | contract | Happy path activate Canvas | TASK-009 |
+| INT-002 | contract | Activate already-activated (no force) → 409 | TASK-009 |
+| INT-003 | contract | Activate with force → 201, overwrites | TASK-009 |
+| INT-004 | contract | Activate when custom mapping exists (no force) → 409 | TASK-009 |
+| INT-005 | contract | Activate stub → 400 | TASK-009 |
+| INT-006 | contract | Activate unknown source_system → 404 | TASK-009 |
+| INT-007 | contract | GET list — mixed statuses (1 activated, 2 not_ready) | TASK-009 |
+| INT-015 | contract | Auth required → 401 | TASK-009 |
+| INT-016 | e2e | Activate Canvas → webhook → signal | TASK-009 |
+| unit | unit | `isStubTemplate` returns true for iready stub, false for canvas | TASK-002 |
+| unit | unit | `getTemplate('canvas-lms')` returns the loaded record | TASK-002 |
+| unit | unit | `getFieldMappingRecord` returns full record with `template_id` | TASK-003 |
 
 ---
 
 ## Risks
 
 | Risk | Impact | Mitigation |
-|------|--------|------------|
-| Webhook adapter (`POST /v1/webhooks/:source_system`) not yet implemented | High — INT-016 blocked; connector activation works but signals won't flow | Mark INT-016 as skip with TODO; confirm webhook adapter status before pilot |
-| Signal log DynamoDB table GSI structure unknown — may not support efficient `org_id + source_system` query for connection health | Medium — `getConnectionHealth` may require a Scan fallback | Check `src/signalLog/dynamodb-repository.ts` GSI config in TASK-006; add Scan fallback with filter |
-| Org resolution from admin key: pilot uses single `ADMIN_API_KEY` — no per-org key mapping | Medium — all connector ops require explicit `org_id` param | Per spec §Notes, require `org_id` in request body (activate) / query param (other endpoints). Document as pilot limitation |
-| `validateTransformExpression()` not yet exported from `tenant-field-mappings.ts` | Low — startup validation in TASK-002 may need to stub it | Check export surface before TASK-002; add export if missing |
-| Semver comparison for `upgrade_available` — no `semver` package in project | Low — simple string compare may be wrong for edge cases | Install `semver` package or implement basic semver compare (split by `.`) |
-
----
-
-## Verification Checklist
-
-- [ ] All tasks completed
-- [ ] All contract tests pass (INT-001 through INT-023, except INT-016 if webhook adapter absent)
-- [ ] Linter passes (`npm run lint`)
-- [ ] Type check passes (`npm run typecheck`)
-- [ ] `npm run build` succeeds
-- [ ] Server starts without errors; `GET /health` returns 200
-- [ ] `GET /v1/admin/connectors?org_id=springs` returns connector list with Canvas `available`, stubs `not_ready`
-- [ ] Matches spec `§Requirements` functional requirements checklist
+|---|---|---|
+| INT-016 E2E test couples connector logic to webhook adapter implementation | Medium — refactor in webhook layer breaks this test | Mock at `appendSignal` level (already used in `webhooks.ts` tests); do not assert on internal pipeline structure |
+| Template registry path resolution differs between `tsx` dev and `dist/` build | Medium — runtime breakage in prod only | Use `import.meta.url` based resolution + `CONNECTOR_TEMPLATES_DIR` env override; smoke-test in `npm run build && npm start` |
+| `validateTransformExpression` on multi-source transforms needs `sourceKeys` | Low — Canvas template is single-source only | Detect `transforms[].sources` shape and pass `Object.keys(...)` accordingly; both branches already exist in `transform-expression.ts` |
+| Existing `putFieldMappingItem` increments `mappingVersion` by 1; activation passes 0 and we want stored value to be 1 | Low — already verified in field-mappings-dynamo.ts:203 | Tests assert `mapping_version === 1` on first activation |
 
 ---
 
 ## Implementation Order
 
 ```
-TASK-007 → TASK-001 → TASK-002
-                            ↓
-         TASK-003 → TASK-004 ← TASK-005
-                    TASK-006 ↗
-                            ↓
-                       TASK-008
-                            ↓
-                       TASK-009
+TASK-007 (errors)
+    ↓
+TASK-001 (templates) → TASK-002 (registry) → TASK-003 (getFieldMappingRecord)
+                                                       ↓
+                                                   TASK-004 (routes)
+                                                       ↓
+                                                   TASK-008 (server wire)
+                                                       ↓
+                                                   TASK-009 (tests) → TASK-010 (CLI)
 ```
-
-Parallelisable:
-- TASK-007 (error codes) — no dependencies, do first
-- TASK-001 (templates) + TASK-003 (dynamo layer) — independent, can be done in parallel
-- TASK-005 (dry-run) + TASK-006 (connection health) — independent, can be done in parallel with TASK-002/003

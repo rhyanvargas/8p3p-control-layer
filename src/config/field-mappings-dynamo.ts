@@ -184,6 +184,33 @@ export async function getMappingFromDynamoDB(
 }
 
 /**
+ * Get a single mapping record (mapping + metadata) by composite key.
+ * Unlike `getMappingFromDynamoDB`, this does NOT consult the TTL cache and
+ * returns the full `FieldMappingRecord` (including `template_id` /
+ * `template_version`) — required by the connector activation flow which must
+ * read fresh `template_id` state to detect already-activated vs. custom rows.
+ * @see docs/specs/integration-templates.md § Activation internals
+ */
+export async function getFieldMappingRecord(
+  orgId: string,
+  sourceSystem: string,
+): Promise<FieldMappingRecord | null> {
+  const tableName = process.env.FIELD_MAPPINGS_TABLE;
+  if (!tableName) return null;
+
+  const result = await getDocClient().send(
+    new GetCommand({
+      TableName: tableName,
+      Key: { org_id: orgId, source_system: sourceSystem },
+      ConsistentRead: false,
+    }),
+  );
+
+  if (!result.Item) return null;
+  return parseRecordFromItem(result.Item as Record<string, unknown>);
+}
+
+/**
  * Upsert a mapping item in DynamoDB (admin PUT).
  * Stores the full mapping document + metadata. Invalidates the TTL cache on success.
  * @see docs/specs/tenant-field-mappings.md §DynamoDB Item Shape

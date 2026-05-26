@@ -144,7 +144,7 @@ List all available connectors with per-org activation status.
       "description": "Ingests diagnostic and instructional data from Curriculum Associates I-Ready.",
       "template_id": "iready-v1",
       "template_version": "1.0.0",
-      "status": "available",
+      "status": "not_ready",
       "activated_at": null,
       "event_types": null,
       "webhook_url": null
@@ -173,9 +173,12 @@ Activate a connector for the authenticated org. Copies the template mapping into
 
 ```json
 {
+  "org_id": "springs",
   "source_system": "canvas-lms"
 }
 ```
+
+> **`org_id` (pilot)** — see § Notes "Org resolution for admin routes". The single-key admin model requires the org to be passed explicitly. Post-pilot, per-org admin keys eliminate this field.
 
 **Response (201 Created):**
 
@@ -200,14 +203,16 @@ Activate a connector for the authenticated org. Copies the template mapping into
    - If row exists with `template_id` → return 409 `connector_already_activated`
    - If row exists without `template_id` (custom mapping) → return 409 `custom_mapping_exists` with a message suggesting `force: true` to override
 4. Write `PutItem` to `FieldMappingsTable`:
-   - `org_id`: from admin key → org resolution
+   - `org_id`: from request body (pilot — see § Notes "Org resolution for admin routes")
    - `source_system`: from request body
    - `mapping`: deep copy of template `mapping` (including `envelope`, `transforms`, `required`, etc.)
    - `template_id`: from template
    - `template_version`: from template
    - `mapping_version`: 1
    - `updated_at`: ISO 8601 now
-   - `updated_by`: admin key prefix
+   - `updated_by`: admin key value (forwarded to `putFieldMappingItem.updatedBy`)
+
+   > **Pilot**: writes a full `PutItem` (no condition expression) — matches the existing `putFieldMappingItem` path used by `PUT /v1/admin/mappings`. Phase 2 will add a `mapping_version` condition expression when concurrent writers (admin dashboard) appear.
 5. Invalidate field mapping cache for `(org_id, source_system)` — per `tenant-field-mappings.md` cache invalidation pattern
 6. Construct `webhook_url` from `WEBHOOK_BASE_URL` env + `/v1/webhooks/{source_system}`
 7. Return activation response with setup instructions
@@ -216,6 +221,7 @@ Activate a connector for the authenticated org. Copies the template mapping into
 
 ```json
 {
+  "org_id": "springs",
   "source_system": "canvas-lms",
   "force": true
 }
@@ -479,6 +485,25 @@ The `webhook_url` returned in activation and detail responses is constructed fro
 
 ## Requirements
 
+### Pilot Implementation Scope
+
+This spec describes the full Phase 1 connector layer. Pilot (Wave 1 of `urs_product_readiness_55b0b52e.plan.md` TASK-W1-3) ships a strict subset; the dashboard-driven wizard endpoints ship with the dashboard in Phase 2 per § Admin Dashboard Timing.
+
+| Capability | Pilot | Phase 2 (with dashboard) |
+|---|---|---|
+| Template registry loader + bundled JSON files | ✅ | — |
+| `GET /v1/admin/connectors?org_id=<id>` | ✅ | — |
+| `POST /v1/admin/connectors/activate` (with `org_id` body field) | ✅ | — |
+| `apply-template <source_system> --org-id <id>` CLI | ✅ | — |
+| Error codes `template_not_found`, `template_not_ready`, `connector_already_activated`, `custom_mapping_exists` | ✅ | — |
+| `PUT /v1/admin/connectors/:source_system/config` (event-type management) | — | ✅ |
+| `GET /v1/admin/connectors/:source_system` (detail with `upgrade_available`, `connection_health`, `active_policy`) | — | ✅ |
+| `DELETE /v1/admin/connectors/:source_system` | — | ✅ |
+| `POST /v1/admin/connectors/:source_system/test` (dry-run) | — | ✅ |
+| Error codes `connector_not_activated`, `invalid_event_type` | — | ✅ |
+
+Reasoning: pilot value is one-call seeding of `FieldMappingsTable` to unblock Canvas/I-Ready/Branching Minds ingest. The wizard endpoints exist to drive a UI that is itself deferred to Phase 2 (separate `8p3p-admin` repo per § Admin Dashboard Timing). Deferring them keeps the pilot surface small and removes a planned modification to `src/ingestion/handler-core.ts` (dry-run branch) that carries regression risk for live signal acceptance.
+
 ### Functional
 
 - [ ] Template registry loads bundled JSON files from `src/connector-templates/` at server startup
@@ -503,11 +528,11 @@ The `webhook_url` returned in activation and detail responses is constructed fro
 
 ### Acceptance Criteria
 
-- Given the Canvas template exists and is not a stub, when `POST /v1/admin/connectors/activate { "source_system": "canvas-lms" }` is called with a valid admin key, then a `FieldMappingsTable` row is created with `template_id: "canvas-lms-v1"` and the response includes `webhook_url` and `setup_instructions`
-- Given the Canvas connector is already activated for org `springs`, when `POST /v1/admin/connectors/activate { "source_system": "canvas-lms" }` is called, then 409 `connector_already_activated` is returned
-- Given the Canvas connector is already activated and `force: true` is provided, then the existing mapping is overwritten and 201 is returned
+- Given the Canvas template exists and is not a stub, when `POST /v1/admin/connectors/activate { "org_id": "springs", "source_system": "canvas-lms" }` is called with a valid admin key, then a `FieldMappingsTable` row is created with `template_id: "canvas-lms-v1"` and the response includes `webhook_url` and `setup_instructions`
+- Given the Canvas connector is already activated for org `springs`, when `POST /v1/admin/connectors/activate { "org_id": "springs", "source_system": "canvas-lms" }` is called, then 409 `connector_already_activated` is returned
+- Given the Canvas connector is already activated and `{ "org_id": "springs", "source_system": "canvas-lms", "force": true }` is provided, then the existing mapping is overwritten and 201 is returned
 - Given a custom mapping exists (no `template_id`) for `springs/canvas-lms`, when activation is called without `force`, then 409 `custom_mapping_exists` is returned
-- Given the I-Ready template is a stub, when `POST /v1/admin/connectors/activate { "source_system": "iready" }` is called, then 400 `template_not_ready` is returned
+- Given the I-Ready template is a stub, when `POST /v1/admin/connectors/activate { "org_id": "springs", "source_system": "iready" }` is called, then 400 `template_not_ready` is returned
 - Given the Canvas connector is activated, when `PUT /v1/admin/connectors/canvas-lms/config { "event_types": ["submission_created"] }` is called, then the `FieldMappingsTable` item's `allowed_event_types` is updated
 - Given the admin requests `event_types: ["nonexistent_event"]`, then 400 `invalid_event_type` is returned
 - Given the Canvas connector is activated, when `DELETE /v1/admin/connectors/canvas-lms` is called, then the `FieldMappingsTable` row is removed and subsequent webhooks return `400 missing_envelope_mapping`
@@ -603,7 +628,7 @@ The `webhook_url` returned in activation and detail responses is constructed fro
 | INT-004 | Activate when custom mapping exists (no force) | Pre-existing `FieldMappingsTable` row without `template_id` | 409 `custom_mapping_exists` |
 | INT-005 | Activate stub template | `POST /v1/admin/connectors/activate { "source_system": "iready" }` (stub template) | 400 `template_not_ready` |
 | INT-006 | Activate unknown source_system | `POST /v1/admin/connectors/activate { "source_system": "unknown-lms" }` | 404 `template_not_found` |
-| INT-007 | List connectors — mixed statuses | Canvas activated, I-Ready available, Branching Minds not_ready | 200; array with `status: "activated"`, `status: "available"`, `status: "not_ready"` respectively |
+| INT-007 | List connectors — mixed statuses (pilot) | Canvas activated, I-Ready stub, Branching Minds stub | 200; array with `status: "activated"` (Canvas) and `status: "not_ready"` (both stubs). Pilot ships no non-stub second template; a `status: "available"` row appears only when a future non-stub template is added without activation. |
 | INT-008 | Configure event types — valid | `PUT /v1/admin/connectors/canvas-lms/config { "event_types": ["submission_created"] }` | 200; `FieldMappingsTable` `allowed_event_types` updated |
 | INT-009 | Configure event types — invalid type | `event_types: ["nonexistent_event"]` | 400 `invalid_event_type` |
 | INT-010 | Configure event types — not activated | `PUT /v1/admin/connectors/iready/config` (not activated) | 404 `connector_not_activated` |

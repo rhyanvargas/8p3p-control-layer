@@ -39,6 +39,8 @@ import { registerPolicyInspectionRoutes } from './policies/routes.js';
 import { registerAdminFieldMappingsRoutes } from './routes/admin-field-mappings.js';
 import { registerAdminIngestionPreflightRoutes } from './routes/admin-ingestion-preflight.js';
 import { registerWebhookRoutes } from './routes/webhooks.js';
+import { initTemplateRegistry } from './connectors/template-registry.js';
+import { registerConnectorRoutes } from './connectors/connector-routes.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -143,6 +145,9 @@ const server = Fastify({
     level: process.env.LOG_LEVEL || 'info'
   }
 });
+
+// WEBHOOK_BASE_URL — base URL for webhook endpoints; defaults to http://localhost:3000
+initTemplateRegistry(server.log);
 
 const registeredEndpoints = new Set<string>();
 const INTERNAL_ROUTE_PREFIXES = ['/docs/', '/*'];
@@ -338,6 +343,7 @@ server.register(async (admin) => {
   registerPolicyManagementRoutes(admin);
   registerAdminFieldMappingsRoutes(admin);
   registerAdminIngestionPreflightRoutes(admin);
+  registerConnectorRoutes(admin);
 }, { prefix: '/v1/admin' });
 
 // Graceful shutdown: close stores (reverse of init order)

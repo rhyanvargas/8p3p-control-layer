@@ -219,6 +219,22 @@ export const ErrorCodes = {
 
   /** Required envelope field could not be extracted from webhook body (400) */
   ENVELOPE_EXTRACTION_FAILED: 'envelope_extraction_failed',
+
+  // ==========================================================================
+  // Integration Templates / Connector Layer (Layer 3 — Pilot)
+  // ==========================================================================
+
+  /** source_system does not match any bundled template (404) */
+  TEMPLATE_NOT_FOUND: 'template_not_found',
+
+  /** Template is a stub — mapping fields incomplete, cannot be activated (400) */
+  TEMPLATE_NOT_READY: 'template_not_ready',
+
+  /** A template-sourced mapping already exists for this org + source_system (409) */
+  CONNECTOR_ALREADY_ACTIVATED: 'connector_already_activated',
+
+  /** A custom (non-template) mapping exists for this org + source_system (409) */
+  CUSTOM_MAPPING_EXISTS: 'custom_mapping_exists',
 } as const;
 
 export type ErrorCode = typeof ErrorCodes[keyof typeof ErrorCodes];

@@ -1,0 +1,47 @@
+{
+  "template_id": "canvas-lms-v1",
+  "template_version": "1.0.0",
+  "source_system": "canvas-lms",
+  "display_name": "Canvas LMS",
+  "description": "Ingests assignment submissions and grade updates from Instructure Canvas.",
+  "setup_instructions": "In Canvas, navigate to Admin → Developer Keys → Webhooks. Add the webhook URL below and include your x-api-key header as a custom header.",
+  "default_event_types": ["submission_created", "grade_updated"],
+  "available_event_types": [
+    { "event_type": "submission_created", "description": "Student submits an assignment" },
+    { "event_type": "grade_updated", "description": "Instructor updates a grade" },
+    { "event_type": "quiz_submitted", "description": "Student submits a quiz" }
+  ],
+  "mapping": {
+    "envelope": {
+      "learner_reference_path": "submission.user_id",
+      "signal_id_path": "submission.id",
+      "timestamp_path": "submission.submitted_at",
+      "event_type_path": "event_type",
+      "allowed_event_types": ["submission_created", "grade_updated"]
+    },
+    "required": ["stabilityScore"],
+    "aliases": {
+      "stabilityScore": ["stability_score"]
+    },
+    "types": {
+      "stabilityScore": "number"
+    },
+    "transforms": [
+      {
+        "target": "stabilityScore",
+        "source": "submission.points",
+        "expression": "value / 100"
+      }
+    ]
+  },
+  "test_payload": {
+    "submission": {
+      "id": "test_sub_001",
+      "user_id": "test_learner_001",
+      "submitted_at": "2026-04-06T10:00:00Z",
+      "points": 68,
+      "points_possible": 100
+    },
+    "event_type": "submission_created"
+  }
+}
