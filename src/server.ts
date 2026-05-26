@@ -37,6 +37,7 @@ import { loadTenantFieldMappingsFromFile } from './config/tenant-field-mappings.
 import { registerPolicyManagementRoutes } from './admin/policy-management-routes.js';
 import { registerPolicyInspectionRoutes } from './policies/routes.js';
 import { registerAdminFieldMappingsRoutes } from './routes/admin-field-mappings.js';
+import { registerAdminIngestionPreflightRoutes } from './routes/admin-ingestion-preflight.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -321,6 +322,7 @@ server.register(async (admin) => {
   admin.addHook('preHandler', adminApiKeyPreHandler);
   registerPolicyManagementRoutes(admin);
   registerAdminFieldMappingsRoutes(admin);
+  registerAdminIngestionPreflightRoutes(admin);
 }, { prefix: '/v1/admin' });
 
 // Graceful shutdown: close stores (reverse of init order)

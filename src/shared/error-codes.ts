@@ -198,6 +198,17 @@ export const ErrorCodes = {
    * @see docs/specs/educator-feedback-api.md § Deployment Parity (Phase 1)
    */
   NOT_IMPLEMENTED_ON_CLOUD: 'not_implemented_on_cloud',
+
+  // ==========================================================================
+  // Ingestion Preflight
+  // ==========================================================================
+
+  /**
+   * Preflight request includes org_id but not source_system, or vice versa.
+   * Both or neither must be present.
+   * @see docs/specs/ingestion-preflight.md § Error Codes
+   */
+  PREFLIGHT_MISSING_SCOPE_PAIR: 'preflight_missing_scope_pair',
 } as const;
 
 export type ErrorCode = typeof ErrorCodes[keyof typeof ErrorCodes];

@@ -4,55 +4,55 @@ overview: Split FORBIDDEN_KEYS into PII and semantic subsets (keeping the union 
 todos:
   - id: TASK-000
     content: Pre-implementation consistency cleanup (3 spec deviations + 1 strategy-report correction)
-    status: pending
+    status: completed
   - id: TASK-001
     content: Add preflight_missing_scope_pair error code
-    status: pending
+    status: completed
   - id: TASK-002
     content: Extend ForbiddenKeyResult with category field
-    status: pending
+    status: completed
   - id: TASK-003
     content: Split forbidden-keys.ts into PII + semantic sets (keep union)
-    status: pending
+    status: completed
   - id: TASK-004
     content: Update detectForbiddenKeys to return category
-    status: pending
+    status: completed
   - id: TASK-005
     content: Add category to /v1/signals rejection structured log (no contract change)
-    status: pending
+    status: completed
   - id: TASK-006
     content: Unit tests FORBIDDEN-KEYS-SPLIT-001..005
-    status: pending
+    status: completed
   - id: TASK-007
     content: Add ulid dependency for pf_<ulid> preflight IDs
-    status: pending
+    status: completed
   - id: TASK-008
     content: Create mapping suggestions catalog (static, per-source-system)
-    status: pending
+    status: completed
   - id: TASK-009
     content: Implement framework-agnostic preflight handler core (no side effects)
-    status: pending
+    status: completed
   - id: TASK-010
     content: Register POST /v1/admin/ingestion/preflight Fastify route
-    status: pending
+    status: completed
   - id: TASK-011
     content: Wire preflight route into src/server.ts admin scope
-    status: pending
+    status: completed
   - id: TASK-012
     content: Wire preflight route into src/lambda/admin-handler.ts
-    status: pending
+    status: completed
   - id: TASK-013
     content: Add API Gateway route /v1/admin/ingestion/preflight in CDK
-    status: pending
+    status: completed
   - id: TASK-014
     content: Document POST /v1/admin/ingestion/preflight in openapi.yaml
-    status: pending
+    status: completed
   - id: TASK-015
     content: Contract tests INGEST-PREFLIGHT-001..012
-    status: pending
+    status: completed
   - id: TASK-016
     content: Add pilot readiness gate row to pilot-readiness-definition.md
-    status: pending
+    status: completed
 isProject: false
 ---
 

@@ -390,6 +390,11 @@ export class ControlLayerStack extends cdk.Stack {
     adminMappings.addMethod('GET', new apigateway.LambdaIntegration(this.adminFunction));
     adminMappings.addMethod('PUT', new apigateway.LambdaIntegration(this.adminFunction));
 
+    // POST /v1/admin/ingestion/preflight → AdminFunction
+    const adminIngestion = admin.addResource('ingestion');
+    const adminIngestionPreflight = adminIngestion.addResource('preflight');
+    adminIngestionPreflight.addMethod('POST', new apigateway.LambdaIntegration(this.adminFunction));
+
     // -------------------------------------------------------------------------
     // Stack outputs
     // -------------------------------------------------------------------------

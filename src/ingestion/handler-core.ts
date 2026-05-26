@@ -97,6 +97,17 @@ export async function handleSignalIngestionCore(
       field_path: forbiddenKey.path,
     };
 
+    log.warn?.(
+      {
+        org_id: signal.org_id,
+        signal_id: signal.signal_id,
+        forbidden_key: forbiddenKey.key,
+        forbidden_key_path: forbiddenKey.path,
+        forbidden_key_category: forbiddenKey.category,
+      },
+      'forbidden key detected in payload'
+    );
+
     logIngestionOutcome(buildOutcomeEntry(signal, 'rejected', receivedAt, rejectionReason), log);
 
     return {

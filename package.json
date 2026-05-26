@@ -58,7 +58,8 @@
     "aws-lambda-fastify": "^2.2.0",
     "better-sqlite3": "^12.6.2",
     "dotenv": "^17.3.1",
-    "fastify": "^5.7.2"
+    "fastify": "^5.7.2",
+    "ulid": "^3.0.2"
   },
   "devDependencies": {
     "@redocly/cli": "^1.31.0",

@@ -3,7 +3,12 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { detectForbiddenKeys, FORBIDDEN_KEYS } from '../../src/ingestion/forbidden-keys.js';
+import {
+  detectForbiddenKeys,
+  FORBIDDEN_KEYS,
+  FORBIDDEN_PII_KEYS,
+  FORBIDDEN_SEMANTIC_KEYS,
+} from '../../src/ingestion/forbidden-keys.js';
 
 describe('detectForbiddenKeys', () => {
   describe('FK-UNIT-001: Top-level forbidden key detection', () => {
@@ -213,6 +218,85 @@ describe('detectForbiddenKeys', () => {
         riskSignal: 0.2,
       }, 'payload');
       expect(result).toBeNull();
+    });
+  });
+});
+
+/**
+ * FORBIDDEN-KEYS-SPLIT-005 (regression): live `/v1/signals` rejection contract is
+ * unchanged — see `tests/contracts/signal-ingestion.test.ts` and
+ * `docs/specs/ingestion-preflight.md` § Acceptance Criteria (AC-5).
+ */
+describe('FORBIDDEN-KEYS-SPLIT', () => {
+  const EXPECTED_PII_KEYS = [
+    'firstName', 'lastName', 'first_name', 'last_name', 'fullName', 'full_name',
+    'email', 'emailAddress', 'email_address',
+    'phone', 'phoneNumber', 'phone_number',
+    'ssn', 'social_security', 'socialSecurity',
+    'birthdate', 'birthday', 'birth_date', 'date_of_birth', 'dateOfBirth', 'dob',
+    'address', 'streetAddress', 'street_address',
+    'zipCode', 'zip_code', 'postalCode', 'postal_code',
+  ] as const;
+
+  const EXPECTED_SEMANTIC_KEYS = [
+    'ui', 'screen', 'view', 'page', 'route', 'url', 'link', 'button', 'cta',
+    'workflow', 'task', 'job', 'assignment', 'assignee', 'owner',
+    'status', 'step', 'stage', 'completion', 'progress_percent',
+    'course', 'lesson', 'module', 'quiz', 'score', 'grade',
+    'content_id', 'content_url',
+  ] as const;
+
+  describe('FORBIDDEN-KEYS-SPLIT-001: FORBIDDEN_PII_KEYS membership', () => {
+    it('contains all 28 PII keys and zero semantic keys', () => {
+      expect(FORBIDDEN_PII_KEYS.size).toBe(28);
+      for (const key of EXPECTED_PII_KEYS) {
+        expect(FORBIDDEN_PII_KEYS.has(key), `missing PII key: ${key}`).toBe(true);
+      }
+      for (const key of EXPECTED_SEMANTIC_KEYS) {
+        expect(FORBIDDEN_PII_KEYS.has(key), `semantic key leaked into PII set: ${key}`).toBe(false);
+      }
+    });
+  });
+
+  describe('FORBIDDEN-KEYS-SPLIT-002: FORBIDDEN_SEMANTIC_KEYS membership', () => {
+    it('contains all 28 semantic keys and zero PII keys', () => {
+      expect(FORBIDDEN_SEMANTIC_KEYS.size).toBe(28);
+      for (const key of EXPECTED_SEMANTIC_KEYS) {
+        expect(FORBIDDEN_SEMANTIC_KEYS.has(key), `missing semantic key: ${key}`).toBe(true);
+      }
+      for (const key of EXPECTED_PII_KEYS) {
+        expect(FORBIDDEN_SEMANTIC_KEYS.has(key), `PII key leaked into semantic set: ${key}`).toBe(false);
+      }
+    });
+  });
+
+  describe('FORBIDDEN-KEYS-SPLIT-003: FORBIDDEN_KEYS union (backward compat)', () => {
+    it('equals the union of PII and semantic subsets', () => {
+      expect(FORBIDDEN_KEYS.size).toBe(FORBIDDEN_PII_KEYS.size + FORBIDDEN_SEMANTIC_KEYS.size);
+      for (const key of FORBIDDEN_PII_KEYS) {
+        expect(FORBIDDEN_KEYS.has(key), `PII key missing from union: ${key}`).toBe(true);
+      }
+      for (const key of FORBIDDEN_SEMANTIC_KEYS) {
+        expect(FORBIDDEN_KEYS.has(key), `semantic key missing from union: ${key}`).toBe(true);
+      }
+    });
+  });
+
+  describe('FORBIDDEN-KEYS-SPLIT-004: detectForbiddenKeys returns category', () => {
+    it('returns category pii for PII keys', () => {
+      expect(detectForbiddenKeys({ email: 'x' }, 'payload')).toEqual({
+        key: 'email',
+        path: 'payload.email',
+        category: 'pii',
+      });
+    });
+
+    it('returns category semantic for semantic keys', () => {
+      expect(detectForbiddenKeys({ score: 5 }, 'payload')).toEqual({
+        key: 'score',
+        path: 'payload.score',
+        category: 'semantic',
+      });
     });
   });
 });

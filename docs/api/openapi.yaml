@@ -47,6 +47,12 @@ tags:
       Tenant `x-api-key` is **not** accepted — 401 is returned for tenant-key requests.
       Endpoints upsert and list tenant payload mappings (aliases, required fields, type checks, computed transforms)
       in DynamoDB `FieldMappingsTable`, keyed by `org_id` + `source_system`.
+  - name: AdminIngestion
+    description: |
+      Admin ingestion tooling endpoints. Requires `x-admin-api-key` header on all endpoints.
+      Tenant `x-api-key` is **not** accepted — 401 is returned for tenant-key requests.
+      Provides dry-run inspection of raw payloads against forbidden-key rules and tenant field mappings
+      without writing to the Signal Log, idempotency store, or ingestion outcome log.
 
 paths:
   /health:
@@ -1201,6 +1207,87 @@ paths:
               schema:
                 $ref: '#/components/schemas/AdminErrorResponse'
 
+  # ---------------------------------------------------------------------------
+  # Admin Ingestion Preflight (dry-run forbidden-key + mapping analysis)
+  # ---------------------------------------------------------------------------
+  /v1/admin/ingestion/preflight:
+    post:
+      tags: [AdminIngestion]
+      operationId: runIngestionPreflight
+      summary: Dry-run a payload against forbidden-key rules and tenant mapping
+      description: |
+        **What it does:** Inspects a raw sample payload against the forbidden-key catalog (PII and semantic sets) and optionally simulates tenant field mapping to determine whether the payload would pass live ingestion. Returns categorized forbidden-key hits, mapping suggestions from the static catalog, and an overall verdict. Does **not** write to the Signal Log, idempotency store, ingestion outcome log, or trigger the STATE/Decision pipeline.
+
+        **When to use:** Before onboarding a new integration or source system — submit a representative payload to verify it will not be rejected by forbidden-key rules, and to discover which tenant field mappings would resolve semantic hits. Use during development to iterate on payload shape without generating real signals.
+
+        **How:** POST a JSON body with `payload` (required) and optionally `org_id` + `source_system` to enable post-mapping analysis. The endpoint always responds 200 on a well-formed request; the `verdict` field indicates whether live ingestion would succeed.
+
+        **Auth:** Requires `x-admin-api-key` header.
+
+        **Note:** `forbidden_semantic_key_detected` is **not** returned by the preflight endpoint. Preflight always responds 200 on a well-formed request.
+      security:
+        - AdminApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PreflightRequest'
+            example:
+              payload:
+                learner:
+                  email: student@example.com
+                  id: learner-001
+                submission:
+                  score: 85
+                  total: 100
+      responses:
+        '200':
+          description: Preflight analysis result (always returned for well-formed requests)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PreflightResponse'
+              example:
+                preflight_id: pf_01HX2B3C4D5E6F7G8H9J0K1L2M
+                received_at: '2026-05-25T12:00:00.000Z'
+                forbidden_pii:
+                  - key: email
+                    path: payload.learner.email
+                forbidden_semantic_raw:
+                  - key: score
+                    path: payload.submission.score
+                forbidden_semantic_after_mapping: null
+                mapping_suggestions:
+                  - raw_key: score
+                    raw_path: payload.submission.score
+                    suggested_canonical: masteryScore
+                    rationale: "Most-common canvas-lms mapping: masteryScore = submission.score / submission.total. See docs/specs/tenant-field-mappings.md § Canvas template."
+                    source: static-catalog
+                verdict: pii_blocking
+        '400':
+          description: Invalid request (missing payload or mismatched scope pair)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PreflightErrorResponse'
+        '401':
+          description: Missing or invalid x-admin-api-key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminErrorResponse'
+        '413':
+          description: Request body exceeds 32 KB size limit
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PreflightErrorResponse'
+              example:
+                error:
+                  code: request_too_large
+                  message: Request body exceeds the 32 KB limit for preflight payloads.
+
 components:
   securitySchemes:
     ApiKeyAuth:
@@ -2097,6 +2184,143 @@ components:
                 - invalid_mapping_expression
                 - invalid_format
                 - admin_key_required
+            message:
+              type: string
+
+    # ---------------------------------------------------------------------------
+    # Admin Ingestion Preflight (POST /v1/admin/ingestion/preflight)
+    # ---------------------------------------------------------------------------
+    PreflightRequest:
+      type: object
+      required: [payload]
+      properties:
+        org_id:
+          type: string
+          description: |
+            Organization identifier. Enables post-mapping analysis when paired with `source_system`.
+            If provided, `source_system` must also be provided (and vice versa).
+        source_system:
+          type: string
+          description: |
+            Source system identifier. Required when `org_id` is set; enables mapping simulation
+            against the tenant's configured field mapping for this (org_id, source_system) pair.
+        payload:
+          type: object
+          description: The raw sample payload to inspect against forbidden-key rules and optional mapping simulation.
+
+    PreflightForbiddenKeyHit:
+      type: object
+      required: [key, path]
+      properties:
+        key:
+          type: string
+          description: The forbidden key name that was detected (e.g. `email`, `score`)
+        path:
+          type: string
+          description: Dot-path location within the payload (e.g. `payload.learner.email`)
+
+    PreflightMappingSuggestion:
+      type: object
+      required: [raw_key, raw_path, suggested_canonical, rationale, source]
+      properties:
+        raw_key:
+          type: string
+          description: The forbidden semantic key that triggered this suggestion
+        raw_path:
+          type: string
+          description: Dot-path location of the key in the raw payload
+        suggested_canonical:
+          type: ['string', 'null']
+          description: Suggested canonical field name to map to; null when the key should be flagged but has no canonical mapping
+        rationale:
+          type: string
+          description: Human-readable explanation of the suggested mapping
+        source:
+          type: string
+          enum: [static-catalog]
+          description: Origin of the suggestion (currently always `static-catalog`)
+
+    PreflightResponse:
+      type: object
+      required:
+        - preflight_id
+        - received_at
+        - forbidden_pii
+        - forbidden_semantic_raw
+        - forbidden_semantic_after_mapping
+        - mapping_suggestions
+        - verdict
+      properties:
+        preflight_id:
+          type: string
+          pattern: '^pf_[0-9A-Z]{26}$'
+          description: Stable correlation ID for log tracing (format `pf_<ULID>`)
+        received_at:
+          type: string
+          format: date-time
+          description: ISO 8601 timestamp when the preflight request was received
+        forbidden_pii:
+          type: array
+          items:
+            $ref: '#/components/schemas/PreflightForbiddenKeyHit'
+          description: PII forbidden-key hits detected in the raw payload
+        forbidden_semantic_raw:
+          type: array
+          items:
+            $ref: '#/components/schemas/PreflightForbiddenKeyHit'
+          description: Semantic forbidden-key hits detected in the raw payload (before mapping)
+        forbidden_semantic_after_mapping:
+          oneOf:
+            - type: array
+              items:
+                $ref: '#/components/schemas/PreflightForbiddenKeyHit'
+            - type: 'null'
+          description: |
+            Semantic hits remaining after simulated tenant mapping. Null when no mapping was simulated
+            (org_id/source_system absent or no mapping configured for the pair).
+        note:
+          type: string
+          description: Present when org_id/source_system is provided but no mapping is configured for the pair.
+        mapping_error:
+          type: string
+          description: |
+            Present when mapping simulation failed (e.g. stored mapping contains an invalid transform expression).
+            Per `docs/specs/ingestion-preflight.md` § Production Correctness Notes, mapping-simulation errors are caught,
+            logged, and surfaced here on a 200 response — never raised to 500. When `mapping_error` is present,
+            `forbidden_semantic_after_mapping` is `null`.
+        mapping_suggestions:
+          type: array
+          items:
+            $ref: '#/components/schemas/PreflightMappingSuggestion'
+          description: Suggestions from the static catalog for resolving semantic forbidden-key hits via tenant field mappings
+        verdict:
+          type: string
+          enum:
+            - clean
+            - pii_blocking
+            - semantic_blocking
+            - semantic_resolvable_by_mapping
+          description: |
+            Overall preflight verdict:
+            - `clean` — no forbidden keys detected; payload would pass live ingestion.
+            - `pii_blocking` — PII keys detected; always blocks regardless of mapping.
+            - `semantic_blocking` — semantic keys remain after mapping (or no mapping available).
+            - `semantic_resolvable_by_mapping` — all semantic hits would be resolved by an existing tenant mapping.
+
+    PreflightErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              enum:
+                - payload_not_object
+                - preflight_missing_scope_pair
+                - request_too_large
             message:
               type: string
 

@@ -67,6 +67,7 @@ export interface ValidationResult {
 export interface ForbiddenKeyResult {
   key: string;
   path: string;
+  category: 'pii' | 'semantic';
 }
 
 /**

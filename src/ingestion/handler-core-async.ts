@@ -111,6 +111,18 @@ export async function handleSignalIngestionAsync(
       message: `Forbidden semantic key '${forbiddenKey.key}' detected in payload`,
       field_path: forbiddenKey.path,
     };
+
+    log.warn?.(
+      {
+        org_id: signal.org_id,
+        signal_id: signal.signal_id,
+        forbidden_key: forbiddenKey.key,
+        forbidden_key_path: forbiddenKey.path,
+        forbidden_key_category: forbiddenKey.category,
+      },
+      'forbidden key detected in payload'
+    );
+
     await logIngestionOutcome(ingestionLog, buildOutcomeEntry(signal, 'rejected', receivedAt, rejectionReason), log);
     return {
       statusCode: 400,

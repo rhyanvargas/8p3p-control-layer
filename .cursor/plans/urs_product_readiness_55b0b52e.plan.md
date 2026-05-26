@@ -4,7 +4,7 @@ overview: Coordinating master plan that ships P0 (pilot-blocking ingestion stack
 todos:
   - id: wave1-preflight
     content: "Wave 1 · TASK-W1-1: Execute existing .cursor/plans/ingestion-preflight.plan.md (17 tasks; pilot-blocking per CEO direction)"
-    status: pending
+    status: completed
   - id: wave1-webhooks
     content: "Wave 1 · TASK-W1-2: Open .cursor/plans/webhook-adapters.plan.md and execute (route, envelope extraction core, event filtering, CDK wiring, OpenAPI, contract tests)"
     status: pending
