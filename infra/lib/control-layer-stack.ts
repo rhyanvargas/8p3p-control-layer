@@ -220,14 +220,14 @@ export class ControlLayerStack extends cdk.Stack {
     });
 
     // -------------------------------------------------------------------------
-    // Lambda: InspectFunction — GET /v1/state, /v1/state/list, /v1/ingestion
+    // Lambda: InspectFunction — GET /v1/state, /v1/state/list, /v1/state/trajectory, /v1/ingestion
     // -------------------------------------------------------------------------
 
     this.inspectFunction = new lambda.Function(this, 'InspectFunction', {
       ...commonProps,
       functionName: `control-layer-inspect-${stage}`,
       handler: 'inspect.handler',
-      description: 'Inspection API — GET /v1/state, /v1/state/list, /v1/ingestion',
+      description: 'Inspection API — GET /v1/state, /v1/state/list, /v1/state/trajectory, /v1/ingestion',
       environment: { ...commonEnv },
     });
 
@@ -392,6 +392,10 @@ export class ControlLayerStack extends cdk.Stack {
     // GET /v1/state/list → InspectFunction
     const stateList = state.addResource('list');
     stateList.addMethod('GET', new apigateway.LambdaIntegration(this.inspectFunction));
+
+    // GET /v1/state/trajectory → InspectFunction
+    const stateTrajectory = state.addResource('trajectory');
+    stateTrajectory.addMethod('GET', new apigateway.LambdaIntegration(this.inspectFunction));
 
     // GET /v1/ingestion → InspectFunction
     const ingestion = v1.addResource('ingestion');

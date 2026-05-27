@@ -214,6 +214,44 @@ export class SqliteStateRepository implements StateRepository {
     runMany();
   }
 
+  getStateVersionRange(
+    orgId: string,
+    learnerRef: string,
+    fromVersion: number,
+    toVersion: number,
+    limit: number,
+    cursor?: number
+  ): { states: LearnerState[]; nextCursor: number | null } {
+    const cappedLimit = Math.min(Math.max(1, limit), 100);
+    const cursorValue = cursor ?? 0;
+
+    const stmt = this.db.prepare(`
+      SELECT id, org_id, learner_reference, state_id, state_version, updated_at,
+             state, last_signal_id, last_signal_timestamp
+      FROM learner_state
+      WHERE org_id = ?
+        AND learner_reference = ?
+        AND state_version >= ?
+        AND state_version <= ?
+        AND state_version > ?
+      ORDER BY state_version ASC
+      LIMIT ?
+    `);
+
+    const rows = stmt.all(
+      orgId, learnerRef, fromVersion, toVersion, cursorValue, cappedLimit
+    ) as LearnerStateRow[];
+
+    const states = rows.map(rowToLearnerState);
+
+    const nextCursor =
+      states.length === cappedLimit && states[states.length - 1]!.state_version < toVersion
+        ? states[states.length - 1]!.state_version
+        : null;
+
+    return { states, nextCursor };
+  }
+
   close(): void {
     this.db.close();
   }
@@ -448,6 +486,22 @@ export function listLearners(
   cursor?: string
 ): { learners: StateSummary[]; nextCursor: string | null } {
   return requireRepository().listLearners(orgId, limit, cursor);
+}
+
+/**
+ * Return LearnerState records in state_version ASC order within
+ * the inclusive range [fromVersion, toVersion].
+ * Keyset pagination via numeric `cursor`.
+ */
+export function getStateVersionRange(
+  orgId: string,
+  learnerRef: string,
+  fromVersion: number,
+  toVersion: number,
+  limit: number,
+  cursor?: number
+): { states: LearnerState[]; nextCursor: number | null } {
+  return requireRepository().getStateVersionRange(orgId, learnerRef, fromVersion, toVersion, limit, cursor);
 }
 
 /**

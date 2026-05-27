@@ -8,7 +8,7 @@ The decision engine evaluates learner state at a point in time, but educators an
 
 For v1.1, flat fields only. The direction computation reuses the `{field}_direction` companion values written by `state-delta-detection.md` (which are stored per-version in the state object) — no additional computation at query time. The v1.2 extension (US-SKILL-001 dot-path support) will enable nested field paths like `skills.fractions.stabilityScore`.
 
-**Sequential dependency:** `state-delta-detection.md` must be implemented before this spec. Direction data (`{field}_direction`) is read directly from stored state versions — if the companion delta fields are not present in stored state, trajectory responses will return `null` for `direction`.
+**Sequential dependency:** `state-delta-detection.md` is implemented (PREREQ-001 satisfied). Direction data (`{field}_direction`) is read directly from stored state versions — if the companion delta fields are not present in stored state, trajectory responses will return `null` for `direction`.
 
 ---
 
@@ -96,25 +96,19 @@ Return an ordered array of state snapshots for a learner, filtered to requested 
 **Response (400) — missing required field:**
 
 ```json
-{
-  "error": { "code": "missing_required_field", "message": "'learner_reference' is required", "field_path": "learner_reference" }
-}
+{ "code": "missing_required_field", "message": "'learner_reference' is required", "field_path": "learner_reference" }
 ```
 
 **Response (400) — too many fields:**
 
 ```json
-{
-  "error": { "code": "invalid_format", "message": "Maximum 10 fields per trajectory request. Got 14." }
-}
+{ "code": "invalid_format", "message": "Maximum 10 fields per trajectory request. Got 14." }
 ```
 
 **Response (404) — learner not found:**
 
 ```json
-{
-  "error": { "code": "state_not_found", "message": "No state found for learner 'learner_001' in org 'springs'" }
-}
+{ "code": "state_not_found", "message": "No state found for learner 'learner_001' in org 'springs'" }
 ```
 
 ---
@@ -142,6 +136,8 @@ Provides a cross-version aggregate per field:
 | `latest_value` | Value at the latest version in range where the field was non-null |
 | `overall_direction` | `"improving"` if `latest_value > first_value`; `"declining"` if `latest_value < first_value`; `"stable"` if equal. `null` if field was only present in one version. |
 | `version_count` | Number of versions in range where the field was non-null |
+
+> **Pagination note:** When the response is paginated, `summary` is computed across the versions returned in the **current page only**, not the full version range. Consumers that need a global summary across all pages should aggregate page-level summaries client-side or use the forthcoming `learner-summary-api` endpoint.
 
 ---
 
@@ -199,7 +195,7 @@ Provides a cross-version aggregate per field:
 | Dependency | Source Document | Status |
 |------------|----------------|--------|
 | `getStateByVersion()` — `StateRepository` interface | `docs/specs/state-engine.md` | **Complete** |
-| **`{field}_direction` companion values in stored state** | `docs/specs/state-delta-detection.md` | **Spec'd — MUST be implemented first** |
+| **`{field}_direction` companion values in stored state** | `docs/specs/state-delta-detection.md` | **Complete** |
 | `LearnerState` type with `state: Record<string, unknown>` | `src/shared/types.ts` | **Complete** |
 | API key middleware + org_id isolation | `docs/specs/api-key-middleware.md` | **Complete** |
 | `InspectFunction` Lambda (AWS deployment routing) | `docs/specs/aws-deployment.md` TASK-003 | Spec'd (v1.1) |
@@ -247,6 +243,9 @@ getStateVersionRange(
 | `api_key_required` / `api_key_invalid` | Auth middleware |
 | `invalid_format` | Validation — dot-path field or too many fields |
 
+| `page_size_out_of_range` | Pagination — `page_size` outside 1–100 (`src/shared/error-codes.ts`) |
+| `invalid_page_token` | Pagination — malformed or undecodable `page_token` (`src/shared/error-codes.ts`) |
+
 ### New (add during implementation)
 
 None. All error cases map to existing codes.
@@ -277,4 +276,4 @@ None. All error cases map to existing codes.
 
 ---
 
-*Spec created: 2026-03-28 | Phase: v1.1 | Derived from US-TRAJECTORY-001 (backlog) | Depends on: state-delta-detection.md (MUST be implemented first), state-engine.md, aws-deployment.md*
+*Spec created: 2026-03-28 | Phase: v1.1 | Derived from US-TRAJECTORY-001 (backlog) | Depends on: state-delta-detection.md (Complete), state-engine.md, aws-deployment.md*

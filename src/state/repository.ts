@@ -38,5 +38,27 @@ export interface StateRepository {
     limit: number,
     cursor?: string
   ): { learners: Array<{ learner_reference: string; state_version: number; updated_at: string }>; nextCursor: string | null };
+  /**
+   * Return LearnerState records in state_version ASC order for a given
+   * learner within the inclusive version range [fromVersion, toVersion].
+   *
+   * Keyset pagination: `cursor` is the last state_version already seen;
+   * results start from the first version strictly greater than `cursor`.
+   *
+   * `nextCursor` is the state_version of the last returned record when
+   * more results exist beyond `limit` and within `toVersion`; otherwise `null`.
+   *
+   * SQLite implementation is synchronous; the DynamoDB implementation
+   * provides an async counterpart on DynamoDbStateRepository (parallel to
+   * existing getState / getStateByVersion async signatures).
+   */
+  getStateVersionRange(
+    orgId: string,
+    learnerRef: string,
+    fromVersion: number,
+    toVersion: number,
+    limit: number,
+    cursor?: number
+  ): { states: LearnerState[]; nextCursor: number | null };
   close(): void;
 }

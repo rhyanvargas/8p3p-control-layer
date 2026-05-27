@@ -4,7 +4,7 @@
  */
 
 import type { FastifyInstance } from 'fastify';
-import { handleStateQuery, handleStateListQuery } from './handler.js';
+import { handleStateQuery, handleStateListQuery, handleTrajectoryQuery } from './handler.js';
 
 /**
  * Register State query routes with Fastify
@@ -12,8 +12,10 @@ import { handleStateQuery, handleStateListQuery } from './handler.js';
  * Routes:
  * - GET /state - Get learner state (single learner, optional version)
  * - GET /state/list - List learners for an org (paginated)
+ * - GET /state/trajectory - Get learner state trajectory across versions
  */
 export function registerStateRoutes(app: FastifyInstance): void {
   app.get('/state', handleStateQuery);
   app.get('/state/list', handleStateListQuery);
+  app.get('/state/trajectory', handleTrajectoryQuery);
 }

@@ -162,6 +162,43 @@ export class DynamoDbStateRepository {
     }
   }
 
+  async getStateVersionRange(
+    orgId: string,
+    learnerRef: string,
+    fromVersion: number,
+    toVersion: number,
+    limit: number,
+    cursor?: number
+  ): Promise<{ states: LearnerState[]; nextCursor: number | null }> {
+    const cappedLimit = Math.min(Math.max(1, limit), 100);
+    const pk = `${orgId}#${learnerRef}`;
+
+    const exclusiveStartKey = cursor != null
+      ? marshall({ org_learner: pk, state_version: cursor })
+      : undefined;
+
+    const result = await this.client.send(
+      new QueryCommand({
+        TableName: this.stateTableName,
+        KeyConditionExpression: 'org_learner = :pk AND state_version BETWEEN :from AND :to',
+        ExpressionAttributeValues: marshall({ ':pk': pk, ':from': fromVersion, ':to': toVersion }),
+        ScanIndexForward: true,
+        Limit: cappedLimit,
+        ExclusiveStartKey: exclusiveStartKey,
+      })
+    );
+
+    const items = result.Items ?? [];
+    const states = items.map((item) => unmarshallState(unmarshall(item)));
+
+    const nextCursor =
+      result.LastEvaluatedKey && states.length > 0 && states[states.length - 1]!.state_version < toVersion
+        ? states[states.length - 1]!.state_version
+        : null;
+
+    return { states, nextCursor };
+  }
+
   async listLearners(
     orgId: string,
     limit: number,

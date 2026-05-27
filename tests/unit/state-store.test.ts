@@ -16,6 +16,7 @@ import {
   recordAppliedSignals,
   getStateStoreDatabase,
   listLearners,
+  getStateVersionRange,
   StateVersionConflictError,
   setStateRepository,
   SqliteStateRepository,
@@ -425,6 +426,92 @@ describe('STATE Store', () => {
     });
   });
 
+  describe('getStateVersionRange', () => {
+    function seedVersions(
+      orgId: string,
+      learnerRef: string,
+      count: number,
+      startVersion = 1
+    ): void {
+      for (let v = startVersion; v < startVersion + count; v++) {
+        saveState(
+          createState({
+            org_id: orgId,
+            learner_reference: learnerRef,
+            state_id: `${orgId}:${learnerRef}:v${v}`,
+            state_version: v,
+            updated_at: `2026-03-01T${String(v).padStart(2, '0')}:00:00Z`,
+            state: { version: v },
+          })
+        );
+      }
+    }
+
+    it('should return all 5 versions in ASC order with no cursor', () => {
+      seedVersions('test-org', 'learner-1', 5);
+
+      const { states, nextCursor } = getStateVersionRange('test-org', 'learner-1', 1, 5, 50);
+      expect(states).toHaveLength(5);
+      expect(states.map((s) => s.state_version)).toEqual([1, 2, 3, 4, 5]);
+      expect(nextCursor).toBeNull();
+    });
+
+    it('should return only versions within [fromVersion, toVersion]', () => {
+      seedVersions('test-org', 'learner-1', 5);
+
+      const { states, nextCursor } = getStateVersionRange('test-org', 'learner-1', 2, 4, 50);
+      expect(states).toHaveLength(3);
+      expect(states.map((s) => s.state_version)).toEqual([2, 3, 4]);
+      expect(nextCursor).toBeNull();
+    });
+
+    it('should respect limit and return nextCursor when more results exist', () => {
+      seedVersions('test-org', 'learner-1', 5);
+
+      const { states, nextCursor } = getStateVersionRange('test-org', 'learner-1', 1, 5, 2);
+      expect(states).toHaveLength(2);
+      expect(states.map((s) => s.state_version)).toEqual([1, 2]);
+      expect(nextCursor).toBe(2);
+    });
+
+    it('should paginate from cursor to next page', () => {
+      seedVersions('test-org', 'learner-1', 5);
+
+      const { states, nextCursor } = getStateVersionRange('test-org', 'learner-1', 1, 5, 2, 2);
+      expect(states).toHaveLength(2);
+      expect(states.map((s) => s.state_version)).toEqual([3, 4]);
+      expect(nextCursor).toBe(4);
+    });
+
+    it('should return final page with nextCursor null', () => {
+      seedVersions('test-org', 'learner-1', 5);
+
+      const { states, nextCursor } = getStateVersionRange('test-org', 'learner-1', 1, 5, 2, 4);
+      expect(states).toHaveLength(1);
+      expect(states.map((s) => s.state_version)).toEqual([5]);
+      expect(nextCursor).toBeNull();
+    });
+
+    it('should isolate results by org_id', () => {
+      seedVersions('org-A', 'shared-learner', 3);
+      seedVersions('org-B', 'shared-learner', 2);
+
+      const resultA = getStateVersionRange('org-A', 'shared-learner', 1, 10, 50);
+      expect(resultA.states).toHaveLength(3);
+      expect(resultA.states.every((s) => s.org_id === 'org-A')).toBe(true);
+
+      const resultB = getStateVersionRange('org-B', 'shared-learner', 1, 10, 50);
+      expect(resultB.states).toHaveLength(2);
+      expect(resultB.states.every((s) => s.org_id === 'org-B')).toBe(true);
+    });
+
+    it('should return empty result for non-existent learner', () => {
+      const { states, nextCursor } = getStateVersionRange('test-org', 'nonexistent', 1, 10, 50);
+      expect(states).toEqual([]);
+      expect(nextCursor).toBeNull();
+    });
+  });
+
   describe('errors when store not initialized', () => {
     it('should throw when getState called without init', () => {
       closeStateStore();
@@ -486,6 +573,12 @@ describe('STATE Store', () => {
           return true;
         }
         recordAppliedSignals(): void {}
+        listLearners() {
+          return { learners: [], nextCursor: null };
+        }
+        getStateVersionRange() {
+          return { states: [], nextCursor: null };
+        }
         close(): void {}
       }
 
@@ -512,6 +605,12 @@ describe('STATE Store', () => {
           return false;
         }
         recordAppliedSignals(): void {}
+        listLearners() {
+          return { learners: [], nextCursor: null };
+        }
+        getStateVersionRange() {
+          return { states: [], nextCursor: null };
+        }
         close(): void {
           this.onClose();
         }
@@ -530,6 +629,113 @@ describe('STATE Store', () => {
 
       closeStateStore();
       expect(closed2).toBe(true);
+    });
+  });
+
+  describe('getStateVersionRange', () => {
+    function seedVersions(
+      orgId: string,
+      learnerRef: string,
+      count: number
+    ): void {
+      for (let v = 1; v <= count; v++) {
+        saveState(
+          createState({
+            org_id: orgId,
+            learner_reference: learnerRef,
+            state_id: `${orgId}:${learnerRef}:v${v}`,
+            state_version: v,
+            updated_at: `2026-03-0${v}T10:00:00Z`,
+            state: { version: v },
+          })
+        );
+      }
+    }
+
+    it('should return all states ASC when range covers everything', () => {
+      seedVersions('test-org', 'learner-1', 5);
+
+      const { states, nextCursor } = getStateVersionRange(
+        'test-org', 'learner-1', 1, 5, 50, undefined
+      );
+
+      expect(states).toHaveLength(5);
+      expect(states.map((s) => s.state_version)).toEqual([1, 2, 3, 4, 5]);
+      expect(nextCursor).toBeNull();
+    });
+
+    it('should filter by from_version and to_version inclusive', () => {
+      seedVersions('test-org', 'learner-1', 5);
+
+      const { states, nextCursor } = getStateVersionRange(
+        'test-org', 'learner-1', 2, 4, 50, undefined
+      );
+
+      expect(states).toHaveLength(3);
+      expect(states.map((s) => s.state_version)).toEqual([2, 3, 4]);
+      expect(nextCursor).toBeNull();
+    });
+
+    it('should respect limit and return nextCursor when more results exist', () => {
+      seedVersions('test-org', 'learner-1', 5);
+
+      const { states, nextCursor } = getStateVersionRange(
+        'test-org', 'learner-1', 1, 5, 2, undefined
+      );
+
+      expect(states).toHaveLength(2);
+      expect(states.map((s) => s.state_version)).toEqual([1, 2]);
+      expect(nextCursor).toBe(2);
+    });
+
+    it('should paginate from cursor (keyset)', () => {
+      seedVersions('test-org', 'learner-1', 5);
+
+      const { states, nextCursor } = getStateVersionRange(
+        'test-org', 'learner-1', 1, 5, 2, 2
+      );
+
+      expect(states).toHaveLength(2);
+      expect(states.map((s) => s.state_version)).toEqual([3, 4]);
+      expect(nextCursor).toBe(4);
+    });
+
+    it('should return remaining results after cursor with no nextCursor at end', () => {
+      seedVersions('test-org', 'learner-1', 5);
+
+      const { states, nextCursor } = getStateVersionRange(
+        'test-org', 'learner-1', 1, 5, 2, 4
+      );
+
+      expect(states).toHaveLength(1);
+      expect(states.map((s) => s.state_version)).toEqual([5]);
+      expect(nextCursor).toBeNull();
+    });
+
+    it('should enforce org isolation', () => {
+      seedVersions('org-A', 'shared-learner', 3);
+      seedVersions('org-B', 'shared-learner', 2);
+
+      const { states: orgAStates } = getStateVersionRange(
+        'org-A', 'shared-learner', 1, 10, 50, undefined
+      );
+      const { states: orgBStates } = getStateVersionRange(
+        'org-B', 'shared-learner', 1, 10, 50, undefined
+      );
+
+      expect(orgAStates).toHaveLength(3);
+      expect(orgAStates.every((s) => s.org_id === 'org-A')).toBe(true);
+      expect(orgBStates).toHaveLength(2);
+      expect(orgBStates.every((s) => s.org_id === 'org-B')).toBe(true);
+    });
+
+    it('should return empty result for non-existent learner', () => {
+      const { states, nextCursor } = getStateVersionRange(
+        'test-org', 'nonexistent', 1, 100, 50, undefined
+      );
+
+      expect(states).toEqual([]);
+      expect(nextCursor).toBeNull();
     });
   });
 });

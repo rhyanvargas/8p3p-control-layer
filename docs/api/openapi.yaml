@@ -513,6 +513,160 @@ paths:
                   message:
                     type: string
 
+  /v1/state/trajectory:
+    get:
+      tags: [State]
+      operationId: getTrajectory
+      summary: Get learner state trajectory
+      description: |
+        **What it does:** Returns an ordered series of state version entries for a learner, showing how specific fields changed over time. Each version includes the field's value and its stored direction companion (`improving`, `declining`, `stable`, or `null`). A per-page `summary` computes `first_value`, `latest_value`, and `overall_direction` across the returned versions.
+
+        **When to use:** When you need to visualize or analyze how a learner's metrics evolved — e.g. trajectory charts, progress reports, or detecting trends. Use GET /v1/state for the current snapshot; use this endpoint for the historical series.
+
+        **How:** Supply `org_id`, `learner_reference`, and a comma-separated `fields` list (max 10 flat canonical field names). Optionally narrow with `from_version`/`to_version`. Paginate with `page_token` and `page_size`. See docs/specs/learner-trajectory-api.md.
+
+        **Note:** `summary` is computed across versions returned in the current page only. For full-range summaries, consume all pages.
+      parameters:
+        - name: org_id
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 128
+          description: Organization identifier (required for tenant isolation)
+        - name: learner_reference
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 256
+          description: Learner identifier
+        - name: fields
+          in: query
+          required: true
+          style: form
+          explode: false
+          schema:
+            type: string
+          description: |
+            Comma-separated list of flat canonical field names to include (e.g. `stabilityScore,masteryScore`).
+            Max 10 fields per request. Dot-path fields are not supported in v1.1.
+        - name: from_version
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+          description: Starting state version (inclusive). Defaults to 1.
+        - name: to_version
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+          description: Ending state version (inclusive). Defaults to current (latest).
+        - name: page_token
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Opaque pagination token from previous response
+        - name: page_size
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+          description: Results per page (1–100, default 50)
+      responses:
+        '200':
+          description: Trajectory versions for the requested fields
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrajectoryResponse'
+              example:
+                org_id: springs
+                learner_reference: learner_001
+                fields: [stabilityScore, masteryScore]
+                versions:
+                  - state_version: 1
+                    updated_at: '2026-03-01T10:00:00Z'
+                    values:
+                      stabilityScore: 0.72
+                      masteryScore: 0.65
+                    directions:
+                      stabilityScore: null
+                      masteryScore: null
+                  - state_version: 2
+                    updated_at: '2026-03-02T10:00:00Z'
+                    values:
+                      stabilityScore: 0.55
+                      masteryScore: 0.70
+                    directions:
+                      stabilityScore: declining
+                      masteryScore: improving
+                summary:
+                  stabilityScore:
+                    first_value: 0.72
+                    latest_value: 0.55
+                    overall_direction: declining
+                    version_count: 2
+                  masteryScore:
+                    first_value: 0.65
+                    latest_value: 0.70
+                    overall_direction: improving
+                    version_count: 2
+                next_page_token: null
+        '400':
+          description: Invalid query (missing fields, too many fields, dot-path field, invalid version range, bad page_token/page_size)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StateError'
+              examples:
+                too_many_fields:
+                  summary: More than 10 fields requested
+                  value:
+                    code: invalid_format
+                    message: 'Maximum 10 fields per trajectory request. Got 14.'
+                dot_path_field:
+                  summary: Dot-path field not supported in v1.1
+                  value:
+                    code: invalid_format
+                    message: 'Dot-path fields are not supported in v1.1. Use top-level canonical field names.'
+                missing_learner:
+                  summary: Missing learner_reference
+                  value:
+                    code: missing_required_field
+                    message: "'learner_reference' is required"
+                    field_path: learner_reference
+        '401':
+          description: Unauthorized (missing or invalid API key)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: string
+                    enum: [api_key_required, api_key_invalid]
+                  message:
+                    type: string
+        '404':
+          description: No state found for learner in org
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StateError'
+              example:
+                code: state_not_found
+                message: "No state found for learner 'learner_001' in org 'springs'"
+
   /v1/decisions:
     get:
       tags: [Decision]
@@ -1721,11 +1875,99 @@ components:
       properties:
         code:
           type: string
-          description: Error code (e.g. org_scope_required, missing_required_field, state_not_found, state_version_not_found, limit_out_of_range)
+          description: Error code (e.g. org_scope_required, missing_required_field, state_not_found, state_version_not_found, limit_out_of_range, invalid_format, page_size_out_of_range, invalid_page_token)
         message:
           type: string
         field_path:
           type: string
+
+    # ---------------------------------------------------------------------------
+    # Learner Trajectory (GET /v1/state/trajectory)
+    # See docs/specs/learner-trajectory-api.md
+    # ---------------------------------------------------------------------------
+    TrajectoryVersionEntry:
+      type: object
+      required: [state_version, updated_at, values, directions]
+      properties:
+        state_version:
+          type: integer
+          description: Version number of this state snapshot
+        updated_at:
+          type: string
+          format: date-time
+          description: When this state version was written (ISO 8601)
+        values:
+          type: object
+          additionalProperties:
+            oneOf:
+              - type: number
+              - type: string
+              - type: boolean
+              - type: 'null'
+          description: For each requested field, the field's value at this version (or null if not present)
+        directions:
+          type: object
+          additionalProperties:
+            oneOf:
+              - type: string
+                enum: [improving, declining, stable]
+              - type: 'null'
+          description: For each requested field, the stored direction companion value (improving, declining, stable, or null)
+
+    TrajectoryFieldSummary:
+      type: object
+      required: [first_value, latest_value, overall_direction, version_count]
+      properties:
+        first_value:
+          oneOf:
+            - type: number
+            - type: 'null'
+          description: Value at the earliest version in range where the field was non-null
+        latest_value:
+          oneOf:
+            - type: number
+            - type: 'null'
+          description: Value at the latest version in range where the field was non-null
+        overall_direction:
+          oneOf:
+            - type: string
+              enum: [improving, declining, stable]
+            - type: 'null'
+          description: |
+            `improving` if latest_value > first_value; `declining` if latest_value < first_value;
+            `stable` if equal. `null` if the field was only present in one version.
+        version_count:
+          type: integer
+          description: Number of versions in range where the field was non-null
+
+    TrajectoryResponse:
+      type: object
+      required: [org_id, learner_reference, fields, versions, summary, next_page_token]
+      properties:
+        org_id:
+          type: string
+        learner_reference:
+          type: string
+        fields:
+          type: array
+          items:
+            type: string
+          description: The requested field names (echoed back)
+        versions:
+          type: array
+          items:
+            $ref: '#/components/schemas/TrajectoryVersionEntry'
+          description: State versions in ascending state_version order
+        summary:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/TrajectoryFieldSummary'
+          description: Per-field summary computed across the versions returned in the current page
+        next_page_token:
+          oneOf:
+            - type: string
+            - type: 'null'
+          description: Opaque token for the next page, or null if no more results
 
     # ---------------------------------------------------------------------------
     # Decision Output (GET /v1/decisions)
