@@ -148,6 +148,7 @@ Use the spec-driven workflow (detailed workflow instructions live in `.cursor/sk
 3. `/implement-spec` - Implement plan/spec
 4. `/sync-contracts` - Detect and resolve contract drift
 5. `/review` - Post-implementation quality check
+6. `/commit` - Batch local changes into conventional commits (after review)
 
 For exploring existing code, use `/extract-spec`.
 Canonical reference: `internal-docs/foundation/definitive-workflow.md`.

@@ -24,6 +24,7 @@ Read every rule whose scope overlaps the command's task:
 | Specs, plans, or implementation (`/draft-spec`, `/plan-impl`, `/implement-spec`, `/extract-spec`) | @document-traceability, @control-layer-constraints, @prefer-existing-solutions |
 | Contracts or schemas (`/sync-contracts`, `/implement-spec`) | @contract-enforcement |
 | Reviews (`/review`, `/post-impl-doc-sync`) | @document-traceability (§ Spec ↔ implementation parity) |
+| Git commits (`/commit`) | @no-cursor-git-coauthor |
 | Any code generation or modification | @control-layer-constraints (scope boundaries), @prefer-existing-solutions |
 | README or reports (`/update-readme`, `/generate-report`) | @project-context (tech stack, architecture, commands) |
 

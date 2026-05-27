@@ -16,7 +16,7 @@ todos:
     status: completed
   - id: wave2-trajectory
     content: "Wave 2 · TASK-W2-1: Open .cursor/plans/learner-trajectory-api.plan.md and execute (getStateVersionRange, trajectory handler core, route, OpenAPI, contract tests)"
-    status: pending
+    status: completed
   - id: wave2-summary
     content: "Wave 2 · TASK-W2-2: Open .cursor/plans/learner-summary-api.plan.md and execute (aggregation handler, PII exclusion of state_snapshot, route, Lambda wiring, SUM-001..008 contract tests)"
     status: pending
