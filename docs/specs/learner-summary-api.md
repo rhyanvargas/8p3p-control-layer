@@ -18,7 +18,7 @@ learner-trajectory-api.md  (provides getStateVersionRange + direction summaries)
 learner-summary-api.md     (this spec — aggregates trajectory + decisions + state + policy)
 ```
 
-Both prior specs must be implemented before this one. The summary endpoint composes their outputs; it introduces no new data models.
+Both prior specs must be implemented before this one. The summary endpoint composes their outputs and introduces **no new tables or write paths**. It does add two **read-only** query methods to existing repositories — see § Dependencies.
 
 ---
 
@@ -111,10 +111,10 @@ Return a structured summary of a learner's current state, decision history, fiel
 **Response (404) — learner not found:**
 
 ```json
-{
-  "error": { "code": "state_not_found", "message": "No state found for learner 'learner_001' in org 'springs'" }
-}
+{ "code": "state_not_found", "message": "No state found for learner 'learner_001' in org 'springs'" }
 ```
+
+> Error envelope is **flat** (`{ code, message, field_path? }`), matching all other `/v1/state*` and `/v1/decisions` endpoints and the OpenAPI `StateError` schema. Aligned with `learner-trajectory-api.md`.
 
 ---
 
@@ -141,13 +141,39 @@ PII exclusion: `state_snapshot` from `Decision.trace` is **not** included. Only 
 
 ### `field_trajectories`
 
-The `summary` object from `GET /v1/state/trajectory` for the fields named in `trajectory_fields` (or all numeric fields in current state if `trajectory_fields` is omitted). Pulled from the trajectory API core logic — same `getStateVersionRange()` call.
+The `summary` object from `GET /v1/state/trajectory` for the fields named in `trajectory_fields` (or all numeric fields in current state if `trajectory_fields` is omitted). Pulled from the trajectory API core logic — same `getStateVersionRange()` call and same `buildSummary` semantics.
 
-When no trajectory data exists (learner has only 1 state version), `field_trajectories` returns each field with `first_value` = `latest_value`, `overall_direction: "stable"`, `version_count: 1`.
+**Single-version semantics (aligned with trajectory core):** When the learner has only 1 state version (or only 1 version where the field is non-null and numeric), the field's entry is `{ first_value: <value>, latest_value: <value>, overall_direction: null, version_count: 1 }`. Direction is `null` (not `"stable"`) because direction is undefined with a single data point. This matches `buildSummary` in `src/state/trajectory-handler-core.ts`.
+
+**"All numeric fields" default (when `trajectory_fields` omitted):** Inspect `current_state.fields` and pick keys where `typeof value === 'number'`, excluding any keys that end in `_delta` (companion fields are not trajectory targets). Cap at 10 fields to honor the same limit as `learner-trajectory-api.md`.
+
+**Pagination scope:** Summary computes `field_trajectories` across **all** versions in `[1, current_state.state_version]` by looping `getStateVersionRange` until `nextCursor === null` (typical learner has < 100 versions in v1.1; bounded loop with safety cap). Trajectory's per-page summary semantics do not apply here.
 
 ### `active_policy`
 
-The policy currently applied to this learner — resolved via `loadPolicyForContext(org_id, userType)` where `userType` is resolved from the org's routing config. Returns `policy_id`, `policy_key`, `policy_version`, `description`, and `rule_count`. Does **not** include rule conditions or thresholds (use `GET /v1/policies/:policy_key` for full detail).
+The policy currently applied to this learner — resolved via `loadPolicyForContext(org_id, userType)`.
+
+**`userType` resolution chain (pinned):** Because the summary endpoint is learner-scoped and has no `source_system` context, `userType` is resolved as:
+
+```ts
+const userType = loadRoutingConfigForOrg(orgId)?.default_policy_key ?? 'learner';
+```
+
+This matches the decision engine's fallback (`src/decision/engine.ts`) when no `source_system` is supplied.
+
+**Composition of the response object:**
+
+| Field | Source |
+|-------|--------|
+| `policy_id` | `PolicyDefinition.policy_id` |
+| `policy_key` | The resolved `userType` argument passed to `loadPolicyForContext` (pass-through; not a field on `PolicyDefinition`) |
+| `policy_version` | `PolicyDefinition.policy_version` |
+| `description` | `PolicyDefinition.description` |
+| `rule_count` | `PolicyDefinition.rules.length` |
+
+Does **not** include rule conditions or thresholds (use `GET /v1/policies/:policy_key` for full detail).
+
+**Null behavior:** `loadPolicyForContext` **throws** an `Error` with `code: 'policy_not_found'` (from `src/shared/error-codes.ts`) when no filesystem candidate exists. The handler MUST catch **only** that specific code and set `active_policy: null`. Any other error code rethrows (do not swallow unrelated failures).
 
 ### `signals_summary`
 
@@ -191,7 +217,7 @@ Aggregate signal counts from the signal log:
 
 ## Constraints
 
-- **Aggregation only — no new data** — this endpoint reads from existing stores: `StateRepository`, `DecisionRepository` (via `GET /v1/decisions` core), `SignalLogStore` (via `GET /v1/signals` count query), `FieldMappingsTable` (via `loadPolicyForContext`). No new tables or write paths.
+- **Aggregation only — no new tables, no write paths.** This endpoint reads from existing stores: `StateRepository`, `DecisionRepository`, `SignalLogRepository`, and `loadPolicyForContext`. Two new **read-only query methods** (`getRecentDecisionsByLearner`, `getSignalSummary`) are introduced on existing repos, owned by `decision-engine.md` and `signal-log.md` respectively (see § Dependencies).
 - **PII exclusion is mandatory** — `state_snapshot` from decision trace must not appear in the response. Follows DEF-DEC-008-PII (PII forbidden keys + canonical snapshot).
 - **`trajectory_fields` max 10** — reuses the same 10-field limit from `learner-trajectory-api.md`.
 - **`recent_decisions` max 50** — prevents large response payloads for high-frequency learners.
@@ -218,12 +244,14 @@ Aggregate signal counts from the signal log:
 
 | Dependency | Source Document | Status |
 |------------|----------------|--------|
-| **`getStateVersionRange()`** — trajectory core | `docs/specs/learner-trajectory-api.md` | **Spec'd — MUST be implemented first** |
-| **`{field}_direction` companion values in state** | `docs/specs/state-delta-detection.md` | **Spec'd — MUST be implemented before trajectory** |
+| **`getStateVersionRange()`** — trajectory core | `docs/specs/learner-trajectory-api.md` | **Complete** (`src/state/store.ts:496`) |
+| **`{field}_direction` companion values in state** | `docs/specs/state-delta-detection.md` | **Complete** (`src/state/engine.ts`) |
+| `buildSummary` (trajectory summary computation) | `docs/specs/learner-trajectory-api.md` | **Spec'd — MUST be exported from `src/state/trajectory-handler-core.ts`** (currently file-internal) |
 | `getState()` — latest learner state | `docs/specs/state-engine.md` | **Complete** |
-| `GET /v1/decisions` core (last N decisions for learner) | `docs/specs/decision-engine.md`, `src/decision/store.ts` | **Complete** |
-| Signal log count query (total signals + date range) | `docs/specs/signal-log.md` | **Complete** |
-| `loadPolicyForContext(orgId, userType)` | `docs/specs/decision-engine.md`, `src/decision/policy-loader.ts` | **Complete** |
+| **`getRecentDecisionsByLearner(orgId, learnerRef, limit)`** — DESC by `decided_at` | `docs/specs/decision-engine.md`, `src/decision/store.ts` | **Spec'd — MUST be added to decision repo + spec.** Existing `getDecisions` requires `from_time`/`to_time` and SQLite implementation orders `ASC` (`src/decision/store.ts:165`); a learner-scoped DESC-ordered method does not exist. |
+| **`getSignalSummary(orgId, learnerRef)`** — `{ total_count, first_signal_at, last_signal_at }` | `docs/specs/signal-log.md` | **Spec'd — MUST be added to signal-log repo + spec.** No aggregate function exists today (`src/signalLog/store.ts` exports only `appendSignal`, `querySignals`, `getSignalsByIds`). |
+| `loadPolicyForContext(orgId, userType)` | `docs/specs/decision-engine.md`, `src/decision/policy-loader.ts` | **Complete** (note: throws `policy_not_found`; handler must catch — see § `active_policy`) |
+| `loadRoutingConfigForOrg(orgId)` | `docs/specs/decision-engine.md`, `src/decision/policy-loader.ts` | **Complete** |
 | API key middleware + `org_id` isolation | `docs/specs/api-key-middleware.md` | **Complete** |
 | PII hardening — DEF-DEC-008-PII (forbidden keys + canonical snapshot) | `docs/specs/signal-ingestion.md` | **Complete** |
 | `GET /v1/policies` core (policy metadata) | `docs/specs/policy-inspection-api.md` | Spec'd (v1.1) |
@@ -274,7 +302,7 @@ None. All error cases map to existing codes.
 
 ## Notes
 
-- **Implementation pattern:** This endpoint is a pure aggregation — call each store/function once, assemble the response object, return. The handler should be structured as a `Promise.all([getState, getDecisions, getSignalCount, getPolicy, getTrajectory])` so the stores are hit concurrently where possible.
+- **Implementation pattern:** This endpoint is a pure aggregation — call each store/function once, assemble the response object, return. The Fastify path operates against synchronous SQLite stores (`getState`, `getRecentDecisionsByLearner`, `getSignalSummary`, `loadPolicyForContext`, `getStateVersionRange`); concurrency is only meaningful on the Lambda DynamoDB path where every repo call is async. The Lambda handler MUST use `Promise.all([statePromise, recentDecisionsPromise, signalSummaryPromise, trajectorySummaryPromise])` (with policy resolved synchronously after state is in hand) to hit DynamoDB tables concurrently.
 - **SDK note:** The response shape of this endpoint is intentionally designed to be the primary input for an 8P3P SDK method `getLearnerSummary(learnerRef, options)`. The SDK layer is out of scope for this spec but the JSON contract is forward-compatible.
 
 ---
