@@ -35,6 +35,11 @@ vi.mock('../../../src/signalLog/dynamodb-repository.js', () => {
         accepted_at: now,
       }));
     });
+    getSignalSummary = vi.fn().mockResolvedValue({
+      total_count: 0,
+      first_signal_at: null,
+      last_signal_at: null,
+    });
   }
   return { DynamoDbSignalLogRepository: MockSignalLogRepo };
 });
@@ -46,6 +51,7 @@ vi.mock('../../../src/state/dynamodb-repository.js', () => {
     saveStateWithAppliedSignals = vi.fn().mockResolvedValue(undefined);
     listLearners = vi.fn().mockResolvedValue({ learners: [], nextCursor: null });
     getStateByVersion = vi.fn().mockResolvedValue(null);
+    getStateVersionRange = vi.fn().mockResolvedValue({ states: [], nextCursor: null });
   }
   return { DynamoDbStateRepository: MockStateRepo };
 });
@@ -55,6 +61,7 @@ vi.mock('../../../src/decision/dynamodb-repository.js', () => {
     saveDecision = vi.fn().mockResolvedValue(undefined);
     getDecisions = vi.fn().mockResolvedValue({ decisions: [], hasMore: false });
     getDecisionById = vi.fn().mockResolvedValue(null);
+    getRecentDecisionsByLearner = vi.fn().mockResolvedValue([]);
   }
   return { DynamoDbDecisionRepository: MockDecisionRepo };
 });
@@ -239,6 +246,8 @@ describe('Lambda: InspectFunction handler (AWS-DEPLOY-UT-001)', () => {
     process.env.STATE_TABLE = 'test-state';
     process.env.APPLIED_SIGNALS_TABLE = 'test-applied-signals';
     process.env.INGESTION_LOG_TABLE = 'test-ingestion-log';
+    process.env.DECISIONS_TABLE = 'test-decisions';
+    process.env.SIGNALS_TABLE = 'test-signals';
   });
 
   it('exports a handler function', async () => {
@@ -284,5 +293,22 @@ describe('Lambda: InspectFunction handler (AWS-DEPLOY-UT-001)', () => {
     expect(result.statusCode).toBe(200);
     const body = JSON.parse(result.body) as { learners: unknown[] };
     expect(Array.isArray(body.learners)).toBe(true);
+  });
+
+  it('returns 400 invalid_format for GET learner summary when recent_decisions_limit is 0', async () => {
+    const { handler } = await import('../../../src/lambda/inspect.js');
+    const event = makeEvent({
+      httpMethod: 'GET',
+      path: '/v1/learners/learner-1/summary',
+      queryStringParameters: {
+        org_id: 'test-org',
+        recent_decisions_limit: '0',
+      },
+    });
+    const result = await handler(event);
+    expect(result.statusCode).toBe(400);
+    const body = JSON.parse(result.body) as { code: string; field_path: string };
+    expect(body.code).toBe('invalid_format');
+    expect(body.field_path).toBe('recent_decisions_limit');
   });
 });

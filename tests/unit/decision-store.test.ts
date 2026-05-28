@@ -11,6 +11,7 @@ import {
   saveDecision,
   getDecisionById,
   getDecisions,
+  getRecentDecisionsByLearner,
   clearDecisionStore,
   encodePageToken,
 } from '../../src/decision/store.js';
@@ -308,6 +309,96 @@ describe('Decision Store', () => {
   });
 
   // -----------------------------------------------------------------------
+  // getRecentDecisionsByLearner
+  // -----------------------------------------------------------------------
+  describe('getRecentDecisionsByLearner', () => {
+    it('should return decisions in DESC decided_at order', () => {
+      const times = [
+        '2026-03-01T10:00:00Z',
+        '2026-03-02T10:00:00Z',
+        '2026-03-03T10:00:00Z',
+        '2026-03-04T10:00:00Z',
+        '2026-03-05T10:00:00Z',
+      ];
+      for (let i = 0; i < times.length; i++) {
+        saveDecision(
+          createDecision({
+            decision_id: `recent-${i}`,
+            decided_at: times[i],
+            learner_reference: 'learner-recent',
+          })
+        );
+      }
+
+      const result = getRecentDecisionsByLearner('test-org', 'learner-recent', 10);
+      expect(result).toHaveLength(5);
+      expect(result[0]!.decided_at).toBe('2026-03-05T10:00:00Z');
+      expect(result[4]!.decided_at).toBe('2026-03-01T10:00:00Z');
+    });
+
+    it('should respect limit', () => {
+      for (let i = 0; i < 5; i++) {
+        saveDecision(
+          createDecision({
+            decision_id: `limit-${i}`,
+            decided_at: `2026-03-0${i + 1}T10:00:00Z`,
+            learner_reference: 'learner-limit',
+          })
+        );
+      }
+
+      const result = getRecentDecisionsByLearner('test-org', 'learner-limit', 2);
+      expect(result).toHaveLength(2);
+      expect(result[0]!.decided_at).toBe('2026-03-05T10:00:00Z');
+      expect(result[1]!.decided_at).toBe('2026-03-04T10:00:00Z');
+    });
+
+    it('should defensively cap limit at 50', () => {
+      for (let i = 0; i < 60; i++) {
+        saveDecision(
+          createDecision({
+            decision_id: `cap-${i}`,
+            decided_at: `2026-04-01T00:00:${String(i).padStart(2, '0')}Z`,
+            learner_reference: 'learner-cap',
+          })
+        );
+      }
+
+      const result = getRecentDecisionsByLearner('test-org', 'learner-cap', 100);
+      expect(result).toHaveLength(50);
+    });
+
+    it('should isolate by org', () => {
+      saveDecision(
+        createDecision({
+          org_id: 'org-a',
+          decision_id: 'org-a-1',
+          learner_reference: 'learner-shared',
+          decided_at: '2026-03-01T10:00:00Z',
+        })
+      );
+      saveDecision(
+        createDecision({
+          org_id: 'org-b',
+          decision_id: 'org-b-1',
+          learner_reference: 'learner-shared',
+          decided_at: '2026-03-02T10:00:00Z',
+        })
+      );
+
+      const result = getRecentDecisionsByLearner('org-a', 'learner-shared', 10);
+      expect(result).toHaveLength(1);
+      expect(result[0]!.org_id).toBe('org-a');
+      expect(result[0]!.decision_id).toBe('org-a-1');
+    });
+
+    it('should return empty array for unknown learner', () => {
+      const result = getRecentDecisionsByLearner('test-org', 'nope', 10);
+      expect(result).toEqual([]);
+    });
+  });
+
+  // -----------------------------------------------------------------------
   // Errors when store not initialized
   // -----------------------------------------------------------------------
   describe('errors when store not initialized', () => {
@@ -336,6 +427,13 @@ describe('Decision Store', () => {
     it('should throw when clearDecisionStore called without init', () => {
       closeDecisionStore();
       expect(() => clearDecisionStore()).toThrow('Decision store not initialized');
+    });
+
+    it('should throw when getRecentDecisionsByLearner called without init', () => {
+      closeDecisionStore();
+      expect(() => getRecentDecisionsByLearner('org', 'lr', 10)).toThrow(
+        'Decision store not initialized'
+      );
     });
   });
 });

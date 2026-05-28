@@ -19,7 +19,7 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest';
 import Fastify, { type FastifyInstance } from 'fastify';
 import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
-import { GetCommand, PutCommand } from '@aws-sdk/lib-dynamodb';
+import { GetCommand } from '@aws-sdk/lib-dynamodb';
 import { apiKeyPreHandler } from '../../src/auth/api-key-middleware.js';
 import { registerWebhookRoutes } from '../../src/routes/webhooks.js';
 import {

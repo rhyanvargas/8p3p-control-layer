@@ -136,6 +136,83 @@ export class DynamoDbSignalLogRepository {
 
     return allRecords;
   }
+
+  async getSignalSummary(
+    orgId: string,
+    learnerRef: string
+  ): Promise<{
+    total_count: number;
+    first_signal_at: string | null;
+    last_signal_at: string | null;
+  }> {
+    const keyConditionExpression = 'org_id = :org AND begins_with(learner_timestamp, :lr)';
+    const expressionAttributeValues = marshall({
+      ':org': orgId,
+      ':lr': `${learnerRef}#`,
+    });
+
+    const [total_count, firstResult, lastResult] = await Promise.all([
+      this.countSignalsForLearner(keyConditionExpression, expressionAttributeValues),
+      this.client.send(
+        new QueryCommand({
+          TableName: this.tableName,
+          IndexName: 'gsi1-learner-time',
+          KeyConditionExpression: keyConditionExpression,
+          ExpressionAttributeValues: expressionAttributeValues,
+          ScanIndexForward: true,
+          Limit: 1,
+          ProjectionExpression: 'accepted_at',
+        })
+      ),
+      this.client.send(
+        new QueryCommand({
+          TableName: this.tableName,
+          IndexName: 'gsi1-learner-time',
+          KeyConditionExpression: keyConditionExpression,
+          ExpressionAttributeValues: expressionAttributeValues,
+          ScanIndexForward: false,
+          Limit: 1,
+          ProjectionExpression: 'accepted_at',
+        })
+      ),
+    ]);
+
+    const firstItem = firstResult.Items?.[0];
+    const lastItem = lastResult.Items?.[0];
+
+    return {
+      total_count,
+      first_signal_at: firstItem
+        ? (unmarshall(firstItem).accepted_at as string)
+        : null,
+      last_signal_at: lastItem ? (unmarshall(lastItem).accepted_at as string) : null,
+    };
+  }
+
+  private async countSignalsForLearner(
+    keyConditionExpression: string,
+    expressionAttributeValues: Record<string, AttributeValue>
+  ): Promise<number> {
+    let total = 0;
+    let exclusiveStartKey: Record<string, AttributeValue> | undefined;
+
+    do {
+      const result = await this.client.send(
+        new QueryCommand({
+          TableName: this.tableName,
+          IndexName: 'gsi1-learner-time',
+          KeyConditionExpression: keyConditionExpression,
+          ExpressionAttributeValues: expressionAttributeValues,
+          Select: 'COUNT',
+          ExclusiveStartKey: exclusiveStartKey,
+        })
+      );
+      total += result.Count ?? 0;
+      exclusiveStartKey = result.LastEvaluatedKey;
+    } while (exclusiveStartKey);
+
+    return total;
+  }
 }
 
 function unmarshallSignalRecord(item: Record<string, unknown>): SignalRecord {

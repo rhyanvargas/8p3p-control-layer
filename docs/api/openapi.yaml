@@ -30,6 +30,8 @@ tags:
     description: Signal ingestion and ingestion-outcome inspection operations.
   - name: State
     description: Learner state inspection operations.
+  - name: Learner
+    description: Learner-centric aggregation endpoints. Combines state, decisions, trajectories, policy, and signal counts in a single read.
   - name: Decision
     description: Decision output query operations.
   - name: Policy
@@ -659,6 +661,124 @@ paths:
                     type: string
         '404':
           description: No state found for learner in org
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StateError'
+              example:
+                code: state_not_found
+                message: "No state found for learner 'learner_001' in org 'springs'"
+
+  /v1/learners/{learner_reference}/summary:
+    parameters:
+      - name: learner_reference
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 256
+        description: Learner identifier (pseudonymous — no PII)
+    get:
+      tags: [Learner]
+      operationId: getLearnerSummary
+      summary: Get a single aggregated summary for a learner
+      description: |
+        **What it does:** Returns current state, recent decisions, field trajectories, active policy, and signal-log counts for a learner in a single response. Read-only, no side effects.
+
+        See docs/specs/learner-summary-api.md.
+      parameters:
+        - name: org_id
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 128
+          description: Organization identifier (required for tenant isolation)
+        - name: recent_decisions_limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 10
+          description: Number of recent decisions to include (1–50, default 10)
+        - name: trajectory_fields
+          in: query
+          required: false
+          style: form
+          explode: false
+          schema:
+            type: string
+          description: |
+            Comma-separated list of canonical fields for trajectory summary (max 10).
+            Defaults to all numeric fields in current state (excluding `_delta` companions).
+      responses:
+        '200':
+          description: Aggregated learner summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LearnerSummaryResponse'
+              example:
+                org_id: springs
+                learner_reference: learner_001
+                generated_at: '2026-03-28T15:00:00Z'
+                current_state:
+                  state_id: springs:learner_001:v3
+                  state_version: 3
+                  updated_at: '2026-03-28T14:45:00Z'
+                  fields:
+                    stabilityScore: 0.28
+                    masteryScore: 0.75
+                    stabilityScore_delta: -0.27
+                    stabilityScore_direction: declining
+                recent_decisions:
+                  - decision_id: a1b2c3d4-e5f6-7890-abcd-ef1234567890
+                    decision_type: intervene
+                    decided_at: '2026-03-28T14:45:30Z'
+                    matched_rule_id: rule-decay-intervene
+                    rationale: 'Rule rule-decay-intervene fired: stabilityScore_delta (-0.27) lt -0.1'
+                    policy_version: '1.1.0'
+                recent_decisions_count: 1
+                field_trajectories:
+                  stabilityScore:
+                    first_value: 0.72
+                    latest_value: 0.28
+                    overall_direction: declining
+                    version_count: 3
+                active_policy:
+                  policy_id: springs:learner
+                  policy_key: learner
+                  policy_version: '1.1.0'
+                  description: Springs Charter School — learner policy v1.1
+                  rule_count: 5
+                signals_summary:
+                  total_count: 3
+                  first_signal_at: '2026-03-01T10:00:00Z'
+                  last_signal_at: '2026-03-28T14:44:00Z'
+        '400':
+          description: Validation error (bad org_id, bad recent_decisions_limit, dot-path or too-many trajectory_fields)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StateError'
+        '401':
+          description: Missing or invalid x-api-key
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: string
+                    enum: [api_key_required, api_key_invalid]
+                  message:
+                    type: string
+        '404':
+          description: No state found for the learner
           content:
             application/json:
               schema:
@@ -1968,6 +2088,132 @@ components:
             - type: string
             - type: 'null'
           description: Opaque token for the next page, or null if no more results
+
+    # ---------------------------------------------------------------------------
+    # Learner Summary (GET /v1/learners/{learner_reference}/summary)
+    # See docs/specs/learner-summary-api.md
+    # ---------------------------------------------------------------------------
+    RecentDecisionItem:
+      type: object
+      required:
+        - decision_id
+        - decision_type
+        - decided_at
+        - rationale
+        - policy_version
+      properties:
+        decision_id:
+          type: string
+        decision_type:
+          type: string
+        decided_at:
+          type: string
+          format: date-time
+        matched_rule_id:
+          oneOf:
+            - type: string
+            - type: 'null'
+        rationale:
+          type: string
+        policy_version:
+          type: string
+      description: |
+        Projected decision entry. Does not include state_snapshot from Decision.trace (PII exclusion).
+
+    ActivePolicy:
+      type: object
+      required:
+        - policy_id
+        - policy_key
+        - policy_version
+        - description
+        - rule_count
+      properties:
+        policy_id:
+          type: string
+        policy_key:
+          type: string
+          description: Resolved userType passed to loadPolicyForContext (e.g. learner, staff)
+        policy_version:
+          type: string
+        description:
+          type: string
+        rule_count:
+          type: integer
+          minimum: 0
+
+    SignalsSummary:
+      type: object
+      required: [total_count, first_signal_at, last_signal_at]
+      properties:
+        total_count:
+          type: integer
+          minimum: 0
+        first_signal_at:
+          oneOf:
+            - type: string
+              format: date-time
+            - type: 'null'
+        last_signal_at:
+          oneOf:
+            - type: string
+              format: date-time
+            - type: 'null'
+
+    LearnerSummaryResponse:
+      type: object
+      required:
+        - org_id
+        - learner_reference
+        - generated_at
+        - current_state
+        - recent_decisions
+        - recent_decisions_count
+        - field_trajectories
+        - active_policy
+        - signals_summary
+      properties:
+        org_id:
+          type: string
+        learner_reference:
+          type: string
+        generated_at:
+          type: string
+          format: date-time
+        current_state:
+          type: object
+          required: [state_id, state_version, updated_at, fields]
+          properties:
+            state_id:
+              type: string
+            state_version:
+              type: integer
+            updated_at:
+              type: string
+              format: date-time
+            fields:
+              type: object
+              additionalProperties: true
+              description: Latest LearnerState.state including delta companion fields
+        recent_decisions:
+          type: array
+          items:
+            $ref: '#/components/schemas/RecentDecisionItem'
+        recent_decisions_count:
+          type: integer
+          minimum: 0
+        field_trajectories:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/TrajectoryFieldSummary'
+          description: Per-field trajectory summary across all state versions
+        active_policy:
+          oneOf:
+            - $ref: '#/components/schemas/ActivePolicy'
+            - type: 'null'
+          description: Active policy for the learner, or null when no policy is configured for the org
+        signals_summary:
+          $ref: '#/components/schemas/SignalsSummary'
 
     # ---------------------------------------------------------------------------
     # Decision Output (GET /v1/decisions)

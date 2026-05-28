@@ -19,10 +19,10 @@ todos:
     status: completed
   - id: wave2-summary
     content: "Wave 2 · TASK-W2-2: Open .cursor/plans/learner-summary-api.plan.md and execute (aggregation handler, PII exclusion of state_snapshot, route, Lambda wiring, SUM-001..008 contract tests)"
-    status: pending
+    status: completed
   - id: wave2-gate
     content: "Wave 2 Gate: GET /v1/learners/:ref/summary returns deck-shaped URS in one call; deck demo screenshot recorded; AI Teacher Assistant Analyze step unblocked"
-    status: pending
+    status: completed
   - id: followups
     content: "Open follow-up plans after Wave 2: LIU usage meter, EventBridge decision events, 8p3p-sdk, dashboard deployment split, feedback-as-signal migration"
     status: pending

@@ -14,16 +14,16 @@ interface StateErrorResponse {
   field_path?: string;
 }
 
-type Direction = 'improving' | 'declining' | 'stable';
+export type Direction = 'improving' | 'declining' | 'stable';
 
-interface TrajectoryVersion {
+export interface TrajectoryVersion {
   state_version: number;
   updated_at: string;
   values: Record<string, unknown>;
   directions: Record<string, Direction | null>;
 }
 
-interface FieldSummary {
+export interface FieldSummary {
   first_value: number;
   latest_value: number;
   overall_direction: Direction | null;
@@ -140,7 +140,7 @@ function validateTrajectoryParams(params: Record<string, unknown>): HandlerResul
   return { org_id: orgId, learner_reference: learnerRef, fields, from_version: fromVersion, to_version: toVersion, page_size: pageSize, cursor };
 }
 
-function buildVersions(states: LearnerState[], fields: string[]): TrajectoryVersion[] {
+export function buildVersions(states: LearnerState[], fields: string[]): TrajectoryVersion[] {
   return states.map(s => {
     const values: Record<string, unknown> = {};
     const directions: Record<string, Direction | null> = {};
@@ -163,7 +163,7 @@ function buildVersions(states: LearnerState[], fields: string[]): TrajectoryVers
   });
 }
 
-function buildSummary(versions: TrajectoryVersion[], fields: string[]): Record<string, FieldSummary> {
+export function buildSummary(versions: TrajectoryVersion[], fields: string[]): Record<string, FieldSummary> {
   const summary: Record<string, FieldSummary> = {};
 
   for (const field of fields) {

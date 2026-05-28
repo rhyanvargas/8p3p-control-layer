@@ -199,6 +199,21 @@ export class SqliteDecisionRepository implements DecisionRepository {
     return row ? rowToDecision(row) : null;
   }
 
+  getRecentDecisionsByLearner(orgId: string, learnerRef: string, limit: number): Decision[] {
+    const cappedLimit = Math.min(Math.max(1, limit), 50);
+    const stmt = this.db.prepare(`
+      SELECT id, org_id, decision_id, learner_reference, decision_type, decided_at,
+             decision_context, trace_state_id, trace_state_version, trace_policy_id, trace_policy_version, trace_matched_rule_id,
+             trace_state_snapshot, trace_matched_rule, trace_rationale, trace_educator_summary, output_metadata
+      FROM decisions
+      WHERE org_id = ? AND learner_reference = ?
+      ORDER BY decided_at DESC, id DESC
+      LIMIT ?
+    `);
+    const rows = stmt.all(orgId, learnerRef, cappedLimit) as DecisionRow[];
+    return rows.map(rowToDecision);
+  }
+
   close(): void {
     this.db.close();
   }
@@ -289,6 +304,21 @@ export function getDecisionById(orgId: string, decisionId: string): Decision | n
     throw new Error('Decision store not initialized. Call initDecisionStore first.');
   }
   return repository.getDecisionById(orgId, decisionId);
+}
+
+/**
+ * Returns at most `limit` decisions for the learner, ordered by `decided_at` DESC
+ * then `id` DESC. No pagination — callers must respect the 50-row cap.
+ */
+export function getRecentDecisionsByLearner(
+  orgId: string,
+  learnerRef: string,
+  limit: number
+): Decision[] {
+  if (!repository) {
+    throw new Error('Decision store not initialized. Call initDecisionStore first.');
+  }
+  return repository.getRecentDecisionsByLearner(orgId, learnerRef, limit);
 }
 
 /**

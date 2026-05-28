@@ -16,5 +16,10 @@ export interface DecisionRepository {
     nextCursor?: number;
   };
   getDecisionById(orgId: string, decisionId: string): Decision | null;
+  /**
+   * Returns at most `limit` decisions for the learner, ordered by `decided_at` DESC
+   * then `id` DESC. No pagination — callers must respect the 50-row cap.
+   */
+  getRecentDecisionsByLearner(orgId: string, learnerRef: string, limit: number): Decision[];
   close(): void;
 }

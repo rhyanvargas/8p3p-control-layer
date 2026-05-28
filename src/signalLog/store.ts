@@ -16,7 +16,7 @@ import type {
   SignalLogQueryResult,
   SignalMetadata,
 } from '../shared/types.js';
-import type { SignalLogRepository } from './repository.js';
+import type { SignalLogRepository, SignalSummary } from './repository.js';
 
 // ─── SqliteSignalLogRepository ───────────────────────────────────────────────
 
@@ -207,6 +207,27 @@ export class SqliteSignalLogRepository implements SignalLogRepository {
     return rows.map(rowToSignalRecord);
   }
 
+  getSignalSummary(orgId: string, learnerRef: string): SignalSummary {
+    const stmt = this.db.prepare(`
+      SELECT COUNT(*) AS total_count,
+             MIN(accepted_at) AS first_signal_at,
+             MAX(accepted_at) AS last_signal_at
+      FROM signal_log
+      WHERE org_id = ? AND learner_reference = ?
+    `);
+    const row = stmt.get(orgId, learnerRef) as {
+      total_count: number;
+      first_signal_at: string | null | undefined;
+      last_signal_at: string | null | undefined;
+    };
+
+    return {
+      total_count: row.total_count,
+      first_signal_at: row.first_signal_at ?? null,
+      last_signal_at: row.last_signal_at ?? null,
+    };
+  }
+
   close(): void {
     this.db.close();
   }
@@ -308,6 +329,20 @@ export function getSignalsByIds(orgId: string, signalIds: string[]): SignalRecor
     throw new Error('Signal Log store not initialized. Call initSignalLogStore first.');
   }
   return repository.getSignalsByIds(orgId, signalIds);
+}
+
+/**
+ * Aggregate signal counts and accepted_at range for a learner in an org.
+ *
+ * @param orgId - Tenant identifier (enforces org isolation)
+ * @param learnerRef - Learner reference (pseudonymous)
+ * @returns total_count of accepted signals; first_signal_at / last_signal_at are MIN/MAX of accepted_at, or null when zero signals
+ */
+export function getSignalSummary(orgId: string, learnerRef: string): SignalSummary {
+  if (!repository) {
+    throw new Error('Signal Log store not initialized. Call initSignalLogStore first.');
+  }
+  return repository.getSignalSummary(orgId, learnerRef);
 }
 
 /**

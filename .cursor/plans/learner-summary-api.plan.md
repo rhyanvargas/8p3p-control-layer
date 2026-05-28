@@ -1,58 +1,58 @@
 ---
 name: Learner Summary API
-overview: "Read-only GET /v1/learners/{learner_reference}/summary endpoint that aggregates current state, recent decisions, field trajectories, active policy, and signal counts from existing stores. Adds two read-only repo methods, exports trajectory summary helpers, and wires Fastify + Lambda + CDK + OpenAPI with no new tables or write paths."
+overview: Read-only GET /v1/learners/{learner_reference}/summary endpoint that aggregates current state, recent decisions, field trajectories, active policy, and signal counts from existing stores. Adds two read-only repo methods, exports trajectory summary helpers, and wires Fastify + Lambda + CDK + OpenAPI with no new tables or write paths.
 todos:
   - id: TASK-001
     content: Export buildSummary and buildVersions from trajectory-handler-core
-    status: pending
+    status: completed
   - id: TASK-002
     content: Extend DecisionRepository interface with getRecentDecisionsByLearner
-    status: pending
+    status: completed
   - id: TASK-003
     content: Implement getRecentDecisionsByLearner in SqliteDecisionRepository
-    status: pending
+    status: completed
   - id: TASK-004
     content: Implement getRecentDecisionsByLearner in DynamoDbDecisionRepository
-    status: pending
+    status: completed
   - id: TASK-005
     content: Extend SignalLogRepository interface with getSignalSummary
-    status: pending
+    status: completed
   - id: TASK-006
     content: Implement getSignalSummary in SqliteSignalLogRepository
-    status: pending
+    status: completed
   - id: TASK-007
     content: Implement getSignalSummary in DynamoDbSignalLogRepository
-    status: pending
+    status: completed
   - id: TASK-008
     content: Create summary-handler-core with validation, aggregation, and trajectory paging loop
-    status: pending
+    status: completed
   - id: TASK-009
     content: Create learners handler.ts and routes.ts
-    status: pending
+    status: completed
   - id: TASK-010
     content: Wire registerLearnerRoutes into Fastify server
-    status: pending
+    status: completed
   - id: TASK-011
     content: Wire Lambda InspectFunction routing for learner summary with parallel fetches
-    status: pending
+    status: completed
   - id: TASK-012
     content: Add CDK API Gateway resource and IAM grants for InspectFunction
-    status: pending
+    status: completed
   - id: TASK-013
     content: Document GET /v1/learners/{learner_reference}/summary in OpenAPI
-    status: pending
+    status: completed
   - id: TASK-014
     content: Add contract tests SUM-001 through SUM-008
-    status: pending
+    status: completed
   - id: TASK-015
     content: Add unit tests for summary-handler-core
-    status: pending
+    status: completed
   - id: TASK-016
     content: Add unit tests for new repo methods
-    status: pending
+    status: completed
   - id: TASK-017
     content: Update spec status notes to reflect dependencies completed and deviations
-    status: pending
+    status: completed
 isProject: false
 ---
 
@@ -998,14 +998,14 @@ The Lambda handler MUST use Promise.all([statePromise, recentDecisionsPromise, s
 
 ## Verification Checklist
 
-- [ ] All tasks TASK-001 through TASK-017 completed
-- [ ] All contract tests SUM-001..SUM-008 pass (`npm test -- tests/contracts/learner-summary-api.test.ts`)
-- [ ] All unit tests pass (`npm test -- tests/unit/learner-summary-handler-core.test.ts tests/unit/decision-store.test.ts tests/unit/signal-log-store.test.ts`)
-- [ ] Linter passes (`npm run lint`)
-- [ ] Type check passes (`npm run typecheck`)
+- [x] All tasks TASK-001 through TASK-017 completed
+- [x] All contract tests SUM-001..SUM-008 pass (`npx vitest run tests/contracts/learner-summary-api.test.ts`)
+- [x] All unit tests pass (`npx vitest run tests/unit/learner-summary-handler-core.test.ts tests/unit/learners/summary-handler-core.test.ts tests/unit/decision-store.test.ts tests/unit/signal-log-store.test.ts`)
+- [x] Linter passes (`npm run lint`)
+- [x] Type check passes (`npm run typecheck`)
 - [ ] `cd infra && npm run build` passes; `cdk synth` shows new API Gateway resource and IAM grants
 - [ ] Swagger UI renders `/v1/learners/{learner_reference}/summary` correctly at local `/docs` under the new `Learner` tag
-- [ ] Spec status updates in TASK-017 committed alongside implementation (no doc drift)
+- [x] Spec status updates in TASK-017 committed alongside implementation (no doc drift)
 - [ ] Local manual smoke: seed 3 versions + 2 decisions + 3 signals via test harness, curl summary endpoint, verify response shape matches Spec Literals § Endpoint — Response (200)
 
 ---

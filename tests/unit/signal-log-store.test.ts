@@ -10,6 +10,7 @@ import {
   appendSignal,
   querySignals,
   getSignalsByIds,
+  getSignalSummary,
   clearSignalLogStore,
   setSignalLogRepository,
   SqliteSignalLogRepository,
@@ -217,6 +218,51 @@ describe('Signal Log Store', () => {
       });
       expect(page3.signals.length).toBe(1);
       expect(page3.hasMore).toBe(false);
+    });
+  });
+
+  describe('getSignalSummary', () => {
+    it('should return total_count and first/last accepted_at', () => {
+      appendSignal(createSignal({ signal_id: 'sum-1', learner_reference: 'learner-sum' }), '2026-03-01T00:00:00Z');
+      appendSignal(createSignal({ signal_id: 'sum-2', learner_reference: 'learner-sum' }), '2026-03-15T00:00:00Z');
+      appendSignal(createSignal({ signal_id: 'sum-3', learner_reference: 'learner-sum' }), '2026-03-28T00:00:00Z');
+
+      const summary = getSignalSummary('test-org', 'learner-sum');
+      expect(summary).toEqual({
+        total_count: 3,
+        first_signal_at: '2026-03-01T00:00:00Z',
+        last_signal_at: '2026-03-28T00:00:00Z',
+      });
+    });
+
+    it('should return {0, null, null} when no signals exist', () => {
+      const summary = getSignalSummary('test-org', 'nope');
+      expect(summary).toEqual({
+        total_count: 0,
+        first_signal_at: null,
+        last_signal_at: null,
+      });
+    });
+
+    it('should isolate by org', () => {
+      appendSignal(createSignal({ org_id: 'org-a', signal_id: 'sum-org-a-1', learner_reference: 'learner-shared' }), '2026-03-01T00:00:00Z');
+      appendSignal(createSignal({ org_id: 'org-b', signal_id: 'sum-org-b-1', learner_reference: 'learner-shared' }), '2026-03-02T00:00:00Z');
+
+      const summary = getSignalSummary('org-a', 'learner-shared');
+      expect(summary.total_count).toBe(1);
+      expect(summary.first_signal_at).toBe('2026-03-01T00:00:00Z');
+      expect(summary.last_signal_at).toBe('2026-03-01T00:00:00Z');
+    });
+
+    it('should isolate by learner', () => {
+      appendSignal(createSignal({ signal_id: 'sum-learner-1', learner_reference: 'learner-001' }), '2026-03-01T00:00:00Z');
+      appendSignal(createSignal({ signal_id: 'sum-learner-2', learner_reference: 'learner-001' }), '2026-03-02T00:00:00Z');
+      appendSignal(createSignal({ signal_id: 'sum-learner-other', learner_reference: 'learner-002' }), '2026-03-03T00:00:00Z');
+
+      const summary = getSignalSummary('test-org', 'learner-001');
+      expect(summary.total_count).toBe(2);
+      expect(summary.first_signal_at).toBe('2026-03-01T00:00:00Z');
+      expect(summary.last_signal_at).toBe('2026-03-02T00:00:00Z');
     });
   });
 
@@ -508,6 +554,11 @@ describe('Signal Log Store', () => {
         appendSignal: (signal, acceptedAt) => ({ ...signal, accepted_at: acceptedAt }),
         querySignals: () => ({ signals: [], hasMore: false, nextCursor: undefined }),
         getSignalsByIds: () => [],
+        getSignalSummary: () => ({
+          total_count: 0,
+          first_signal_at: null,
+          last_signal_at: null,
+        }),
         close: () => {
           repo1.closed = true;
         },
@@ -535,6 +586,11 @@ describe('Signal Log Store', () => {
             accepted_at: '2026-01-30T00:00:02Z',
           },
         ],
+        getSignalSummary: () => ({
+          total_count: 2,
+          first_signal_at: '2026-01-01T00:00:00Z',
+          last_signal_at: '2026-01-30T00:00:02Z',
+        }),
         close: () => {},
       };
 

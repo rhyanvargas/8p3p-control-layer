@@ -39,6 +39,7 @@ import { registerPolicyInspectionRoutes } from './policies/routes.js';
 import { registerAdminFieldMappingsRoutes } from './routes/admin-field-mappings.js';
 import { registerAdminIngestionPreflightRoutes } from './routes/admin-ingestion-preflight.js';
 import { registerWebhookRoutes } from './routes/webhooks.js';
+import { registerLearnerRoutes } from './learners/routes.js';
 import { initTemplateRegistry } from './connectors/template-registry.js';
 import { registerConnectorRoutes } from './connectors/connector-routes.js';
 
@@ -333,6 +334,7 @@ server.register(async (v1) => {
   registerFeedbackRoutes(v1);
   registerPolicyInspectionRoutes(v1);
   registerWebhookRoutes(v1);
+  registerLearnerRoutes(v1);
 }, { prefix: '/v1' });
 
 // Register /v1/admin routes — separate scope with admin-only auth.

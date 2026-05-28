@@ -18,10 +18,17 @@ import type {
  *
  * clearSignalLogStore() is intentionally omitted — test utility only.
  */
+export interface SignalSummary {
+  total_count: number;
+  first_signal_at: string | null;
+  last_signal_at: string | null;
+}
+
 export interface SignalLogRepository {
   appendSignal(signal: SignalEnvelope, acceptedAt: string): SignalRecord;
   querySignals(request: SignalLogReadRequest): SignalLogQueryResult;
   getSignalsByIds(orgId: string, signalIds: string[]): SignalRecord[];
+  getSignalSummary(orgId: string, learnerRef: string): SignalSummary;
   close(): void;
 }
 

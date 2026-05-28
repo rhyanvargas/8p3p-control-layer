@@ -103,6 +103,31 @@ export class DynamoDbDecisionRepository {
 
     return result.Item ? unmarshallDecision(unmarshall(result.Item)) : null;
   }
+
+  async getRecentDecisionsByLearner(
+    orgId: string,
+    learnerRef: string,
+    limit: number
+  ): Promise<Decision[]> {
+    const cappedLimit = Math.min(Math.max(1, limit), 50);
+
+    const result = await this.client.send(
+      new QueryCommand({
+        TableName: this.tableName,
+        IndexName: 'gsi1-learner-time',
+        KeyConditionExpression: 'org_id = :org AND begins_with(learner_decided_at, :lr)',
+        ExpressionAttributeValues: marshall({
+          ':org': orgId,
+          ':lr': `${learnerRef}#`,
+        }),
+        ScanIndexForward: false,
+        Limit: cappedLimit,
+      })
+    );
+
+    const items = result.Items ?? [];
+    return items.map((item) => unmarshallDecision(unmarshall(item)));
+  }
 }
 
 function unmarshallDecision(item: Record<string, unknown>): Decision {

@@ -1,5 +1,6 @@
 /**
- * Lambda: InspectFunction — GET /v1/state, /v1/state/list, /v1/state/trajectory, /v1/ingestion
+ * Lambda: InspectFunction — GET /v1/state, /v1/state/list, /v1/state/trajectory, /v1/ingestion,
+ *   /v1/learners/{learner_reference}/summary
  *
  * Handler: dist/lambda/inspect.handler
  */
@@ -7,20 +8,34 @@
 import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { DynamoDbStateRepository } from '../state/dynamodb-repository.js';
 import { DynamoDbIngestionLogRepository } from '../ingestion/dynamodb-ingestion-log-repository.js';
-import { loadRoutingConfigForOrg } from '../decision/policy-loader.js';
+import { DynamoDbDecisionRepository } from '../decision/dynamodb-repository.js';
+import { DynamoDbSignalLogRepository } from '../signalLog/dynamodb-repository.js';
+import { loadRoutingConfigForOrg, loadPolicyForContext } from '../decision/policy-loader.js';
 import { listActivePoliciesForOrg, loadPolicyByKeyForOrg } from '../policies/active-policies-source.js';
+import type {
+  ActivePolicyResponse,
+  RecentDecisionItem,
+} from '../learners/summary-handler-core.js';
 import { ErrorCodes } from '../shared/error-codes.js';
 import { encodeTrajectoryPageToken, decodeTrajectoryPageToken } from '../state/trajectory-pagination.js';
+import { buildSummary, buildVersions, type FieldSummary } from '../state/trajectory-handler-core.js';
 import type { LearnerState, IngestionLogResponse } from '../shared/types.js';
+
+const TRAJECTORY_PAGE_SIZE = 100;
+const TRAJECTORY_SAFETY_CAP_PAGES = 10;
 
 let initialized = false;
 let stateRepo: DynamoDbStateRepository;
 let ingestionLogRepo: DynamoDbIngestionLogRepository;
+let decisionRepo: DynamoDbDecisionRepository;
+let signalLogRepo: DynamoDbSignalLogRepository;
 
 function init(): void {
   if (initialized) return;
   stateRepo = new DynamoDbStateRepository(process.env.STATE_TABLE!, process.env.APPLIED_SIGNALS_TABLE!);
   ingestionLogRepo = new DynamoDbIngestionLogRepository(process.env.INGESTION_LOG_TABLE!);
+  decisionRepo = new DynamoDbDecisionRepository(process.env.DECISIONS_TABLE!);
+  signalLogRepo = new DynamoDbSignalLogRepository(process.env.SIGNALS_TABLE!);
   initialized = true;
 }
 
@@ -256,6 +271,216 @@ async function handleGetPolicyDetail(
   });
 }
 
+function parseSummaryStrictInt(value: string | undefined): number | null {
+  if (value === undefined || value === '') return null;
+  const trimmed = value.trim();
+  if (!/^\d+$/.test(trimmed)) return null;
+  const num = Number(trimmed);
+  return Number.isInteger(num) ? num : null;
+}
+
+function validateSummaryTrajectoryFields(
+  rawFields: string[]
+): APIGatewayProxyResult | string[] {
+  const fields = [...new Set(rawFields)];
+
+  for (const field of fields) {
+    if (field === '') {
+      return jsonResponse(400, {
+        code: ErrorCodes.INVALID_FORMAT,
+        message: 'Field name must not be empty',
+        field_path: 'trajectory_fields',
+      });
+    }
+    if (field.length > 128) {
+      return jsonResponse(400, {
+        code: ErrorCodes.INVALID_FORMAT,
+        message: `Field name exceeds 128 characters: '${field}'`,
+        field_path: 'trajectory_fields',
+      });
+    }
+    if (field.includes('.')) {
+      return jsonResponse(400, {
+        code: ErrorCodes.INVALID_FORMAT,
+        message:
+          'Dot-path fields are not supported in v1.1. Use top-level canonical field names.',
+        field_path: 'trajectory_fields',
+      });
+    }
+  }
+
+  if (fields.length > 10) {
+    return jsonResponse(400, {
+      code: ErrorCodes.INVALID_FORMAT,
+      message: `Maximum 10 fields per trajectory request. Got ${fields.length}.`,
+      field_path: 'trajectory_fields',
+    });
+  }
+
+  return fields;
+}
+
+function resolveSummaryTrajectoryFields(
+  explicitFields: string[] | undefined,
+  currentState: LearnerState
+): string[] {
+  if (explicitFields !== undefined) {
+    return explicitFields;
+  }
+  return Object.entries(currentState.state)
+    .filter(([k, v]) => typeof v === 'number' && !k.endsWith('_delta'))
+    .map(([k]) => k)
+    .slice(0, 10);
+}
+
+async function handleGetLearnerSummary(
+  params: Record<string, string | undefined>,
+  learnerRef: string
+): Promise<APIGatewayProxyResult> {
+  if (!learnerRef || learnerRef.trim() === '') {
+    return jsonResponse(400, {
+      code: ErrorCodes.MISSING_REQUIRED_FIELD,
+      message: "'learner_reference' is required",
+      field_path: 'learner_reference',
+    });
+  }
+  if (learnerRef.length > 256) {
+    return jsonResponse(400, {
+      code: ErrorCodes.INVALID_LENGTH,
+      message: 'learner_reference must be 1-256 characters',
+      field_path: 'learner_reference',
+    });
+  }
+
+  const orgId = params.org_id;
+  if (!orgId || orgId.trim() === '') {
+    return jsonResponse(400, {
+      code: ErrorCodes.ORG_SCOPE_REQUIRED,
+      message: 'org_id is required and must be non-empty',
+      field_path: 'org_id',
+    });
+  }
+  if (orgId.length > 128) {
+    return jsonResponse(400, {
+      code: ErrorCodes.INVALID_LENGTH,
+      message: 'org_id must be 1-128 characters',
+      field_path: 'org_id',
+    });
+  }
+
+  let recentDecisionsLimit = 10;
+  if (params.recent_decisions_limit !== undefined && params.recent_decisions_limit !== '') {
+    const parsed = parseSummaryStrictInt(params.recent_decisions_limit);
+    if (parsed === null) {
+      return jsonResponse(400, {
+        code: ErrorCodes.INVALID_TYPE,
+        message: 'recent_decisions_limit must be a positive integer',
+        field_path: 'recent_decisions_limit',
+      });
+    }
+    if (parsed < 1 || parsed > 50) {
+      return jsonResponse(400, {
+        code: ErrorCodes.INVALID_FORMAT,
+        message: 'recent_decisions_limit must be between 1 and 50',
+        field_path: 'recent_decisions_limit',
+      });
+    }
+    recentDecisionsLimit = parsed;
+  }
+
+  let explicitTrajectoryFields: string[] | undefined;
+  if (params.trajectory_fields !== undefined && params.trajectory_fields !== '') {
+    const rawFields = params.trajectory_fields.split(',').map((f) => f.trim());
+    const fieldValidation = validateSummaryTrajectoryFields(rawFields);
+    if (!Array.isArray(fieldValidation)) {
+      return fieldValidation;
+    }
+    explicitTrajectoryFields = fieldValidation;
+  }
+
+  const currentState = await stateRepo.getState(orgId, learnerRef);
+  if (!currentState) {
+    return jsonResponse(404, {
+      code: ErrorCodes.STATE_NOT_FOUND,
+      message: `No state found for learner '${learnerRef}' in org '${orgId}'`,
+    });
+  }
+
+  const fieldsToTrack = resolveSummaryTrajectoryFields(explicitTrajectoryFields, currentState);
+
+  const collectTrajectoryStates = async (): Promise<LearnerState[]> => {
+    const all: LearnerState[] = [];
+    let cursor: number | undefined = undefined;
+    for (let i = 0; i < TRAJECTORY_SAFETY_CAP_PAGES; i++) {
+      const { states, nextCursor } = await stateRepo.getStateVersionRange(
+        orgId,
+        learnerRef,
+        1,
+        currentState.state_version,
+        TRAJECTORY_PAGE_SIZE,
+        cursor
+      );
+      all.push(...states);
+      if (nextCursor === null) break;
+      cursor = nextCursor;
+    }
+    return all;
+  };
+
+  const [decisions, signalsSummary, trajectoryStates] = await Promise.all([
+    decisionRepo.getRecentDecisionsByLearner(orgId, learnerRef, recentDecisionsLimit),
+    signalLogRepo.getSignalSummary(orgId, learnerRef),
+    fieldsToTrack.length > 0 ? collectTrajectoryStates() : Promise.resolve([] as LearnerState[]),
+  ]);
+
+  let fieldTrajectories: Record<string, FieldSummary> = {};
+  if (fieldsToTrack.length > 0) {
+    const trajectoryVersions = buildVersions(trajectoryStates, fieldsToTrack);
+    fieldTrajectories = buildSummary(trajectoryVersions, fieldsToTrack);
+  }
+
+  const projectedDecisions: RecentDecisionItem[] = decisions.map((d) => ({
+    decision_id: d.decision_id,
+    decision_type: d.decision_type,
+    decided_at: d.decided_at,
+    matched_rule_id: d.trace.matched_rule_id,
+    rationale: d.trace.rationale,
+    policy_version: d.trace.policy_version,
+  }));
+
+  const userType = loadRoutingConfigForOrg(orgId)?.default_policy_key ?? 'learner';
+  let activePolicy: ActivePolicyResponse | null = null;
+  try {
+    const policy = loadPolicyForContext(orgId, userType);
+    activePolicy = {
+      policy_id: policy.policy_id,
+      policy_key: userType,
+      policy_version: policy.policy_version,
+      description: policy.description,
+      rule_count: policy.rules.length,
+    };
+  } catch (err) {
+    if ((err as Error & { code?: string }).code !== ErrorCodes.POLICY_NOT_FOUND) throw err;
+  }
+
+  return jsonResponse(200, {
+    org_id: orgId,
+    learner_reference: learnerRef,
+    generated_at: new Date().toISOString(),
+    current_state: {
+      state_id: currentState.state_id,
+      state_version: currentState.state_version,
+      updated_at: currentState.updated_at,
+      fields: currentState.state,
+    },
+    recent_decisions: projectedDecisions,
+    recent_decisions_count: projectedDecisions.length,
+    field_trajectories: fieldTrajectories,
+    active_policy: activePolicy,
+    signals_summary: signalsSummary,
+  });
+}
+
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   init();
 
@@ -285,6 +510,9 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
   if (/\/v1\/policies$/.test(path)) return handleGetPolicies(params);
   const policyDetailMatch = path.match(/\/v1\/policies\/([^/]+)$/);
   if (policyDetailMatch) return handleGetPolicyDetail(params, policyDetailMatch[1]!);
+
+  const learnerSummaryMatch = path.match(/\/v1\/learners\/([^/]+)\/summary$/);
+  if (learnerSummaryMatch) return handleGetLearnerSummary(params, learnerSummaryMatch[1]!);
 
   return jsonResponse(404, { error: 'Not Found' });
 };
