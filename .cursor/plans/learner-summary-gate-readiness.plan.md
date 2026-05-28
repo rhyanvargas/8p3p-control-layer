@@ -22,7 +22,7 @@ todos:
     status: completed
   - id: TASK-007
     content: Record Wave 2 gate screenshot and update urs_product_readiness verification checklist
-    status: pending
+    status: completed
 isProject: false
 ---
 
