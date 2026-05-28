@@ -34,6 +34,8 @@ isProject: false
 
 # Learner Summary — API-First Hygiene & SDK Readiness
 
+> **MVP pilot subset:** For product-value-first pilot launch, execute `.cursor/plans/learner-summary-api-hygiene-mvp.plan.md` instead (TASK-001, 006–009, 008-LITE only). This full plan remains the post-pilot / pre-SDK backlog (ETag, by_source, include param). Master coordinator: `.cursor/plans/pilot-mvp-launch.plan.md`.
+
 **Spec**: `docs/specs/learner-summary-api.md`
 **Pre-requisites**:
 - `.cursor/plans/learner-summary-gate-readiness.plan.md`

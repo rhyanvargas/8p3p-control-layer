@@ -15,6 +15,7 @@ Practical guides for integrating the 8P3P Control Layer API. Each guide covers a
 | [FAQ](faq.md) | Pilot customers | Common questions: payload structure, state accumulation, policy customization, decisions, identity, access |
 | [Get all learner decisions from org](get-all-learner-decisions-from-org.md) | Integration / analytics engineers | Export decisions for **all learners** in an org (fan-out: `state/list` → decisions per learner) |
 | [Pilot Deployment Checklist (v1)](deployment-checklist.md) | Operators | Pre-deployment gates: `API_KEY`, `API_KEY_ORG_ID`, build/test/QA, smoke checks |
+| [Pilot Launch Checklist](pilot-launch-checklist.md) | Launch owner | Final gate before customer access: Wave 3 engineering + security + smoke sign-off |
 
 ---
 
@@ -28,6 +29,7 @@ Practical guides for integrating the 8P3P Control Layer API. Each guide covers a
 | Understand state merge, policy customization, or why decisions are empty | [FAQ](faq.md) |
 | Export decisions for every learner in my org | [Get all learner decisions from org](get-all-learner-decisions-from-org.md) |
 | Deploy a pilot environment safely | [Deployment Checklist](deployment-checklist.md) |
+| Launch a pilot customer on the Decision Panel | [Pilot Launch Checklist](pilot-launch-checklist.md) |
 
 ---
 

@@ -36,6 +36,15 @@ Specifications in this folder are the **single source of truth for requirements 
 - [`learner-summary-api.md`](learner-summary-api.md) — `GET /v1/learners/:ref/summary`; educator-readable aggregated view (**depends on trajectory**)
 - [`liu-usage-meter.md`](liu-usage-meter.md) — `GET /v1/admin/usage` + `GET /v1/usage`; per-org monthly LIU metering (**promoted to pre-Month 0 as SBIR evidence denominator**)
 
+### Execution plans (Wave 3 — pilot MVP launch)
+
+| Plan | Purpose |
+|------|---------|
+| [`.cursor/plans/pilot-mvp-launch.plan.md`](../../.cursor/plans/pilot-mvp-launch.plan.md) | Master coordinator — deploy smoke, runbook, observability, launch gate |
+| [`.cursor/plans/learner-summary-api-hygiene-mvp.plan.md`](../../.cursor/plans/learner-summary-api-hygiene-mvp.plan.md) | Contract hygiene subset (URL, schema closure, policy_key enum) |
+| [`.cursor/plans/dashboard-summary-migration.plan.md`](../../.cursor/plans/dashboard-summary-migration.plan.md) | Decision Panel reads summary endpoint |
+| [`.cursor/plans/learner-summary-api-hygiene.plan.md`](../../.cursor/plans/learner-summary-api-hygiene.plan.md) | Full SDK hygiene backlog (ETag, by_source — post-pilot) |
+
 ## SBIR Evidence Layer (2026-04-20) — spec'd
 
 - [`program-metrics.md`](program-metrics.md) — MC-A*/B*/C* catalog + `GET /v1/admin/program-metrics`; answers the three DOE questions with data (phase-neutral identifiers per [`internal-docs/foundation/api-naming-conventions.md`](../../internal-docs/foundation/api-naming-conventions.md))

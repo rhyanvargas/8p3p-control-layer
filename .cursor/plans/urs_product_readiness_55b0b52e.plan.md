@@ -1,6 +1,6 @@
 ---
 name: URS Product Readiness
-overview: Coordinating master plan that ships P0 (pilot-blocking ingestion stack) and P1 (deck-shaped Living Student Record read APIs) across five specs in two sequenced waves. Wave 1 unblocks the next customer pilot; Wave 2 turns the existing internal `Living Student Record` into the exact one-call API surface shown in the deck's "Unified Student Learning Record" image and unblocks the AI Teacher Assistant as a downstream product.
+overview: Coordinating master plan for Wave 1-2 (complete) and Wave 3 pilot MVP launch. Wave 3 ships contract hygiene MVP, dashboard summary migration, deploy smoke, runbook alignment, observability, and customer launch gate. Defers full SDK hygiene and SBIR evidence layer to post-pilot follow-ups.
 todos:
   - id: wave1-preflight
     content: "Wave 1 · TASK-W1-1: Execute existing .cursor/plans/ingestion-preflight.plan.md (17 tasks; pilot-blocking per CEO direction)"
@@ -23,13 +23,18 @@ todos:
   - id: wave2-gate
     content: "Wave 2 Gate: GET /v1/learners/:ref/summary returns deck-shaped URS in one call; deck demo screenshot recorded; AI Teacher Assistant Analyze step unblocked"
     status: completed
+  - id: wave3-pilot-mvp
+    content: "Wave 3 · Execute .cursor/plans/pilot-mvp-launch.plan.md (hygiene MVP, dashboard summary migration, deploy smoke, runbook, observability, launch gate)"
+    status: pending
   - id: followups
-    content: "Open follow-up plans after Wave 2: LIU usage meter, EventBridge decision events, 8p3p-sdk, dashboard deployment split, feedback-as-signal migration"
+    content: "Post-pilot: LIU usage meter, EventBridge, 8p3p-sdk, full API hygiene (ETag/by_source), dashboard deployment split, feedback-as-signal migration"
     status: pending
 isProject: false
 ---
 
 # URS Product Readiness — P0 + P1 Master Plan
+
+> **Status (Wave 1 + Wave 2 shipped).** The frontmatter `todos` are the source of truth: Wave 1 (ingestion-preflight, webhook-adapters, integration-templates) and Wave 2 (learner-trajectory-api, learner-summary-api) are **complete**, with sub-plans on disk and all tasks `completed`. The "Why / Wave 1 / Wave 2" prose below is the **original planning-time narrative** — phrasings like "not built" or "no plan file exists" describe the state when this plan was written, not today. Active work is **Wave 3 — Pilot MVP Launch** (`.cursor/plans/pilot-mvp-launch.plan.md`); see the Wave 3 section and Follow-up plans table.
 
 Single coordinating plan over five specs. References existing sub-plans where they exist; opens three new sub-plans for unplanned specs. Total estimated effort: 3–5 weeks solo-dev.
 
@@ -155,17 +160,33 @@ flowchart LR
 - [ ] `npm run validate:contracts` passes after each task
 - [ ] `npm run validate:api` passes after each OpenAPI change
 - [ ] Three new sub-plan files exist with `completed` frontmatter: `webhook-adapters.plan.md`, `learner-trajectory-api.plan.md`, `learner-summary-api.plan.md`
-- [x] Deck demo recorded: paste a `learner_reference` into a curl call against `GET /v1/learners/:ref/summary`, get back the deck's URS card data, screenshot it next to the deck slide ([internal-docs/reports/2026-05-28-wave2-gate-urs-summary-screenshot.png](../../internal-docs/reports/2026-05-28-wave2-gate-urs-summary-screenshot.png); verified `stu-30456` — mastery 0.9, advance, educator_summary "Ready to move on")
+- [x] Deck demo recorded: paste a `learner_reference` into a curl call against `GET /v1/learners/:ref/summary`, get back the deck's URS card data, screenshot it next to the deck slide ([internal-docs/reports/wave2-gate-screenshot.png](../../internal-docs/reports/wave2-gate-screenshot.png); compose at [wave2-gate-screenshot-compose.html](../../internal-docs/reports/wave2-gate-screenshot-compose.html); verified `stu-30456` — mastery 0.9, advance, educator_summary "Ready to move on")
 - [ ] No new write paths added to STATE Store, Signal Log, or Decision Store (STATE Authority preserved)
 - [ ] No dashboard / UI / assistant code added to `src/` outside `dashboard/` (core stays API-first)
 
-## Follow-up plans (out of scope; open after Wave 2 lands)
+## Wave 3 — Pilot MVP Launch (product surface)
+
+**Plan**: [.cursor/plans/pilot-mvp-launch.plan.md](.cursor/plans/pilot-mvp-launch.plan.md)
+
+| Step | Sub-plan | Outcome |
+|------|----------|---------|
+| W3-001 | [learner-summary-api-hygiene-mvp.plan.md](.cursor/plans/learner-summary-api-hygiene-mvp.plan.md) | Contract locked for dashboard (no ETag/by_source) |
+| W3-002 | [dashboard-summary-migration.plan.md](.cursor/plans/dashboard-summary-migration.plan.md) | Panels consume summary endpoint |
+| W3-003–006 | pilot-mvp-launch.plan.md | Deploy smoke, runbook, CloudWatch, launch gate |
+
+**Wave 3 Gate:** Customer can log into `/dashboard` with passphrase, see four URS panels backed by `GET /v1/learners/:ref/summary`, on a deployed stack with smoke report on disk.
+
+---
+
+## Follow-up plans (out of scope; open after Wave 3 lands)
 
 | Plan to open | Source spec | Why deferred |
 |---|---|---|
+| `learner-summary-api-hygiene.plan.md` (full) | [docs/specs/learner-summary-api.md](docs/specs/learner-summary-api.md) | ETag/304/by_source — perf, not pilot-blocking |
+| `learner-summary-skills-section.plan.md` (new) | [docs/specs/learner-summary-api.md](docs/specs/learner-summary-api.md) + [docs/specs/skill-level-tracking.md](docs/specs/skill-level-tracking.md) | Add a per-skill `skills_summary` section so one summary call can back the literacy dashboard Panels 2/4 (currently on GET /v1/state per `.cursor/plans/dashboard-summary-migration.plan.md`). Reverses part of URS projection stripping. Deferred — pilot uses two endpoints; only worth it if single-call dashboard is required post-pilot. |
 | `liu-usage-meter.plan.md` (already exists as plan file — verify status) | [docs/specs/liu-usage-meter.md](docs/specs/liu-usage-meter.md) | Required before first paying customer, not pilot |
 | `eventbridge-decision-events.plan.md` (new) | [docs/api/asyncapi.yaml](docs/api/asyncapi.yaml) | Lets AI Teacher Assistant react instead of poll; not needed for Wave 2 demo |
-| `8p3p-sdk-typescript.plan.md` (new) | Roadmap Phase 4 | Productizes the Wave 2 API surface; depends on contract stability after Wave 2 verifies |
+| `8p3p-sdk-typescript.plan.md` (new) | Roadmap Phase 4 | Productizes the Wave 2 API surface; depends on contract stability after Wave 3 verifies |
 | `dashboard-deployment-split.plan.md` (new) | This gap analysis | Removes `dashboard/` mount from `src/server.ts:253-275`; v1.2 deployment hygiene |
 | `feedback-as-signal-migration.plan.md` (new) | [docs/specs/educator-feedback-api.md](docs/specs/educator-feedback-api.md) | Closes the URS reinforcement loop; only after current feedback endpoints prove the data shape in SBIR Phase I |
 
@@ -197,7 +218,14 @@ Wave 2:
   [WAVE 2 GATE]
        |
        v
-  Open follow-up plans (LIU meter, SDK, EventBridge, dashboard split, feedback-as-signal)
+Wave 3:
+  W3-001 (hygiene-mvp) → W3-002 (dashboard-migration) → W3-003..006 (pilot-mvp-launch)
+       |
+       v
+  [WAVE 3 GATE — customer-ready dashboard on deployed stack]
+       |
+       v
+  Open follow-up plans (full hygiene ETag, LIU meter, SDK, EventBridge, dashboard split)
 ```
 
 W1-2 and W1-3 can overlap once W1-2's webhook envelope contract stabilizes (estimated ~3 days in). W2-1 and W2-2 cannot overlap — W2-2 imports W2-1's `getStateVersionRange`.

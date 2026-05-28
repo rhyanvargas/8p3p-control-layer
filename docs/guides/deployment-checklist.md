@@ -45,3 +45,18 @@ Run: `docs/testing/qa-test-post-repository-extraction.md`
 - [ ] `/v1/*` without `x-api-key` returns `401` when `API_KEY` is set
 - [ ] Requests that include an `org_id` different from `API_KEY_ORG_ID` still behave as the overridden org (see QA-RE-012)
 
+---
+
+## Wave 3 — Pilot MVP Launch (Decision Panel + summary)
+
+Execute per [`.cursor/plans/pilot-mvp-launch.plan.md`](../../.cursor/plans/pilot-mvp-launch.plan.md):
+
+- [ ] **W3-001** — `.cursor/plans/learner-summary-api-hygiene-mvp.plan.md` complete (`npm run check` green)
+- [ ] **W3-002** — `.cursor/plans/dashboard-summary-migration.plan.md` complete (dashboard e2e passes)
+- [ ] **W3-003** — Deployed smoke report filed under `internal-docs/reports/pilot-smoke-*.md` (curl + dashboard screenshot)
+- [ ] **W3-004** — `docs/guides/pilot-integration-guide.md` and onboarding runbook reference `/dashboard` + summary workflow
+- [ ] **W3-005** — CloudWatch dashboard + alarms for InspectFunction (summary path)
+- [ ] **W3-006** — [Pilot launch checklist](pilot-launch-checklist.md) signed before first customer login
+
+Reference: `GET /v1/learners/{learner_reference}/summary` (`docs/specs/learner-summary-api.md`), passphrase gate (`docs/specs/dashboard-passphrase-gate.md`).
+
