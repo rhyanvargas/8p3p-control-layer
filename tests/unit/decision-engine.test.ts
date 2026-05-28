@@ -531,6 +531,27 @@ describe('Decision Engine', () => {
 
       expect(outcome).toEqual({ ok: true, matched: false });
     });
+
+    it('should return reinforce via springs fallback when no specific learner rule matches', () => {
+      const { state_id, state_version } = setupLearnerState('springs', 'learner-borderline', {
+        stabilityScore: 0.7,
+        timeSinceReinforcement: 50000,
+      });
+
+      const outcome = evaluateState({
+        org_id: 'springs',
+        learner_reference: 'learner-borderline',
+        state_id,
+        state_version,
+        requested_at: new Date().toISOString(),
+      });
+
+      expect(outcome.ok).toBe(true);
+      if (outcome.ok && outcome.matched) {
+        expect(outcome.result.decision_type).toBe('reinforce');
+        expect(outcome.result.trace.matched_rule_id).toBe('rule-reinforce-fallback');
+      }
+    });
   });
 
   // -----------------------------------------------------------------------

@@ -43,6 +43,15 @@
         ]
       },
       "decision_type": "reinforce"
+    },
+    {
+      "rule_id": "rule-reinforce-fallback",
+      "condition": {
+        "field": "stabilityScore",
+        "operator": "gte",
+        "value": 0
+      },
+      "decision_type": "reinforce"
     }
   ]
 }

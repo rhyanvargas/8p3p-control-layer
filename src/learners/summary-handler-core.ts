@@ -64,6 +64,20 @@ export interface LearnerSummaryResponse {
 
 const PAGE_SIZE = 100;
 const SAFETY_CAP_PAGES = 10;
+const FLOAT_PRECISION = 4;
+
+export function roundNumeric(value: unknown): unknown {
+  if (typeof value !== 'number') return value;
+  if (!Number.isFinite(value)) return value;
+  if (Number.isInteger(value)) return value;
+  return Math.round(value * 10 ** FLOAT_PRECISION) / 10 ** FLOAT_PRECISION;
+}
+
+export function roundFieldsShallow(fields: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(fields)) out[k] = roundNumeric(v);
+  return out;
+}
 
 function parseStrictInt(value: unknown): number | null {
   if (typeof value === 'number') {
@@ -354,11 +368,20 @@ export async function handleLearnerSummaryCore(
         state_id: currentState.state_id,
         state_version: currentState.state_version,
         updated_at: currentState.updated_at,
-        fields: currentState.state,
+        fields: roundFieldsShallow(currentState.state),
       },
       recent_decisions: projectedDecisions,
       recent_decisions_count: projectedDecisions.length,
-      field_trajectories: fieldTrajectories,
+      field_trajectories: Object.fromEntries(
+        Object.entries(fieldTrajectories).map(([k, v]) => [
+          k,
+          {
+            ...v,
+            first_value: roundNumeric(v.first_value) as number,
+            latest_value: roundNumeric(v.latest_value) as number,
+          },
+        ])
+      ),
       active_policy: activePolicy,
       signals_summary: signalsSummary,
     },

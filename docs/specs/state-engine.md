@@ -519,6 +519,28 @@ This is intentionally simple and domain-agnostic. Future enhancements:
 - Conflict resolution strategies
 - State schema evolution
 
+### Top-level skill score promotion (v1.1)
+
+Per-skill metrics accumulate at `state.skills.{skillId}.{masteryScore,stabilityScore,...}` when signals carry a nested `skills` object (see `docs/specs/skill-level-tracking.md`). Many v1.1 policies and trajectory defaults still read **top-level** `masteryScore` and `stabilityScore`. To keep those flat rules working without per-org config or policy DSL changes, the STATE Engine **mirrors** the active skill's scores to the top level after each signal batch merge and **before** `_delta` / `_direction` companion-field computation.
+
+**Dominant skill (v1.1 rule):** The value of `state.skill` — the most recent signal's `skill` field in the merged state. When `state.skill` is set and `state.skills[state.skill]` exists:
+
+| Source | Top-level target | Behavior |
+|--------|------------------|----------|
+| `state.skills[state.skill].masteryScore` (number) | `state.masteryScore` | Overwritten on every apply |
+| `state.skills[state.skill].stabilityScore` (number) | `state.stabilityScore` | Overwritten on every apply |
+
+**When promotion does not run:**
+
+- `state.skill` is unset or not a string — top-level scores remain whatever the signal payloads merged (status quo).
+- `state.skills` is missing or not an object.
+- `state.skills[state.skill]` is missing or not an object.
+- A score field on the skill entry is absent or non-numeric — that top-level field is not updated by promotion (any pre-existing top-level value from the merge remains).
+
+**Ordering:** Promotion runs at the end of `computeNewState()` (after all signal payloads are deep-merged), then `computeStateDeltas()` diffs top-level numeric fields including the promoted values. Nested `skills.*` delta companions are unchanged.
+
+**Interim scope:** v1.2 (US-SKILL-001) should replace this mirror with first-class dot-path policy evaluation (e.g. `{ "field": "skills.{currentSkill}.masteryScore" }`). Until then, dominant-skill promotion is the deterministic bridge between nested skill storage and flat policy rules.
+
 ## Notes
 
 - **Internal only** - No REST API endpoint for STATE Engine

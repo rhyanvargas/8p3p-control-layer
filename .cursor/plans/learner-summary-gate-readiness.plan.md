@@ -7,19 +7,19 @@ todos:
     status: completed
   - id: TASK-002
     content: Decide and document "dominant skill" rule for top-level masteryScore promotion
-    status: pending
+    status: completed
   - id: TASK-003
     content: Promote dominant-skill masteryScore to top-level state in state engine
-    status: pending
+    status: completed
   - id: TASK-004
     content: Round numeric scalars at the summary projection boundary (4 decimals)
-    status: pending
+    status: completed
   - id: TASK-005
     content: Add Springs policy fallback rule so no signal returns decision_type "?"
-    status: pending
+    status: completed
   - id: TASK-006
     content: Re-seed Springs demo with ADMIN_API_KEY, verify Jordan ends in advance
-    status: pending
+    status: completed
   - id: TASK-007
     content: Record Wave 2 gate screenshot and update urs_product_readiness verification checklist
     status: pending

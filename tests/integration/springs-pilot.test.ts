@@ -82,6 +82,12 @@ const LEARNER_REINFORCE_PAYLOAD = {
   timeSinceReinforcement: 100000,
 };
 
+/** Borderline mid-stability, recently reinforced — no specific rule, fallback reinforce */
+const LEARNER_BORDERLINE_FALLBACK_PAYLOAD = {
+  stabilityScore: 0.7,
+  timeSinceReinforcement: 50000,
+};
+
 // ============================================================================
 // Staff payloads (mapped to springs/staff.json fields)
 // ============================================================================
@@ -210,6 +216,26 @@ describe('Springs Charter Schools Pilot Integration', () => {
       expect(decisions).toHaveLength(1);
       expect(decisions[0].decision_type).toBe('reinforce');
       expect(decisions[0].trace.matched_rule_id).toBe('rule-reinforce');
+      expect(decisions[0].trace.educator_summary).toBe('Needs more practice');
+    });
+
+    it('borderline mid-stability signal triggers reinforce via fallback rule', async () => {
+      const postRes = await app.inject({
+        method: 'POST',
+        url: '/v1/signals',
+        payload: buildSignal('learner-borderline', 'canvas-lms', LEARNER_BORDERLINE_FALLBACK_PAYLOAD),
+      });
+      expect(postRes.statusCode).toBe(200);
+
+      const getRes = await app.inject({
+        method: 'GET',
+        url: `/v1/decisions?org_id=${ORG_ID}&learner_reference=learner-borderline&from_time=2020-01-01T00:00:00Z&to_time=2030-12-31T23:59:59Z`,
+      });
+      expect(getRes.statusCode).toBe(200);
+      const { decisions } = getRes.json();
+      expect(decisions).toHaveLength(1);
+      expect(decisions[0].decision_type).toBe('reinforce');
+      expect(decisions[0].trace.matched_rule_id).toBe('rule-reinforce-fallback');
       expect(decisions[0].trace.educator_summary).toBe('Needs more practice');
     });
   });

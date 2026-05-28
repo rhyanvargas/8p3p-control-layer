@@ -30,7 +30,7 @@ vi.mock('../../src/state/trajectory-handler-core.js', () => ({
   buildSummary: vi.fn(),
 }));
 
-import { handleLearnerSummaryCore } from '../../src/learners/summary-handler-core.js';
+import { handleLearnerSummaryCore, roundNumeric } from '../../src/learners/summary-handler-core.js';
 import { getState, getStateVersionRange } from '../../src/state/store.js';
 import { getRecentDecisionsByLearner } from '../../src/decision/store.js';
 import { getSignalSummary } from '../../src/signalLog/store.js';
@@ -417,6 +417,62 @@ describe('summary-handler-core', () => {
       });
       const body = result.body as { generated_at: string };
       expect(new Date(body.generated_at).toISOString()).toBe(body.generated_at);
+    });
+  });
+
+  // =========================================================================
+  // Numeric rounding at projection boundary
+  // =========================================================================
+  describe('numeric rounding', () => {
+    it('roundNumeric rounds floats to 4 decimal places', () => {
+      expect(roundNumeric(0.21999999999999997)).toBe(0.22);
+    });
+
+    it('roundNumeric passes integers through unchanged', () => {
+      expect(roundNumeric(100000)).toBe(100000);
+    });
+
+    it('roundNumeric passes non-finite numbers through unchanged', () => {
+      expect(roundNumeric(Number.NaN)).toBe(Number.NaN);
+      expect(roundNumeric(Number.POSITIVE_INFINITY)).toBe(Number.POSITIVE_INFINITY);
+    });
+
+    it('rounds top-level current_state.fields and field_trajectories values', async () => {
+      mockGetState.mockReturnValue(
+        makeLearnerState({
+          state_version: 2,
+          state: {
+            stabilityScore: 0.21999999999999997,
+            masteryScore: 0.19800000000000006,
+            timeSinceReinforcement: 100000,
+          },
+        })
+      );
+
+      mockBuildSummary.mockReturnValue({
+        stabilityScore: {
+          first_value: 0.21999999999999997,
+          latest_value: 0.19800000000000006,
+          overall_direction: 'declining',
+          version_count: 2,
+        },
+      } as unknown as ReturnType<typeof buildSummary>);
+
+      const result = await handleLearnerSummaryCore({
+        org_id: 'test-org',
+        learner_reference: 'learner-001',
+      });
+
+      expect(result.statusCode).toBe(200);
+      const body = result.body as {
+        current_state: { fields: Record<string, unknown> };
+        field_trajectories: Record<string, { first_value: number; latest_value: number }>;
+      };
+      expect(body.current_state.fields.stabilityScore).toBe(0.22);
+      expect(body.current_state.fields.masteryScore).toBe(0.198);
+      expect(body.current_state.fields.timeSinceReinforcement).toBe(100000);
+      expect(body.field_trajectories.stabilityScore.first_value).toBe(0.22);
+      expect(body.field_trajectories.stabilityScore.latest_value).toBe(0.198);
     });
   });
 });

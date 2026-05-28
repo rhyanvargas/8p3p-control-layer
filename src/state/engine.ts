@@ -171,6 +171,30 @@ export function computeStateDeltas(
 }
 
 /**
+ * Mirror dominant skill scores to top-level masteryScore/stabilityScore (v1.1).
+ * Uses state.skill as the dominant skill id; see docs/specs/state-engine.md
+ * § "Top-level skill score promotion (v1.1)".
+ * Mutates newState in place. Call after canonical merge, before delta computation.
+ */
+export function promoteDominantSkillScores(newState: Record<string, unknown>): void {
+  const dominantSkill = typeof newState.skill === 'string' ? newState.skill : null;
+  if (!dominantSkill) return;
+
+  const skills = newState.skills;
+  if (!isRecord(skills)) return;
+
+  const skillScores = skills[dominantSkill];
+  if (!isRecord(skillScores)) return;
+
+  if (typeof skillScores.masteryScore === 'number') {
+    newState.masteryScore = skillScores.masteryScore;
+  }
+  if (typeof skillScores.stabilityScore === 'number') {
+    newState.stabilityScore = skillScores.stabilityScore;
+  }
+}
+
+/**
  * Compute new state by applying signal payloads in order (reducer pattern).
  * Starts with current state snapshot or {}; each signal payload is deep-merged in order.
  *
@@ -194,6 +218,7 @@ export function computeNewState(
     }
   }
 
+  promoteDominantSkillScores(state);
   return state;
 }
 

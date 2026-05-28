@@ -565,6 +565,28 @@ describe('Policy Loader', () => {
       expect(result.matched_rule_id).toBeNull();
     });
 
+    it('springs learner fallback rule matches borderline state when specific rules do not', () => {
+      const policy = loadPolicyForContext('springs', 'learner');
+
+      const result = evaluatePolicy(
+        { stabilityScore: 0.7, timeSinceReinforcement: 50000 },
+        policy
+      );
+      expect(result.decision_type).toBe('reinforce');
+      expect(result.matched_rule_id).toBe('rule-reinforce-fallback');
+    });
+
+    it('springs learner specific rules still take precedence over fallback', () => {
+      const policy = loadPolicyForContext('springs', 'learner');
+
+      const result = evaluatePolicy(
+        { stabilityScore: 0.5, timeSinceReinforcement: 100000 },
+        policy
+      );
+      expect(result.decision_type).toBe('reinforce');
+      expect(result.matched_rule_id).toBe('rule-reinforce');
+    });
+
     it('returns matched_rule with evaluated_fields when a rule matches', () => {
       const policy: PolicyDefinition = {
         policy_id: 'p',

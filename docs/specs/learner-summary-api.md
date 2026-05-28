@@ -125,6 +125,8 @@ Return a structured summary of a learner's current state, decision history, fiel
 
 The latest `LearnerState.state` object, including all stored canonical fields and delta companion fields. Delta fields (`_delta`, `_direction`) written by `state-delta-detection.md` are included as-is.
 
+**Numeric formatting:** For educator-facing readability (and to avoid floating-point noise like `0.21999999999999997`), the handler rounds **top-level numeric scalars** in `current_state.fields` to **4 decimal places** at the response projection boundary. This does not change what is stored; it only affects the JSON response representation.
+
 ### `recent_decisions`
 
 The last N decisions (default 10, configurable via `recent_decisions_limit`) ordered by `decided_at` descending. Each entry includes:
