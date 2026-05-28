@@ -91,6 +91,59 @@ describe('Admin Field Mappings Contract Tests', () => {
   });
 
   // -------------------------------------------------------------------------
+  // Local fallback mode (no FIELD_MAPPINGS_TABLE)
+  // -------------------------------------------------------------------------
+
+  describe('Local fallback mode — no FIELD_MAPPINGS_TABLE', () => {
+    beforeEach(() => {
+      delete process.env.FIELD_MAPPINGS_TABLE;
+      _setFieldMappingsDynamoClientForTesting(null);
+    });
+
+    it('should accept a valid mapping and store in memory', async () => {
+      const response = await app.inject({
+        method: 'PUT',
+        url: '/v1/admin/mappings/springs/canvas-lms',
+        headers: { 'x-admin-api-key': ADMIN_KEY, 'content-type': 'application/json' },
+        payload: JSON.stringify(validMappingBody()),
+      });
+
+      expect(response.statusCode).toBe(200);
+      const body = response.json() as { org_id: string; source_system: string; storage?: string };
+      expect(body.org_id).toBe('springs');
+      expect(body.source_system).toBe('canvas-lms');
+      expect(body.storage).toBe('memory');
+    });
+
+    it('GET list should return the in-memory mapping', async () => {
+      await app.inject({
+        method: 'PUT',
+        url: '/v1/admin/mappings/springs/canvas-lms',
+        headers: { 'x-admin-api-key': ADMIN_KEY, 'content-type': 'application/json' },
+        payload: JSON.stringify(validMappingBody({ required: ['stabilityScore'] })),
+      });
+
+      const response = await app.inject({
+        method: 'GET',
+        url: '/v1/admin/mappings/springs',
+        headers: { 'x-admin-api-key': ADMIN_KEY },
+      });
+
+      expect(response.statusCode).toBe(200);
+      const body = response.json() as {
+        mappings: Array<{ org_id: string; source_system: string; mapping: { required?: string[] } }>;
+        count: number;
+        storage?: string;
+      };
+
+      expect(body.storage).toBe('memory');
+      expect(body.count).toBe(1);
+      expect(body.mappings[0]?.source_system).toBe('canvas-lms');
+      expect(body.mappings[0]?.mapping.required).toEqual(['stabilityScore']);
+    });
+  });
+
+  // -------------------------------------------------------------------------
   // Auth
   // -------------------------------------------------------------------------
 

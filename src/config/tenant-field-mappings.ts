@@ -94,6 +94,50 @@ export function setTenantFieldMappings(config: TenantFieldMappingsConfig | null)
   tenantConfig = config;
 }
 
+export function upsertTenantPayloadMappingInMemory(args: {
+  orgId: string;
+  sourceSystem: string;
+  mapping: TenantPayloadMapping;
+}): void {
+  const { orgId, sourceSystem, mapping } = args;
+  const base: TenantFieldMappingsConfigV2 =
+    tenantConfig && tenantConfig.version === 2
+      ? tenantConfig
+      : {
+          version: 2,
+          tenants: {},
+        };
+
+  const next: TenantFieldMappingsConfigV2 = {
+    version: 2,
+    tenants: {
+      ...base.tenants,
+      [orgId]: {
+        ...(base.tenants[orgId] ?? {}),
+        [sourceSystem]: { payload: mapping },
+      },
+    },
+  };
+  setTenantFieldMappings(next);
+}
+
+export function listTenantPayloadMappingsInMemory(orgId: string): Array<{
+  org_id: string;
+  source_system: string;
+  mapping: TenantPayloadMapping;
+}> {
+  if (!tenantConfig) return [];
+  if (tenantConfig.version === 1) {
+    const mapping = tenantConfig.tenants[orgId]?.payload;
+    return mapping ? [{ org_id: orgId, source_system: '*', mapping }] : [];
+  }
+
+  const entries = tenantConfig.tenants[orgId] ?? {};
+  return Object.entries(entries)
+    .map(([sourceSystem, v]) => (v?.payload ? { org_id: orgId, source_system: sourceSystem, mapping: v.payload } : null))
+    .filter((x): x is { org_id: string; source_system: string; mapping: TenantPayloadMapping } => x !== null);
+}
+
 export function loadTenantFieldMappingsFromFile(filePath: string): void {
   const raw = readFileSync(filePath, 'utf-8');
   const parsed = JSON.parse(raw) as TenantFieldMappingsConfig;

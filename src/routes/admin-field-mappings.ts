@@ -17,7 +17,13 @@ import {
   putFieldMappingItem,
   listFieldMappingItemsForOrg,
 } from '../config/field-mappings-dynamo.js';
-import type { TenantPayloadMapping, TransformRule, EnvelopeMapping } from '../config/tenant-field-mappings.js';
+import {
+  listTenantPayloadMappingsInMemory,
+  type TenantPayloadMapping,
+  type TransformRule,
+  type EnvelopeMapping,
+  upsertTenantPayloadMappingInMemory,
+} from '../config/tenant-field-mappings.js';
 
 // ---------------------------------------------------------------------------
 // Request type helpers
@@ -246,6 +252,28 @@ export function registerAdminFieldMappingsRoutes(app: FastifyInstance): void {
 
       const adminKey = getAdminKey(request);
 
+      if (!process.env.FIELD_MAPPINGS_TABLE) {
+        // Local/dev fallback: store mapping in the in-memory tenant mappings config.
+        // This enables onboarding flows (seed scripts, preflight, webhooks) without AWS/Dynamo.
+        upsertTenantPayloadMappingInMemory({
+          orgId: org_id,
+          sourceSystem: source_system,
+          mapping: validation.mapping,
+        });
+
+        return reply.status(200).send({
+          org_id,
+          source_system,
+          mapping: validation.mapping,
+          mapping_version: 1,
+          template_id: template_id ?? undefined,
+          template_version: template_version ?? undefined,
+          updated_at: new Date().toISOString(),
+          updated_by: adminKey,
+          storage: 'memory',
+        });
+      }
+
       const record = await putFieldMappingItem({
         orgId: org_id,
         sourceSystem: source_system,
@@ -270,6 +298,11 @@ export function registerAdminFieldMappingsRoutes(app: FastifyInstance): void {
       reply: FastifyReply,
     ) => {
       const { org_id } = request.params;
+      if (!process.env.FIELD_MAPPINGS_TABLE) {
+        const records = listTenantPayloadMappingsInMemory(org_id);
+        return reply.status(200).send({ mappings: records, count: records.length, storage: 'memory' });
+      }
+
       const records = await listFieldMappingItemsForOrg(org_id);
       return reply.status(200).send({ mappings: records, count: records.length });
     },

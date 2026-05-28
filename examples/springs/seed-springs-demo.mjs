@@ -449,7 +449,11 @@ async function registerMappings(base, adminKey, org) {
         console.log(`  \u2713 ${pad} \u2014 ${transformCount} transforms, ${aliasCount} aliases`);
       } else {
         const body = await res.json().catch(() => ({}));
-        console.error(`  \u2717 ${sourceSystem} \u2014 HTTP ${res.status}: ${body?.error?.message ?? 'unknown error'}`);
+        console.error(
+          `  \u2717 ${sourceSystem} \u2014 HTTP ${res.status}: ${
+            body?.error?.message ?? body?.message ?? body?.code ?? 'unknown error'
+          }`,
+        );
         allOk = false;
       }
     } catch (err) {
