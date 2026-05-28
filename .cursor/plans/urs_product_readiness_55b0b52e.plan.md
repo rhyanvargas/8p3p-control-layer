@@ -155,7 +155,7 @@ flowchart LR
 - [ ] `npm run validate:contracts` passes after each task
 - [ ] `npm run validate:api` passes after each OpenAPI change
 - [ ] Three new sub-plan files exist with `completed` frontmatter: `webhook-adapters.plan.md`, `learner-trajectory-api.plan.md`, `learner-summary-api.plan.md`
-- [ ] Deck demo recorded: paste a `learner_reference` into a curl call against `GET /v1/learners/:ref/summary`, get back the deck's URS card data, screenshot it next to the deck slide
+- [x] Deck demo recorded: paste a `learner_reference` into a curl call against `GET /v1/learners/:ref/summary`, get back the deck's URS card data, screenshot it next to the deck slide ([internal-docs/reports/2026-05-28-wave2-gate-urs-summary-screenshot.png](../../internal-docs/reports/2026-05-28-wave2-gate-urs-summary-screenshot.png); verified `stu-30456` — mastery 0.9, advance, educator_summary "Ready to move on")
 - [ ] No new write paths added to STATE Store, Signal Log, or Decision Store (STATE Authority preserved)
 - [ ] No dashboard / UI / assistant code added to `src/` outside `dashboard/` (core stays API-first)
 
