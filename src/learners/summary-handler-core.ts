@@ -40,6 +40,7 @@ export interface RecentDecisionItem {
   decision_type: string;
   decided_at: string;
   matched_rule_id: string | null;
+  educator_summary: string;
   rationale: string;
   policy_version: string;
 }
@@ -320,6 +321,7 @@ export async function handleLearnerSummaryCore(
     decision_type: d.decision_type,
     decided_at: d.decided_at,
     matched_rule_id: d.trace.matched_rule_id,
+    educator_summary: d.trace.educator_summary,
     rationale: d.trace.rationale,
     policy_version: d.trace.policy_version,
   }));

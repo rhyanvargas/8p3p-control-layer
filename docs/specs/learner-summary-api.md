@@ -71,6 +71,7 @@ Return a structured summary of a learner's current state, decision history, fiel
       "decision_type": "intervene",
       "decided_at": "2026-03-28T14:45:30Z",
       "matched_rule_id": "rule-decay-intervene",
+      "educator_summary": "Needs stronger support now",
       "rationale": "Rule rule-decay-intervene fired: stabilityScore_delta (-0.27) lt -0.1 AND stabilityScore (0.28) lt 0.6",
       "policy_version": "1.1.0"
     }
@@ -134,10 +135,13 @@ The last N decisions (default 10, configurable via `recent_decisions_limit`) ord
 | `decision_type` | `Decision.decision_type` |
 | `decided_at` | `Decision.decided_at` |
 | `matched_rule_id` | `Decision.trace.matched_rule_id` |
-| `rationale` | `Decision.trace.rationale` |
+| `educator_summary` | `Decision.trace.educator_summary` (teacher-facing short label, sourced from `DECISION_TYPE_TO_EDUCATOR_SUMMARY` in `src/decision/educator-summaries.ts`) |
+| `rationale` | `Decision.trace.rationale` (engineer-facing rule-trace string; not for direct teacher display) |
 | `policy_version` | `Decision.trace.policy_version` |
 
 PII exclusion: `state_snapshot` from `Decision.trace` is **not** included. Only the listed fields appear.
+
+**Educator vs engineer text:** `educator_summary` is the deck-facing wording (e.g. "Ready to move on", "Needs more practice", "Needs stronger support now") and MUST be the teacher-displayed string. `rationale` is the rule-evaluation trace and SHOULD only surface in inspection/audit panels.
 
 ### `field_trajectories`
 

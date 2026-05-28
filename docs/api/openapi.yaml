@@ -740,6 +740,7 @@ paths:
                     decision_type: intervene
                     decided_at: '2026-03-28T14:45:30Z'
                     matched_rule_id: rule-decay-intervene
+                    educator_summary: Needs stronger support now
                     rationale: 'Rule rule-decay-intervene fired: stabilityScore_delta (-0.27) lt -0.1'
                     policy_version: '1.1.0'
                 recent_decisions_count: 1
@@ -2099,6 +2100,7 @@ components:
         - decision_id
         - decision_type
         - decided_at
+        - educator_summary
         - rationale
         - policy_version
       properties:
@@ -2113,8 +2115,20 @@ components:
           oneOf:
             - type: string
             - type: 'null'
+        educator_summary:
+          type: string
+          minLength: 1
+          description: |
+            Teacher-facing short label for this decision type, sourced from
+            Decision.trace.educator_summary (DECISION_TYPE_TO_EDUCATOR_SUMMARY in
+            src/decision/educator-summaries.ts). Use this for educator-readable
+            UI; use rationale for engineer/audit detail.
         rationale:
           type: string
+          description: |
+            Engineer-facing rule-trace string from Decision.trace.rationale
+            (e.g. "Rule rule-decay-intervene fired: stabilityScore_delta (-0.27) lt -0.1").
+            Not intended for direct teacher display — see educator_summary.
         policy_version:
           type: string
       description: |

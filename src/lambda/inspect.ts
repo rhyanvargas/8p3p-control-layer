@@ -444,6 +444,7 @@ async function handleGetLearnerSummary(
     decision_type: d.decision_type,
     decided_at: d.decided_at,
     matched_rule_id: d.trace.matched_rule_id,
+    educator_summary: d.trace.educator_summary,
     rationale: d.trace.rationale,
     policy_version: d.trace.policy_version,
   }));

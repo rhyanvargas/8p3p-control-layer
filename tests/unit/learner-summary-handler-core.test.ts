@@ -332,7 +332,7 @@ describe('summary-handler-core', () => {
   // Recent decisions projection + counts
   // =========================================================================
   describe('recent decisions projection', () => {
-    it('projects only the six spec-listed keys', async () => {
+    it('projects only the seven spec-listed keys (including educator_summary)', async () => {
       mockGetRecentDecisionsByLearner.mockReturnValue([
         makeDecision({
           trace: {
@@ -358,11 +358,13 @@ describe('summary-handler-core', () => {
           'decided_at',
           'decision_id',
           'decision_type',
+          'educator_summary',
           'matched_rule_id',
           'policy_version',
           'rationale',
         ].toSorted()
       );
+      expect(body.recent_decisions[0]!.educator_summary).toBe('summary');
     });
 
     it('sets recent_decisions_count to projected array length', async () => {

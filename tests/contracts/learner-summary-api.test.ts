@@ -30,7 +30,8 @@ import { loadPolicy, clearRoutingConfigCache } from '../../src/decision/policy-l
 import { ErrorCodes } from '../../src/shared/error-codes.js';
 import { apiKeyPreHandler } from '../../src/auth/api-key-middleware.js';
 import { FORBIDDEN_KEYS } from '../../src/ingestion/forbidden-keys.js';
-import type { LearnerState, Decision, SignalEnvelope } from '../../src/shared/types.js';
+import { DECISION_TYPE_TO_EDUCATOR_SUMMARY } from '../../src/decision/educator-summaries.js';
+import type { LearnerState, Decision, SignalEnvelope, DecisionType } from '../../src/shared/types.js';
 import { contractHttp } from '../helpers/contract-http.js';
 
 const ORG = 'springs';
@@ -153,8 +154,38 @@ describe('Learner Summary API Contract Tests', () => {
         updated_at: '2026-03-03T10:00:00Z',
         state: { stabilityScore: 0.28, masteryScore: 0.75 },
       }));
-      seedDecision({ decision_id: 'dec-1', decided_at: '2026-03-03T12:00:00Z' });
-      seedDecision({ decision_id: 'dec-2', decided_at: '2026-03-03T13:00:00Z' });
+      seedDecision({
+        decision_id: 'dec-1',
+        decision_type: 'intervene',
+        decided_at: '2026-03-03T12:00:00Z',
+        trace: {
+          state_id: `${ORG}:${LEARNER}:v3`,
+          state_version: 3,
+          policy_id: 'springs:learner',
+          policy_version: '1.1.0',
+          matched_rule_id: 'rule-decay-intervene',
+          state_snapshot: { stabilityScore: 0.28 },
+          matched_rule: null,
+          rationale: 'Rule fired',
+          educator_summary: DECISION_TYPE_TO_EDUCATOR_SUMMARY.intervene,
+        },
+      });
+      seedDecision({
+        decision_id: 'dec-2',
+        decision_type: 'advance',
+        decided_at: '2026-03-03T13:00:00Z',
+        trace: {
+          state_id: `${ORG}:${LEARNER}:v3`,
+          state_version: 3,
+          policy_id: 'springs:learner',
+          policy_version: '1.1.0',
+          matched_rule_id: 'rule-advance',
+          state_snapshot: { stabilityScore: 0.81 },
+          matched_rule: null,
+          rationale: 'Rule fired',
+          educator_summary: DECISION_TYPE_TO_EDUCATOR_SUMMARY.advance,
+        },
+      });
       seedSignal('2026-03-01T10:00:00Z', { signal_id: 'sig-1' });
       seedSignal('2026-03-02T10:00:00Z', { signal_id: 'sig-2' });
       seedSignal('2026-03-03T10:00:00Z', { signal_id: 'sig-3' });
@@ -173,8 +204,19 @@ describe('Learner Summary API Contract Tests', () => {
       expect(body).toHaveProperty('active_policy');
       expect(body).toHaveProperty('signals_summary');
 
-      const recentDecisions = body.recent_decisions as unknown[];
+      const recentDecisions = body.recent_decisions as Array<{
+        decision_type: DecisionType;
+        educator_summary: string;
+      }>;
       expect(recentDecisions.length).toBeLessThanOrEqual(10);
+
+      // Every projected decision carries the teacher-facing educator_summary
+      // sourced from Decision.trace.educator_summary (DECISION_TYPE_TO_EDUCATOR_SUMMARY).
+      // This is the deck-facing wording; `rationale` is engineer-only.
+      for (const item of recentDecisions) {
+        const expected = DECISION_TYPE_TO_EDUCATOR_SUMMARY[item.decision_type];
+        expect(item.educator_summary).toBe(expected);
+      }
 
       expect(body.generated_at).toBeTruthy();
       expect(new Date(body.generated_at as string).toISOString()).toBeTruthy();
