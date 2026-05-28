@@ -54,16 +54,22 @@ This plan lands the smallest set of changes that makes the gate screenshot tell 
 
 ## Spec literals quoted by this plan
 
-### From `docs/api/openapi.yaml` — `DecisionTrace`
+### From `docs/api/openapi.yaml` — `RecentDecisionItem`
 
 ```
-required: [..., educator_summary]
+required:
+  - decision_id
+  - decision_type
+  - decided_at
+  - educator_summary
+  - rationale
+  - policy_version
 educator_summary:
   type: string
   minLength: 1
 ```
 
-> Comment at `openapi.yaml:2243-2244` (Decision schema): *"teacher-facing wording is `trace.educator_summary`."*
+> Comment in `openapi.yaml` (Learner Summary schemas): *"Teacher-facing short label ... sourced from Decision.trace.educator_summary (DECISION_TYPE_TO_EDUCATOR_SUMMARY ...)."*
 
 ### From `src/decision/educator-summaries.ts`
 
@@ -239,11 +245,7 @@ The seed expects `sam-canvas-ela-001` to return `reinforce`, but the existing fo
 ```json
 {
   "rule_id": "rule-reinforce-fallback",
-  "condition": {
-    "all": [
-      { "field": "stabilityScore", "operator": "gte", "value": 0 }
-    ]
-  },
+  "condition": { "field": "stabilityScore", "operator": "gte", "value": 0 },
   "decision_type": "reinforce"
 }
 ```

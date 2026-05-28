@@ -743,7 +743,6 @@ paths:
                     educator_summary: Needs stronger support now
                     rationale: 'Rule rule-decay-intervene fired: stabilityScore_delta (-0.27) lt -0.1'
                     policy_version: '1.1.0'
-                recent_decisions_count: 1
                 field_trajectories:
                   stabilityScore:
                     first_value: 0.72
@@ -2174,6 +2173,144 @@ components:
               format: date-time
             - type: 'null'
 
+    LearnerStateProjection:
+      type: object
+      additionalProperties: false
+      description: |
+        Closed set of canonical URS fields and their delta/direction companions.
+        Source-system vocabulary (xAPI group/object/extensions, vendor extensions)
+        and skill-level breakdown are stripped — see docs/specs/learner-summary-api.md
+        § URS field allowlist.
+      properties:
+        masteryScore:
+          oneOf:
+            - type: number
+            - type: 'null'
+        masteryScore_delta:
+          oneOf:
+            - type: number
+            - type: 'null'
+        masteryScore_direction:
+          oneOf:
+            - type: string
+              enum: [improving, declining, stable]
+            - type: 'null'
+        masteryScore_delta_delta:
+          oneOf:
+            - type: number
+            - type: 'null'
+        masteryScore_delta_direction:
+          oneOf:
+            - type: string
+              enum: [improving, declining, stable]
+            - type: 'null'
+        masteryScore_delta_delta_delta:
+          oneOf:
+            - type: number
+            - type: 'null'
+        masteryScore_delta_delta_direction:
+          oneOf:
+            - type: string
+              enum: [improving, declining, stable]
+            - type: 'null'
+        stabilityScore:
+          oneOf:
+            - type: number
+            - type: 'null'
+        stabilityScore_delta:
+          oneOf:
+            - type: number
+            - type: 'null'
+        stabilityScore_direction:
+          oneOf:
+            - type: string
+              enum: [improving, declining, stable]
+            - type: 'null'
+        stabilityScore_delta_delta:
+          oneOf:
+            - type: number
+            - type: 'null'
+        stabilityScore_delta_direction:
+          oneOf:
+            - type: string
+              enum: [improving, declining, stable]
+            - type: 'null'
+        stabilityScore_delta_delta_delta:
+          oneOf:
+            - type: number
+            - type: 'null'
+        stabilityScore_delta_delta_direction:
+          oneOf:
+            - type: string
+              enum: [improving, declining, stable]
+            - type: 'null'
+        timeSinceReinforcement:
+          oneOf:
+            - type: number
+            - type: 'null'
+        timeSinceReinforcement_delta:
+          oneOf:
+            - type: number
+            - type: 'null'
+        timeSinceReinforcement_direction:
+          oneOf:
+            - type: string
+              enum: [improving, declining, stable]
+            - type: 'null'
+        timeSinceReinforcement_delta_delta:
+          oneOf:
+            - type: number
+            - type: 'null'
+        timeSinceReinforcement_delta_direction:
+          oneOf:
+            - type: string
+              enum: [improving, declining, stable]
+            - type: 'null'
+        timeSinceReinforcement_delta_delta_delta:
+          oneOf:
+            - type: number
+            - type: 'null'
+        timeSinceReinforcement_delta_delta_direction:
+          oneOf:
+            - type: string
+              enum: [improving, declining, stable]
+            - type: 'null'
+        riskSignal:
+          oneOf:
+            - type: number
+            - type: 'null'
+        riskSignal_delta:
+          oneOf:
+            - type: number
+            - type: 'null'
+        riskSignal_direction:
+          oneOf:
+            - type: string
+              enum: [improving, declining, stable]
+            - type: 'null'
+        riskSignal_delta_delta:
+          oneOf:
+            - type: number
+            - type: 'null'
+        riskSignal_delta_direction:
+          oneOf:
+            - type: string
+              enum: [improving, declining, stable]
+            - type: 'null'
+        riskSignal_delta_delta_delta:
+          oneOf:
+            - type: number
+            - type: 'null'
+        riskSignal_delta_delta_direction:
+          oneOf:
+            - type: string
+              enum: [improving, declining, stable]
+            - type: 'null'
+        skill:
+          oneOf:
+            - type: string
+            - type: 'null'
+
     LearnerSummaryResponse:
       type: object
       required:
@@ -2182,7 +2319,6 @@ components:
         - generated_at
         - current_state
         - recent_decisions
-        - recent_decisions_count
         - field_trajectories
         - active_policy
         - signals_summary
@@ -2206,16 +2342,11 @@ components:
               type: string
               format: date-time
             fields:
-              type: object
-              additionalProperties: true
-              description: Latest LearnerState.state including delta companion fields
+              $ref: '#/components/schemas/LearnerStateProjection'
         recent_decisions:
           type: array
           items:
             $ref: '#/components/schemas/RecentDecisionItem'
-        recent_decisions_count:
-          type: integer
-          minimum: 0
         field_trajectories:
           type: object
           additionalProperties:

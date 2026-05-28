@@ -76,7 +76,6 @@ Return a structured summary of a learner's current state, decision history, fiel
       "policy_version": "1.1.0"
     }
   ],
-  "recent_decisions_count": 1,
 
   "field_trajectories": {
     "stabilityScore": {
@@ -123,9 +122,20 @@ Return a structured summary of a learner's current state, decision history, fiel
 
 ### `current_state`
 
-The latest `LearnerState.state` object, including all stored canonical fields and delta companion fields. Delta fields (`_delta`, `_direction`) written by `state-delta-detection.md` are included as-is.
+Metadata (`state_id`, `state_version`, `updated_at`) comes from the latest `LearnerState` record. `fields` is a **projection** of `LearnerState.state`, not a passthrough — see § URS field allowlist below.
 
-**Numeric formatting:** For educator-facing readability (and to avoid floating-point noise like `0.21999999999999997`), the handler rounds **top-level numeric scalars** in `current_state.fields` to **4 decimal places** at the response projection boundary. This does not change what is stored; it only affects the JSON response representation.
+### URS field allowlist (`current_state.fields`)
+
+`current_state.fields` is a **projection** of `LearnerState.state`, not a passthrough. Only the canonical URS keys and their delta/direction companions appear:
+
+- **Base keys (scalars):** `masteryScore`, `stabilityScore`, `timeSinceReinforcement`, `riskSignal`, `skill`
+- **Companion suffixes:** `_delta`, `_direction`, `_delta_delta`, `_delta_direction`, `_delta_delta_delta`, `_delta_delta_direction` (applied to numeric base keys only)
+
+Source-system vocabulary (xAPI envelope keys `group`, `object`, `extensions`, `generated`; vendor extensions like `bb_action_name`, `com_instructure_canvas`) is **stripped** even when present in stored state. Per-skill breakdown (`skills.{skill}.{score}`) is also stripped — skill-level fields are exposed via the dominant-skill promotion (`state-engine.md`) and via US-SKILL-001 dot-path access in v1.2.
+
+Numeric scalars are rounded to 4 decimal places at the projection boundary. Only scalar values (`number`, `string`, `null`) are emitted; nested objects and arrays are dropped even if the key name would otherwise be allowed.
+
+Source list of allowed keys: `src/learners/urs-allowlist.ts`. OpenAPI schema: `LearnerStateProjection`.
 
 ### `recent_decisions`
 
@@ -198,7 +208,7 @@ Aggregate signal counts from the signal log:
 ### Functional
 
 - [x] `GET /v1/learners/:learner_reference/summary` returns the full aggregated summary in a single response
-- [x] `current_state.fields` contains the complete latest `LearnerState.state` object including delta companion fields
+- [x] `current_state.fields` is a URS projection of the latest `LearnerState.state` (canonical scalars and delta/direction companions only; see § URS field allowlist)
 - [x] `recent_decisions` contains the last N decisions ordered by `decided_at` DESC; N is configurable via `recent_decisions_limit` (1–50, default 10)
 - [x] `field_trajectories` summary is computed via `getStateVersionRange()` (reuses `learner-trajectory-api.md` core logic) across all versions; defaults to all numeric fields in current state when `trajectory_fields` is not specified
 - [x] `active_policy` resolves the policy for the learner using the same resolution chain as the decision engine (`loadPolicyForContext(org_id, userType)`)
@@ -225,6 +235,7 @@ Aggregate signal counts from the signal log:
 
 - **Aggregation only — no new tables, no write paths.** This endpoint reads from existing stores: `StateRepository`, `DecisionRepository`, `SignalLogRepository`, and `loadPolicyForContext`. Two new **read-only query methods** (`getRecentDecisionsByLearner`, `getSignalSummary`) are introduced on existing repos, owned by `decision-engine.md` and `signal-log.md` respectively (see § Dependencies).
 - **PII exclusion is mandatory** — `state_snapshot` from decision trace must not appear in the response. Follows DEF-DEC-008-PII (PII forbidden keys + canonical snapshot).
+- **Scalars-only projection** — `current_state.fields` emits only allowlisted keys whose values are `number`, `string`, or `null`. Source-system vocabulary, nested skill maps, and non-scalar values are stripped at the projection boundary (see § URS field allowlist).
 - **`trajectory_fields` max 10** — reuses the same 10-field limit from `learner-trajectory-api.md`.
 - **`recent_decisions` max 50** — prevents large response payloads for high-frequency learners.
 - **No per-request freshness guarantee** — data reflects whatever is in the stores at query time. If a signal was just ingested and the state hasn't been applied yet, the summary reflects pre-signal state.
@@ -239,7 +250,6 @@ Aggregate signal counts from the signal log:
 | PDF / document export | Client rendering responsibility; response is structured JSON | SDK or export spec |
 | Real-time summary streaming | Not required for pilot | WebSocket / EventBridge integration |
 | Multi-learner cohort summary | Separate analytics/reporting concern | Analytics API spec |
-| Skill-level breakdown in `current_state.fields` | Nested skills require US-SKILL-001 | US-SKILL-001 implemented |
 | Policy simulation ("what-if") | Separate concern from summary | Policy simulation spec |
 
 ---

@@ -16,6 +16,7 @@ import type {
   ActivePolicyResponse,
   RecentDecisionItem,
 } from '../learners/summary-handler-core.js';
+import { projectLearnerState, roundNumeric } from '../learners/state-projection.js';
 import { ErrorCodes } from '../shared/error-codes.js';
 import { encodeTrajectoryPageToken, decodeTrajectoryPageToken } from '../state/trajectory-pagination.js';
 import { buildSummary, buildVersions, type FieldSummary } from '../state/trajectory-handler-core.js';
@@ -436,7 +437,16 @@ async function handleGetLearnerSummary(
   let fieldTrajectories: Record<string, FieldSummary> = {};
   if (fieldsToTrack.length > 0) {
     const trajectoryVersions = buildVersions(trajectoryStates, fieldsToTrack);
-    fieldTrajectories = buildSummary(trajectoryVersions, fieldsToTrack);
+    fieldTrajectories = Object.fromEntries(
+      Object.entries(buildSummary(trajectoryVersions, fieldsToTrack)).map(([k, v]) => [
+        k,
+        {
+          ...v,
+          first_value: roundNumeric(v.first_value) as number,
+          latest_value: roundNumeric(v.latest_value) as number,
+        },
+      ])
+    );
   }
 
   const projectedDecisions: RecentDecisionItem[] = decisions.map((d) => ({
@@ -472,10 +482,9 @@ async function handleGetLearnerSummary(
       state_id: currentState.state_id,
       state_version: currentState.state_version,
       updated_at: currentState.updated_at,
-      fields: currentState.state,
+      fields: projectLearnerState(currentState.state),
     },
     recent_decisions: projectedDecisions,
-    recent_decisions_count: projectedDecisions.length,
     field_trajectories: fieldTrajectories,
     active_policy: activePolicy,
     signals_summary: signalsSummary,

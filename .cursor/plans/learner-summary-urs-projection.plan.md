@@ -1,28 +1,28 @@
 ---
 name: Learner Summary — URS Field Projection
-overview: Replace the unbounded passthrough of LearnerState.state in current_state.fields with a closed URS field projection so the response stops leaking xAPI vocabulary (group, object, extensions, generated, bb_action_name, com_instructure_canvas) and source-system internals into educator-facing responses. Introduce LearnerStateProjection type, define the canonical URS field allowlist + delta companions, tighten OpenAPI additionalProperties, and update the spec to remove the v1.2-deferred "skill-level breakdown" out-of-scope note since the breakdown is no longer implicitly shipped. Pre-requisite: gate readiness plan landed (top-level masteryScore promotion already in place).
+overview: "Replace the unbounded passthrough of LearnerState.state in current_state.fields with a closed URS field projection so the response stops leaking xAPI vocabulary (group, object, extensions, generated, bb_action_name, com_instructure_canvas) and source-system internals into educator-facing responses. Introduce LearnerStateProjection type, define the canonical URS field allowlist + delta companions, tighten OpenAPI additionalProperties, and update the spec to remove the v1.2-deferred \"skill-level breakdown\" out-of-scope note since the breakdown is no longer implicitly shipped. Pre-requisite: gate readiness plan landed (top-level masteryScore promotion already in place)."
 todos:
   - id: TASK-001
     content: Define canonical URS field allowlist + delta companion regex
-    status: pending
+    status: completed
   - id: TASK-002
     content: Add LearnerStateProjection type + projector module
-    status: pending
+    status: completed
   - id: TASK-003
     content: Apply projection in summary-handler-core current_state.fields
-    status: pending
+    status: completed
   - id: TASK-004
     content: Tighten OpenAPI LearnerSummaryResponse current_state schema
-    status: pending
+    status: completed
   - id: TASK-005
     content: Drop redundant recent_decisions_count from response and schema
-    status: pending
+    status: completed
   - id: TASK-006
     content: Update spec — remove v1.2 out-of-scope note for skills, document allowlist
-    status: pending
+    status: completed
   - id: TASK-007
     content: Add unit + contract tests for projection (no PII, no xAPI keys, allowlist exhaustive)
-    status: pending
+    status: completed
 isProject: false
 ---
 

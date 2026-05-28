@@ -30,7 +30,8 @@ vi.mock('../../src/state/trajectory-handler-core.js', () => ({
   buildSummary: vi.fn(),
 }));
 
-import { handleLearnerSummaryCore, roundNumeric } from '../../src/learners/summary-handler-core.js';
+import { handleLearnerSummaryCore } from '../../src/learners/summary-handler-core.js';
+import { roundNumeric } from '../../src/learners/state-projection.js';
 import { getState, getStateVersionRange } from '../../src/state/store.js';
 import { getRecentDecisionsByLearner } from '../../src/decision/store.js';
 import { getSignalSummary } from '../../src/signalLog/store.js';
@@ -367,22 +368,6 @@ describe('summary-handler-core', () => {
       expect(body.recent_decisions[0]!.educator_summary).toBe('summary');
     });
 
-    it('sets recent_decisions_count to projected array length', async () => {
-      mockGetRecentDecisionsByLearner.mockReturnValue([
-        makeDecision({ decision_id: 'd1' }),
-        makeDecision({ decision_id: 'd2' }),
-        makeDecision({ decision_id: 'd3' }),
-      ]);
-
-      const result = await handleLearnerSummaryCore({
-        org_id: 'test-org',
-        learner_reference: 'learner-001',
-      });
-
-      const body = result.body as { recent_decisions: unknown[]; recent_decisions_count: number };
-      expect(body.recent_decisions).toHaveLength(3);
-      expect(body.recent_decisions_count).toBe(3);
-    });
   });
 
   // =========================================================================

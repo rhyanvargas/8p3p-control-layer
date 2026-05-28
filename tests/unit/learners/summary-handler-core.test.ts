@@ -197,7 +197,35 @@ describe('summary-handler-core', () => {
 
     const result = await handleLearnerSummaryCore({ org_id: ORG, learner_reference: LEARNER });
     expect(result.statusCode).toBe(200);
-    const body = result.body as any;
+    const body = result.body as unknown as {
+      org_id: string;
+      learner_reference: string;
+      current_state: { state_version: number };
+      field_trajectories: Record<
+        string,
+        {
+          first_value: number;
+          latest_value: number;
+          overall_direction: string | null;
+          version_count: number;
+        }
+      >;
+      recent_decisions: unknown[];
+      signals_summary: {
+        total_count: number;
+        first_signal_at: string | null;
+        last_signal_at: string | null;
+      };
+      active_policy:
+        | {
+            policy_id: string;
+            policy_key: string;
+            policy_version: string;
+            description: string;
+            rule_count: number;
+          }
+        | null;
+    };
 
     expect(body.org_id).toBe(ORG);
     expect(body.learner_reference).toBe(LEARNER);
@@ -215,7 +243,6 @@ describe('summary-handler-core', () => {
     });
 
     expect(Array.isArray(body.recent_decisions)).toBe(true);
-    expect(body.recent_decisions_count).toBe(body.recent_decisions.length);
 
     expect(body.signals_summary).toEqual({
       total_count: 2,
@@ -265,7 +292,17 @@ describe('summary-handler-core', () => {
       trajectory_fields: ' stabilityScore , stabilityScore ',
     });
     expect(result.statusCode).toBe(200);
-    const body = result.body as any;
+    const body = result.body as unknown as {
+      field_trajectories: Record<
+        string,
+        {
+          first_value: number;
+          latest_value: number;
+          overall_direction: string | null;
+          version_count: number;
+        }
+      >;
+    };
     expect(body.field_trajectories).toHaveProperty('stabilityScore');
     expect(body.field_trajectories.stabilityScore).toMatchObject({
       first_value: 0.5,
@@ -286,7 +323,7 @@ describe('summary-handler-core', () => {
 
     const result = await handleLearnerSummaryCore({ org_id: ORG, learner_reference: LEARNER });
     expect(result.statusCode).toBe(200);
-    const body = result.body as any;
+    const body = result.body as unknown as { active_policy: unknown };
     expect(body.active_policy).toBeNull();
   });
 });

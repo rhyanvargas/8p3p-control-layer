@@ -14,6 +14,8 @@ import {
 import { getRecentDecisionsByLearner } from '../decision/store.js';
 import { getSignalSummary } from '../signalLog/store.js';
 import { loadPolicyForContext, loadRoutingConfigForOrg } from '../decision/policy-loader.js';
+import { projectLearnerState, roundNumeric } from './state-projection.js';
+import type { LearnerStateProjection } from './state-projection.js';
 
 interface StateErrorResponse {
   code: string;
@@ -53,10 +55,9 @@ export interface LearnerSummaryResponse {
     state_id: string;
     state_version: number;
     updated_at: string;
-    fields: Record<string, unknown>;
+    fields: LearnerStateProjection;
   };
   recent_decisions: RecentDecisionItem[];
-  recent_decisions_count: number;
   field_trajectories: Record<string, FieldSummary>;
   active_policy: ActivePolicyResponse | null;
   signals_summary: SignalsSummary;
@@ -64,20 +65,6 @@ export interface LearnerSummaryResponse {
 
 const PAGE_SIZE = 100;
 const SAFETY_CAP_PAGES = 10;
-const FLOAT_PRECISION = 4;
-
-export function roundNumeric(value: unknown): unknown {
-  if (typeof value !== 'number') return value;
-  if (!Number.isFinite(value)) return value;
-  if (Number.isInteger(value)) return value;
-  return Math.round(value * 10 ** FLOAT_PRECISION) / 10 ** FLOAT_PRECISION;
-}
-
-export function roundFieldsShallow(fields: Record<string, unknown>): Record<string, unknown> {
-  const out: Record<string, unknown> = {};
-  for (const [k, v] of Object.entries(fields)) out[k] = roundNumeric(v);
-  return out;
-}
 
 function parseStrictInt(value: unknown): number | null {
   if (typeof value === 'number') {
@@ -368,10 +355,9 @@ export async function handleLearnerSummaryCore(
         state_id: currentState.state_id,
         state_version: currentState.state_version,
         updated_at: currentState.updated_at,
-        fields: roundFieldsShallow(currentState.state),
+        fields: projectLearnerState(currentState.state),
       },
       recent_decisions: projectedDecisions,
-      recent_decisions_count: projectedDecisions.length,
       field_trajectories: Object.fromEntries(
         Object.entries(fieldTrajectories).map(([k, v]) => [
           k,

@@ -30,6 +30,7 @@ import { loadPolicy, clearRoutingConfigCache } from '../../src/decision/policy-l
 import { ErrorCodes } from '../../src/shared/error-codes.js';
 import { apiKeyPreHandler } from '../../src/auth/api-key-middleware.js';
 import { FORBIDDEN_KEYS } from '../../src/ingestion/forbidden-keys.js';
+import { isAllowedURSKey } from '../../src/learners/urs-allowlist.js';
 import { DECISION_TYPE_TO_EDUCATOR_SUMMARY } from '../../src/decision/educator-summaries.js';
 import type { LearnerState, Decision, SignalEnvelope, DecisionType } from '../../src/shared/types.js';
 import { contractHttp } from '../helpers/contract-http.js';
@@ -220,6 +221,13 @@ describe('Learner Summary API Contract Tests', () => {
 
       expect(body.generated_at).toBeTruthy();
       expect(new Date(body.generated_at as string).toISOString()).toBeTruthy();
+
+      const fieldKeys = Object.keys(
+        (body.current_state as { fields: Record<string, unknown> }).fields
+      );
+      for (const key of fieldKeys) {
+        expect(isAllowedURSKey(key)).toBe(true);
+      }
     });
   });
 
@@ -323,11 +331,32 @@ describe('Learner Summary API Contract Tests', () => {
   // ---------------------------------------------------------------------------
   // SUM-005: PII not leaked
   // ---------------------------------------------------------------------------
+  const XAPI_FORBIDDEN_FIELD_KEYS = [
+    'generated',
+    'group',
+    'object',
+    'extensions',
+    'skills',
+    'bb_action_name',
+    'com_instructure_canvas',
+  ] as const;
+
   describe('SUM-005: PII not leaked', () => {
     it('should exclude state_snapshot from recent_decisions and forbidden keys from fields', async () => {
       saveState(createState({
         state_version: 1,
-        state: { stabilityScore: 0.28 },
+        state: {
+          stabilityScore: 0.28,
+          masteryScore: 0.75,
+          generated: { scoreGiven: 90 },
+          group: { courseNumber: 'MATH-301' },
+          object: { extensions: { com_instructure_canvas: { submission_type: 'online_quiz' } } },
+          extensions: { bb_action_name: 'GradeSubmission', timeSinceLastActivity: 30000 },
+          skills: { 'MATH-301': { masteryScore: 0.9 } },
+          email: 'learner@example.com',
+          student_name: 'Jordan',
+          address: '123 Main St',
+        },
       }));
       seedDecision({
         trace: {
@@ -361,6 +390,12 @@ describe('Learner Summary API Contract Tests', () => {
       const fieldKeys = Object.keys(body.current_state.fields);
       for (const key of FORBIDDEN_KEYS) {
         expect(fieldKeys).not.toContain(key);
+      }
+      for (const key of XAPI_FORBIDDEN_FIELD_KEYS) {
+        expect(fieldKeys).not.toContain(key);
+      }
+      for (const key of fieldKeys) {
+        expect(isAllowedURSKey(key)).toBe(true);
       }
     });
   });
