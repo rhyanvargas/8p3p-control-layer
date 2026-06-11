@@ -1,0 +1,17 @@
+{
+  "default_subject": "General",
+  "explicit_map": {
+    "MATH-301": "Math",
+    "HIST-202": "History",
+    "ELA-201": "English",
+    "Reading": "English",
+    "SCI-101": "Science",
+    "Annual Compliance 2026": "Compliance"
+  },
+  "prefix_rules": [
+    { "prefix": "MATH", "subject": "Math" },
+    { "prefix": "ELA", "subject": "English" },
+    { "prefix": "SCI", "subject": "Science" },
+    { "prefix": "HIST", "subject": "History" }
+  ]
+}

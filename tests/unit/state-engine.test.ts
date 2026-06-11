@@ -227,6 +227,71 @@ describe('STATE Engine', () => {
       expect(result).not.toHaveProperty('stabilityScore_delta');
       expect(result).not.toHaveProperty('stabilityScore_direction');
     });
+
+    // DELTA-008: derived aggregation block — no delta companions (urs-aggregation.md § Computation timing)
+    it('DELTA-008: state.aggregation receives no _delta or _direction companions', () => {
+      const prior = {
+        aggregation: {
+          computed_at_version: 1,
+          overall: { masteryScore: 0.7, subject_count: 2, skill_count: 2 },
+          subjects: {
+            Math: {
+              masteryScore: 0.9,
+              skill_count: 1,
+              strongest_skill: 'MATH-301',
+              weakest_skill: 'MATH-301',
+              skills: ['MATH-301'],
+            },
+          },
+          skills: {
+            'MATH-301': {
+              subject: 'Math',
+              masteryScore: 0.9,
+              masteryScore_direction: null,
+              evidenceCount: 2,
+            },
+          },
+        },
+      };
+      const next = {
+        aggregation: {
+          computed_at_version: 2,
+          overall: { masteryScore: 0.75, subject_count: 2, skill_count: 2 },
+          subjects: {
+            Math: {
+              masteryScore: 0.95,
+              skill_count: 1,
+              strongest_skill: 'MATH-301',
+              weakest_skill: 'MATH-301',
+              skills: ['MATH-301'],
+            },
+          },
+          skills: {
+            'MATH-301': {
+              subject: 'Math',
+              masteryScore: 0.95,
+              masteryScore_direction: 'improving',
+              evidenceCount: 3,
+            },
+          },
+        },
+      };
+      const result = computeStateDeltas(prior, next);
+
+      const forbiddenCompanionKeys: string[] = [];
+      const walk = (obj: unknown): void => {
+        if (obj === null || typeof obj !== 'object' || Array.isArray(obj)) return;
+        for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
+          if (key.endsWith('_delta')) forbiddenCompanionKeys.push(key);
+          if (key.endsWith('_direction') && key !== 'masteryScore_direction') {
+            forbiddenCompanionKeys.push(key);
+          }
+          walk(value);
+        }
+      };
+      walk(result.aggregation);
+      expect(forbiddenCompanionKeys).toEqual([]);
+    });
   });
 
   describe('applySignals validation failures', () => {

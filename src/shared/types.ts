@@ -281,6 +281,105 @@ export interface PolicyRoutingConfig {
   default_policy_key: string;
 }
 
+/** Prefix rule for subject resolution from skill id (first matching prefix wins). */
+export interface SubjectPrefixRule {
+  prefix: string;
+  subject: string;
+}
+
+/**
+ * Per-org subject config loaded from `policies/{orgId}/subjects.json`.
+ * Spec: docs/specs/urs-aggregation.md § Org subject config schema
+ */
+export interface SubjectConfig {
+  default_subject?: string;
+  explicit_map?: Record<string, string>;
+  prefix_rules?: SubjectPrefixRule[];
+}
+
+// =============================================================================
+// URS Aggregation Types (docs/specs/urs-aggregation.md § Data Model)
+// =============================================================================
+
+/** Delta companion direction emitted by the state engine for numeric fields. */
+export type MasteryScoreDirection = 'improving' | 'declining' | 'stable';
+
+/** Overall tier of skill → subject → overall aggregation. */
+export interface AggregationOverall {
+  masteryScore: number;
+  stabilityScore?: number;
+  subject_count: number;
+  skill_count: number;
+}
+
+/** Subject tier entry stored in `state.aggregation.subjects`. */
+export interface AggregationSubjectEntry {
+  masteryScore: number;
+  stabilityScore?: number;
+  skill_count: number;
+  strongest_skill: string;
+  weakest_skill: string;
+  skills: string[];
+}
+
+/** Per-skill aggregation entry in `state.aggregation.skills`. */
+export interface AggregationSkillEntry {
+  subject: string;
+  masteryScore: number;
+  stabilityScore?: number;
+  masteryScore_direction: MasteryScoreDirection | null;
+  evidenceCount: number;
+}
+
+/**
+ * Derived aggregation written to `state.aggregation` after each state apply.
+ * Spec: docs/specs/urs-aggregation.md § Stored state extension
+ */
+export interface LearnerAggregation {
+  computed_at_version: number;
+  overall: AggregationOverall;
+  subjects: Record<string, AggregationSubjectEntry>;
+  skills: Record<string, AggregationSkillEntry>;
+}
+
+/** Subject tier projected on `current_state.mastery_breakdown` (no `skills` list). */
+export interface MasteryBreakdownSubjectEntry {
+  masteryScore: number;
+  stabilityScore?: number;
+  skill_count: number;
+  strongest_skill: string;
+  weakest_skill: string;
+}
+
+/** Learning gap entry computed at summary assembly time. */
+export interface LearningGapEntry {
+  skill: string;
+  subject: string;
+  masteryScore: number;
+  subject_masteryScore: number;
+  gap: number;
+  masteryScore_direction: MasteryScoreDirection | null;
+}
+
+/** Gifted-interest flag computed at summary assembly time (not a gifted determination). */
+export interface GiftedInterest {
+  flagged: boolean;
+  /** Pinned label when flagged; `GIFTED_INTEREST_LABEL` in aggregation-constants.ts */
+  label: 'Person of interest' | null;
+}
+
+/**
+ * Educator-facing mastery hierarchy on GET /v1/learners/:learner_reference/summary.
+ * Spec: docs/specs/urs-aggregation.md § Summary response extension
+ */
+export interface MasteryBreakdown {
+  overall: AggregationOverall;
+  subjects: Record<string, MasteryBreakdownSubjectEntry>;
+  skills: Record<string, AggregationSkillEntry>;
+  learning_gaps: LearningGapEntry[];
+  gifted_interest: GiftedInterest;
+}
+
 /** Policy definition loaded from JSON */
 export interface PolicyDefinition {
   policy_id: string;

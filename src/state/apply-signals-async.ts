@@ -111,7 +111,7 @@ export async function applySignalsAsync(
   }
 
   const current = await port.getState(orgId, learnerReference);
-  const newState = computeNewState(current, signals);
+  const newState = computeNewState(current, signals, { orgId });
   const priorStateObj: Record<string, unknown> =
     current?.state && typeof current.state === 'object' && !Array.isArray(current.state)
       ? (current.state as Record<string, unknown>)
@@ -184,7 +184,7 @@ export async function applySignalsAsync(
     } catch (saveErr: unknown) {
       if (isVersionConflict(saveErr) && attempt < maxRetries - 1) {
         const refreshed = await port.getState(orgId, learnerReference);
-        const recomputed = computeNewState(refreshed, signals);
+        const recomputed = computeNewState(refreshed, signals, { orgId });
         const refreshedPriorObj: Record<string, unknown> =
           refreshed?.state && typeof refreshed.state === 'object' && !Array.isArray(refreshed.state)
             ? (refreshed.state as Record<string, unknown>)

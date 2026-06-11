@@ -16,6 +16,17 @@ import { isRecord } from '../shared/dot-path.js';
 import { validateApplySignalsRequest, validateStateObject } from './validator.js';
 import * as stateStore from './store.js';
 import { getSignalsByIds } from '../signalLog/store.js';
+import {
+  computeLearnerAggregation,
+  incrementSkillEvidenceCounts,
+} from './aggregation.js';
+import { loadSubjectConfigForOrg } from './subject-config.js';
+
+export interface ComputeNewStateOptions {
+  orgId?: string;
+  /** Version stamped on `state.aggregation.computed_at_version`; defaults to prior + 1. */
+  stateVersion?: number;
+}
 
 /** Outcome of applySignals: either success with result or rejection with errors */
 export type ApplySignalsOutcome =
@@ -159,7 +170,9 @@ export function computeStateDeltas(
   }
 
   // Nested delta pass — handles skills.{name}.{metric} pattern (max depth 5).
+  // state.aggregation is derived (urs-aggregation.md) — never receives delta companions.
   for (const key of Object.keys(next)) {
+    if (key === 'aggregation') continue;
     if (isRecord(next[key]) && isRecord(prior[key])) {
       const nestedResult = (isRecord(result[key]) ? result[key] : { ...(next[key] as Record<string, unknown>) }) as Record<string, unknown>;
       computeNestedDeltas(prior[key] as Record<string, unknown>, next[key] as Record<string, unknown>, nestedResult);
@@ -204,12 +217,18 @@ export function promoteDominantSkillScores(newState: Record<string, unknown>): v
  */
 export function computeNewState(
   currentState: LearnerState | null,
-  signals: SignalRecord[]
+  signals: SignalRecord[],
+  options: ComputeNewStateOptions = {}
 ): Record<string, unknown> {
-  let state: Record<string, unknown> =
+  const priorStateObj: Record<string, unknown> =
     currentState && typeof currentState.state === 'object' && !Array.isArray(currentState.state)
-      ? JSON.parse(JSON.stringify(currentState.state)) as Record<string, unknown>
+      ? (currentState.state as Record<string, unknown>)
       : {};
+
+  let state: Record<string, unknown> = JSON.parse(JSON.stringify(priorStateObj)) as Record<
+    string,
+    unknown
+  >;
 
   for (const signal of signals) {
     const payload = signal.payload;
@@ -218,7 +237,18 @@ export function computeNewState(
     }
   }
 
+  incrementSkillEvidenceCounts(priorStateObj, state, signals);
   promoteDominantSkillScores(state);
+
+  const orgId =
+    options.orgId ?? currentState?.org_id ?? signals[0]?.org_id;
+  if (orgId) {
+    const stateVersion =
+      options.stateVersion ?? (currentState?.state_version ?? 0) + 1;
+    const subjectConfig = loadSubjectConfigForOrg(orgId);
+    computeLearnerAggregation(state, subjectConfig, stateVersion);
+  }
+
   return state;
 }
 
@@ -287,7 +317,7 @@ export function applySignals(request: ApplySignalsRequest): ApplySignalsOutcome 
   }
 
   const current = stateStore.getState(orgId, learnerReference);
-  const newState = computeNewState(current, signals);
+  const newState = computeNewState(current, signals, { orgId });
   const priorStateObj: Record<string, unknown> =
     current?.state && typeof current.state === 'object' && !Array.isArray(current.state)
       ? (current.state as Record<string, unknown>)
@@ -357,7 +387,7 @@ export function applySignals(request: ApplySignalsRequest): ApplySignalsOutcome 
       const isVersionConflict = saveErr instanceof stateStore.StateVersionConflictError;
       if (isVersionConflict && attempt < maxRetries - 1) {
         const refreshed = stateStore.getState(orgId, learnerReference);
-        const recomputed = computeNewState(refreshed, signals);
+        const recomputed = computeNewState(refreshed, signals, { orgId });
         const refreshedPriorObj: Record<string, unknown> =
           refreshed?.state && typeof refreshed.state === 'object' && !Array.isArray(refreshed.state)
             ? (refreshed.state as Record<string, unknown>)
