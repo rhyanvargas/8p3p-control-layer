@@ -735,6 +735,30 @@ paths:
                     masteryScore: 0.75
                     stabilityScore_delta: -0.27
                     stabilityScore_direction: declining
+                  mastery_breakdown:
+                    overall:
+                      masteryScore: 0.75
+                      stabilityScore: 0.28
+                      subject_count: 1
+                      skill_count: 1
+                    subjects:
+                      General:
+                        masteryScore: 0.75
+                        stabilityScore: 0.28
+                        skill_count: 1
+                        strongest_skill: fractions
+                        weakest_skill: fractions
+                    skills:
+                      fractions:
+                        subject: General
+                        masteryScore: 0.75
+                        stabilityScore: 0.28
+                        masteryScore_direction: declining
+                        evidenceCount: 3
+                    learning_gaps: []
+                    gifted_interest:
+                      flagged: false
+                      label: null
                 recent_decisions:
                   - decision_id: a1b2c3d4-e5f6-7890-abcd-ef1234567890
                     decision_type: intervene
@@ -2311,6 +2335,144 @@ components:
             - type: string
             - type: 'null'
 
+    # ---------------------------------------------------------------------------
+    # Mastery breakdown (GET /v1/learners/{learner_reference}/summary)
+    # See docs/specs/urs-aggregation.md § Summary response extension
+    # ---------------------------------------------------------------------------
+    MasteryBreakdownOverall:
+      type: object
+      required: [masteryScore, subject_count, skill_count]
+      properties:
+        masteryScore:
+          type: number
+          description: Equal-weight mean of subject mastery scores
+        stabilityScore:
+          type: number
+          description: Mean of subject stability scores when present on any skill in the subject
+        subject_count:
+          type: integer
+          minimum: 0
+        skill_count:
+          type: integer
+          minimum: 0
+
+    MasteryBreakdownSubjectEntry:
+      type: object
+      required:
+        - masteryScore
+        - skill_count
+        - strongest_skill
+        - weakest_skill
+      properties:
+        masteryScore:
+          type: number
+        stabilityScore:
+          type: number
+        skill_count:
+          type: integer
+          minimum: 0
+        strongest_skill:
+          type: string
+        weakest_skill:
+          type: string
+
+    MasteryBreakdownSkillEntry:
+      type: object
+      required:
+        - subject
+        - masteryScore
+        - masteryScore_direction
+        - evidenceCount
+      properties:
+        subject:
+          type: string
+        masteryScore:
+          type: number
+        stabilityScore:
+          type: number
+        masteryScore_direction:
+          oneOf:
+            - type: string
+              enum: [improving, declining, stable]
+            - type: 'null'
+        evidenceCount:
+          type: integer
+          minimum: 0
+          description: Per-skill count of applied signals with finite masteryScore (integer, not rounded)
+
+    LearningGapEntry:
+      type: object
+      required:
+        - skill
+        - subject
+        - masteryScore
+        - subject_masteryScore
+        - gap
+        - masteryScore_direction
+      properties:
+        skill:
+          type: string
+        subject:
+          type: string
+        masteryScore:
+          type: number
+        subject_masteryScore:
+          type: number
+        gap:
+          type: number
+          description: subject_masteryScore minus masteryScore
+        masteryScore_direction:
+          oneOf:
+            - type: string
+              enum: [improving, declining, stable]
+            - type: 'null'
+
+    GiftedInterest:
+      type: object
+      required: [flagged, label]
+      properties:
+        flagged:
+          type: boolean
+          description: |
+            True when all gifted criteria pass (min skills, mastery threshold, advance-only
+            decision history, min evidence per skill). Not a gifted determination — educator
+            interest flag only.
+        label:
+          oneOf:
+            - type: string
+              enum: ['Person of interest']
+            - type: 'null'
+          description: Pinned label when flagged; null when not flagged
+
+    MasteryBreakdown:
+      type: object
+      required:
+        - overall
+        - subjects
+        - skills
+        - learning_gaps
+        - gifted_interest
+      properties:
+        overall:
+          $ref: '#/components/schemas/MasteryBreakdownOverall'
+        subjects:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/MasteryBreakdownSubjectEntry'
+          description: Subject name → aggregated subject tier (no per-subject skills list)
+        skills:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/MasteryBreakdownSkillEntry'
+          description: Skill id → per-skill aggregation entry (finite masteryScore only)
+        learning_gaps:
+          type: array
+          items:
+            $ref: '#/components/schemas/LearningGapEntry'
+          description: Skills below subject mean and absolute floor, sorted by gap descending
+        gifted_interest:
+          $ref: '#/components/schemas/GiftedInterest'
+
     LearnerSummaryResponse:
       type: object
       required:
@@ -2332,7 +2494,7 @@ components:
           format: date-time
         current_state:
           type: object
-          required: [state_id, state_version, updated_at, fields]
+          required: [state_id, state_version, updated_at, fields, mastery_breakdown]
           properties:
             state_id:
               type: string
@@ -2343,6 +2505,15 @@ components:
               format: date-time
             fields:
               $ref: '#/components/schemas/LearnerStateProjection'
+            mastery_breakdown:
+              oneOf:
+                - $ref: '#/components/schemas/MasteryBreakdown'
+                - type: 'null'
+              description: |
+                Skill → subject → overall mastery hierarchy, learning gaps, and gifted-interest flag.
+                JSON null when the learner has no skills. Canonical overall score is
+                mastery_breakdown.overall.masteryScore (not fields.masteryScore, which mirrors
+                the dominant skill for policy back-compat). See docs/specs/urs-aggregation.md.
         recent_decisions:
           type: array
           items:

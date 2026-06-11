@@ -3,7 +3,7 @@
  * Covers GET /v1/learners/:learner_reference/summary
  */
 
-import type { LearnerState, HandlerResult } from '../shared/types.js';
+import type { LearnerState, HandlerResult, MasteryBreakdown } from '../shared/types.js';
 import { ErrorCodes } from '../shared/error-codes.js';
 import { getState, getStateVersionRange } from '../state/store.js';
 import {
@@ -11,10 +11,13 @@ import {
   buildVersions,
   type FieldSummary,
 } from '../state/trajectory-handler-core.js';
-import { getRecentDecisionsByLearner } from '../decision/store.js';
+import {
+  getDecisionTypeSummaryForLearner,
+  getRecentDecisionsByLearner,
+} from '../decision/store.js';
 import { getSignalSummary } from '../signalLog/store.js';
 import { loadPolicyForContext, loadRoutingConfigForOrg } from '../decision/policy-loader.js';
-import { projectLearnerState, roundNumeric } from './state-projection.js';
+import { completeMasteryBreakdown, projectLearnerState, roundNumeric } from './state-projection.js';
 import type { LearnerStateProjection } from './state-projection.js';
 
 interface StateErrorResponse {
@@ -56,6 +59,7 @@ export interface LearnerSummaryResponse {
     state_version: number;
     updated_at: string;
     fields: LearnerStateProjection;
+    mastery_breakdown: MasteryBreakdown | null;
   };
   recent_decisions: RecentDecisionItem[];
   field_trajectories: Record<string, FieldSummary>;
@@ -317,6 +321,7 @@ export async function handleLearnerSummaryCore(
   }
 
   const decisions = getRecentDecisionsByLearner(orgId, learnerRef, recentDecisionsLimit);
+  const decisionTypeSummary = getDecisionTypeSummaryForLearner(orgId, learnerRef);
   const projectedDecisions: RecentDecisionItem[] = decisions.map((d) => ({
     decision_id: d.decision_id,
     decision_type: d.decision_type,
@@ -356,6 +361,7 @@ export async function handleLearnerSummaryCore(
         state_version: currentState.state_version,
         updated_at: currentState.updated_at,
         fields: projectLearnerState(currentState.state),
+        mastery_breakdown: completeMasteryBreakdown(currentState.state, decisionTypeSummary),
       },
       recent_decisions: projectedDecisions,
       field_trajectories: Object.fromEntries(

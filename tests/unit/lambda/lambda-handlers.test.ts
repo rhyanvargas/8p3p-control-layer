@@ -62,6 +62,10 @@ vi.mock('../../../src/decision/dynamodb-repository.js', () => {
     getDecisions = vi.fn().mockResolvedValue({ decisions: [], hasMore: false });
     getDecisionById = vi.fn().mockResolvedValue(null);
     getRecentDecisionsByLearner = vi.fn().mockResolvedValue([]);
+    getDecisionTypeSummaryForLearner = vi.fn().mockResolvedValue({
+      total: 0,
+      types: { reinforce: 0, advance: 0, intervene: 0, pause: 0 },
+    });
   }
   return { DynamoDbDecisionRepository: MockDecisionRepo };
 });

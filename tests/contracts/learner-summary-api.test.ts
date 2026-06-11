@@ -474,6 +474,103 @@ describe('Learner Summary API Contract Tests', () => {
   });
 
   // ---------------------------------------------------------------------------
+  // AGG-015: Summary includes mastery_breakdown for multi-skill learner
+  // ---------------------------------------------------------------------------
+  describe('AGG-015: Summary includes mastery_breakdown', () => {
+    it('should return 200 with current_state.mastery_breakdown.overall.masteryScore', async () => {
+      saveState(createState({
+        state_version: 3,
+        state_id: `${ORG}:${LEARNER}:v3`,
+        updated_at: '2026-03-03T10:00:00Z',
+        state: {
+          masteryScore: 0.9,
+          stabilityScore: 0.81,
+          skill: 'MATH-301',
+          skills: {
+            'MATH-301': { masteryScore: 0.9, stabilityScore: 0.81, evidenceCount: 3 },
+            'HIST-202': { masteryScore: 0.45, evidenceCount: 2 },
+          },
+          aggregation: {
+            computed_at_version: 3,
+            overall: {
+              masteryScore: 0.675,
+              stabilityScore: 0.6525,
+              subject_count: 2,
+              skill_count: 2,
+            },
+            subjects: {
+              Math: {
+                masteryScore: 0.9,
+                stabilityScore: 0.81,
+                skill_count: 1,
+                strongest_skill: 'MATH-301',
+                weakest_skill: 'MATH-301',
+                skills: ['MATH-301'],
+              },
+              History: {
+                masteryScore: 0.45,
+                skill_count: 1,
+                strongest_skill: 'HIST-202',
+                weakest_skill: 'HIST-202',
+                skills: ['HIST-202'],
+              },
+            },
+            skills: {
+              'MATH-301': {
+                subject: 'Math',
+                masteryScore: 0.9,
+                stabilityScore: 0.81,
+                masteryScore_direction: 'improving',
+                evidenceCount: 3,
+              },
+              'HIST-202': {
+                subject: 'History',
+                masteryScore: 0.45,
+                masteryScore_direction: null,
+                evidenceCount: 2,
+              },
+            },
+          },
+        },
+      }));
+
+      const response = await contractHttp(app, {
+        method: 'GET',
+        url: `/v1/learners/${LEARNER}/summary?org_id=${ORG}`,
+      });
+
+      expect(response.statusCode).toBe(200);
+      const body = response.json() as {
+        current_state: {
+          fields: Record<string, unknown>;
+          mastery_breakdown: {
+            overall: { masteryScore: number; subject_count: number; skill_count: number };
+            subjects: Record<string, { masteryScore: number }>;
+            skills: Record<string, { subject: string; masteryScore: number }>;
+            learning_gaps: unknown[];
+            gifted_interest: { flagged: boolean; label: string | null };
+          };
+        };
+      };
+
+      expect(body.current_state.mastery_breakdown).not.toBeNull();
+      expect(body.current_state.mastery_breakdown.overall.masteryScore).toBe(0.675);
+      expect(body.current_state.mastery_breakdown.overall.subject_count).toBe(2);
+      expect(body.current_state.mastery_breakdown.overall.skill_count).toBe(2);
+      expect(body.current_state.mastery_breakdown.subjects.Math.masteryScore).toBe(0.9);
+      expect(body.current_state.mastery_breakdown.subjects.History.masteryScore).toBe(0.45);
+      expect(body.current_state.mastery_breakdown.skills['MATH-301'].subject).toBe('Math');
+      expect(body.current_state.mastery_breakdown.skills['HIST-202'].subject).toBe('History');
+      expect(body.current_state.fields).not.toHaveProperty('skills');
+      expect(body.current_state.mastery_breakdown.learning_gaps).toEqual([]);
+      expect(body.current_state.mastery_breakdown.gifted_interest).toEqual({
+        flagged: false,
+        label: null,
+      });
+    });
+  });
+
+  // ---------------------------------------------------------------------------
   // SUM-008: field_trajectories.overall_direction consistent
   // ---------------------------------------------------------------------------
   describe('SUM-008: field_trajectories.overall_direction consistent', () => {

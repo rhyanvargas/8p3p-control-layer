@@ -14,6 +14,7 @@ vi.mock('../../src/state/store.js', () => ({
 
 vi.mock('../../src/decision/store.js', () => ({
   getRecentDecisionsByLearner: vi.fn(),
+  getDecisionTypeSummaryForLearner: vi.fn(),
 }));
 
 vi.mock('../../src/signalLog/store.js', () => ({
@@ -33,7 +34,7 @@ vi.mock('../../src/state/trajectory-handler-core.js', () => ({
 import { handleLearnerSummaryCore } from '../../src/learners/summary-handler-core.js';
 import { roundNumeric } from '../../src/learners/state-projection.js';
 import { getState, getStateVersionRange } from '../../src/state/store.js';
-import { getRecentDecisionsByLearner } from '../../src/decision/store.js';
+import { getRecentDecisionsByLearner, getDecisionTypeSummaryForLearner } from '../../src/decision/store.js';
 import { getSignalSummary } from '../../src/signalLog/store.js';
 import { loadPolicyForContext, loadRoutingConfigForOrg } from '../../src/decision/policy-loader.js';
 import { buildSummary, buildVersions } from '../../src/state/trajectory-handler-core.js';
@@ -41,6 +42,7 @@ import { buildSummary, buildVersions } from '../../src/state/trajectory-handler-
 const mockGetState = vi.mocked(getState);
 const mockGetStateVersionRange = vi.mocked(getStateVersionRange);
 const mockGetRecentDecisionsByLearner = vi.mocked(getRecentDecisionsByLearner);
+const mockGetDecisionTypeSummaryForLearner = vi.mocked(getDecisionTypeSummaryForLearner);
 const mockGetSignalSummary = vi.mocked(getSignalSummary);
 const mockLoadPolicyForContext = vi.mocked(loadPolicyForContext);
 const mockLoadRoutingConfigForOrg = vi.mocked(loadRoutingConfigForOrg);
@@ -93,6 +95,10 @@ describe('summary-handler-core', () => {
     mockGetState.mockReturnValue(makeLearnerState({ state_version: 3 }));
     mockGetStateVersionRange.mockReturnValue({ states: [], nextCursor: null });
     mockGetRecentDecisionsByLearner.mockReturnValue([]);
+    mockGetDecisionTypeSummaryForLearner.mockReturnValue({
+      total: 0,
+      types: { advance: 0, reinforce: 0, intervene: 0, pause: 0 },
+    });
     mockGetSignalSummary.mockReturnValue({
       total_count: 0,
       first_signal_at: null,
@@ -402,6 +408,236 @@ describe('summary-handler-core', () => {
       });
       const body = result.body as { generated_at: string };
       expect(new Date(body.generated_at).toISOString()).toBe(body.generated_at);
+    });
+  });
+
+  // =========================================================================
+  // mastery_breakdown projection
+  // =========================================================================
+  describe('mastery_breakdown projection', () => {
+    it('includes mastery_breakdown null when learner has no skills', async () => {
+      mockGetState.mockReturnValue(
+        makeLearnerState({
+          state: { masteryScore: 0.8, stabilityScore: 0.7 },
+        })
+      );
+
+      const result = await handleLearnerSummaryCore({
+        org_id: 'test-org',
+        learner_reference: 'learner-001',
+      });
+
+      expect(result.statusCode).toBe(200);
+      const body = result.body as { current_state: { mastery_breakdown: unknown } };
+      expect(body.current_state.mastery_breakdown).toBeNull();
+    });
+
+    it('projects mastery_breakdown from state.aggregation when skills present', async () => {
+      mockGetState.mockReturnValue(
+        makeLearnerState({
+          state: {
+            masteryScore: 0.9,
+            skills: { 'MATH-301': { masteryScore: 0.9 } },
+            aggregation: {
+              computed_at_version: 1,
+              overall: {
+                masteryScore: 0.9,
+                subject_count: 1,
+                skill_count: 1,
+              },
+              subjects: {
+                Math: {
+                  masteryScore: 0.9,
+                  skill_count: 1,
+                  strongest_skill: 'MATH-301',
+                  weakest_skill: 'MATH-301',
+                  skills: ['MATH-301'],
+                },
+              },
+              skills: {
+                'MATH-301': {
+                  subject: 'Math',
+                  masteryScore: 0.9,
+                  masteryScore_direction: 'improving',
+                  evidenceCount: 3,
+                },
+              },
+            },
+          },
+        })
+      );
+
+      const result = await handleLearnerSummaryCore({
+        org_id: 'test-org',
+        learner_reference: 'learner-001',
+      });
+
+      expect(result.statusCode).toBe(200);
+      const body = result.body as {
+        current_state: {
+          fields: Record<string, unknown>;
+          mastery_breakdown: {
+            overall: { masteryScore: number };
+            subjects: Record<string, unknown>;
+          } | null;
+        };
+      };
+      expect(body.current_state.fields).not.toHaveProperty('skills');
+      expect(body.current_state.mastery_breakdown?.overall.masteryScore).toBe(0.9);
+      expect(body.current_state.mastery_breakdown?.subjects.Math).toEqual({
+        masteryScore: 0.9,
+        skill_count: 1,
+        strongest_skill: 'MATH-301',
+        weakest_skill: 'MATH-301',
+      });
+    });
+
+    it('includes learning_gaps and gifted_interest from aggregation (AGG-009, AGG-011)', async () => {
+      mockGetState.mockReturnValue(
+        makeLearnerState({
+          state: {
+            masteryScore: 0.55,
+            skills: {
+              'ELA-201': { masteryScore: 0.28 },
+              'ELA-202': { masteryScore: 0.82 },
+            },
+            aggregation: {
+              computed_at_version: 1,
+              overall: {
+                masteryScore: 0.55,
+                subject_count: 1,
+                skill_count: 2,
+              },
+              subjects: {
+                English: {
+                  masteryScore: 0.55,
+                  skill_count: 2,
+                  strongest_skill: 'ELA-202',
+                  weakest_skill: 'ELA-201',
+                  skills: ['ELA-201', 'ELA-202'],
+                },
+              },
+              skills: {
+                'ELA-201': {
+                  subject: 'English',
+                  masteryScore: 0.28,
+                  masteryScore_direction: 'declining',
+                  evidenceCount: 2,
+                },
+                'ELA-202': {
+                  subject: 'English',
+                  masteryScore: 0.82,
+                  masteryScore_direction: 'improving',
+                  evidenceCount: 3,
+                },
+              },
+            },
+          },
+        })
+      );
+
+      mockGetDecisionTypeSummaryForLearner.mockReturnValue({
+        total: 4,
+        types: { advance: 4, reinforce: 0, intervene: 0, pause: 0 },
+      });
+
+      const result = await handleLearnerSummaryCore({
+        org_id: 'test-org',
+        learner_reference: 'learner-001',
+      });
+
+      expect(result.statusCode).toBe(200);
+      const body = result.body as {
+        current_state: {
+          mastery_breakdown: {
+            learning_gaps: Array<{ skill: string; gap: number }>;
+            gifted_interest: { flagged: boolean; label: string | null };
+          } | null;
+        };
+      };
+
+      expect(body.current_state.mastery_breakdown?.learning_gaps).toEqual([
+        expect.objectContaining({ skill: 'ELA-201', gap: 0.27 }),
+      ]);
+      expect(body.current_state.mastery_breakdown?.gifted_interest).toEqual({
+        flagged: false,
+        label: null,
+      });
+    });
+
+    it('flags gifted_interest when all criteria pass (AGG-011 via handler)', async () => {
+      mockGetState.mockReturnValue(
+        makeLearnerState({
+          state: {
+            skills: {
+              'MATH-301': { masteryScore: 0.96 },
+              'HIST-202': { masteryScore: 0.98 },
+            },
+            aggregation: {
+              computed_at_version: 1,
+              overall: {
+                masteryScore: 0.97,
+                subject_count: 2,
+                skill_count: 2,
+              },
+              subjects: {
+                Math: {
+                  masteryScore: 0.96,
+                  skill_count: 1,
+                  strongest_skill: 'MATH-301',
+                  weakest_skill: 'MATH-301',
+                  skills: ['MATH-301'],
+                },
+                History: {
+                  masteryScore: 0.98,
+                  skill_count: 1,
+                  strongest_skill: 'HIST-202',
+                  weakest_skill: 'HIST-202',
+                  skills: ['HIST-202'],
+                },
+              },
+              skills: {
+                'MATH-301': {
+                  subject: 'Math',
+                  masteryScore: 0.96,
+                  masteryScore_direction: 'improving',
+                  evidenceCount: 3,
+                },
+                'HIST-202': {
+                  subject: 'History',
+                  masteryScore: 0.98,
+                  masteryScore_direction: 'improving',
+                  evidenceCount: 4,
+                },
+              },
+            },
+          },
+        })
+      );
+
+      mockGetDecisionTypeSummaryForLearner.mockReturnValue({
+        total: 3,
+        types: { advance: 3, reinforce: 0, intervene: 0, pause: 0 },
+      });
+
+      const result = await handleLearnerSummaryCore({
+        org_id: 'test-org',
+        learner_reference: 'learner-001',
+      });
+
+      expect(result.statusCode).toBe(200);
+      const body = result.body as {
+        current_state: {
+          mastery_breakdown: {
+            gifted_interest: { flagged: boolean; label: string | null };
+          } | null;
+        };
+      };
+
+      expect(body.current_state.mastery_breakdown?.gifted_interest).toEqual({
+        flagged: true,
+        label: 'Person of interest',
+      });
     });
   });
 

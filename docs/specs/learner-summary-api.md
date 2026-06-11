@@ -62,6 +62,21 @@ Return a structured summary of a learner's current state, decision history, fiel
       "stabilityScore_direction": "declining",
       "masteryScore_delta": 0.05,
       "masteryScore_direction": "improving"
+    },
+    "mastery_breakdown": {
+      "overall": { "masteryScore": 0.725, "subject_count": 2, "skill_count": 2 },
+      "subjects": {
+        "Math": { "masteryScore": 0.9, "skill_count": 1, "strongest_skill": "MATH-301", "weakest_skill": "MATH-301" },
+        "English": { "masteryScore": 0.55, "skill_count": 1, "strongest_skill": "ELA-201", "weakest_skill": "ELA-201" }
+      },
+      "skills": {
+        "MATH-301": { "subject": "Math", "masteryScore": 0.9, "masteryScore_direction": "improving", "evidenceCount": 3 },
+        "ELA-201": { "subject": "English", "masteryScore": 0.55, "masteryScore_direction": "stable", "evidenceCount": 2 }
+      },
+      "learning_gaps": [
+        { "skill": "ELA-201", "subject": "English", "masteryScore": 0.55, "subject_masteryScore": 0.55, "gap": 0.0, "masteryScore_direction": "stable" }
+      ],
+      "gifted_interest": { "flagged": false, "label": null }
     }
   },
 
@@ -131,11 +146,24 @@ Metadata (`state_id`, `state_version`, `updated_at`) comes from the latest `Lear
 - **Base keys (scalars):** `masteryScore`, `stabilityScore`, `timeSinceReinforcement`, `riskSignal`, `skill`
 - **Companion suffixes:** `_delta`, `_direction`, `_delta_delta`, `_delta_direction`, `_delta_delta_delta`, `_delta_delta_direction` (applied to numeric base keys only)
 
-Source-system vocabulary (xAPI envelope keys `group`, `object`, `extensions`, `generated`; vendor extensions like `bb_action_name`, `com_instructure_canvas`) is **stripped** even when present in stored state. Per-skill breakdown (`skills.{skill}.{score}`) is also stripped — skill-level fields are exposed via the dominant-skill promotion (`state-engine.md`) and via US-SKILL-001 dot-path access in v1.2.
+Source-system vocabulary (xAPI envelope keys `group`, `object`, `extensions`, `generated`; vendor extensions like `bb_action_name`, `com_instructure_canvas`) is **stripped** even when present in stored state. Per-skill nested maps (`skills.{skillId}.*`) are **not** flattened into `fields` — they are exposed exclusively via `current_state.mastery_breakdown` (see `docs/specs/urs-aggregation.md`). Top-level `fields.masteryScore` / `fields.stabilityScore` remain the dominant-skill mirror for policy back-compat (`state-engine.md`); dashboards MUST use `mastery_breakdown.overall.masteryScore` as the canonical overall score.
 
 Numeric scalars are rounded to 4 decimal places at the projection boundary. Only scalar values (`number`, `string`, `null`) are emitted; nested objects and arrays are dropped even if the key name would otherwise be allowed.
 
 Source list of allowed keys: `src/learners/urs-allowlist.ts`. OpenAPI schema: `LearnerStateProjection`.
+
+### `current_state.mastery_breakdown`
+
+Structured skill → subject → overall aggregation, learning gaps, and gifted-interest flag. Built from `LearnerState.state.aggregation` at summary assembly time; see `docs/specs/urs-aggregation.md` for formulas, subject resolution, gap thresholds, and gifted criteria.
+
+| Condition | Value |
+|-----------|-------|
+| Learner has ≥1 skill with finite `masteryScore` | Full `MasteryBreakdown` object (overall, subjects, skills, `learning_gaps`, `gifted_interest`) |
+| `state.skills` absent or empty | JSON `null` (200 response; not an error) |
+
+**Educator-facing separation:** `current_state.fields.masteryScore` is the dominant-skill mirror (unchanged for policy/trajectory back-compat). **`mastery_breakdown.overall.masteryScore` is the canonical overall score** for dashboards and the 60-second student profile.
+
+OpenAPI schema: `MasteryBreakdown` in `docs/api/openapi.yaml`.
 
 ### `recent_decisions`
 
@@ -209,6 +237,7 @@ Aggregate signal counts from the signal log:
 
 - [x] `GET /v1/learners/:learner_reference/summary` returns the full aggregated summary in a single response
 - [x] `current_state.fields` is a URS projection of the latest `LearnerState.state` (canonical scalars and delta/direction companions only; see § URS field allowlist)
+- [x] `current_state.mastery_breakdown` exposes per-skill/subject aggregation, learning gaps, and gifted-interest per `docs/specs/urs-aggregation.md`; `null` when learner has no skills
 - [x] `recent_decisions` contains the last N decisions ordered by `decided_at` DESC; N is configurable via `recent_decisions_limit` (1–50, default 10)
 - [x] `field_trajectories` summary is computed via `getStateVersionRange()` (reuses `learner-trajectory-api.md` core logic) across all versions; defaults to all numeric fields in current state when `trajectory_fields` is not specified
 - [x] `active_policy` resolves the policy for the learner using the same resolution chain as the decision engine (`loadPolicyForContext(org_id, userType)`)
@@ -246,7 +275,7 @@ Aggregate signal counts from the signal log:
 
 | Item | Rationale | Revisit When |
 |------|-----------|--------------|
-| Nested dot-path trajectory fields | Depends on US-SKILL-001 (v1.2) | US-SKILL-001 implemented |
+| Nested dot-path trajectory fields | Per-skill/subject exposure is via `current_state.mastery_breakdown` (`docs/specs/urs-aggregation.md`), not dot-path trajectory queries | US-SKILL-001 for arbitrary dot-path trajectory over history |
 | PDF / document export | Client rendering responsibility; response is structured JSON | SDK or export spec |
 | Real-time summary streaming | Not required for pilot | WebSocket / EventBridge integration |
 | Multi-learner cohort summary | Separate analytics/reporting concern | Analytics API spec |
@@ -268,6 +297,8 @@ Aggregate signal counts from the signal log:
 | **`getSignalSummary(orgId, learnerRef)`** — `{ total_count, first_signal_at, last_signal_at }` | `docs/specs/signal-log.md` | **Complete** — `src/signalLog/store.ts` (TASK-006), `src/signalLog/dynamodb-repository.ts` (TASK-007) |
 | `loadPolicyForContext(orgId, userType)` | `docs/specs/decision-engine.md`, `src/decision/policy-loader.ts` | **Complete** (note: throws `policy_not_found`; handler must catch — see § `active_policy`) |
 | `loadRoutingConfigForOrg(orgId)` | `docs/specs/decision-engine.md`, `src/decision/policy-loader.ts` | **Complete** |
+| **`mastery_breakdown` projection** — skill/subject/overall aggregation, learning gaps, gifted-interest | `docs/specs/urs-aggregation.md`, `src/learners/state-projection.ts` | **Complete** |
+| **`getDecisionTypeSummaryForLearner(orgId, learnerRef)`** — full-history decision type counts for gifted flag | `docs/specs/urs-aggregation.md`, `src/decision/store.ts` | **Complete** |
 | API key middleware + `org_id` isolation | `docs/specs/api-key-middleware.md` | **Complete** |
 | PII hardening — DEF-DEC-008-PII (forbidden keys + canonical snapshot) | `docs/specs/signal-ingestion.md` | **Complete** |
 | `GET /v1/policies` core (policy metadata) | `docs/specs/policy-inspection-api.md` | Spec'd (v1.1) |

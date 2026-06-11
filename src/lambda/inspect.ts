@@ -16,7 +16,11 @@ import type {
   ActivePolicyResponse,
   RecentDecisionItem,
 } from '../learners/summary-handler-core.js';
-import { projectLearnerState, roundNumeric } from '../learners/state-projection.js';
+import {
+  completeMasteryBreakdown,
+  projectLearnerState,
+  roundNumeric,
+} from '../learners/state-projection.js';
 import { ErrorCodes } from '../shared/error-codes.js';
 import { encodeTrajectoryPageToken, decodeTrajectoryPageToken } from '../state/trajectory-pagination.js';
 import { buildSummary, buildVersions, type FieldSummary } from '../state/trajectory-handler-core.js';
@@ -428,8 +432,9 @@ async function handleGetLearnerSummary(
     return all;
   };
 
-  const [decisions, signalsSummary, trajectoryStates] = await Promise.all([
+  const [decisions, decisionTypeSummary, signalsSummary, trajectoryStates] = await Promise.all([
     decisionRepo.getRecentDecisionsByLearner(orgId, learnerRef, recentDecisionsLimit),
+    decisionRepo.getDecisionTypeSummaryForLearner(orgId, learnerRef),
     signalLogRepo.getSignalSummary(orgId, learnerRef),
     fieldsToTrack.length > 0 ? collectTrajectoryStates() : Promise.resolve([] as LearnerState[]),
   ]);
@@ -483,6 +488,7 @@ async function handleGetLearnerSummary(
       state_version: currentState.state_version,
       updated_at: currentState.updated_at,
       fields: projectLearnerState(currentState.state),
+      mastery_breakdown: completeMasteryBreakdown(currentState.state, decisionTypeSummary),
     },
     recent_decisions: projectedDecisions,
     field_trajectories: fieldTrajectories,
