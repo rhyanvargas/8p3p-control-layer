@@ -553,7 +553,14 @@ async function sendSignals(base, apiKey, org) {
 
 // ─── Phase 3: Narrative verification ─────────────────────────────────────────
 
-function verifyNarrative(base, signalResults) {
+async function getLearnerSummary(base, apiKey, org, learnerRef) {
+  const url = `${base}/v1/learners/${encodeURIComponent(learnerRef)}/summary?org_id=${encodeURIComponent(org)}`;
+  const res = await fetch(url, { headers: { 'x-api-key': apiKey } });
+  if (!res.ok) return null;
+  return res.json().catch(() => null);
+}
+
+async function verifyNarrative(base, apiKey, org, signalResults) {
   console.log('Phase 3: Verification\n');
 
   const byPersona = {};
@@ -613,6 +620,7 @@ function verifyNarrative(base, signalResults) {
       console.log('  \uD83D\uDCCA Multi-platform struggle: both systems show < 0.3 stability.');
     } else if (learnerRef === 'stu-30456') {
       console.log('  \uD83D\uDCCA Trajectory: intervention worked \u2014 MATH-301 masteryScore 0.45 \u2192 0.68 \u2192 0.90 over 3 signals.');
+      console.log('  \uD83D\uDCCA Multi-subject: Math (MATH-301) + History (HIST-202) \u2014 subjects.json maps both; overall is equal-weight subject mean.');
     } else if (learnerRef === 'stu-40123') {
       console.log('  \uD83D\uDCCA Borderline reinforcement \u2014 not crisis, but needs support. Visible in inspection panels.');
     } else if (learnerRef === 'staff-0201') {
@@ -630,6 +638,23 @@ function verifyNarrative(base, signalResults) {
   console.log(`  Sources: ${sourceEntries}`);
   console.log(`  Field mappings: ${Object.keys(FIELD_MAPPINGS).length} registered (Phase 1)`);
   console.log();
+
+  const jordanSummary = await getLearnerSummary(base, apiKey, org, 'stu-30456');
+  if (jordanSummary?.current_state?.mastery_breakdown) {
+    const mb = jordanSummary.current_state.mastery_breakdown;
+    const overall = mb.overall?.masteryScore;
+    const dominant = jordanSummary.current_state.fields?.masteryScore;
+    const subjects = Object.keys(mb.subjects ?? {}).join(', ');
+    console.log('--- mastery_breakdown (Jordan Mitchell) ---');
+    console.log(`  subjects: ${subjects}`);
+    console.log(`  overall.masteryScore (multi-subject mean): ${overall}`);
+    console.log(`  fields.masteryScore (dominant-skill mirror): ${dominant}`);
+    if (typeof overall === 'number' && typeof dominant === 'number' && overall !== dominant) {
+      console.log('  \u2713 overall reflects equal-weight subject mean, not dominant-skill mirror alone');
+    }
+    console.log();
+  }
+
   console.log(`  Dashboard: ${base}/dashboard/`);
   console.log(`  Inspect:   ${base}/inspect/`);
   console.log();
@@ -661,7 +686,7 @@ async function main() {
   const signalResults = await sendSignals(base, apiKey, org);
 
   // Phase 3
-  const allMatch = verifyNarrative(base, signalResults);
+  const allMatch = await verifyNarrative(base, apiKey, org, signalResults);
 
   process.exit(allMatch ? 0 : 1);
 }

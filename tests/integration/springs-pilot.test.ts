@@ -32,6 +32,7 @@ import {
   initStateStore,
   closeStateStore,
   clearStateStore,
+  getState,
 } from '../../src/state/store.js';
 import {
   initDecisionStore,
@@ -39,6 +40,7 @@ import {
   clearDecisionStore,
 } from '../../src/decision/store.js';
 import { clearRoutingConfigCache } from '../../src/decision/policy-loader.js';
+import { clearSubjectConfigCache } from '../../src/state/subject-config.js';
 
 const ORG_ID = 'springs';
 let signalCounter = 0;
@@ -150,6 +152,7 @@ describe('Springs Charter Schools Pilot Integration', () => {
     clearStateStore();
     clearDecisionStore();
     clearRoutingConfigCache();
+    clearSubjectConfigCache();
     signalCounter = 0;
   });
 
@@ -408,6 +411,141 @@ describe('Springs Charter Schools Pilot Integration', () => {
   // --------------------------------------------------------------------------
   // SPRINGS-005: Unknown source_system falls back to learner policy (default)
   // --------------------------------------------------------------------------
+
+  // --------------------------------------------------------------------------
+  // AGG-014: State apply writes aggregation after multi-skill signal ingest
+  // AGG-016: Policy regression — Jordan last signal MATH-301 still yields advance
+  // --------------------------------------------------------------------------
+
+  describe('URS aggregation integration (AGG-014, AGG-016)', () => {
+    it('AGG-014: ingesting two skill signals persists state.aggregation.overall', async () => {
+      const learnerRef = 'agg-014-learner';
+
+      const postMath = await app.inject({
+        method: 'POST',
+        url: '/v1/signals',
+        payload: buildSignal(learnerRef, 'canvas-lms', {
+          skill: 'MATH-301',
+          skills: { 'MATH-301': { masteryScore: 0.8, stabilityScore: 0.72 } },
+          masteryScore: 0.8,
+          stabilityScore: 0.72,
+          timeSinceReinforcement: 50000,
+        }),
+      });
+      expect(postMath.statusCode).toBe(200);
+
+      const postHist = await app.inject({
+        method: 'POST',
+        url: '/v1/signals',
+        payload: buildSignal(learnerRef, 'blackboard-lms', {
+          skill: 'HIST-202',
+          skills: { 'HIST-202': { masteryScore: 0.6, stabilityScore: 0.51 } },
+          masteryScore: 0.6,
+          stabilityScore: 0.51,
+          timeSinceReinforcement: 40000,
+        }),
+      });
+      expect(postHist.statusCode).toBe(200);
+
+      const stateRecord = getState(ORG_ID, learnerRef);
+      expect(stateRecord).not.toBeNull();
+
+      const stateObj = stateRecord!.state as Record<string, unknown>;
+      const aggregation = stateObj.aggregation as {
+        overall: { masteryScore: number; subject_count: number; skill_count: number };
+      };
+
+      expect(aggregation).toBeDefined();
+      expect(aggregation.overall).toBeDefined();
+      expect(aggregation.overall.subject_count).toBe(2);
+      expect(aggregation.overall.skill_count).toBe(2);
+      expect(aggregation.overall.masteryScore).toBe(0.7);
+    });
+
+    it('AGG-016: Jordan trajectory — last MATH-301 signal still yields advance (policy regression gate)', async () => {
+      const learnerRef = 'stu-30456';
+
+      const jordanSignals = [
+        {
+          sourceSystem: 'canvas-lms',
+          payload: {
+            skill: 'MATH-301',
+            skills: { 'MATH-301': { masteryScore: 0.45, stabilityScore: 0.405 } },
+            masteryScore: 0.45,
+            stabilityScore: 0.405,
+            timeSinceReinforcement: 95000,
+          },
+        },
+        {
+          sourceSystem: 'canvas-lms',
+          payload: {
+            skill: 'MATH-301',
+            skills: { 'MATH-301': { masteryScore: 0.68, stabilityScore: 0.612 } },
+            masteryScore: 0.68,
+            stabilityScore: 0.612,
+            timeSinceReinforcement: 90000,
+          },
+        },
+        {
+          sourceSystem: 'blackboard-lms',
+          payload: {
+            skill: 'HIST-202',
+            skills: { 'HIST-202': { masteryScore: 0.8, stabilityScore: 0.68 } },
+            masteryScore: 0.8,
+            stabilityScore: 0.68,
+            timeSinceReinforcement: 40000,
+          },
+        },
+        {
+          sourceSystem: 'canvas-lms',
+          payload: {
+            skill: 'MATH-301',
+            skills: { 'MATH-301': { masteryScore: 0.9, stabilityScore: 0.81 } },
+            masteryScore: 0.9,
+            stabilityScore: 0.81,
+            timeSinceReinforcement: 30000,
+          },
+        },
+      ] as const;
+
+      for (const { sourceSystem, payload } of jordanSignals) {
+        const postRes = await app.inject({
+          method: 'POST',
+          url: '/v1/signals',
+          payload: buildSignal(learnerRef, sourceSystem, payload),
+        });
+        expect(postRes.statusCode).toBe(200);
+      }
+
+      const getRes = await app.inject({
+        method: 'GET',
+        url: `/v1/decisions?org_id=${ORG_ID}&learner_reference=${learnerRef}&from_time=2020-01-01T00:00:00Z&to_time=2030-12-31T23:59:59Z`,
+      });
+      expect(getRes.statusCode).toBe(200);
+
+      const { decisions } = getRes.json() as {
+        decisions: Array<{
+          decision_type: string;
+          trace: { matched_rule_id: string; state_version: number; state_snapshot: Record<string, unknown> };
+        }>;
+      };
+      expect(decisions.length).toBeGreaterThanOrEqual(4);
+
+      const latestByVersion = decisions.reduce((best, d) =>
+        d.trace.state_version > best.trace.state_version ? d : best
+      );
+      expect(latestByVersion.decision_type).toBe('advance');
+      expect(latestByVersion.trace.matched_rule_id).toBe('rule-advance');
+      expect(latestByVersion.trace.state_snapshot.masteryScore).toBe(0.9);
+
+      const stateRecord = getState(ORG_ID, learnerRef);
+      expect(stateRecord).not.toBeNull();
+      const stateObj = stateRecord!.state as Record<string, unknown>;
+      expect(stateObj.masteryScore).toBe(0.9);
+      expect(stateObj.skill).toBe('MATH-301');
+      expect(stateObj.aggregation).toBeDefined();
+    });
+  });
 
   describe('SPRINGS-005: Unknown source_system falls back to default routing', () => {
     it('unrecognized source_system uses default_policy_key (learner) from routing config', async () => {
