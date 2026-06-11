@@ -9,8 +9,13 @@
  */
 
 import Database from 'better-sqlite3';
-import { DECISION_TYPES, type Decision, type GetDecisionsRequest } from '../shared/types.js';
-import type { DecisionRepository } from './repository.js';
+import {
+  DECISION_TYPES,
+  type Decision,
+  type DecisionType,
+  type GetDecisionsRequest,
+} from '../shared/types.js';
+import type { DecisionRepository, DecisionTypeSummary } from './repository.js';
 import { DECISION_TYPE_TO_EDUCATOR_SUMMARY } from './educator-summaries.js';
 
 let repository: DecisionRepository | null = null;
@@ -214,6 +219,17 @@ export class SqliteDecisionRepository implements DecisionRepository {
     return rows.map(rowToDecision);
   }
 
+  getDecisionTypeSummaryForLearner(orgId: string, learnerRef: string): DecisionTypeSummary {
+    const stmt = this.db.prepare(`
+      SELECT decision_type, COUNT(*) AS count
+      FROM decisions
+      WHERE org_id = ? AND learner_reference = ?
+      GROUP BY decision_type
+    `);
+    const rows = stmt.all(orgId, learnerRef) as Array<{ decision_type: string; count: number }>;
+    return buildDecisionTypeSummaryFromRows(rows);
+  }
+
   close(): void {
     this.db.close();
   }
@@ -322,6 +338,19 @@ export function getRecentDecisionsByLearner(
 }
 
 /**
+ * Returns decision counts for the learner across ALL stored decisions (no row cap).
+ */
+export function getDecisionTypeSummaryForLearner(
+  orgId: string,
+  learnerRef: string
+): DecisionTypeSummary {
+  if (!repository) {
+    throw new Error('Decision store not initialized. Call initDecisionStore first.');
+  }
+  return repository.getDecisionTypeSummaryForLearner(orgId, learnerRef);
+}
+
+/**
  * Clear all decisions (for testing only).
  */
 export function clearDecisionStore(): void {
@@ -351,6 +380,25 @@ export function getDecisionStoreDatabase(): Database.Database | null {
 // =============================================================================
 // Internal helpers
 // =============================================================================
+
+function emptyDecisionTypeCounts(): Record<DecisionType, number> {
+  return Object.fromEntries(DECISION_TYPES.map((t) => [t, 0])) as Record<DecisionType, number>;
+}
+
+function buildDecisionTypeSummaryFromRows(
+  rows: Array<{ decision_type: string; count: number }>
+): DecisionTypeSummary {
+  const types = emptyDecisionTypeCounts();
+  let total = 0;
+  for (const row of rows) {
+    const dt = row.decision_type as DecisionType;
+    if (DECISION_TYPES.includes(dt)) {
+      types[dt] = row.count;
+      total += row.count;
+    }
+  }
+  return { total, types };
+}
 
 interface DecisionRow {
   id: number;

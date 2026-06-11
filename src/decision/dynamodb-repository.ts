@@ -17,7 +17,8 @@ import {
   type AttributeValue,
 } from '@aws-sdk/client-dynamodb';
 import { marshall, unmarshall } from '@aws-sdk/util-dynamodb';
-import type { Decision, GetDecisionsRequest } from '../shared/types.js';
+import { DECISION_TYPES, type Decision, type DecisionType, type GetDecisionsRequest } from '../shared/types.js';
+import type { DecisionTypeSummary } from './repository.js';
 import { DECISION_TYPE_TO_EDUCATOR_SUMMARY } from './educator-summaries.js';
 
 export class DynamoDbDecisionRepository {
@@ -127,6 +128,46 @@ export class DynamoDbDecisionRepository {
 
     const items = result.Items ?? [];
     return items.map((item) => unmarshallDecision(unmarshall(item)));
+  }
+
+  async getDecisionTypeSummaryForLearner(
+    orgId: string,
+    learnerRef: string
+  ): Promise<DecisionTypeSummary> {
+    const types = Object.fromEntries(DECISION_TYPES.map((t) => [t, 0])) as Record<
+      DecisionType,
+      number
+    >;
+    let total = 0;
+    let exclusiveStartKey: Record<string, AttributeValue> | undefined;
+
+    do {
+      const result = await this.client.send(
+        new QueryCommand({
+          TableName: this.tableName,
+          IndexName: 'gsi1-learner-time',
+          KeyConditionExpression: 'org_id = :org AND begins_with(learner_decided_at, :lr)',
+          ExpressionAttributeValues: marshall({
+            ':org': orgId,
+            ':lr': `${learnerRef}#`,
+          }),
+          ProjectionExpression: 'decision_type',
+          ExclusiveStartKey: exclusiveStartKey,
+        })
+      );
+
+      for (const item of result.Items ?? []) {
+        const dt = unmarshall(item).decision_type as DecisionType;
+        if (DECISION_TYPES.includes(dt)) {
+          types[dt]++;
+          total++;
+        }
+      }
+
+      exclusiveStartKey = result.LastEvaluatedKey;
+    } while (exclusiveStartKey);
+
+    return { total, types };
   }
 }
 

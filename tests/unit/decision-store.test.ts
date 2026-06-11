@@ -12,6 +12,7 @@ import {
   getDecisionById,
   getDecisions,
   getRecentDecisionsByLearner,
+  getDecisionTypeSummaryForLearner,
   clearDecisionStore,
   encodePageToken,
 } from '../../src/decision/store.js';
@@ -399,6 +400,77 @@ describe('Decision Store', () => {
   });
 
   // -----------------------------------------------------------------------
+  // getDecisionTypeSummaryForLearner
+  // -----------------------------------------------------------------------
+  describe('getDecisionTypeSummaryForLearner', () => {
+    it('should count all decisions by type without row cap', () => {
+      for (let i = 0; i < 55; i++) {
+        saveDecision(
+          createDecision({
+            decision_id: `advance-${i}`,
+            decision_type: 'advance',
+            learner_reference: 'learner-type-sum',
+            decided_at: `2026-04-01T00:00:${String(i).padStart(2, '0')}Z`,
+          })
+        );
+      }
+      saveDecision(
+        createDecision({
+          decision_id: 'reinforce-1',
+          decision_type: 'reinforce',
+          learner_reference: 'learner-type-sum',
+          decided_at: '2026-04-02T00:00:00Z',
+        })
+      );
+
+      const summary = getDecisionTypeSummaryForLearner('test-org', 'learner-type-sum');
+      expect(summary.total).toBe(56);
+      expect(summary.types.advance).toBe(55);
+      expect(summary.types.reinforce).toBe(1);
+      expect(summary.types.intervene).toBe(0);
+      expect(summary.types.pause).toBe(0);
+
+      const recent = getRecentDecisionsByLearner('test-org', 'learner-type-sum', 100);
+      expect(recent).toHaveLength(50);
+    });
+
+    it('should return zero counts for unknown learner', () => {
+      const summary = getDecisionTypeSummaryForLearner('test-org', 'nope');
+      expect(summary).toEqual({
+        total: 0,
+        types: { reinforce: 0, advance: 0, intervene: 0, pause: 0 },
+      });
+    });
+
+    it('should isolate by org', () => {
+      saveDecision(
+        createDecision({
+          org_id: 'org-a',
+          decision_id: 'org-a-advance',
+          decision_type: 'advance',
+          learner_reference: 'learner-shared',
+        })
+      );
+      saveDecision(
+        createDecision({
+          org_id: 'org-b',
+          decision_id: 'org-b-reinforce',
+          decision_type: 'reinforce',
+          learner_reference: 'learner-shared',
+        })
+      );
+
+      const summaryA = getDecisionTypeSummaryForLearner('org-a', 'learner-shared');
+      expect(summaryA.total).toBe(1);
+      expect(summaryA.types.advance).toBe(1);
+
+      const summaryB = getDecisionTypeSummaryForLearner('org-b', 'learner-shared');
+      expect(summaryB.total).toBe(1);
+      expect(summaryB.types.reinforce).toBe(1);
+    });
+  });
+
+  // -----------------------------------------------------------------------
   // Errors when store not initialized
   // -----------------------------------------------------------------------
   describe('errors when store not initialized', () => {
@@ -432,6 +504,13 @@ describe('Decision Store', () => {
     it('should throw when getRecentDecisionsByLearner called without init', () => {
       closeDecisionStore();
       expect(() => getRecentDecisionsByLearner('org', 'lr', 10)).toThrow(
+        'Decision store not initialized'
+      );
+    });
+
+    it('should throw when getDecisionTypeSummaryForLearner called without init', () => {
+      closeDecisionStore();
+      expect(() => getDecisionTypeSummaryForLearner('org', 'lr')).toThrow(
         'Decision store not initialized'
       );
     });

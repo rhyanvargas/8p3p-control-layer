@@ -1,4 +1,10 @@
-import type { Decision, GetDecisionsRequest } from '../shared/types.js';
+import type { Decision, DecisionType, GetDecisionsRequest } from '../shared/types.js';
+
+/** Count of all decisions for a learner, broken down by decision_type. */
+export interface DecisionTypeSummary {
+  total: number;
+  types: Record<DecisionType, number>;
+}
 
 /**
  * DecisionRepository — vendor-agnostic persistence contract.
@@ -21,5 +27,10 @@ export interface DecisionRepository {
    * then `id` DESC. No pagination — callers must respect the 50-row cap.
    */
   getRecentDecisionsByLearner(orgId: string, learnerRef: string, limit: number): Decision[];
+  /**
+   * Returns decision counts for the learner across ALL stored decisions (no row cap).
+   * Used by gifted-interest evaluation (G3–G5).
+   */
+  getDecisionTypeSummaryForLearner(orgId: string, learnerRef: string): DecisionTypeSummary;
   close(): void;
 }
