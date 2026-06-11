@@ -1,46 +1,46 @@
 ---
 name: URS Aggregation - Skill to Subject to Overall Mastery
-overview: "Implement three-tier mastery aggregation (skill, subject, overall) plus learning gaps and a gifted-interest flag, exposed via current_state.mastery_breakdown on the learner summary endpoint, without regressing existing flat-field policy evaluation."
+overview: Implement three-tier mastery aggregation (skill, subject, overall) plus learning gaps and a gifted-interest flag, exposed via current_state.mastery_breakdown on the learner summary endpoint, without regressing existing flat-field policy evaluation.
 todos:
   - id: TASK-001
     content: Add pinned aggregation constants module
-    status: pending
+    status: completed
   - id: TASK-002
     content: Add subject config loader and skill-to-subject resolver
-    status: pending
+    status: completed
   - id: TASK-003
     content: Add Springs subjects.json seed config
-    status: pending
+    status: completed
   - id: TASK-004
     content: Add LearnerAggregation types
-    status: pending
+    status: completed
   - id: TASK-005
     content: Implement computeLearnerAggregation and wire into computeNewState
-    status: pending
+    status: completed
   - id: TASK-006
     content: Add decision-type summary repo method for gifted flag
-    status: pending
+    status: completed
   - id: TASK-007
     content: Project mastery_breakdown in summary handler core and lambda parity
-    status: pending
+    status: completed
   - id: TASK-008
     content: Compute learning_gaps and gifted_interest at summary assembly
-    status: pending
+    status: completed
   - id: TASK-009
     content: Add OpenAPI mastery_breakdown schema
-    status: pending
+    status: completed
   - id: TASK-010
     content: Update learner-summary-api spec to reference mastery_breakdown
-    status: pending
+    status: completed
   - id: TASK-011
     content: Re-seed Springs demo with subject metadata
-    status: pending
+    status: completed
   - id: TASK-012
     content: Unit tests AGG-001 through AGG-013, AGG-017, AGG-018
-    status: pending
+    status: completed
   - id: TASK-013
     content: Integration and contract tests AGG-014 through AGG-016
-    status: pending
+    status: completed
 isProject: false
 ---
 
