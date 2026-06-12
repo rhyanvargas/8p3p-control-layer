@@ -112,7 +112,7 @@ After each state apply, the state engine writes a computed object at `state.aggr
 ```json
 {
   "current_state": {
-    "state_id": "springs:jordan-mitchell:v7",
+    "state_id": "springs:stu-30456:v7",
     "state_version": 7,
     "updated_at": "2026-04-10T18:00:00Z",
     "fields": {
@@ -353,16 +353,16 @@ Criteria failure details are **not** exposed in the educator-facing response (de
 
 ### Functional
 
-- [ ] `computeLearnerAggregation(state, subjectConfig, stateVersion)` writes `state.aggregation` per § Aggregation Formulas when `|S| >= 1`
-- [ ] `loadSubjectConfigForOrg(orgId)` loads `policies/{orgId}/subjects.json` with in-memory cache (mirrors routing config loader)
-- [ ] Subject resolution follows priority order in § Subject Resolution
-- [ ] `promoteDominantSkillScores()` behavior is unchanged — no regression to Springs flat-field policies
-- [ ] `GET /v1/learners/:learner_reference/summary` includes `current_state.mastery_breakdown` per § Summary response extension
-- [ ] `current_state.fields` projection (`src/learners/urs-allowlist.ts`) remains scalars-only — aggregation lives in `mastery_breakdown`, not mixed into flat `fields`
-- [ ] `learning_gaps` computed at summary time per § Learning Gaps
-- [ ] `gifted_interest` computed at summary time per § Gifted-Interest Flag
-- [ ] Springs demo org ships `src/decision/policies/springs/subjects.json` with explicit map + prefix rules for seeded skills
-- [ ] When `state.skills` is empty, `mastery_breakdown` is JSON `null`
+- [x] `computeLearnerAggregation(state, subjectConfig, stateVersion)` writes `state.aggregation` per § Aggregation Formulas when `|S| >= 1`
+- [x] `loadSubjectConfigForOrg(orgId)` loads `src/decision/policies/{orgId}/subjects.json` with in-memory cache (mirrors routing config loader)
+- [x] Subject resolution follows priority order in § Subject Resolution
+- [x] `promoteDominantSkillScores()` behavior is unchanged — no regression to Springs flat-field policies
+- [x] `GET /v1/learners/:learner_reference/summary` includes `current_state.mastery_breakdown` per § Summary response extension
+- [x] `current_state.fields` projection (`src/learners/urs-allowlist.ts`) remains scalars-only — aggregation lives in `mastery_breakdown`, not mixed into flat `fields`
+- [x] `learning_gaps` computed at summary time per § Learning Gaps
+- [x] `gifted_interest` computed at summary time per § Gifted-Interest Flag
+- [x] Springs demo org ships `src/decision/policies/springs/subjects.json` with explicit map + prefix rules for seeded skills
+- [x] When `state.skills` is empty, `mastery_breakdown` is JSON `null`
 
 ### Acceptance Criteria
 
@@ -372,7 +372,7 @@ Criteria failure details are **not** exposed in the educator-facing response (de
 - Given one skill at 0.96 and one at 0.80, when summary is assembled, then `gifted_interest.flagged === false` (G2 fails)
 - Given all skills ≥ 0.95 but one decision is `reinforce`, when summary is assembled, then `gifted_interest.flagged === false` (G4 fails)
 - Given all skills ≥ 0.95 and advance-only history but one skill has `evidenceCount === 2`, when summary is assembled, then `gifted_interest.flagged === false` (G6 fails — insufficient sustained evidence)
-- Given Jordan Mitchell Springs seed after re-seed, when `GET /v1/learners/jordan-mitchell/summary?org_id=springs`, then `mastery_breakdown.overall.masteryScore` reflects multi-subject mean (not 0.90 dominant-skill mirror alone)
+- Given Jordan Mitchell Springs seed after re-seed (`learner_reference` `stu-30456`), when `GET /v1/learners/stu-30456/summary?org_id=springs`, then `mastery_breakdown.overall.masteryScore` reflects multi-subject mean (not 0.90 dominant-skill mirror alone)
 - Given org with no `subjects.json`, when aggregation runs, then unmapped skills resolve to `"General"` via `default_subject`
 - Given existing Springs policy evaluation on top-level `masteryScore`, when a new signal arrives, then decision outcomes are unchanged vs pre-aggregation behavior (regression gate)
 
@@ -413,9 +413,9 @@ Criteria failure details are **not** exposed in the educator-facing response (de
 | `computeNewState()` + `promoteDominantSkillScores()` | `docs/specs/state-engine.md` | **Implemented** |
 | `getAtPath()` / dot-path utilities | `src/shared/dot-path.ts` (from skill-level-tracking) | **Implemented** |
 | `loadRoutingConfigForOrg()` cache pattern | `docs/specs/decision-engine.md`, `src/decision/policy-loader.ts` | **Implemented** — mirror for subject config |
-| `GET /v1/learners/:ref/summary` handler | `docs/specs/learner-summary-api.md` | **Implemented** — extend response shape |
+| `GET /v1/learners/:ref/summary` handler | `docs/specs/learner-summary-api.md` | **Complete** — `mastery_breakdown` extension shipped |
 | `projectLearnerState()` rounding | `src/learners/state-projection.ts` | **Implemented** |
-| Decision history read for gifted flag | `docs/specs/decision-engine.md`, `src/decision/store.ts` | **Implemented** — may add type-summary query |
+| Decision history read for gifted flag | `docs/specs/decision-engine.md`, `src/decision/store.ts` | **Complete** — `getDecisionTypeSummaryForLearner()` |
 | `roundNumeric()` helper | `src/learners/state-projection.ts` | **Implemented** |
 
 ### Provides to Other Specs
@@ -565,12 +565,33 @@ None. Missing/invalid `subjects.json` → fail open with `default_subject: "Gene
 
 ---
 
-## Notes
+## Implementation Notes
 
-- **Spec chain update:** When implemented, `docs/specs/learner-summary-api.md` § Out of Scope ("Nested dot-path trajectory fields") and § URS field allowlist ("Per-skill breakdown … stripped") must be updated to reference this spec's `mastery_breakdown` as the canonical per-skill/subject exposure path.
-- **Dashboard sequencing:** `docs/specs/decision-panel-ui.md` four-panel layout should read `mastery_breakdown` for subject quick-hitters and `gifted_interest` for person-of-interest badges — not raw `current_state.fields`.
-- **CEO sign-off gate:** Confirm equal-weight subject→overall mean (not per-skill overall mean) with @Al Ware before `/plan-impl` — document decision in plan frontmatter.
+> Post-implementation parity (2026-06-05). Module locations and TypeScript idioms that differ from informal plan wording.
+
+| Concern | Location | Notes |
+|---------|----------|-------|
+| Pinned constants | `src/state/aggregation-constants.ts` | Re-exports `FLOAT_PRECISION` and `roundNumeric` from `src/learners/state-projection.ts` (not redefined) |
+| Subject config + resolver | `src/state/subject-config.ts` | `loadSubjectConfigForOrg`, `resolveSubjectForSkill`, `clearSubjectConfigCache` |
+| Aggregation + evidence | `src/state/aggregation.ts` | `incrementSkillEvidenceCounts`, `computeLearnerAggregation` |
+| State pipeline wiring | `src/state/engine.ts` | `computeNewState()` order: merge → evidence → promote → aggregate; `orgId` from `ComputeNewStateOptions.orgId` → `currentState.org_id` → `signals[0].org_id` |
+| Delta companions | `src/state/engine.ts` `computeStateDeltas()` | Skips `state.aggregation` — derived snapshot never receives `_delta` / `_direction` companions |
+| Summary projection | `src/learners/state-projection.ts` | `projectMasteryBreakdown`, `computeLearningGaps`, `evaluateGiftedInterest`, `completeMasteryBreakdown` |
+| Handler parity | `src/learners/summary-handler-core.ts`, `src/lambda/inspect.ts` | Both call `completeMasteryBreakdown(state, decisionTypeSummary)` |
+| Decision type summary | `src/decision/store.ts`, `src/decision/dynamodb-repository.ts` | `getDecisionTypeSummaryForLearner(orgId, learnerRef)` |
+| Types | `src/shared/types.ts` | `LearnerAggregation`, `MasteryBreakdown`, `SubjectConfig`, etc. |
+| OpenAPI | `docs/api/openapi.yaml` | `MasteryBreakdown` schema; `MasteryBreakdownSubjectEntry` omits per-subject `skills[]` (stored `AggregationSubjectEntry` retains it) |
+
+Contract tests AGG-001–018 implemented in `tests/unit/state-aggregation.test.ts`, `tests/unit/learner-summary-handler-core.test.ts`, `tests/contracts/learner-summary-api.test.ts`, and `tests/integration/springs-pilot.test.ts`.
 
 ---
 
-*Spec created: 2026-04-10 | Phase: v1.1 (product-value MVP) | Depends on: skill-level-tracking.md (complete), state-engine.md (complete), learner-summary-api.md (extend). Recommended next: `/plan-impl docs/specs/urs-aggregation.md`*
+## Notes
+
+- **Spec chain update:** Done — `docs/specs/learner-summary-api.md` § Out of Scope and § URS field allowlist reference `mastery_breakdown` as the canonical per-skill/subject exposure path.
+- **Dashboard sequencing:** `docs/specs/decision-panel-ui.md` four-panel layout should read `mastery_breakdown` for subject quick-hitters and `gifted_interest` for person-of-interest badges — not raw `current_state.fields`.
+- **CEO sign-off:** Received 2026-06-05 (plan PREREQ-001) — equal-weight subject→overall mean confirmed; gifted G6 evidence gate added.
+
+---
+
+*Spec created: 2026-04-10 | Implemented: 2026-06-05 | Phase: v1.1 (product-value MVP) | Plan: `.cursor/plans/urs-aggregation.plan.md`*

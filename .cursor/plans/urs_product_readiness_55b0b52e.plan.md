@@ -25,7 +25,7 @@ todos:
     status: completed
   - id: wave3-pilot-mvp
     content: Wave 3 · Execute .cursor/plans/pilot-mvp-launch.plan.md (hygiene MVP, dashboard summary migration, deploy smoke, runbook, observability, launch gate)
-    status: pending
+    status: completed
   - id: followups
     content: "Post-pilot: LIU usage meter, EventBridge, 8p3p-sdk, full API hygiene (ETag/by_source), dashboard deployment split, feedback-as-signal migration"
     status: pending

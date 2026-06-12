@@ -75,6 +75,7 @@ LEARNING_GAPS_MAX = 10
 GIFTED_MASTERY_THRESHOLD = 0.95
 MIN_SKILLS_FOR_GIFTED = 2
 MIN_ADVANCE_DECISIONS = 1
+GIFTED_MIN_EVIDENCE_COUNT = 3
 GIFTED_INTEREST_LABEL = "Person of interest"
 FLOAT_PRECISION = 4
 DEFAULT_SUBJECT = "General"
@@ -198,7 +199,7 @@ deepMerge(signal payloads)
 ### TASK-005: Implement computeLearnerAggregation, evidenceCount, and wire into computeNewState
 - **Files**: `src/state/aggregation.ts` (new); `src/state/engine.ts` (modify)
 - **Action**: Create + Modify
-- **Details**: Implement `computeLearnerAggregation(state, subjectConfig, stateVersion)` per Spec Literals § Aggregation Formulas (arithmetic mean, equal weight per subject for overall; lexicographic tie-break; exclude non-finite masteryScore; omit stability when no skill has it; omit subject when empty). Write result to `state.aggregation` only when `|S| >= 1`; otherwise leave absent. Also implement `incrementSkillEvidenceCounts(priorState, newState, signals)` that bumps `skills.{id}.evidenceCount` by 1 for each applied signal carrying a finite `masteryScore` for that skill (per spec § evidenceCount). Wire both into `computeNewState()` exactly per Spec Literals § Computation timing: `incrementSkillEvidenceCounts()` then `promoteDominantSkillScores()` (unchanged) then `computeLearnerAggregation()`, before return. `computeNewState` must resolve subject config via `loadSubjectConfigForOrg` using `orgId` available in the call path (thread orgId in if not already present). Round numerics with `roundNumeric` (FLOAT_PRECISION 4); evidenceCount is an integer (not rounded).
+- **Details**: Implement `computeLearnerAggregation(state, subjectConfig, stateVersion)` per Spec Literals § Aggregation Formulas (arithmetic mean, equal weight per subject for overall; lexicographic tie-break; exclude non-finite masteryScore; omit stability when no skill has it; omit subject when empty). Write result to `state.aggregation` only when `|S| >= 1`; otherwise leave absent. Also implement `incrementSkillEvidenceCounts(priorState, newState, signals)` that bumps `skills.{id}.evidenceCount` by 1 for each applied signal carrying a finite `masteryScore` for that skill (per spec § evidenceCount). Wire both into `computeNewState()` exactly per Spec Literals § Computation timing: `incrementSkillEvidenceCounts()` then `promoteDominantSkillScores()` (unchanged) then `computeLearnerAggregation()`, before return. `computeNewState` must resolve subject config via `loadSubjectConfigForOrg` using `orgId` from `ComputeNewStateOptions.orgId` → `currentState.org_id` → `signals[0].org_id`. `computeStateDeltas()` must skip `state.aggregation` (derived — no `_delta`/`_direction` companions). Round numerics with `roundNumeric` (FLOAT_PRECISION 4); evidenceCount is an integer (not rounded).
 - **Depends on**: TASK-001, TASK-002, TASK-004
 - **Verification**: AGG-001..003, 007, 008, 018 pass; AGG-016 regression (decision outcome unchanged).
 
@@ -212,14 +213,14 @@ deepMerge(signal payloads)
 ### TASK-007: Project mastery_breakdown in summary handler core and lambda parity
 - **Files**: `src/learners/summary-handler-core.ts`; `src/lambda/inspect.ts`
 - **Action**: Modify
-- **Details**: Add `current_state.mastery_breakdown` built from `state.aggregation`. Apply projection rules from spec § Summary response extension: round to 4 dp, omit skill entries with non-finite masteryScore, `mastery_breakdown: null` when `state.skills` absent/empty. Keep `current_state.fields` scalars-only (unchanged `projectLearnerState`). Apply identical logic in `src/lambda/inspect.ts` to maintain Fastify/Lambda parity (same pattern as prior educator_summary parity fix).
+- **Details**: Add `current_state.mastery_breakdown` via `projectMasteryBreakdown()` / `completeMasteryBreakdown()` in `src/learners/state-projection.ts`, sourced from `state.aggregation`. Apply projection rules from spec § Summary response extension: round to 4 dp, omit skill entries with non-finite masteryScore, `mastery_breakdown: null` when `state.skills` absent/empty. Keep `current_state.fields` scalars-only (unchanged `projectLearnerState`). Handlers in `summary-handler-core.ts` and `src/lambda/inspect.ts` call the shared projection helpers for Fastify/Lambda parity.
 - **Depends on**: TASK-004, TASK-005
 - **Verification**: AGG-015 passes on both Fastify and Lambda handlers.
 
 ### TASK-008: Compute learning_gaps and gifted_interest at summary assembly
 - **Files**: `src/learners/summary-handler-core.ts`; `src/lambda/inspect.ts`
 - **Action**: Modify
-- **Details**: Compute `learning_gaps` per Spec Literals § Learning Gaps (both thresholds; `gap` value; sort desc; cap LEARNING_GAPS_MAX). Compute `gifted_interest` per Spec Literals § Gifted-Interest Flag using `getDecisionTypeSummaryForLearner` (G3-G5) plus per-skill `masteryScore` (G1-G2) and per-skill `evidenceCount` (G6, `GIFTED_MIN_EVIDENCE_COUNT = 3`; missing evidenceCount treated as 0). Emit flagged/not-flagged shapes exactly. Criteria-failure detail is debug-log only, never in response.
+- **Details**: Handlers call `completeMasteryBreakdown(state, decisionTypeSummary)` from `src/learners/state-projection.ts` (shared with Lambda). That function computes `learning_gaps` per Spec Literals § Learning Gaps (both thresholds; `gap` value; sort desc; cap LEARNING_GAPS_MAX) and `gifted_interest` per Spec Literals § Gifted-Interest Flag using `getDecisionTypeSummaryForLearner` (G3-G5) plus per-skill `masteryScore` (G1-G2) and per-skill `evidenceCount` (G6, `GIFTED_MIN_EVIDENCE_COUNT = 3`; missing evidenceCount treated as 0). Emit flagged/not-flagged shapes exactly. Criteria-failure detail is debug-log only, never in response.
 - **Depends on**: TASK-006, TASK-007
 - **Verification**: AGG-009..013, 017 pass.
 
@@ -347,7 +348,7 @@ None - plan is literal-compatible with spec.
 ## Verification Checklist
 
 - [x] All tasks completed
-- [x] All tests pass (`npm test`) — 953 passing
+- [x] All tests pass (`npm test`) — 955 passing
 - [x] Linter passes (`npm run lint`)
 - [x] Type check passes (`npm run typecheck`)
 - [x] OpenAPI valid (`npm run validate:api`)
@@ -367,6 +368,6 @@ TASK-007,008 → TASK-013
 
 ## Next Steps
 
-- **COMPLETE (2026-06-05).** All tasks implemented and merged (commits `5b13410`..`c524b80`); post-review fixes applied (lint precision literal, `state.aggregation` delta-skip + DELTA-008). Full check pipeline green (953 tests, lint, typecheck, `validate:api`).
+- **COMPLETE (2026-06-05).** All tasks implemented and merged (commits `5b13410`..`c524b80`); post-review fixes applied (lint precision literal, `state.aggregation` delta-skip in `computeStateDeltas()`). Full check pipeline green (955 tests, lint, typecheck, `validate:api`). Spec/plan reconciled via `/post-impl-doc-sync` (2026-06-12).
 - **Consumption:** Wave 3 pilot MVP launch surfaces `mastery_breakdown` in the Decision Panel — see `.cursor/plans/pilot-mvp-launch.plan.md` (start with `learner-summary-api-hygiene-mvp`).
 - **Configurability:** `tenant-config` wraps these constants as per-org `aggregation.*` overrides — see `.cursor/plans/tenant-config.plan.md` (PREREQ-001 satisfied; sequence after Wave 3).

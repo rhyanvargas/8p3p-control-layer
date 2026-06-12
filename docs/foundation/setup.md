@@ -109,9 +109,9 @@ npm run seed:springs-demo      # terminal 2 — idempotent-ish; see Reset below
 **Verify:**
 
 ```bash
-# URS summary + mastery_breakdown (Jordan Mitchell, multi-subject)
+# URS summary + mastery_breakdown (Jordan Mitchell → learner_reference stu-30456)
 curl -s -H "x-api-key: $API_KEY" \
-  "http://localhost:3000/v1/learners/jordan-mitchell/summary?org_id=springs" \
+  "http://localhost:3000/v1/learners/stu-30456/summary?org_id=springs" \
   | jq '.current_state.mastery_breakdown.overall'
 ```
 
@@ -170,15 +170,15 @@ Policies load from `src/decision/policies/{orgId}/` at runtime. Subject → skil
 
 ## Reset and repeat
 
-Wipe local SQLite and start fresh:
+Wipe local SQLite and start fresh (stop `npm run dev` first; include WAL sidecars or SQLite can restore old rows):
 
 ```bash
-rm -f data/*.db
+rm -f data/*.db data/*.db-wal data/*.db-shm
 npm run dev
 npm run seed:springs-demo -- --org springs
 ```
 
-Re-seeding the **same** org without wiping merges new signals; use reset when you need a clean decision/state history.
+Re-seeding the **same** org without wiping skips already-applied signals (seed logs `duplicate`); state is **not** recomputed, so `mastery_breakdown` stays `null` on learners seeded before URS aggregation landed. Use a full reset when you need fresh state or `mastery_breakdown`.
 
 ---
 
