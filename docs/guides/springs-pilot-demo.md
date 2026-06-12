@@ -2,17 +2,19 @@
 
 **Audience**: School principal, IT director, pilot stakeholders
 **Duration**: ~4 minutes with narration
-**Prerequisites**: Server running (`npm run dev`), seed data loaded (`npm run seed:springs-demo`, script path `examples/springs/seed-springs-demo.mjs`)
+**Prerequisites**: Local server running and Springs seed loaded — see **[Local Dev & Testing](../foundation/setup.md)** (`npm run dev`, then `npm run seed:springs-demo`).
 
 ---
 
 ## Setup (30 seconds)
 
-Run the seed script:
+If not already seeded, run:
 
 ```bash
 npm run seed:springs-demo
 ```
+
+Full setup (env, first run, reset): [`docs/foundation/setup.md`](../foundation/setup.md).
 
 Point out Phase 1 (onboarding — 4 LMS field mappings registered) and Phase 2 (11 signals flowing from Canvas, Blackboard, i-Ready, and Absorb).
 

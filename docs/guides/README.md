@@ -39,12 +39,14 @@ Guides for the internal team — CS, solutions, engineering, and leadership. Not
 
 | Guide | Audience | Use-case |
 | ----- | -------- | -------- |
+| [Local Dev & Testing](../foundation/setup.md) | Internal engineers | **Run locally** — env profiles, seed, new org checklist, reset, verify URS |
 | [Pilot Readiness Definition](../../internal-docs/pilot-operations/pilot-readiness-definition.md) | All internal | Go/no-go gates: what "pilot ready" means for us and the customer |
 | [Onboarding Runbook](../../internal-docs/pilot-operations/onboarding-runbook.md) | CS / Solutions / Engineering | Step-by-step: sales handoff → provisioning → onboarding call → first week → pilot close |
 | [Configure LMS Source System](../../internal-docs/pilot-operations/configure-lms-source-system.md) | Engineering / Solutions | Add and configure an LMS source system: sample payload → mapping config → admin PUT → test |
 
 | I want to… | Guide |
 | ---------- | ----- |
+| Run and test locally (no AWS) | [Local Dev & Testing](../foundation/setup.md) |
 | Know if we're ready to onboard a prospect | [Pilot Readiness Definition](../../internal-docs/pilot-operations/pilot-readiness-definition.md) |
 | Execute a pilot onboarding end-to-end | [Onboarding Runbook](../../internal-docs/pilot-operations/onboarding-runbook.md) |
 | Add or configure an LMS for a customer | [Configure LMS Source System](../../internal-docs/pilot-operations/configure-lms-source-system.md) |

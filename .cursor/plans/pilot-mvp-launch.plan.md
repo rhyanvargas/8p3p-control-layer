@@ -4,22 +4,22 @@ overview: "Coordinating Wave 3 plan: contract hygiene, dashboard summary migrati
 todos:
   - id: W3-001
     content: Execute learner-summary-api-hygiene-mvp.plan.md
-    status: pending
+    status: completed
   - id: W3-002
     content: Execute dashboard-summary-migration.plan.md
-    status: pending
+    status: completed
   - id: W3-003
     content: Deployed-environment smoke test and screenshot evidence
-    status: pending
+    status: completed
   - id: W3-004
     content: Align pilot onboarding runbook with dashboard + summary workflow
-    status: pending
+    status: completed
   - id: W3-005
     content: Add CloudWatch dashboard and summary endpoint alarms
-    status: pending
+    status: completed
   - id: W3-006
     content: Complete pilot launch checklist and customer handoff gate
-    status: pending
+    status: completed
 isProject: false
 ---
 

@@ -396,26 +396,37 @@ Each source system can have its own transform mapping, but they all feed the sam
 
 ## 14) Decision Panel — see decisions visually
 
-The **Decision Panel** is a read-only proof surface at `/dashboard` that presents the control layer's output in an educator-friendly layout. It reads from the same API endpoints your integration uses — no additional setup required beyond an API key.
+The **Decision Panel** is a read-only staff UI at `/dashboard` that presents control-layer output in an educator-friendly layout aligned to the [9th Grade Literacy Pilot](../../internal-docs/9th%20Grade%20Literacy%20Pilot.pdf). It uses the same API host as your integration — no additional write paths.
 
-### Four panels
+### Four panels (literacy pilot titles)
 
-| Panel | What it shows |
-|-------|---------------|
-| **Who Needs Attention?** | Learners with the highest urgency (`intervene` / `pause` decisions) |
-| **Why Are They Stuck?** | Specific skills where learners are declining, with stability context |
-| **What To Do?** | Most recent actionable decision with Approve/Reject controls |
-| **Did It Work?** | Learner progress — which skills have improved since the last decision |
+| Panel | What it shows | Primary data source |
+|-------|---------------|---------------------|
+| **Who Needs Help Now** | Learners with recent `intervene` or `pause` decisions, ordered by urgency | `GET /v1/learners/{ref}/summary` → `recent_decisions` |
+| **What Do They Need Help With** | Per-skill stability declines (e.g. `text_evidence`, `written_response`) | `GET /v1/state?learner_reference={ref}` → `skills.*` |
+| **What Should Happen Next** | Most recent actionable decision with Approve/Reject (local review state) | `GET /v1/learners/{ref}/summary` → `recent_decisions[0].educator_summary` |
+| **Did the Support Work** | Skills where mastery improved and proficiency level increased | `GET /v1/state?learner_reference={ref}` → `skills.*` |
+
+Panels 1 and 3 use the **learner summary** endpoint (`docs/specs/learner-summary-api.md`) for a single-call URS projection. Panels 2 and 4 intentionally keep the full per-skill `skills.*` map from state — required for literacy pilot proof.
 
 ### Access
 
 - **URL:** `https://<host>/dashboard`
-- **Auth:** Uses the same `x-api-key` as the API (configured at build time or prompted on first visit)
-- **Auto-refresh:** Data refreshes every 30 seconds; manual refresh button available
+- **Auth:** Passphrase gate when `DASHBOARD_ACCESS_CODE` and `COOKIE_SECRET` are set on the server (`docs/specs/dashboard-passphrase-gate.md`). Staff receive the access code via a secure channel; IT admin distributes to authorized educators.
+- **API key:** Embedded at dashboard build time (`VITE_API_KEY`, `VITE_ORG_ID`, `VITE_API_BASE_URL`) — one org per deployment.
+- **Auto-refresh:** Data refreshes every 30 seconds; manual **Refresh** reloads summary (panels 1/3) and per-learner state (panels 2/4).
 
-The Decision Panel is a static SPA served from the same host as the API. It consumes `GET /v1/decisions`, `GET /v1/state`, `GET /v1/state/list`, and `GET /v1/policies` — all endpoints already documented above.
+### Verify summary for a learner
 
-**Spec:** `docs/specs/decision-panel-ui.md`
+```bash
+curl -sS -H "x-api-key: $API_KEY" \
+  "https://<host>/v1/learners/stu-30456/summary?org_id=<org_id>" \
+  | jq '{learner_reference, recent_decisions: .recent_decisions[0], educator_summary: .recent_decisions[0].educator_summary}'
+```
+
+Expected: HTTP 200 with `current_state`, `recent_decisions`, `field_trajectories`, `active_policy`, and `signals_summary`.
+
+**Specs:** `docs/specs/decision-panel-ui.md`, `docs/specs/dashboard-passphrase-gate.md`, `docs/specs/learner-summary-api.md`
 
 ---
 
@@ -437,4 +448,4 @@ The Decision Panel is a static SPA served from the same host as the API. It cons
 
 ---
 
-*Guide updated: 2026-04-14 (v3.0) — restructured around Direct API as the sole pilot integration path; moved connectors and webhooks to post-pilot roadmap references. Previous: v2.2 added §13 Custom LMS integration. v2.1 added Decision Panel section. v2 restructured around Connector Layer.*
+*Guide updated: 2026-06-11 (v3.1) — Decision Panel §14 aligned to Wave 3 summary migration and literacy pilot panel titles. Previous: v3.0 restructured around Direct API; v2.1 added Decision Panel section.*
