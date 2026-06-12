@@ -28,6 +28,14 @@ Both prior specs must be implemented before this one. The summary endpoint compo
 
 Return a structured summary of a learner's current state, decision history, field trajectories, and active policy.
 
+### Collection root
+
+**Decision:** Option A — keep `GET /v1/learners/{learner_reference}/summary` as the canonical learner-scoped path.
+
+**Rationale:** First path-style learner URL in the API; response aggregates state + decisions + signals + policy + trajectory (not state-only). Dashboard will consume this URL in `.cursor/plans/dashboard-summary-migration.plan.md`.
+
+**Forward policy:** Future learner-scoped read paths SHOULD use `/v1/learners/{learner_reference}/...`. Existing query-style routes (`GET /v1/state`, `GET /v1/state/trajectory`, `GET /v1/decisions`) remain unchanged for v1.1.
+
 **Path Parameters:**
 
 | Parameter | Description |
@@ -205,14 +213,16 @@ const userType = loadRoutingConfigForOrg(orgId)?.default_policy_key ?? 'learner'
 
 This matches the decision engine's fallback (`src/decision/engine.ts`) when no `source_system` is supplied.
 
+**`policy_key` constraint:** OpenAPI constrains `active_policy.policy_key` to `learner` or `staff`. After resolving `userType` from routing config, if the value is not one of those keys the handler coerces it to `learner` and emits a warning log (org id + unrecognized key). The coerced key is what is passed to `loadPolicyForContext` and returned in the response.
+
 **Composition of the response object:**
 
 | Field | Source |
 |-------|--------|
 | `policy_id` | `PolicyDefinition.policy_id` |
-| `policy_key` | The resolved `userType` argument passed to `loadPolicyForContext` (pass-through; not a field on `PolicyDefinition`) |
+| `policy_key` | Coerced `userType` (`learner` or `staff`) passed to `loadPolicyForContext` (not a field on `PolicyDefinition`) |
 | `policy_version` | `PolicyDefinition.policy_version` |
-| `description` | `PolicyDefinition.description` |
+| `description` | `PolicyDefinition.description` — optional in OpenAPI; handler returns it by default at MVP. Opt-in omission via `?include=` is deferred to the full hygiene plan. |
 | `rule_count` | `PolicyDefinition.rules.length` |
 
 Does **not** include rule conditions or thresholds (use `GET /v1/policies/:policy_key` for full detail).
@@ -344,14 +354,18 @@ None. All error cases map to existing codes.
 | SUM-006 | Active policy null when no policy | Learner in org with no configured policy | 200; `active_policy: null`; rest of summary populated |
 | SUM-007 | Delta fields in current_state | Learner has received 2 signals; `stabilityScore_direction: "declining"` in latest state | `current_state.fields.stabilityScore_direction === "declining"` |
 | SUM-008 | `field_trajectories.overall_direction` consistent | Learner: `stabilityScore` 0.72 → 0.55 → 0.28 | `field_trajectories.stabilityScore.overall_direction === "declining"` |
+| SUM-012 | Unknown routing key coerces to learner | Org routing `default_policy_key: 'parent'` | 200; `active_policy.policy_key === 'learner'` |
+| SUM-013 | Default trajectory fields are URS-projected | Learner with a numeric non-URS stored key | 200; `field_trajectories` keys ⊆ `current_state.fields` keys |
 
-> **Test strategy:** SUM-001 through SUM-008 use Fastify `inject` with SQLite in-process. Seed data: use `saveStateWithAppliedSignals` to create versioned state, insert decisions via `saveDecision`, and insert signals via `signalLog.store`. PII test (SUM-005) asserts against the forbidden keys list from `src/ingestion/forbidden-keys.ts`.
+> **Test strategy:** SUM-001 through SUM-013 use Fastify `inject` with SQLite in-process. Seed data: use `saveStateWithAppliedSignals` to create versioned state, insert decisions via `saveDecision`, and insert signals via `signalLog.store`. PII test (SUM-005) asserts against the forbidden keys list from `src/ingestion/forbidden-keys.ts`.
 
 ---
 
 ## Notes
 
 - **Implementation pattern:** This endpoint is a pure aggregation — call each store/function once, assemble the response object, return. The Fastify path operates against synchronous SQLite stores (`getState`, `getRecentDecisionsByLearner`, `getSignalSummary`, `loadPolicyForContext`, `getStateVersionRange`); concurrency is only meaningful on the Lambda DynamoDB path where every repo call is async. The Lambda handler MUST use `Promise.all([statePromise, recentDecisionsPromise, signalSummaryPromise, trajectorySummaryPromise])` (with policy resolved synchronously after state is in hand) to hit DynamoDB tables concurrently.
+- **`resolveSummaryPolicyKey(orgId, rawUserType, warn)`** — exported from `src/learners/summary-handler-core.ts`; implements § `active_policy` coercion (returns `'learner' | 'staff'`, warns and coerces unrecognized routing keys). Shared by Fastify core and `src/lambda/inspect.ts`.
+- **Default trajectory field discovery** — when `trajectory_fields` is omitted, both paths enumerate numeric keys from `projectLearnerState(currentState.state).fields` (not raw `LearnerState.state`): `resolveTrajectoryFields` in core, `resolveSummaryTrajectoryFields` in Lambda inspect.
 - **Implementation note:** The handler walks `getStateVersionRange` in pages of 100 with a hard cap of 10 iterations (1000 versions maximum). This bounds the worst-case Lambda runtime and matches v1.1 traffic expectations; revisit when median learner exceeds ~500 versions.
 - **SDK note:** The response shape of this endpoint is intentionally designed to be the primary input for an 8P3P SDK method `getLearnerSummary(learnerRef, options)`. The SDK layer is out of scope for this spec but the JSON contract is forward-compatible.
 

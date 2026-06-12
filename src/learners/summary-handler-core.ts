@@ -26,12 +26,28 @@ interface StateErrorResponse {
   field_path?: string;
 }
 
+export type PolicyKey = 'learner' | 'staff';
+
 export interface ActivePolicyResponse {
   policy_id: string;
-  policy_key: string;
+  policy_key: PolicyKey;
   policy_version: string;
-  description: string;
+  description?: string;
   rule_count: number;
+}
+
+export function resolveSummaryPolicyKey(
+  orgId: string,
+  rawUserType: string,
+  warn: (message: string) => void = console.warn
+): PolicyKey {
+  if (rawUserType === 'learner' || rawUserType === 'staff') {
+    return rawUserType;
+  }
+  warn(
+    `Unrecognized routing default_policy_key '${rawUserType}' for org '${orgId}'; coercing to 'learner'`
+  );
+  return 'learner';
 }
 
 export interface SignalsSummary {
@@ -253,7 +269,8 @@ function resolveTrajectoryFields(
   if (explicitFields !== undefined) {
     return explicitFields;
   }
-  return Object.entries(currentState.state)
+  const projectedFields = projectLearnerState(currentState.state);
+  return Object.entries(projectedFields)
     .filter(([k, v]) => typeof v === 'number' && !k.endsWith('_delta'))
     .map(([k]) => k)
     .slice(0, 10);
@@ -334,7 +351,12 @@ export async function handleLearnerSummaryCore(
 
   const signalsSummary = getSignalSummary(orgId, learnerRef);
 
-  const userType = loadRoutingConfigForOrg(orgId)?.default_policy_key ?? 'learner';
+  const rawUserType = loadRoutingConfigForOrg(orgId)?.default_policy_key ?? 'learner';
+  const logWarn =
+    typeof params.logWarn === 'function'
+      ? (params.logWarn as (message: string) => void)
+      : console.warn;
+  const userType = resolveSummaryPolicyKey(orgId, rawUserType, logWarn);
   let activePolicy: ActivePolicyResponse | null = null;
   try {
     const policy = loadPolicyForContext(orgId, userType);

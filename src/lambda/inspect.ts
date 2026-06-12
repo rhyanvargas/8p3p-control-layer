@@ -16,6 +16,7 @@ import type {
   ActivePolicyResponse,
   RecentDecisionItem,
 } from '../learners/summary-handler-core.js';
+import { resolveSummaryPolicyKey } from '../learners/summary-handler-core.js';
 import {
   completeMasteryBreakdown,
   projectLearnerState,
@@ -332,7 +333,8 @@ function resolveSummaryTrajectoryFields(
   if (explicitFields !== undefined) {
     return explicitFields;
   }
-  return Object.entries(currentState.state)
+  const projectedFields = projectLearnerState(currentState.state);
+  return Object.entries(projectedFields)
     .filter(([k, v]) => typeof v === 'number' && !k.endsWith('_delta'))
     .map(([k]) => k)
     .slice(0, 10);
@@ -464,7 +466,8 @@ async function handleGetLearnerSummary(
     policy_version: d.trace.policy_version,
   }));
 
-  const userType = loadRoutingConfigForOrg(orgId)?.default_policy_key ?? 'learner';
+  const rawUserType = loadRoutingConfigForOrg(orgId)?.default_policy_key ?? 'learner';
+  const userType = resolveSummaryPolicyKey(orgId, rawUserType, console.warn);
   let activePolicy: ActivePolicyResponse | null = null;
   try {
     const policy = loadPolicyForContext(orgId, userType);

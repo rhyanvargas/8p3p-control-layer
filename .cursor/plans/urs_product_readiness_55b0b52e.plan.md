@@ -24,7 +24,7 @@ todos:
     content: "Wave 2 Gate: GET /v1/learners/:ref/summary returns deck-shaped URS in one call; deck demo screenshot recorded; AI Teacher Assistant Analyze step unblocked"
     status: completed
   - id: wave3-pilot-mvp
-    content: "Wave 3 · Execute .cursor/plans/pilot-mvp-launch.plan.md (hygiene MVP, dashboard summary migration, deploy smoke, runbook, observability, launch gate)"
+    content: Wave 3 · Execute .cursor/plans/pilot-mvp-launch.plan.md (hygiene MVP, dashboard summary migration, deploy smoke, runbook, observability, launch gate)
     status: pending
   - id: followups
     content: "Post-pilot: LIU usage meter, EventBridge, 8p3p-sdk, full API hygiene (ETag/by_source), dashboard deployment split, feedback-as-signal migration"
@@ -64,6 +64,8 @@ flowchart LR
     wave2 --> DECK[Deck-demoable URS + Teacher Assistant unblocked]
 ```
 
+
+
 `learner-summary-api` depends sequentially on `learner-trajectory-api` per [docs/specs/learner-summary-api.md:11-21](docs/specs/learner-summary-api.md). `state-delta-detection` is a prereq for both and is already implemented.
 
 ---
@@ -71,12 +73,14 @@ flowchart LR
 ## Wave 1 — Pilot Blocking (~1.5–2 weeks)
 
 ### TASK-W1-1: Execute ingestion-preflight plan
+
 - **Plan**: [.cursor/plans/ingestion-preflight.plan.md](.cursor/plans/ingestion-preflight.plan.md) — 17 tasks (TASK-000..016) already staged. CEO-directed pilot-blocking per [docs/reports/2026-05-15-ingestion-strategy-decision.md:14-18](docs/reports/2026-05-15-ingestion-strategy-decision.md).
 - **Action**: Execute as written. No re-planning needed.
 - **Outcome**: `POST /v1/admin/ingestion/preflight` (side-effect-free), forbidden-key categorization (`pii` vs `semantic`), and a pilot-readiness gate row in `pilot-readiness-definition.md`.
 - **Verification**: All 17 tasks completed (`status: completed` in plan frontmatter); `npm test` green; preflight 200 on Springs sample payload.
 
 ### TASK-W1-2: Open and execute webhook-adapters plan
+
 - **Spec**: [docs/specs/webhook-adapters.md](docs/specs/webhook-adapters.md) (complete; no plan file exists).
 - **Action**: Create `.cursor/plans/webhook-adapters.plan.md` with TASK-001..0NN derived from spec acceptance criteria. Expected task breakdown (to be expanded when sub-plan opens):
   1. `POST /v1/webhooks/:source_system` route + Fastify handler.
@@ -90,6 +94,7 @@ flowchart LR
 - **Verification**: Raw Canvas webhook POST results in an accepted signal in the signal log with the same shape as a direct `POST /v1/signals`.
 
 ### TASK-W1-3: Execute integration-templates plan
+
 - **Plan**: [.cursor/plans/integration-templates.plan.md](.cursor/plans/integration-templates.plan.md) (existing; status to be verified before execution).
 - **Action**: Audit status; execute remaining tasks. Templates seed `FieldMappingsTable` for Canvas, I-Ready, Branching Minds so a tenant gets working mappings on one click.
 - **Depends on**: TASK-W1-2 (templates are activation UX over webhook adapters).
@@ -108,6 +113,7 @@ flowchart LR
 ## Wave 2 — Deck-Shaped URS (~2–3 weeks)
 
 ### TASK-W2-1: Open and execute learner-trajectory-api plan
+
 - **Spec**: [docs/specs/learner-trajectory-api.md](docs/specs/learner-trajectory-api.md) (complete; no plan file exists).
 - **Action**: Create `.cursor/plans/learner-trajectory-api.plan.md`. Expected task breakdown:
   1. Add `getStateVersionRange(orgId, learnerRef, fromVersion, toVersion)` to [src/state/store.ts](src/state/store.ts) + DynamoDB repository.
@@ -120,6 +126,7 @@ flowchart LR
 - **Verification**: 3-version learner returns trajectory with correct `improving/declining/stable` directions matching stored `{field}_direction` values.
 
 ### TASK-W2-2: Open and execute learner-summary-api plan
+
 - **Spec**: [docs/specs/learner-summary-api.md](docs/specs/learner-summary-api.md) (complete; SUM-001..008 contract tests defined).
 - **Action**: Create `.cursor/plans/learner-summary-api.plan.md`. Expected task breakdown:
   1. `GET /v1/learners/:learner_reference/summary` Fastify route.
@@ -143,14 +150,16 @@ flowchart LR
 
 ## Risks and mitigations
 
-| Risk | Impact | Mitigation |
-|---|---|---|
-| Wave 1 webhook-adapters reveals payload shapes Connector Layer can't normalize | High — blocks pilot | Preflight (TASK-W1-1) lands first specifically to catch this on a real customer sample before Wave 1 completes |
-| `learner-summary-api` Promise.all hits N+1 patterns on DynamoDB (recent decisions query, then per-decision rationale fetch) | Medium — p95 latency | Spec § Notes says "stores are hit concurrently where possible"; verify with a 50-decision learner during TASK-W2-2 contract tests; add a `recent_decisions_limit` cap (spec already requires max 50) |
-| PII leak via `state_snapshot` in `recent_decisions` | High (FERPA / SBIR) | SUM-005 contract test is mandatory; do NOT mark TASK-W2-2 complete until SUM-005 green |
-| `getStateVersionRange` on a learner with hundreds of versions degrades trajectory perf | Low at pilot scale | Pagination already in spec (`page_size` 1-100); enforce in TASK-W2-1 |
-| Sub-plan task counts balloon past estimates | Medium — schedule slip | Each sub-plan capped at 1 week of effort; if a sub-plan exceeds 15 tasks, surface to user for re-scoping before continuing |
-| Educator-feedback unstaged work (`src/feedback/*`) lands during Wave 1 and conflicts with `/v1/decisions/*` routing for Wave 2 summary endpoint | Low | Wave 2's `/v1/learners/:ref/summary` is on a different route prefix; no expected conflict, but rebase before W2-2 |
+
+| Risk                                                                                                                                            | Impact                 | Mitigation                                                                                                                                                                                           |
+| ----------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Wave 1 webhook-adapters reveals payload shapes Connector Layer can't normalize                                                                  | High — blocks pilot    | Preflight (TASK-W1-1) lands first specifically to catch this on a real customer sample before Wave 1 completes                                                                                       |
+| `learner-summary-api` Promise.all hits N+1 patterns on DynamoDB (recent decisions query, then per-decision rationale fetch)                     | Medium — p95 latency   | Spec § Notes says "stores are hit concurrently where possible"; verify with a 50-decision learner during TASK-W2-2 contract tests; add a `recent_decisions_limit` cap (spec already requires max 50) |
+| PII leak via `state_snapshot` in `recent_decisions`                                                                                             | High (FERPA / SBIR)    | SUM-005 contract test is mandatory; do NOT mark TASK-W2-2 complete until SUM-005 green                                                                                                               |
+| `getStateVersionRange` on a learner with hundreds of versions degrades trajectory perf                                                          | Low at pilot scale     | Pagination already in spec (`page_size` 1-100); enforce in TASK-W2-1                                                                                                                                 |
+| Sub-plan task counts balloon past estimates                                                                                                     | Medium — schedule slip | Each sub-plan capped at 1 week of effort; if a sub-plan exceeds 15 tasks, surface to user for re-scoping before continuing                                                                           |
+| Educator-feedback unstaged work (`src/feedback/`*) lands during Wave 1 and conflicts with `/v1/decisions/*` routing for Wave 2 summary endpoint | Low                    | Wave 2's `/v1/learners/:ref/summary` is on a different route prefix; no expected conflict, but rebase before W2-2                                                                                    |
+
 
 ## Verification checklist (master)
 
@@ -160,7 +169,7 @@ flowchart LR
 - [ ] `npm run validate:contracts` passes after each task
 - [ ] `npm run validate:api` passes after each OpenAPI change
 - [ ] Three new sub-plan files exist with `completed` frontmatter: `webhook-adapters.plan.md`, `learner-trajectory-api.plan.md`, `learner-summary-api.plan.md`
-- [x] Deck demo recorded: paste a `learner_reference` into a curl call against `GET /v1/learners/:ref/summary`, get back the deck's URS card data, screenshot it next to the deck slide ([internal-docs/reports/wave2-gate-screenshot.png](../../internal-docs/reports/wave2-gate-screenshot.png); compose at [wave2-gate-screenshot-compose.html](../../internal-docs/reports/wave2-gate-screenshot-compose.html); verified `stu-30456` — mastery 0.9, advance, educator_summary "Ready to move on")
+- [ ] Deck demo recorded: paste a `learner_reference` into a curl call against `GET /v1/learners/:ref/summary`, get back the deck's URS card data, screenshot it next to the deck slide ([internal-docs/reports/wave2-gate-screenshot.png](../../internal-docs/reports/wave2-gate-screenshot.png); compose at [wave2-gate-screenshot-compose.html](../../internal-docs/reports/wave2-gate-screenshot-compose.html); verified `stu-30456` — mastery 0.9, advance, educator_summary "Ready to move on")
 - [ ] No new write paths added to STATE Store, Signal Log, or Decision Store (STATE Authority preserved)
 - [ ] No dashboard / UI / assistant code added to `src/` outside `dashboard/` (core stays API-first)
 
@@ -168,11 +177,13 @@ flowchart LR
 
 **Plan**: [.cursor/plans/pilot-mvp-launch.plan.md](.cursor/plans/pilot-mvp-launch.plan.md)
 
-| Step | Sub-plan | Outcome |
-|------|----------|---------|
-| W3-001 | [learner-summary-api-hygiene-mvp.plan.md](.cursor/plans/learner-summary-api-hygiene-mvp.plan.md) | Contract locked for dashboard (no ETag/by_source) |
-| W3-002 | [dashboard-summary-migration.plan.md](.cursor/plans/dashboard-summary-migration.plan.md) | Panels consume summary endpoint |
-| W3-003–006 | pilot-mvp-launch.plan.md | Deploy smoke, runbook, CloudWatch, launch gate |
+
+| Step       | Sub-plan                                                                                         | Outcome                                           |
+| ---------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------- |
+| W3-001     | [learner-summary-api-hygiene-mvp.plan.md](.cursor/plans/learner-summary-api-hygiene-mvp.plan.md) | Contract locked for dashboard (no ETag/by_source) |
+| W3-002     | [dashboard-summary-migration.plan.md](.cursor/plans/dashboard-summary-migration.plan.md)         | Panels consume summary endpoint                   |
+| W3-003–006 | pilot-mvp-launch.plan.md                                                                         | Deploy smoke, runbook, CloudWatch, launch gate    |
+
 
 **Wave 3 Gate:** Customer can log into `/dashboard` with passphrase, see four URS panels backed by `GET /v1/learners/:ref/summary`, on a deployed stack with smoke report on disk.
 
@@ -180,15 +191,17 @@ flowchart LR
 
 ## Follow-up plans (out of scope; open after Wave 3 lands)
 
-| Plan to open | Source spec | Why deferred |
-|---|---|---|
-| `learner-summary-api-hygiene.plan.md` (full) | [docs/specs/learner-summary-api.md](docs/specs/learner-summary-api.md) | ETag/304/by_source — perf, not pilot-blocking |
-| `learner-summary-skills-section.plan.md` (new) | [docs/specs/learner-summary-api.md](docs/specs/learner-summary-api.md) + [docs/specs/skill-level-tracking.md](docs/specs/skill-level-tracking.md) | Add a per-skill `skills_summary` section so one summary call can back the literacy dashboard Panels 2/4 (currently on GET /v1/state per `.cursor/plans/dashboard-summary-migration.plan.md`). Reverses part of URS projection stripping. Deferred — pilot uses two endpoints; only worth it if single-call dashboard is required post-pilot. |
-| `liu-usage-meter.plan.md` (already exists as plan file — verify status) | [docs/specs/liu-usage-meter.md](docs/specs/liu-usage-meter.md) | Required before first paying customer, not pilot |
-| `eventbridge-decision-events.plan.md` (new) | [docs/api/asyncapi.yaml](docs/api/asyncapi.yaml) | Lets AI Teacher Assistant react instead of poll; not needed for Wave 2 demo |
-| `8p3p-sdk-typescript.plan.md` (new) | Roadmap Phase 4 | Productizes the Wave 2 API surface; depends on contract stability after Wave 3 verifies |
-| `dashboard-deployment-split.plan.md` (new) | This gap analysis | Removes `dashboard/` mount from `src/server.ts:253-275`; v1.2 deployment hygiene |
-| `feedback-as-signal-migration.plan.md` (new) | [docs/specs/educator-feedback-api.md](docs/specs/educator-feedback-api.md) | Closes the URS reinforcement loop; only after current feedback endpoints prove the data shape in SBIR Phase I |
+
+| Plan to open                                                            | Source spec                                                                                                                                       | Why deferred                                                                                                                                                                                                                                                                                                                                 |
+| ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `learner-summary-api-hygiene.plan.md` (full)                            | [docs/specs/learner-summary-api.md](docs/specs/learner-summary-api.md)                                                                            | ETag/304/by_source — perf, not pilot-blocking                                                                                                                                                                                                                                                                                                |
+| `learner-summary-skills-section.plan.md` (new)                          | [docs/specs/learner-summary-api.md](docs/specs/learner-summary-api.md) + [docs/specs/skill-level-tracking.md](docs/specs/skill-level-tracking.md) | Add a per-skill `skills_summary` section so one summary call can back the literacy dashboard Panels 2/4 (currently on GET /v1/state per `.cursor/plans/dashboard-summary-migration.plan.md`). Reverses part of URS projection stripping. Deferred — pilot uses two endpoints; only worth it if single-call dashboard is required post-pilot. |
+| `liu-usage-meter.plan.md` (already exists as plan file — verify status) | [docs/specs/liu-usage-meter.md](docs/specs/liu-usage-meter.md)                                                                                    | Required before first paying customer, not pilot                                                                                                                                                                                                                                                                                             |
+| `eventbridge-decision-events.plan.md` (new)                             | [docs/api/asyncapi.yaml](docs/api/asyncapi.yaml)                                                                                                  | Lets AI Teacher Assistant react instead of poll; not needed for Wave 2 demo                                                                                                                                                                                                                                                                  |
+| `8p3p-sdk-typescript.plan.md` (new)                                     | Roadmap Phase 4                                                                                                                                   | Productizes the Wave 2 API surface; depends on contract stability after Wave 3 verifies                                                                                                                                                                                                                                                      |
+| `dashboard-deployment-split.plan.md` (new)                              | This gap analysis                                                                                                                                 | Removes `dashboard/` mount from `src/server.ts:253-275`; v1.2 deployment hygiene                                                                                                                                                                                                                                                             |
+| `feedback-as-signal-migration.plan.md` (new)                            | [docs/specs/educator-feedback-api.md](docs/specs/educator-feedback-api.md)                                                                        | Closes the URS reinforcement loop; only after current feedback endpoints prove the data shape in SBIR Phase I                                                                                                                                                                                                                                |
+
 
 ---
 

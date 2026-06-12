@@ -244,8 +244,11 @@ describe('summary-handler-core', () => {
       expect(fieldsArg).toEqual(['stabilityScore', 'masteryScore']);
     });
 
-    it('caps derived fields at 10', async () => {
-      const state: Record<string, unknown> = {};
+    it('ignores non-URS numeric keys and includes only projected fields', async () => {
+      const state: Record<string, unknown> = {
+        masteryScore: 0.7,
+        stabilityScore: 0.5,
+      };
       for (let i = 0; i < 15; i++) state[`f${i}`] = i;
       mockGetState.mockReturnValue(makeLearnerState({ state_version: 1, state }));
 
@@ -254,8 +257,10 @@ describe('summary-handler-core', () => {
         learner_reference: 'learner-001',
       });
 
+      expect(mockBuildVersions).toHaveBeenCalledTimes(1);
       const fieldsArg = mockBuildVersions.mock.calls[0]?.[1] as string[];
-      expect(fieldsArg).toHaveLength(10);
+      expect(fieldsArg).toEqual(['masteryScore', 'stabilityScore']);
+      expect(fieldsArg.every((k) => !k.startsWith('f'))).toBe(true);
     });
   });
 

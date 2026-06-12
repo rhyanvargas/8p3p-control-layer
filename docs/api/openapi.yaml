@@ -2163,18 +2163,23 @@ components:
         - policy_id
         - policy_key
         - policy_version
-        - description
         - rule_count
       properties:
         policy_id:
           type: string
         policy_key:
           type: string
-          description: Resolved userType passed to loadPolicyForContext (e.g. learner, staff)
+          enum: [learner, staff]
+          description: |
+            Resolved userType passed to loadPolicyForContext. v1.1 supports learner
+            and staff routing keys; future user types require a spec update.
         policy_version:
           type: string
         description:
           type: string
+          description: |
+            Informational. Consumers SHOULD NOT depend on its presence. Use GET
+            /v1/policies/:key for full policy detail.
         rule_count:
           type: integer
           minimum: 0
@@ -2475,6 +2480,7 @@ components:
 
     LearnerSummaryResponse:
       type: object
+      additionalProperties: false
       required:
         - org_id
         - learner_reference
@@ -2516,6 +2522,9 @@ components:
                 the dominant skill for policy back-compat). See docs/specs/urs-aggregation.md.
         recent_decisions:
           type: array
+          description: |
+            Most recent decisions for this learner, ordered by decided_at DESC
+            (newest first). Up to recent_decisions_limit items (1–50, default 10).
           items:
             $ref: '#/components/schemas/RecentDecisionItem'
         field_trajectories:

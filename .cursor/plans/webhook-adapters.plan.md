@@ -668,7 +668,7 @@ Before starting implementation:
 - [x] `npm run lint` passes
 - [x] `npm run typecheck` passes
 - [x] `npm run validate:contracts` passes
-- [x] `npm run validate:api` passes (OpenAPI lint clean after TASK-011)
+- [x] `npm run validate:api` passes (exit 0 after TASK-011; webhook `200` example warning tracked for cleanup in `.cursor/plans/learner-summary-api-hygiene.plan.md` TASK-010)
 - [ ] `cdk synth` succeeds; `cdk diff` against deployed dev stage shows only the new `WebhookFunction` + API Gateway route (no drift to other resources)
 - [ ] Manual smoke test against the deployed dev stage:
   - Configure Canvas envelope mapping via `PUT /v1/admin/mappings/springs/canvas-lms` with `envelope.learner_reference_path: "submission.user_id"`.

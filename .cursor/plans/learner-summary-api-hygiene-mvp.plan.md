@@ -4,25 +4,25 @@ overview: "MVP contract-hygiene subset before pilot: lock URL root, tighten Open
 todos:
   - id: TASK-001
     content: Record URL collection root decision in learner-summary-api spec
-    status: pending
+    status: completed
   - id: TASK-002
     content: Document recent_decisions DESC ordering in OpenAPI schema
-    status: pending
+    status: completed
   - id: TASK-003
     content: Add LearnerSummaryResponse additionalProperties false at top level
-    status: pending
+    status: completed
   - id: TASK-004
     content: Constrain policy_key enum and add unknown-key coercion with SUM-012
-    status: pending
+    status: completed
   - id: TASK-005
     content: Make ActivePolicy.description optional in OpenAPI and spec (handler unchanged)
-    status: pending
+    status: completed
   - id: TASK-006
     content: Register SUM-012 in spec Contract Tests and run npm run check
-    status: pending
+    status: completed
   - id: TASK-007
     content: Fix default field_trajectories discovery to read projected current_state.fields not raw state (SUM-013)
-    status: pending
+    status: completed
 isProject: false
 ---
 
@@ -67,27 +67,34 @@ const userType = loadRoutingConfigForOrg(orgId)?.default_policy_key ?? 'learner'
 
 | Field | Source |
 |-------|--------|
-| `policy_key` | The resolved `userType` argument passed to `loadPolicyForContext` (pass-through; not a field on `PolicyDefinition`) |
+| `policy_key` | Coerced `userType` (`learner` or `staff`) passed to `loadPolicyForContext` (not a field on `PolicyDefinition`) |
 
-### From OpenAPI `#/components/schemas/ActivePolicy` (current)
+### From OpenAPI `#/components/schemas/ActivePolicy` (post-MVP)
 
 ```yaml
 required:
   - policy_id
   - policy_key
   - policy_version
-  - description
   - rule_count
 policy_key:
   type: string
-  description: Resolved userType passed to loadPolicyForContext (e.g. learner, staff)
+  enum: [learner, staff]
+  description: |
+    Resolved userType passed to loadPolicyForContext. v1.1 supports learner
+    and staff routing keys; future user types require a spec update.
+description:
+  type: string
+  description: |
+    Informational. Consumers SHOULD NOT depend on its presence. Use GET
+    /v1/policies/:key for full policy detail.
 ```
 
 ## Prerequisites
 
 Before starting implementation:
-- [ ] Gate readiness and URS projection plans show all tasks `completed`
-- [ ] `npm run check` passes on `main`
+- [x] Gate readiness and URS projection plans show all tasks `completed`
+- [x] `npm run check` passes on `main`
 
 ## Tasks
 
@@ -144,7 +151,7 @@ policy_key:
 ```
 
   2. TypeScript — add `export type PolicyKey = 'learner' | 'staff'` and narrow `ActivePolicyResponse.policy_key`.
-  3. Handler — before `loadPolicyForContext`, if `userType` is not `learner` or `staff`, coerce to `'learner'` and `request.log.warn` (Fastify) / `console.warn` (Lambda) with org id + unrecognized key.
+  3. Handler — shared `resolveSummaryPolicyKey(orgId, rawUserType, warn)` in `summary-handler-core.ts` (imported by Lambda). If `rawUserType` is not `learner` or `staff`, coerce to `'learner'` and call `warn` with org id + unrecognized key (`request.log.warn` in Fastify; `console.warn` in Lambda).
   4. Spec § active_policy — document enum + coercion behavior (replaces pass-through-only wording).
   5. Contract test **SUM-012**: org routing config with `default_policy_key: 'parent'` → 200, `active_policy.policy_key === 'learner'`.
 - **Depends on**: TASK-001 (spec § active_policy updated in same PR)
@@ -186,7 +193,7 @@ where typeof value === 'number', excluding _delta companions.
 
 - **Details**:
   1. Change `resolveTrajectoryFields` to enumerate the **projected** fields (the same `projectLearnerState(currentState).fields` object the response returns), not `currentState.state`.
-  2. Apply the identical change in the Lambda path (`src/lambda/inspect.ts`).
+  2. Apply the identical change in the Lambda path (`src/lambda/inspect.ts`) via `resolveSummaryTrajectoryFields` (same logic as core `resolveTrajectoryFields`).
   3. Keep the numeric + `!endsWith('_delta')` filter and the `.slice(0, 10)` cap.
   4. Contract test **SUM-013**: seed a learner whose stored state has a numeric non-URS key (e.g. `internalScratchScore`); assert it appears in neither `current_state.fields` nor `field_trajectories` keys, while URS numeric fields (e.g. `masteryScore`) do appear.
 - **Depends on**: none (independent of TASK-001..006; URS projection plan already shipped `projectLearnerState`)
@@ -197,7 +204,7 @@ where typeof value === 'number', excluding _delta companions.
 ### To Modify
 | File | Task | Changes |
 |------|------|---------|
-| `docs/specs/learner-summary-api.md` | TASK-001, TASK-004, TASK-005, TASK-006 | URL decision, policy_key enum/coercion, description optional, SUM-012 |
+| `docs/specs/learner-summary-api.md` | TASK-001, TASK-004, TASK-005, TASK-006 | URL decision, policy_key enum/coercion, description optional, SUM-012, SUM-013 |
 | `docs/api/openapi.yaml` | TASK-002, TASK-003, TASK-004, TASK-005 | Schema tightenings |
 | `src/learners/summary-handler-core.ts` | TASK-004, TASK-007 | PolicyKey type + coercion; projected-field trajectory discovery |
 | `src/lambda/inspect.ts` | TASK-004, TASK-007 | Same coercion + projected-field discovery in Lambda path |
@@ -211,7 +218,7 @@ where typeof value === 'number', excluding _delta companions.
 | `recent_decisions` ordered by `decided_at` DESC | spec § recent_decisions | TASK-002 |
 | `active_policy.policy_key` reflects resolved userType | spec § active_policy | TASK-004 |
 | Response shape stable for SDK/dashboard consumers | spec § Notes SDK note | TASK-003, TASK-005 |
-| Contract tests traceable (SUM-001..008 existing) | spec § Contract Tests | TASK-006 |
+| Contract tests traceable (SUM-001..013) | spec § Contract Tests | TASK-006 |
 | Default `field_trajectories` uses `current_state.fields` (URS-projected) | spec § field_trajectories default | TASK-007 |
 
 ## Test Plan
@@ -226,8 +233,8 @@ where typeof value === 'number', excluding _delta companions.
 
 | Spec section | Spec says | Plan does | Resolution |
 |--------------|-----------|-----------|------------|
-| § active_policy | `policy_key` is pass-through userType | Coerce unrecognized keys to `learner` with warn log | Update spec in same PR (TASK-004) |
-| § active_policy | `description` listed as response field | OpenAPI marks optional; handler still returns it | Update spec in same PR (TASK-005) — opt-in omission deferred |
+| § active_policy | `policy_key` is pass-through userType | Coerce unrecognized keys to `learner` with warn log | **Resolved** — spec § active_policy updated (TASK-004) |
+| § active_policy | `description` listed as response field | OpenAPI marks optional; handler still returns it | **Resolved** — spec § active_policy updated (TASK-005); opt-in omission deferred |
 | (full hygiene plan) | ETag, by_source, include param | Not in MVP plan | Deferred — `.cursor/plans/learner-summary-api-hygiene.plan.md` TASK-002..005, TASK-007 full |
 
 ## Risks
@@ -239,12 +246,21 @@ where typeof value === 'number', excluding _delta companions.
 
 ## Verification Checklist
 
-- [ ] All tasks completed
-- [ ] `npm run check` passes
-- [ ] Spec § Endpoint records URL decision (TASK-001)
-- [ ] SUM-012 and SUM-013 registered and green
-- [ ] `field_trajectories` keys are a subset of `current_state.fields` keys (TASK-007)
-- [ ] No ETag/304/by_source/include query changes in this PR
+- [x] All tasks completed
+- [x] `npm run check` passes
+- [x] Spec § Endpoint records URL decision (TASK-001)
+- [x] SUM-012 and SUM-013 registered and green
+- [x] `field_trajectories` keys are a subset of `current_state.fields` keys (TASK-007)
+- [x] No ETag/304/by_source/include query changes in this PR
+
+## Implementation Notes
+
+Post-implementation parity (synced with `docs/specs/learner-summary-api.md`):
+
+- **`PolicyKey`** — `export type PolicyKey = 'learner' | 'staff'` in `src/learners/summary-handler-core.ts`; narrows `ActivePolicyResponse.policy_key`.
+- **`resolveSummaryPolicyKey()`** — shared coercion helper used by Fastify core and Lambda inspect paths; contract-tested via SUM-012.
+- **Default trajectory discovery** — `resolveTrajectoryFields` (core) and `resolveSummaryTrajectoryFields` (Lambda) both enumerate `projectLearnerState(currentState.state).fields`, not raw stored state; contract-tested via SUM-013.
+- **`ActivePolicyResponse.description`** — optional in TypeScript (`description?: string`); handler still populates it at MVP.
 
 ## Implementation Order
 
@@ -260,3 +276,4 @@ TASK-007 (independent; land before TASK-006 so npm run check covers SUM-013)
 | ETag + Cache-Control + 304 | hygiene TASK-002..004 | Additive; no dashboard lock-in |
 | `signals_summary.by_source` | hygiene TASK-005 | RCU cost; no MVP UI consumer |
 | `?include=policy_description` | hygiene TASK-007 | Schema marker sufficient for MVP |
+| Redocly zero-warning cleanup (`/health` 4XX, webhook example) | hygiene TASK-010 | Unrelated paths; `validate:api` still passes (warnings only) |

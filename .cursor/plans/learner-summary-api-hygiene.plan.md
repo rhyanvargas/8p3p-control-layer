@@ -29,6 +29,9 @@ todos:
   - id: TASK-009
     content: Document recent_decisions DESC ordering in OpenAPI schema description
     status: pending
+  - id: TASK-010
+    content: Clear pre-existing Redocly lint warnings on unrelated OpenAPI paths
+    status: pending
 isProject: false
 ---
 
@@ -354,9 +357,38 @@ The ordering is documented in the spec but not in the schema description; SDK co
 
 ---
 
+### TASK-010 — Clear pre-existing Redocly lint warnings (repo-wide doc hygiene)
+
+**Why here:** `npm run validate:api` currently exits 0 but emits two pre-existing warnings on paths unrelated to learner summary. The verification checklist below targets **zero** Redocly warnings; this task closes the gap so `validate:api` output is a reliable signal for future OpenAPI edits.
+
+**Files**: `docs/api/openapi.yaml`
+
+**Action**: Modify (docs only — no handler or route behavior changes)
+
+**Details**:
+
+1. **`GET /health` — `operation-4xx-response` warning**
+   - Redocly rule: every operation should declare at least one `4XX` response.
+   - Add a `503` response to `paths['/health'].get.responses` (e.g. `description: Service unavailable` with `HealthResponse` or a minimal error body). `/health` today only returns 200; documenting 503 satisfies the linter and matches load-balancer expectations without changing runtime behavior.
+
+2. **`POST /v1/webhooks/{source_system}` — `no-invalid-media-type-examples` warning**
+   - The `200` response `example` includes `source_system: canvas-lms`, but `#/components/schemas/SignalIngestResult` does not define `source_system` (runtime `SignalIngestResult` in `src/shared/types.ts` matches the schema: `org_id`, `signal_id`, `status`, `received_at`, optional `rejection_reason`).
+   - **Fix:** Remove `source_system` from the webhook `200` example so it conforms to `SignalIngestResult`. `source_system` remains documented on the path parameter and on `SignalEnvelope` (ingest body), not on the ingest *result*.
+   - Introduced by `.cursor/plans/webhook-adapters.plan.md` TASK-011; no schema widening unless a separate spec change adds `source_system` to the ingest result wire format.
+
+**Depends on**: none (independent of TASK-001..009; safe to land anytime)
+
+**Verification**:
+- `npm run validate:api` exits 0 with **zero warnings** (not merely zero errors)
+- Swagger UI `/docs` webhook `200` example matches `SignalIngestResult` fields only
+
+**Acceptance:** Redocly output is warning-free; generated docs no longer show a fictitious `source_system` on webhook success responses.
+
+---
+
 ## Verification checklist
 
-- [ ] `npm run validate:api` passes (Redocly lint clean with all schema tightenings)
+- [ ] `npm run validate:api` passes with zero warnings (Redocly lint clean — TASK-010 + all schema tightenings)
 - [ ] `npm run validate:contracts` passes
 - [ ] `npm test` passes (existing + new SUM-009/010/011)
 - [ ] `npm run typecheck` passes
@@ -370,6 +402,7 @@ The ordering is documented in the spec but not in the schema description; SDK co
 - [ ] `recent_decisions` schema description states DESC ordering
 - [ ] Spec § Endpoint records the URL collection-root decision (TASK-001)
 - [ ] Spec § Caching subsection added
+- [ ] Pre-existing Redocly warnings cleared (`/health` 4XX, webhook `200` example) — TASK-010
 
 ## Notes
 

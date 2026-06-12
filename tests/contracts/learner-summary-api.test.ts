@@ -401,6 +401,45 @@ describe('Learner Summary API Contract Tests', () => {
   });
 
   // ---------------------------------------------------------------------------
+  // SUM-012: Unknown routing key coerces to learner
+  // ---------------------------------------------------------------------------
+  describe('SUM-012: Unknown routing key coerces to learner', () => {
+    it('should return 200 with active_policy.policy_key learner when routing key is unrecognized', async () => {
+      const routingSpy = vi.spyOn(policyLoader, 'loadRoutingConfigForOrg').mockReturnValue({
+        org_id: ORG,
+        default_policy_key: 'parent',
+      } as unknown as ReturnType<typeof policyLoader.loadRoutingConfigForOrg>);
+      const policySpy = vi.spyOn(policyLoader, 'loadPolicyForContext').mockReturnValue({
+        policy_id: `${ORG}:learner`,
+        policy_version: '1.1.0',
+        description: 'Learner policy',
+        rules: [{ rule_id: 'r1' }],
+      } as unknown as ReturnType<typeof policyLoader.loadPolicyForContext>);
+
+      try {
+        saveState(createState({
+          state: { stabilityScore: 0.5 },
+        }));
+
+        const response = await contractHttp(app, {
+          method: 'GET',
+          url: `/v1/learners/${LEARNER}/summary?org_id=${ORG}`,
+        });
+
+        expect(response.statusCode).toBe(200);
+        const body = response.json() as {
+          active_policy: { policy_key: string } | null;
+        };
+        expect(body.active_policy?.policy_key).toBe('learner');
+        expect(policySpy).toHaveBeenCalledWith(ORG, 'learner');
+      } finally {
+        routingSpy.mockRestore();
+        policySpy.mockRestore();
+      }
+    });
+  });
+
+  // ---------------------------------------------------------------------------
   // SUM-006: Active policy null when no policy for org
   // ---------------------------------------------------------------------------
   describe('SUM-006: Active policy null when no policy for org', () => {
@@ -567,6 +606,49 @@ describe('Learner Summary API Contract Tests', () => {
         flagged: false,
         label: null,
       });
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // SUM-013: Default trajectory fields are URS-projected
+  // ---------------------------------------------------------------------------
+  describe('SUM-013: Default trajectory fields are URS-projected', () => {
+    it('should exclude non-URS numeric keys from current_state.fields and field_trajectories', async () => {
+      saveState(createState({
+        state_version: 1,
+        state_id: `${ORG}:${LEARNER}:v1`,
+        updated_at: '2026-03-01T10:00:00Z',
+        state: { masteryScore: 0.65, internalScratchScore: 42 },
+      }));
+      saveState(createState({
+        state_version: 2,
+        state_id: `${ORG}:${LEARNER}:v2`,
+        updated_at: '2026-03-02T10:00:00Z',
+        state: { masteryScore: 0.75, internalScratchScore: 99 },
+      }));
+
+      const response = await contractHttp(app, {
+        method: 'GET',
+        url: `/v1/learners/${LEARNER}/summary?org_id=${ORG}`,
+      });
+
+      expect(response.statusCode).toBe(200);
+      const body = response.json() as {
+        current_state: { fields: Record<string, unknown> };
+        field_trajectories: Record<string, unknown>;
+      };
+
+      const fieldKeys = Object.keys(body.current_state.fields);
+      const trajectoryKeys = Object.keys(body.field_trajectories);
+
+      expect(fieldKeys).not.toContain('internalScratchScore');
+      expect(trajectoryKeys).not.toContain('internalScratchScore');
+      expect(fieldKeys).toContain('masteryScore');
+      expect(trajectoryKeys).toContain('masteryScore');
+
+      for (const key of trajectoryKeys) {
+        expect(fieldKeys).toContain(key);
+      }
     });
   });
 
