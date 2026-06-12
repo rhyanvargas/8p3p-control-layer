@@ -11,6 +11,7 @@
   },
   "scripts": {
     "precheck": "node scripts/ensure-better-sqlite3.mjs",
+    "predev": "node scripts/build-dashboard-local.mjs",
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
@@ -26,6 +27,7 @@
     "generate:api-key": "node scripts/generate-api-key.mjs",
     "seed:springs-demo": "node examples/springs/seed-springs-demo.mjs",
     "build:dashboard": "cd dashboard && npm ci --quiet && npm run build",
+    "build:dashboard:local": "node scripts/build-dashboard-local.mjs",
     "lint": "eslint src tests",
     "typecheck": "tsc --noEmit",
     "check": "npm run build && npm run validate:schemas && npm run validate:contracts && npm run validate:api && npm run lint && npm test",

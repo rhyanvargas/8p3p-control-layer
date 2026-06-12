@@ -46,6 +46,21 @@ test.describe('Decision Panel e2e', () => {
       'Requires E2E_WITH_API=1 and E2E_BASE_URL pointing at the control-layer API (same-origin /v1/*).'
     );
 
+    await page.goto('/dashboard/');
+    await page.waitForResponse(
+      (res) => res.url().includes('/v1/state/list') && res.status() === 200
+    );
+    await page.waitForResponse((res) => /\/v1\/learners\/[^/]+\/summary/.test(res.url()), {
+      timeout: 15_000,
+    });
+    await page.waitForResponse(
+      (res) =>
+        /\/v1\/state/.test(res.url()) &&
+        !res.url().includes('/v1/state/list') &&
+        res.status() === 200,
+      { timeout: 15_000 }
+    );
+
     const summaryRequest = page.waitForRequest((req) => /\/v1\/learners\/[^/]+\/summary/.test(req.url()));
     const stateRequest = page.waitForRequest(
       (req) => /\/v1\/state/.test(req.url()) && !req.url().includes('/v1/state/list')

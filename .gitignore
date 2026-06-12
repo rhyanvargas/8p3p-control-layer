@@ -102,6 +102,9 @@ out
 .nuxt
 dist
 
+# Dashboard local build fingerprint (scripts/build-dashboard-local.mjs)
+dashboard/.build-env-stamp
+
 # Gatsby files
 .cache/
 # Comment in the public line in if your project uses Gatsby and not Next.js

@@ -219,6 +219,13 @@
       div.textContent = String(str);
       return div.innerHTML;
     },
+
+    /** Scalar values as strings; objects/arrays as compact JSON (avoids "[object Object]"). */
+    formatFieldValue(val) {
+      if (val === null || val === undefined) return '';
+      if (typeof val === 'object') return JSON.stringify(val);
+      return String(val);
+    },
   };
 
   /** Decision context for Panel 4 (set by Panel 3 row click) */

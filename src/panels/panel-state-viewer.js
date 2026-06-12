@@ -61,6 +61,7 @@
     }
 
     const esc = window.UI.escapeHtml;
+    const fmt = window.UI.formatFieldValue;
     const stateObj = state.state || {};
     const prov = state.provenance || {};
 
@@ -83,7 +84,7 @@
         const val = stateObj[f];
         const present = val !== undefined && val !== null;
         const cls = present ? 'canonical-field present' : 'canonical-field missing';
-        html += `<div class="${cls}">${esc(f)}: ${present ? esc(String(val)) : '—'}</div>`;
+        html += `<div class="${cls}">${esc(f)}: ${present ? esc(fmt(val)) : '—'}</div>`;
       }
     }
     html += '</div>';
