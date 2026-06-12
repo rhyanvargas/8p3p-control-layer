@@ -121,7 +121,7 @@ config_version_conflict   PUT with config_version not greater than stored
 
 ## Prerequisites
 
-- [ ] PREREQ-001 `urs-aggregation` plan merged through at least TASK-001 (aggregation constants module exists at `src/state/aggregation-constants.ts`).
+- [x] PREREQ-001 SATISFIED (2026-06-05) — `urs-aggregation` is fully merged; constants module exists at `src/state/aggregation-constants.ts` (commits `5b13410`..`c524b80`). All `aggregation.*` defaults this plan wraps are present and verified.
 
 ## Tasks
 

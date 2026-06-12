@@ -342,17 +342,18 @@ None - plan is literal-compatible with spec.
 | Threading orgId into computeNewState requires call-site changes | Medium | Audit callers of computeNewState; pass orgId or resolve subject config one layer up if signature change is invasive |
 | Redefining overall as subject-mean confuses consumers vs top-level masteryScore | Medium | Spec documents mastery_breakdown.overall as canonical; TASK-010 updates summary spec; keep top-level mirror for policy back-compat |
 | Gifted flag full-history decision scan cost for high-volume learners | Low | getDecisionTypeSummaryForLearner is a count query; pilot volumes small; add index if needed later |
-| CEO has not signed off equal-weight overall vs per-skill mean | Medium | PREREQ-001 gate before TASK-005 |
+| CEO has not signed off equal-weight overall vs per-skill mean | ~~Medium~~ Resolved | PREREQ-001 signed off 2026-06-05 (equal-weight confirmed); see Prerequisites |
 
 ## Verification Checklist
 
-- [ ] All tasks completed
-- [ ] All tests pass (`npm test`)
-- [ ] Linter passes (`npm run lint`)
-- [ ] Type check passes (`npm run typecheck`)
-- [ ] OpenAPI valid (`npm run validate:api`)
-- [ ] Matches spec requirements
-- [ ] AGG-016 confirms no policy regression
+- [x] All tasks completed
+- [x] All tests pass (`npm test`) — 953 passing
+- [x] Linter passes (`npm run lint`)
+- [x] Type check passes (`npm run typecheck`)
+- [x] OpenAPI valid (`npm run validate:api`)
+- [x] Matches spec requirements
+- [x] AGG-016 confirms no policy regression
+- [x] DELTA-008 confirms `state.aggregation` receives no delta companions (post-review fix)
 
 ## Implementation Order
 
@@ -366,6 +367,6 @@ TASK-007,008 → TASK-013
 
 ## Next Steps
 
-- Resolve PREREQ-001 (CEO sign-off) before TASK-005.
-- Run `/implement-spec .cursor/plans/urs-aggregation.plan.md`.
-- **Then** sequence `tenant-config`: see `.cursor/plans/tenant-config.plan.md` (depends on TASK-001 constants landing here).
+- **COMPLETE (2026-06-05).** All tasks implemented and merged (commits `5b13410`..`c524b80`); post-review fixes applied (lint precision literal, `state.aggregation` delta-skip + DELTA-008). Full check pipeline green (953 tests, lint, typecheck, `validate:api`).
+- **Consumption:** Wave 3 pilot MVP launch surfaces `mastery_breakdown` in the Decision Panel — see `.cursor/plans/pilot-mvp-launch.plan.md` (start with `learner-summary-api-hygiene-mvp`).
+- **Configurability:** `tenant-config` wraps these constants as per-org `aggregation.*` overrides — see `.cursor/plans/tenant-config.plan.md` (PREREQ-001 satisfied; sequence after Wave 3).

@@ -34,6 +34,8 @@ Specifications in this folder are the **single source of truth for requirements 
 - [`integration-templates.md`](integration-templates.md) — Connector Layer: catalog, activation, event type config, pre-built templates (Canvas, I-Ready, Branching Minds)
 - [`learner-trajectory-api.md`](learner-trajectory-api.md) — `GET /v1/state/trajectory`; version-range field trend view (**depends on state-delta-detection**)
 - [`learner-summary-api.md`](learner-summary-api.md) — `GET /v1/learners/:ref/summary`; educator-readable aggregated view (**depends on trajectory**)
+- [`urs-aggregation.md`](urs-aggregation.md) — **Implemented (2026-06-05)** — skill→subject→overall mastery hierarchy, learning gaps, and gifted-interest flag; exposed via `current_state.mastery_breakdown` on the summary endpoint. Constants centralized in `src/state/aggregation-constants.ts`.
+- [`tenant-config.md`](tenant-config.md) — **Spec'd; plan staged (2026-06-05)** — per-org overridable business rules (`aggregation.*`, `features.*`, `subjects`, `routing`) + admin API, with a three-plane security boundary keeping secrets/infra out of tenant-editable data. Wraps URS aggregation constants as defaults.
 - [`liu-usage-meter.md`](liu-usage-meter.md) — `GET /v1/admin/usage` + `GET /v1/usage`; per-org monthly LIU metering (**promoted to pre-Month 0 as SBIR evidence denominator**)
 
 ### Execution plans (Wave 3 — pilot MVP launch)

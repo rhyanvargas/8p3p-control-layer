@@ -78,7 +78,8 @@ The tenant config document is a JSON object with a closed set of top-level names
     "learning_gaps_max": 10,
     "gifted_mastery_threshold": 0.95,
     "min_skills_for_gifted": 2,
-    "min_advance_decisions": 1
+    "min_advance_decisions": 1,
+    "gifted_min_evidence_count": 3
   },
 
   "subjects": {                  // FEDERATED — schema mirrors policies/{orgId}/subjects.json
