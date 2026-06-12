@@ -26,6 +26,22 @@ interface StateErrorResponse {
   field_path?: string;
 }
 
+export const LEARNER_SUMMARY_LOG_EVENT = 'learner_summary' as const;
+
+export interface LearnerSummaryRequestLog {
+  event: typeof LEARNER_SUMMARY_LOG_EVENT;
+  org_id: string;
+  learner_reference: string;
+  duration_ms: number;
+  statusCode: number;
+}
+
+export function learnerSummaryRequestLog(
+  fields: Omit<LearnerSummaryRequestLog, 'event'>
+): LearnerSummaryRequestLog {
+  return { event: LEARNER_SUMMARY_LOG_EVENT, ...fields };
+}
+
 export type PolicyKey = 'learner' | 'staff';
 
 export interface ActivePolicyResponse {

@@ -368,6 +368,7 @@ None. All error cases map to existing codes.
 - **Default trajectory field discovery** — when `trajectory_fields` is omitted, both paths enumerate numeric keys from `projectLearnerState(currentState.state).fields` (not raw `LearnerState.state`): `resolveTrajectoryFields` in core, `resolveSummaryTrajectoryFields` in Lambda inspect.
 - **Implementation note:** The handler walks `getStateVersionRange` in pages of 100 with a hard cap of 10 iterations (1000 versions maximum). This bounds the worst-case Lambda runtime and matches v1.1 traffic expectations; revisit when median learner exceeds ~500 versions.
 - **SDK note:** The response shape of this endpoint is intentionally designed to be the primary input for an 8P3P SDK method `getLearnerSummary(learnerRef, options)`. The SDK layer is out of scope for this spec but the JSON contract is forward-compatible.
+- **Pilot SLO (aspirational):** During school hours, target **p95 latency ≤ 500ms** and **99.5% availability** for `GET /v1/learners/:learner_reference/summary`. Monitor via CloudWatch InspectFunction metrics and `learner_summary` structured logs (`org_id`, `learner_reference`, `duration_ms`, `statusCode`). Alarms: error rate > 1% (5 min), duration p95 > 2000ms (5 min) — see `infra/lib/control-layer-stack.ts`.
 
 ---
 

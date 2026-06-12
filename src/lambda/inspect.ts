@@ -12,11 +12,12 @@ import { DynamoDbDecisionRepository } from '../decision/dynamodb-repository.js';
 import { DynamoDbSignalLogRepository } from '../signalLog/dynamodb-repository.js';
 import { loadRoutingConfigForOrg, loadPolicyForContext } from '../decision/policy-loader.js';
 import { listActivePoliciesForOrg, loadPolicyByKeyForOrg } from '../policies/active-policies-source.js';
-import type {
-  ActivePolicyResponse,
-  RecentDecisionItem,
+import {
+  learnerSummaryRequestLog,
+  resolveSummaryPolicyKey,
+  type ActivePolicyResponse,
+  type RecentDecisionItem,
 } from '../learners/summary-handler-core.js';
-import { resolveSummaryPolicyKey } from '../learners/summary-handler-core.js';
 import {
   completeMasteryBreakdown,
   projectLearnerState,
@@ -531,7 +532,22 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
   if (policyDetailMatch) return handleGetPolicyDetail(params, policyDetailMatch[1]!);
 
   const learnerSummaryMatch = path.match(/\/v1\/learners\/([^/]+)\/summary$/);
-  if (learnerSummaryMatch) return handleGetLearnerSummary(params, learnerSummaryMatch[1]!);
+  if (learnerSummaryMatch) {
+    const learnerRef = learnerSummaryMatch[1]!;
+    const startedAt = Date.now();
+    const result = await handleGetLearnerSummary(params, learnerRef);
+    console.log(
+      JSON.stringify(
+        learnerSummaryRequestLog({
+          org_id: params.org_id ?? '',
+          learner_reference: learnerRef,
+          duration_ms: Date.now() - startedAt,
+          statusCode: result.statusCode,
+        })
+      )
+    );
+    return result;
+  }
 
   return jsonResponse(404, { error: 'Not Found' });
 };

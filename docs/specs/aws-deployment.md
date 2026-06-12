@@ -139,10 +139,23 @@ Three Lambda functions, grouped by access pattern:
 |----------|--------|---------|
 | `IngestFunction` | `POST /v1/signals` | Write-path: ingestion + state update + decision |
 | `QueryFunction` | `GET /v1/signals`, `GET /v1/decisions`, `GET /v1/receipts` | Read-path: signal log, decision, and receipt queries |
-| `InspectFunction` | `GET /v1/state`, `GET /v1/state/list`, `GET /v1/ingestion`, `GET /v1/policies` | Read-path: inspection + policy inspection API |
+| `InspectFunction` | `GET /v1/state`, `GET /v1/state/list`, `GET /v1/ingestion`, `GET /v1/policies`, `GET /v1/learners/{ref}/summary` | Read-path: inspection, policy inspection, learner summary |
 | `AdminFunction` | `PUT/PATCH/DELETE /v1/admin/policies`, `PUT/GET /v1/admin/mappings` | Admin write-path: policy management + field mapping management (ADMIN_API_KEY auth) |
 
 Separating write and read paths allows independent scaling and IAM scoping (IngestFunction gets read-write DynamoDB access; QueryFunction and InspectFunction get read-only).
+
+#### Observability (Wave 3 pilot)
+
+CDK (`infra/lib/control-layer-stack.ts`) provisions for **InspectFunction** (summary + state read path):
+
+| Resource | Name / threshold | Purpose |
+|----------|------------------|---------|
+| CloudWatch dashboard | `control-layer-inspect-{stage}` | Invocations, errors, duration p95 |
+| Alarm | Error rate > 1% over 5 min | SNS via `InspectAlarmTopic` |
+| Alarm | Duration p95 > 2000 ms over 5 min | SNS via `InspectAlarmTopic` |
+| Application log | `event: learner_summary` | `org_id`, `learner_reference`, `duration_ms`, `statusCode` |
+
+Subscribe on-call email at synth: `cdk deploy -c pilotAlarmEmail=oncall@example.com`. SLO targets: `docs/specs/learner-summary-api.md` § Notes.
 
 ```typescript
 const ingestFn = new lambda.Function(this, 'IngestFunction', {
@@ -431,7 +444,7 @@ Set up via Route 53 + ACM + API Gateway custom domain mapping. The domain should
 | Secrets Manager | API keys are managed by API Gateway natively, not application secrets. No credentials to rotate at pilot scale. | When application-level secrets (DB creds, third-party API keys) are introduced |
 | Multi-region deployment | Single region (`us-east-1`) is sufficient for pilot. | Production / SLA > 99.9% required |
 | Custom authorizer Lambda | API Gateway native API keys are sufficient for pilot. | Need user-level or JWT-based auth |
-| CloudWatch dashboards and alarms | Basic Lambda metrics are sufficient for one engineer monitoring one customer. | 2+ customers or operational incidents requiring faster triage |
+| CloudWatch dashboards and alarms (InspectFunction) | **In scope for Wave 3 pilot.** CDK provisions dashboard `control-layer-inspect-{stage}`, error-rate and duration p95 alarms → SNS (`-c pilotAlarmEmail=...`). Summary path logs `learner_summary` JSON. | Extend to Ingest/Query when multi-customer |
 | Blue/green or canary deployments | Manual `cdk deploy` is acceptable at current deploy frequency. | Deploy frequency > 1x/week or second engineer joins |
 | Inspection panels hosting (S3/CloudFront) | Panels are static files served by Fastify locally; not needed on AWS for pilot. | Panels need public access independent of the API |
 | VPC configuration | Lambda runs in default networking. No NAT Gateway costs. | Need to access private resources (RDS, ElastiCache) |

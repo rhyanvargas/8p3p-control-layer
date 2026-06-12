@@ -6,6 +6,10 @@ import * as iam from 'aws-cdk-lib/aws-iam';
 import * as acm from 'aws-cdk-lib/aws-certificatemanager';
 import * as route53 from 'aws-cdk-lib/aws-route53';
 import * as route53Targets from 'aws-cdk-lib/aws-route53-targets';
+import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
+import * as cloudwatchActions from 'aws-cdk-lib/aws-cloudwatch-actions';
+import * as sns from 'aws-cdk-lib/aws-sns';
+import * as snsSubscriptions from 'aws-cdk-lib/aws-sns-subscriptions';
 import type { Construct } from 'constructs';
 
 export interface ControlLayerStackProps extends cdk.StackProps {
@@ -323,6 +327,97 @@ export class ControlLayerStack extends cdk.Stack {
       description: 'Default pilot API key for the 8P3P Control Layer',
     });
     usagePlan.addApiKey(pilotApiKey);
+
+    // -------------------------------------------------------------------------
+    // Observability: InspectFunction dashboard + alarms (W3-005)
+    // -------------------------------------------------------------------------
+
+    const inspectAlarmTopic = new sns.Topic(this, 'InspectAlarmTopic', {
+      displayName: `control-layer-inspect-alarms-${stage}`,
+    });
+
+    const pilotAlarmEmail = this.node.tryGetContext('pilotAlarmEmail') as string | undefined;
+    if (pilotAlarmEmail) {
+      inspectAlarmTopic.addSubscription(new snsSubscriptions.EmailSubscription(pilotAlarmEmail));
+    }
+
+    const inspectInvocations = this.inspectFunction.metricInvocations({
+      period: cdk.Duration.minutes(5),
+      statistic: 'Sum',
+    });
+    const inspectErrors = this.inspectFunction.metricErrors({
+      period: cdk.Duration.minutes(5),
+      statistic: 'Sum',
+    });
+
+    const inspectErrorRate = new cloudwatch.MathExpression({
+      expression: '100 * errors / IF(invocations > 0, invocations, 1)',
+      usingMetrics: {
+        errors: inspectErrors,
+        invocations: inspectInvocations,
+      },
+      period: cdk.Duration.minutes(5),
+    });
+
+    const inspectErrorRateAlarm = new cloudwatch.Alarm(this, 'InspectErrorRateAlarm', {
+      alarmName: `control-layer-inspect-error-rate-${stage}`,
+      alarmDescription: 'InspectFunction error rate exceeds 1% over 5 minutes',
+      metric: inspectErrorRate,
+      threshold: 1,
+      evaluationPeriods: 1,
+      comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+    });
+    inspectErrorRateAlarm.addAlarmAction(new cloudwatchActions.SnsAction(inspectAlarmTopic));
+
+    const inspectDurationP95 = this.inspectFunction.metricDuration({
+      period: cdk.Duration.minutes(5),
+      statistic: 'p95',
+    });
+
+    const inspectDurationP95Alarm = new cloudwatch.Alarm(this, 'InspectDurationP95Alarm', {
+      alarmName: `control-layer-inspect-duration-p95-${stage}`,
+      alarmDescription: 'InspectFunction duration p95 exceeds 2000ms over 5 minutes',
+      metric: inspectDurationP95,
+      threshold: 2000,
+      evaluationPeriods: 1,
+      comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+    });
+    inspectDurationP95Alarm.addAlarmAction(new cloudwatchActions.SnsAction(inspectAlarmTopic));
+
+    new cloudwatch.Dashboard(this, 'InspectOperationsDashboard', {
+      dashboardName: `control-layer-inspect-${stage}`,
+      widgets: [
+        [
+          new cloudwatch.GraphWidget({
+            title: 'InspectFunction Invocations',
+            left: [this.inspectFunction.metricInvocations()],
+            width: 8,
+          }),
+          new cloudwatch.GraphWidget({
+            title: 'InspectFunction Errors',
+            left: [this.inspectFunction.metricErrors()],
+            width: 8,
+          }),
+          new cloudwatch.GraphWidget({
+            title: 'InspectFunction Duration p95 (ms)',
+            left: [inspectDurationP95],
+            width: 8,
+          }),
+        ],
+      ],
+    });
+
+    new cdk.CfnOutput(this, 'InspectDashboardName', {
+      value: `control-layer-inspect-${stage}`,
+      description: 'CloudWatch dashboard for InspectFunction (summary + state paths)',
+    });
+
+    new cdk.CfnOutput(this, 'InspectAlarmTopicArn', {
+      value: inspectAlarmTopic.topicArn,
+      description: 'SNS topic for InspectFunction alarms; set -c pilotAlarmEmail=... at synth to subscribe',
+    });
 
     // -------------------------------------------------------------------------
     // Public endpoints: /health and /docs (no API key required)
