@@ -4,9 +4,9 @@ import { PanelEmpty, PanelError, PanelSkeleton } from '@/components/layout/panel
 import { DecisionBadge } from '@/components/shared/DecisionBadge';
 import { LearnerCard } from '@/components/shared/LearnerCard';
 import { UrgencyBadge } from '@/components/shared/UrgencyBadge';
-import { useDecisions } from '@/hooks/use-decisions';
+import { useOrgLearnerSummaries } from '@/hooks/use-learner-summary';
 import { skillDisplayLine } from '@/lib/panel-helpers';
-import { rankAttentionDecisions } from '@/lib/attention-decisions';
+import { decisionTypePriority, rankSummaryAttention } from '@/lib/attention-decisions';
 
 function decisionNarration(decisionType: string): string {
   if (decisionType === 'intervene') return 'high urgency decision';
@@ -15,12 +15,12 @@ function decisionNarration(decisionType: string): string {
 }
 
 export function WhoNeedsAttention({ orgId }: { orgId: string }) {
-  const { data, isLoading, isError, error, refetch } = useDecisions(orgId);
+  const { summaries, isLoading, isError, error, refetch } = useOrgLearnerSummaries(orgId);
 
   if (isLoading) {
     return (
       <PanelCard
-        title="Who Needs Attention?"
+        title="Who Needs Help Now"
         description="Learners with recent intervene or pause decisions, ordered by urgency."
         icon={AlertCircle}
         variant="danger"
@@ -33,24 +33,24 @@ export function WhoNeedsAttention({ orgId }: { orgId: string }) {
   if (isError) {
     return (
       <PanelCard
-        title="Who Needs Attention?"
+        title="Who Needs Help Now"
         description="Learners with recent intervene or pause decisions, ordered by urgency."
         icon={AlertCircle}
         variant="danger"
       >
-        <PanelError status={error.message} onRetry={() => void refetch()} />
+        <PanelError status={error?.message ?? 'Unknown error'} onRetry={() => void refetch()} />
       </PanelCard>
     );
   }
 
-  const ranked = rankAttentionDecisions(data ?? []);
+  const ranked = rankSummaryAttention(summaries);
   const rows = ranked.slice(0, 5);
   const more = Math.max(0, ranked.length - rows.length);
 
-  if (!data || rows.length === 0) {
+  if (rows.length === 0) {
     return (
       <PanelCard
-        title="Who Needs Attention?"
+        title="Who Needs Help Now"
         description="Learners with recent intervene or pause decisions, ordered by urgency."
         icon={AlertCircle}
         variant="danger"
@@ -62,7 +62,7 @@ export function WhoNeedsAttention({ orgId }: { orgId: string }) {
 
   return (
     <PanelCard
-      title="Who Needs Attention?"
+      title="Who Needs Help Now"
       description="Learners with recent intervene or pause decisions, ordered by urgency."
       icon={AlertCircle}
       variant="danger"
@@ -72,18 +72,19 @@ export function WhoNeedsAttention({ orgId }: { orgId: string }) {
         ) : undefined
       }
     >
-      {rows.map((d) => {
-        const skillLine = skillDisplayLine(d.decision_context.skill);
+      {rows.map((row) => {
+        const skillLine = skillDisplayLine(row.dominantSkill);
+        const decisionType = row.decision.decision_type;
         return (
           <LearnerCard
-            key={`${d.decision_id}-who`}
-            learnerRef={d.learner_reference}
-            headerRight={<UrgencyBadge priority={d.output_metadata?.priority ?? null} />}
+            key={`${row.decision.decision_id}-who`}
+            learnerRef={row.learner_reference}
+            headerRight={<UrgencyBadge priority={decisionTypePriority(decisionType)} />}
           >
             <div className="flex flex-wrap items-center gap-2">
-              <DecisionBadge type={d.decision_type} />
+              <DecisionBadge type={decisionType} />
               <span className="text-sm text-muted-foreground">
-                {d.trace?.educator_summary ?? decisionNarration(d.decision_type)}
+                {row.decision.educator_summary || decisionNarration(decisionType)}
               </span>
             </div>
             {skillLine ? <p className="text-sm text-foreground">{skillLine}</p> : null}

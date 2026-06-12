@@ -1,13 +1,11 @@
 import { useMemo } from 'react';
-import { useQueries } from '@tanstack/react-query';
 import { CheckCircle } from 'lucide-react';
-import { apiFetch } from '@/api/client';
-import type { LearnerStateResponse } from '@/api/types';
 import { PanelCard } from '@/components/layout/PanelCard';
 import { PanelEmpty, PanelError, PanelSkeleton } from '@/components/layout/panel-states';
 import { LearnerCard } from '@/components/shared/LearnerCard';
 import { ProgressBadge } from '@/components/shared/ProgressBadge';
 import { useLearnerList } from '@/hooks/use-learner-list';
+import { useLearnerStates } from '@/hooks/use-learner-states';
 import { levelRank, scoreToLevel } from '@/lib/score-levels';
 import { extractSkillRows } from '@/lib/state-skills';
 
@@ -21,33 +19,22 @@ export function DidItWork({ orgId }: { orgId: string }) {
     [listQuery.data?.learners]
   );
 
-  const stateQueries = useQueries({
-    queries: learnerRefs.map((learnerRef) => ({
-      queryKey: ['learner-state', orgId, learnerRef],
-      queryFn: () =>
-        apiFetch<LearnerStateResponse>(
-          `/v1/state?org_id=${encodeURIComponent(orgId)}&learner=${encodeURIComponent(learnerRef)}`
-        ),
-      refetchInterval: 30_000,
-      enabled: !!orgId && learnerRefs.length > 0,
-    })),
-  });
+  const stateQuery = useLearnerStates(orgId, learnerRefs);
 
-  const isLoading =
-    listQuery.isLoading || (learnerRefs.length > 0 && stateQueries.some((q) => q.isLoading));
-  const isError = listQuery.isError || stateQueries.some((q) => q.isError);
+  const isLoading = listQuery.isLoading || stateQuery.isLoading;
+  const isError = listQuery.isError || stateQuery.isError;
   const firstError =
-    listQuery.error?.message ?? stateQueries.find((q) => q.error)?.error?.message ?? 'Unknown error';
+    listQuery.error?.message ?? stateQuery.error?.message ?? 'Unknown error';
 
   const refetchAll = () => {
     void listQuery.refetch();
-    for (const q of stateQueries) void q.refetch();
+    stateQuery.refetch();
   };
 
   if (isLoading) {
     return (
       <PanelCard
-        title="Did It Work?"
+        title="Did the Support Work"
         description="Skills where mastery is improving and proficiency level increased."
         icon={CheckCircle}
         variant="success"
@@ -60,7 +47,7 @@ export function DidItWork({ orgId }: { orgId: string }) {
   if (isError) {
     return (
       <PanelCard
-        title="Did It Work?"
+        title="Did the Support Work"
         description="Skills where mastery is improving and proficiency level increased."
         icon={CheckCircle}
         variant="success"
@@ -73,8 +60,8 @@ export function DidItWork({ orgId }: { orgId: string }) {
   type Row = { key: string; learnerRef: string; skillName: string; transition: string };
 
   const rows: Row[] = [];
-  for (let i = 0; i < stateQueries.length; i++) {
-    const q = stateQueries[i]!;
+  for (let i = 0; i < stateQuery.queries.length; i++) {
+    const q = stateQuery.queries[i]!;
     const learnerRef = learnerRefs[i]!;
     const body = q.data;
     if (!body) continue;
@@ -102,7 +89,7 @@ export function DidItWork({ orgId }: { orgId: string }) {
   if (rows.length === 0) {
     return (
       <PanelCard
-        title="Did It Work?"
+        title="Did the Support Work"
         description="Skills where mastery is improving and proficiency level increased."
         icon={CheckCircle}
         variant="success"
@@ -126,7 +113,7 @@ export function DidItWork({ orgId }: { orgId: string }) {
 
   return (
     <PanelCard
-      title="Did It Work?"
+      title="Did the Support Work"
       description="Skills where mastery is improving and proficiency level increased."
       icon={CheckCircle}
       variant="success"

@@ -1,6 +1,6 @@
 # Decision Panel UI
 
-> A lightweight, read-only proof surface that makes the control layer's intelligence visible to school staff — four panels answering: Who needs attention? Why are they stuck? What should we do? Did it work?
+> A lightweight, read-only proof surface that makes the control layer's intelligence visible to school staff — four panels answering: Who needs help now? What do they need help with? What should happen next? Did the support work?
 
 ## Overview
 
@@ -18,10 +18,10 @@ The Decision Panel mockup (CEO-provided) defines four panels:
 
 | Panel | Header | Icon/Color | Content |
 |-------|--------|------------|---------|
-| **Who Needs Attention?** | Alert icon, red accents | Learner cards with urgency level (`high`), decision type, skill context |
-| **Why Are They Stuck?** | Warning icon, amber accents | Learner cards showing specific skill, stability status, quoted rationale |
-| **What To Do?** | Lightbulb icon, green/teal accents | Single decision card with `INTERVENE` / `REINFORCE` badge, rationale, **Approve/Reject** buttons |
-| **Did It Work?** | Checkmark icon, green accents | Progress cards showing learner + skill, level transition (`emerging → novice`), `improved` badge |
+| **Who Needs Help Now** | Alert icon, red accents | Learner cards with urgency level (`high`), decision type, skill context |
+| **What Do They Need Help With** | Warning icon, amber accents | Learner cards showing specific skill, stability status, quoted rationale |
+| **What Should Happen Next** | Lightbulb icon, green/teal accents | Single decision card with `INTERVENE` / `REINFORCE` badge, rationale, **Approve/Reject** buttons |
+| **Did the Support Work** | Checkmark icon, green accents | Progress cards showing learner + skill, level transition (`emerging → novice`), `improved` badge |
 
 ---
 
@@ -264,14 +264,15 @@ The Decision Panel is a **static SPA** served from the control-layer API server.
 ```
 Decision Panel (React SPA)
      │
-     ├── GET /v1/state/list?org_id=:org         → learner list
-     ├── GET /v1/decisions (per learner + time window; org-wide via state/list fan-out) → decisions with traces
-     ├── GET /v1/state?org_id=:org&learner=:ref  → current learner state
-     ├── GET /v1/signals (per learner + time window; bounded multi-learner sampling) → signal history
-     └── GET /v1/policies?org_id=:org            → active policy (for rule context; optional in MVP UI)
+     ├── GET /v1/state/list?org_id=:org                              → learner index (unchanged)
+     ├── GET /v1/learners/:learner_reference/summary?org_id=:org       → Panels 1, 3 (decision-driven)
+     ├── GET /v1/state?org_id=:org&learner_reference=:ref              → Panels 2, 4 (per-skill breakdown)
+     └── GET /v1/policies?org_id=:org                                  → active policy (optional context)
      
      Headers: { "x-api-key": "<tenant_api_key>" }
 ```
+
+Panels 1 and 3 read `recent_decisions` and `current_state.fields` from the learner summary endpoint. Panels 2 and 4 require the full nested `skills.*` map from `GET /v1/state` (the summary URS projection intentionally omits per-skill fields). No raw `GET /v1/signals` prefetch is required for MVP — `signals_summary` on the summary response covers decision-panel needs.
 
 All requests use the existing tenant API key. No new auth mechanism required.
 
@@ -295,11 +296,11 @@ Every panel must handle three non-data states consistently, matching the pattern
 
 **Implementation note:** TanStack Query exposes `isLoading`, `isError`, and `data?.length === 0` as distinct states — use all three guards. Do not collapse loading and empty into the same branch.
 
-### Panel 1: "Who Needs Attention?"
+### Panel 1: "Who Needs Help Now"
 
 **Purpose:** Surface learners with the highest urgency — those with recent `intervene` or `pause` decisions, or rapidly declining metrics.
 
-**Data source:** `GET /v1/decisions` filtered by `decision_type: intervene` or `decision_type: pause`, sorted by `decided_at DESC`, limited to most recent per learner.
+**Data source:** `GET /v1/learners/:learner_reference/summary` — `recent_decisions` filtered by `decision_type: intervene` or `decision_type: pause`, sorted by urgency, limited to most recent per learner.
 
 **Card layout:**
 
@@ -322,11 +323,11 @@ Every panel must handle three non-data states consistently, matching the pattern
 
 **Limit:** Show top 5 learners. If more exist, show count: "+ N more learners".
 
-### Panel 2: "Why Are They Stuck?"
+### Panel 2: "What Do They Need Help With"
 
 **Purpose:** Show the specific skills where learners are struggling, with quoted stability/mastery context.
 
-**Data source:** `GET /v1/state` for each learner from Panel 1. Extract `skills.*` entries where `*_direction === "declining"` or `stabilityScore < 0.5`.
+**Data source:** `GET /v1/state?learner_reference=:ref` for each learner surfaced in Panel 1. Extract `skills.*` entries where `*_direction === "declining"` or `stabilityScore < 0.5`. Per-skill breakdown is **required** by the 9th Grade Literacy Pilot — the summary endpoint cannot substitute here.
 
 **Card layout:**
 
@@ -349,11 +350,11 @@ Every panel must handle three non-data states consistently, matching the pattern
 
 **Footer:** "+ N more issues" link when list is truncated.
 
-### Panel 3: "What To Do?"
+### Panel 3: "What Should Happen Next"
 
 **Purpose:** Present the most recent actionable decision for educator review with Approve/Reject controls.
 
-**Data source:** Most recent `intervene` or `pause` decision that has not been marked as reviewed.
+**Data source:** Most recent `intervene` or `pause` entry in `recent_decisions` from `GET /v1/learners/:learner_reference/summary` that has not been marked as reviewed.
 
 **Card layout:**
 
@@ -402,11 +403,11 @@ For pilot scope, Approve/Reject is **client-side state only** — it marks the d
 
 **Post-pilot enhancement:** `POST /v1/decisions/:decision_id/review` endpoint that persists educator acknowledgment. Spec deferred.
 
-### Panel 4: "Did It Work?"
+### Panel 4: "Did the Support Work"
 
 **Purpose:** Show learner progress — which skills have improved since the last decision.
 
-**Data source:** Compare current state `skills.{name}.{metric}_direction` values. Show entries where `_direction === "improving"`.
+**Data source:** `GET /v1/state?learner_reference=:ref` for org learners. Compare `skills.{name}.{metric}_direction` values. Show entries where `_direction === "improving"`. Per-skill breakdown is **required** by the 9th Grade Literacy Pilot.
 
 **Card layout:**
 
@@ -462,10 +463,10 @@ Four equal-width columns on desktop (min 1280px). Stacks to 2x2 on tablet (768�
 
 ```tsx
 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 p-6">
-  <PanelCard title="Who Needs Attention?" icon={AlertCircle} variant="danger" />
-  <PanelCard title="Why Are They Stuck?" icon={AlertTriangle} variant="warning" />
-  <PanelCard title="What To Do?" icon={Lightbulb} variant="action" />
-  <PanelCard title="Did It Work?" icon={CheckCircle} variant="success" />
+  <PanelCard title="Who Needs Help Now" icon={AlertCircle} variant="danger" />
+  <PanelCard title="What Do They Need Help With" icon={AlertTriangle} variant="warning" />
+  <PanelCard title="What Should Happen Next" icon={Lightbulb} variant="action" />
+  <PanelCard title="Did the Support Work" icon={CheckCircle} variant="success" />
 </div>
 ```
 
@@ -506,20 +507,20 @@ dashboard/
 │   ├── main.tsx                   # Vite entry
 │   ├── api/
 │   │   ├── client.ts             # fetch wrapper with API key header
-│   │   ├── fetch-org-decisions.ts # Fan-out: state/list → per-learner /v1/decisions
+│   │   ├── fetch-org-decisions.ts # Legacy fan-out helper (unused by panels post-summary migration)
 │   │   └── types.ts              # TypeScript types mirroring API response shapes
 │   ├── hooks/
-│   │   ├── use-decisions.ts      # TanStack Query: GET /v1/decisions (org-wide via fan-out)
-│   │   ├── use-learner-states.ts # TanStack Query: GET /v1/state (per learner)
+│   │   ├── use-decisions.ts      # TanStack Query: GET /v1/decisions (legacy; panels use summary)
+│   │   ├── use-learner-summary.ts # TanStack Query: GET /v1/learners/:ref/summary
+│   │   ├── use-learner-states.ts # TanStack Query: GET /v1/state (per learner, Panels 2/4)
 │   │   ├── use-learner-list.ts   # TanStack Query: GET /v1/state/list
-│   │   └── use-signals.ts        # TanStack Query: GET /v1/signals
+│   │   └── use-signals.ts        # TanStack Query: GET /v1/signals (optional; not prefetched in MVP)
 │   ├── components/
 │   │   ├── ui/                   # shadcn/ui components (Card, Badge, Button, etc.)
 │   │   ├── layout/
 │   │   │   ├── Header.tsx        # Title + subtitle + refresh + org selector
 │   │   │   ├── PanelCard.tsx     # Reusable panel card shell (icon, title, tooltip, scroll body)
 │   │   │   ├── panel-states.tsx  # PanelSkeleton, PanelError, PanelEmpty shared states
-│   │   │   └── SignalsPrefetch.tsx # Background signals prefetch for all learners
 │   │   ├── panels/
 │   │   │   ├── WhoNeedsAttention.tsx
 │   │   │   ├── WhyAreTheyStuck.tsx
@@ -537,7 +538,7 @@ dashboard/
 │   │   ├── attention-decisions.ts # Filter + rank intervene/pause decisions per learner
 │   │   ├── panel-helpers.ts      # skillDisplayLine() and shared panel utilities
 │   │   ├── query-client.ts       # Shared QueryClient instance
-│   │   ├── state-skills.ts       # Extract skill rows from nested learner state
+│   │   ├── state-skills.ts       # Extract skill rows + pilot literacy skill labels
 │   │   └── utils.ts              # cn() utility (clsx + tailwind-merge)
 │   └── styles/
 │       └── globals.css           # Tailwind directives + 8P3P design tokens
@@ -554,13 +555,13 @@ dashboard/
 
 ## API Data Contracts (Consumed)
 
-The Decision Panel is a **read-only consumer** of existing API endpoints. No new endpoints are required for the pilot MVP. All endpoints are already implemented and deployed.
+The Decision Panel is a **read-only consumer** of existing API endpoints. Panels 1 and 3 use the learner summary endpoint; Panels 2 and 4 require full per-skill state. No new write paths for MVP.
 
 | Endpoint | Used By Panel | Fields Consumed |
 |----------|--------------|-----------------|
-| `GET /v1/state/list` | All | `learners[].learner_reference`, `learners[].state_version` |
-| `GET /v1/decisions` | 1, 3 | `decision_type`, `decided_at`, `learner_reference`, `decision_context.skill`, `decision_context.assessment_type`, `trace.rationale`, `trace.matched_rule_id`, `trace.evaluated_fields`, `output_metadata.priority` |
-| `GET /v1/state` | 2, 4 | `state.skills.{name}.stabilityScore`, `state.skills.{name}.stabilityScore_direction`, `state.skills.{name}.stabilityScore_delta`, `state.skills.{name}.masteryScore` |
+| `GET /v1/state/list` | All (learner index) | `learners[].learner_reference`, `learners[].state_version` |
+| `GET /v1/learners/:learner_reference/summary` | 1, 3 | `recent_decisions[]`, `current_state.fields.skill`, `recent_decisions[].educator_summary`, `recent_decisions[].rationale`, `recent_decisions[].decision_type`, `recent_decisions[].decided_at` |
+| `GET /v1/state?learner_reference=:ref` | 2, 4 | `state.skills.{name}.stabilityScore`, `state.skills.{name}.stabilityScore_direction`, `state.skills.{name}.stabilityScore_delta`, `state.skills.{name}.masteryScore`, `state.skills.{name}.masteryScore_direction`, `state.skills.{name}.masteryScore_delta` |
 | `GET /v1/policies` | 3 (context) | `policy_key`, `rules[].rule_id`, `rules[].decision_type` (for rationale context) |
 
 ### Dependency on skill-level-tracking spec
@@ -575,14 +576,14 @@ Panels 1, 2, and 4 depend on `decision_context.skill`, `skills.*.stabilityScore_
 
 ### Functional
 
-- [ ] Four-panel layout matching CEO mockup: "Who Needs Attention?", "Why Are They Stuck?", "What To Do?", "Did It Work?"
-- [ ] Each panel populated from existing API endpoints — no new backend endpoints for MVP
+- [ ] Four-panel layout matching literacy pilot guide: "Who Needs Help Now", "What Do They Need Help With", "What Should Happen Next", "Did the Support Work"
+- [ ] Uses summary endpoint for decision panels (1, 3); per-skill panels (2, 4) read `GET /v1/state`. No new write paths.
 - [ ] Auto-refresh every 30 seconds via TanStack Query polling
 - [ ] Manual "Refresh Decisions" button in header
 - [ ] Decision type badges color-coded: intervene (red), reinforce (green), advance (blue), pause (gray)
 - [ ] Urgency badges derived from `output_metadata.priority`
 - [ ] Progress level labels derived from score thresholds (emerging/novice/proficient/mastery)
-- [ ] Approve/Reject buttons on "What To Do?" panel (client-side localStorage state for pilot)
+- [ ] Approve/Reject buttons on "What Should Happen Next" panel (client-side localStorage state for pilot)
 - [ ] Graceful degradation when `skill` or `assessment_type` fields are absent
 - [ ] Org selector (or env-configured single-org mode)
 - [ ] API key configurable via environment variable or login prompt
@@ -608,10 +609,10 @@ Panels 1, 2, and 4 depend on `decision_context.skill`, `skills.*.stabilityScore_
 ## Acceptance Criteria
 
 - Given a deployed control layer with seeded learner data, when the Decision Panel loads at `/dashboard`, then all four panels render with data within 3 seconds.
-- Given a learner with `decision_type: intervene` and `decision_context.skill: "Weather Patterns"`, when "Who Needs Attention?" renders, then the learner card shows urgency badge and "Skill: Weather Patterns".
-- Given a learner with `skills.fractions.stabilityScore_direction: "declining"`, when "Why Are They Stuck?" renders, then the card shows "fractions: stability declining" with a quoted rationale.
-- Given a recent intervene decision, when "What To Do?" renders, then the INTERVENE badge, learner name, skill, and rationale are displayed with Approve/Reject buttons.
-- Given a learner with `skills.shapes.masteryScore_direction: "improving"` and masteryScore increasing from 0.20 to 0.40, when "Did It Work?" renders, then the card shows "emerging → novice" with an "improved" badge.
+- Given a learner with `decision_type: intervene` and dominant skill `text_evidence`, when "Who Needs Help Now" renders, then the learner card shows urgency badge and "Skill: text_evidence" (or mapped literacy label).
+- Given a learner with `skills.text_evidence.stabilityScore_direction: "declining"`, when "What Do They Need Help With" renders, then the card shows "Text Evidence: stability declining" with a quoted rationale.
+- Given a recent intervene decision, when "What Should Happen Next" renders, then the INTERVENE badge, learner name, skill, and rationale are displayed with Approve/Reject buttons.
+- Given a learner with `skills.text_evidence.masteryScore_direction: "improving"` and masteryScore increasing from 0.20 to 0.40, when "Did the Support Work" renders, then the card shows "emerging → novice" with an "improved" badge.
 - Given the Approve button is clicked, when the same decision panel loads again, then that decision is no longer shown (stored in localStorage).
 - Given a flat-field policy (no `skill` in decision_context), when panels render, then the "Skill:" line is absent but all other card content renders normally.
 - Given the "Refresh" button is clicked, then all panel data refreshes immediately.
@@ -621,7 +622,7 @@ Panels 1, 2, and 4 depend on `decision_context.skill`, `skills.*.stabilityScore_
 
 ## Constraints
 
-- **No new API endpoints for MVP.** The panel reads from existing `GET /v1/*` routes. All aggregation logic (grouping by urgency, extracting skill trends, deriving levels) happens client-side.
+- **No new write paths for MVP.** Panels read from `GET /v1/learners/:ref/summary` (decision panels) and `GET /v1/state` (per-skill panels). All aggregation logic (grouping by urgency, extracting skill trends, deriving levels) happens client-side.
 - **No write-back for Approve/Reject in MVP.** Educator review state is localStorage only. Post-pilot, add `POST /v1/decisions/:id/review`.
 - **No user authentication UI.** API key is injected via `VITE_API_KEY` env var at build time, or prompted once on first visit and stored in localStorage.
 - **No admin capabilities.** No policy editing, no field mapping config, no tenant management. This is a proof surface, not a dashboard.
@@ -670,14 +671,14 @@ Panels 1, 2, and 4 depend on `decision_context.skill`, `skills.*.stabilityScore_
 | Test ID | Type | Description | Expected |
 |---------|------|-------------|----------|
 | DPU-001 | e2e | Panel loads with seeded data | All 4 panels render within 3s |
-| DPU-002 | e2e | "Who Needs Attention?" shows intervene decisions | Cards show learner, urgency, skill |
-| DPU-003 | e2e | "Why Are They Stuck?" shows declining skills | Cards show skill name, direction, stability % |
-| DPU-004 | e2e | "What To Do?" shows decision with Approve/Reject | Badge, learner, rationale, buttons visible |
-| DPU-005 | e2e | "Did It Work?" shows improving skills | Cards show level transition, improved badge |
-| DPU-006 | e2e | Approve button hides decision on next render | Decision removed from "What To Do?" after approve |
+| DPU-002 | e2e | "Who Needs Help Now" shows intervene decisions | Cards show learner, urgency, skill |
+| DPU-003 | e2e | "What Do They Need Help With" shows declining skills | Cards show skill name, direction, stability % |
+| DPU-004 | e2e | "What Should Happen Next" shows decision with Approve/Reject | Badge, learner, rationale, buttons visible |
+| DPU-005 | e2e | "Did the Support Work" shows improving skills | Cards show level transition, improved badge |
+| DPU-006 | e2e | Approve button hides decision on next render | Decision removed from "What Should Happen Next" after approve |
 | DPU-007 | unit | Score-to-level mapping | 0.20 → "emerging", 0.40 → "novice", 0.60 → "proficient", 0.90 → "mastery" |
 | DPU-008 | unit | Graceful degradation without skill field | Card renders without "Skill:" line |
-| DPU-009 | e2e | Refresh button triggers data reload | Network requests fired, data refreshed |
+| DPU-009 | e2e | Refresh button triggers data reload | Network requests to `/v1/learners/` (Panels 1/3) and `/v1/state` (Panels 2/4) |
 | DPU-010 | visual | Responsive layout — xl: 4-col, md: 2-col, sm: 1-col | Layout adapts to viewport |
 
 > **Test strategy:** DPU-001 through DPU-006 and DPU-009 are browser-based e2e tests (Playwright or Cypress). DPU-007 and DPU-008 are Vitest unit tests implemented in `tests/contracts/decision-panel-ui.test.ts` — per the document-traceability rule, spec-defined test IDs belong in `tests/contracts/`, not `tests/unit/`. DPU-010 is a visual/manual test.
@@ -689,7 +690,7 @@ Panels 1, 2, and 4 depend on `decision_context.skill`, `skills.*.stabilityScore_
 - **shadcn/ui init:** Run `npx shadcn@latest init` in `dashboard/` to scaffold the component library. Add components incrementally: `npx shadcn@latest add card badge button select tooltip`.
 - **API client:** A thin `fetch` wrapper in `api/client.ts` that prepends `VITE_API_BASE_URL` (default: same origin) and adds `x-api-key` header. No Axios or other HTTP library needed.
 - **Rationale builder:** `rationale-builder.ts` constructs human-readable sentences from state data: e.g., `stabilityScore: 0.22`, skill `"fractions"` → "Understanding of fractions is unstable (22% stability). May need reinforcement." This is purely client-side presentation logic — the decision trace `rationale` field is the authoritative source when available.
-- **GET /v1/decisions scope:** The shipped API requires `learner_reference`, `from_time`, and `to_time` (see `docs/api/openapi.yaml`). The dashboard aggregates org-wide decisions by paging `GET /v1/state/list`, then querying `GET /v1/decisions` per learner over a rolling window (see `docs/guides/get-all-learner-decisions-from-org.md`).
+- **GET /v1/decisions scope (legacy):** The shipped API requires `learner_reference`, `from_time`, and `to_time` (see `docs/api/openapi.yaml`). Decision panels now prefer `GET /v1/learners/:ref/summary` which embeds `recent_decisions`. The legacy org-wide decisions fan-out (`fetch-org-decisions.ts`) remains in the repo but is no longer used by panel components.
 - **Build integration:** Add `"build:dashboard": "cd dashboard && npm ci --quiet && npm run build"` to root `package.json`. The Fastify server registers `dashboard/dist/` as a static directory at `/dashboard`.
 - **Demo seed compatibility:** The existing `npm run seed:springs-demo` script produces decisions, states, and signals that the Decision Panel can display immediately — no additional seeding required once skill-level-tracking is implemented.
 

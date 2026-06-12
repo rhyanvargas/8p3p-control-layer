@@ -1,5 +1,25 @@
 import type { LearnerStateResponse } from '@/api/types';
 
+/** 9th Grade Literacy Pilot skill IDs → educator-facing labels. */
+const PILOT_SKILL_LABELS: Record<string, string> = {
+  main_idea: 'Main Idea',
+  text_evidence: 'Text Evidence',
+  written_response: 'Written Response',
+  academic_vocabulary: 'Academic Vocabulary',
+  reading_stamina: 'Reading Stamina',
+  basic_comprehension: 'Basic Comprehension',
+  cross_subject_literacy: 'Cross-Subject Literacy',
+};
+
+export function formatSkillLabel(skillId: string): string {
+  const mapped = PILOT_SKILL_LABELS[skillId];
+  if (mapped) return mapped;
+  return skillId
+    .split('_')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
 export type Direction = 'improving' | 'declining' | 'stable';
 
 export interface SkillRow {
@@ -21,7 +41,7 @@ function rowsFromSkillsMap(skills: Record<string, unknown>): SkillRow[] {
     if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) continue;
     const o = raw as Record<string, unknown>;
     rows.push({
-      skillName,
+      skillName: formatSkillLabel(skillName),
       stabilityScore: typeof o.stabilityScore === 'number' ? o.stabilityScore : undefined,
       stabilityScore_direction: isDirection(o.stabilityScore_direction)
         ? o.stabilityScore_direction

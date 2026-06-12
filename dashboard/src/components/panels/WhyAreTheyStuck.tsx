@@ -1,53 +1,39 @@
 import { useMemo } from 'react';
-import { useQueries } from '@tanstack/react-query';
 import { AlertTriangle } from 'lucide-react';
-import { apiFetch } from '@/api/client';
-import type { LearnerStateResponse } from '@/api/types';
 import { PanelCard } from '@/components/layout/PanelCard';
 import { PanelEmpty, PanelError, PanelSkeleton } from '@/components/layout/panel-states';
 import { LearnerCard } from '@/components/shared/LearnerCard';
-import { useDecisions } from '@/hooks/use-decisions';
-import { attentionLearnerRefs } from '@/lib/attention-decisions';
+import { useOrgLearnerSummaries } from '@/hooks/use-learner-summary';
+import { useLearnerStates } from '@/hooks/use-learner-states';
+import { summaryAttentionLearnerRefs } from '@/lib/attention-decisions';
 import { buildStabilityRationale } from '@/lib/rationale-builder';
 import { extractSkillRows } from '@/lib/state-skills';
 
 const MAX_ISSUES = 8;
 
 export function WhyAreTheyStuck({ orgId }: { orgId: string }) {
-  const decisionsQuery = useDecisions(orgId);
+  const summariesQuery = useOrgLearnerSummaries(orgId);
   const learnerRefs = useMemo(
-    () => attentionLearnerRefs(decisionsQuery.data ?? []),
-    [decisionsQuery.data]
+    () => summaryAttentionLearnerRefs(summariesQuery.summaries),
+    [summariesQuery.summaries]
   );
 
-  const stateQueries = useQueries({
-    queries: learnerRefs.map((learnerRef) => ({
-      queryKey: ['learner-state', orgId, learnerRef],
-      queryFn: () =>
-        apiFetch<LearnerStateResponse>(
-          `/v1/state?org_id=${encodeURIComponent(orgId)}&learner=${encodeURIComponent(learnerRef)}`
-        ),
-      refetchInterval: 30_000,
-      enabled: !!orgId && learnerRefs.length > 0,
-    })),
-  });
+  const stateQuery = useLearnerStates(orgId, learnerRefs);
 
-  const isLoading = decisionsQuery.isLoading || (learnerRefs.length > 0 && stateQueries.some((q) => q.isLoading));
-  const isError =
-    decisionsQuery.isError ||
-    stateQueries.some((q) => q.isError);
+  const isLoading = summariesQuery.isLoading || stateQuery.isLoading;
+  const isError = summariesQuery.isError || stateQuery.isError;
   const firstError =
-    decisionsQuery.error?.message ?? stateQueries.find((q) => q.error)?.error?.message ?? 'Unknown error';
+    summariesQuery.error?.message ?? stateQuery.error?.message ?? 'Unknown error';
 
   const refetchAll = () => {
-    void decisionsQuery.refetch();
-    for (const q of stateQueries) void q.refetch();
+    summariesQuery.refetch();
+    stateQuery.refetch();
   };
 
   if (isLoading) {
     return (
       <PanelCard
-        title="Why Are They Stuck?"
+        title="What Do They Need Help With"
         description="Skills where stability is declining or below the support threshold."
         icon={AlertTriangle}
         variant="warning"
@@ -60,7 +46,7 @@ export function WhyAreTheyStuck({ orgId }: { orgId: string }) {
   if (isError) {
     return (
       <PanelCard
-        title="Why Are They Stuck?"
+        title="What Do They Need Help With"
         description="Skills where stability is declining or below the support threshold."
         icon={AlertTriangle}
         variant="warning"
@@ -73,8 +59,8 @@ export function WhyAreTheyStuck({ orgId }: { orgId: string }) {
   type Issue = { key: string; learnerRef: string; skillName: string; direction: string; quote: string };
 
   const issues: Issue[] = [];
-  for (let i = 0; i < stateQueries.length; i++) {
-    const q = stateQueries[i]!;
+  for (let i = 0; i < stateQuery.queries.length; i++) {
+    const q = stateQuery.queries[i]!;
     const learnerRef = learnerRefs[i]!;
     const body = q.data;
     if (!body) continue;
@@ -103,7 +89,7 @@ export function WhyAreTheyStuck({ orgId }: { orgId: string }) {
   if (issues.length === 0) {
     return (
       <PanelCard
-        title="Why Are They Stuck?"
+        title="What Do They Need Help With"
         description="Skills where stability is declining or below the support threshold."
         icon={AlertTriangle}
         variant="warning"
@@ -118,7 +104,7 @@ export function WhyAreTheyStuck({ orgId }: { orgId: string }) {
 
   return (
     <PanelCard
-      title="Why Are They Stuck?"
+      title="What Do They Need Help With"
       description="Skills where stability is declining or below the support threshold."
       icon={AlertTriangle}
       variant="warning"

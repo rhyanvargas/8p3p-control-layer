@@ -1,28 +1,28 @@
 ---
 name: Dashboard Summary Migration
-overview: "Migrate decision-driven panels (Who Needs Help Now, What Should Happen Next) to GET /v1/learners/:ref/summary while keeping the per-skill panels (What Do They Need Help With, Did the Support Work) on GET /v1/state, because the literacy pilot requires per-skill breakdown that the URS summary projection intentionally strips. Align panel titles and skill IDs to the 9th Grade Literacy Pilot guide."
+overview: Migrate decision-driven panels (Who Needs Help Now, What Should Happen Next) to GET /v1/learners/:ref/summary while keeping the per-skill panels (What Do They Need Help With, Did the Support Work) on GET /v1/state, because the literacy pilot requires per-skill breakdown that the URS summary projection intentionally strips. Align panel titles and skill IDs to the 9th Grade Literacy Pilot guide.
 todos:
   - id: TASK-001
     content: Add LearnerSummaryResponse types and useLearnerSummary hook
-    status: pending
+    status: completed
   - id: TASK-002
     content: Migrate WhoNeedsAttention and WhatToDo to summary data
-    status: pending
+    status: completed
   - id: TASK-003
     content: Keep WhyAreTheyStuck and DidItWork on per-skill state; fix learner_reference param only
-    status: pending
+    status: completed
   - id: TASK-004
     content: Narrow redundant hooks without losing per-skill state reads
-    status: pending
+    status: completed
   - id: TASK-005
     content: Align panel titles and verify literacy skill IDs to pilot guide
-    status: pending
+    status: completed
   - id: TASK-006
     content: Update decision-panel-ui spec data sources and DPU e2e assertions
-    status: pending
+    status: completed
   - id: TASK-007
     content: Run dashboard typecheck lint and Playwright e2e
-    status: pending
+    status: completed
 isProject: false
 ---
 

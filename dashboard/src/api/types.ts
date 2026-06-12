@@ -81,3 +81,72 @@ export interface SignalsResponse {
   signals: SignalRecord[];
   next_page_token: string | null;
 }
+
+/** Mirrors OpenAPI TrajectoryFieldSummary (subset used by dashboards). */
+export interface TrajectoryFieldSummary {
+  first_value: number | null;
+  latest_value: number | null;
+  overall_direction: 'improving' | 'declining' | 'stable' | null;
+  version_count: number;
+}
+
+/** Closed URS projection on GET /v1/learners/:ref/summary current_state.fields. */
+export interface LearnerStateProjection {
+  masteryScore?: number | null;
+  masteryScore_delta?: number | null;
+  masteryScore_direction?: 'improving' | 'declining' | 'stable' | null;
+  stabilityScore?: number | null;
+  stabilityScore_delta?: number | null;
+  stabilityScore_direction?: 'improving' | 'declining' | 'stable' | null;
+  timeSinceReinforcement?: number | null;
+  timeSinceReinforcement_delta?: number | null;
+  timeSinceReinforcement_direction?: 'improving' | 'declining' | 'stable' | null;
+  riskSignal?: number | null;
+  riskSignal_delta?: number | null;
+  riskSignal_direction?: 'improving' | 'declining' | 'stable' | null;
+  skill?: string | null;
+}
+
+export interface RecentDecisionItem {
+  decision_id: string;
+  decision_type: DecisionType | string;
+  decided_at: string;
+  matched_rule_id: string | null;
+  educator_summary: string;
+  rationale: string;
+  policy_version: string;
+}
+
+export interface ActivePolicySummary {
+  policy_id: string;
+  policy_key: 'learner' | 'staff';
+  policy_version: string;
+  description?: string;
+  rule_count: number;
+}
+
+export interface SignalsSummary {
+  total_count: number;
+  first_signal_at: string | null;
+  last_signal_at: string | null;
+}
+
+export interface LearnerSummaryCurrentState {
+  state_id: string;
+  state_version: number;
+  updated_at: string;
+  fields: LearnerStateProjection;
+  mastery_breakdown: Record<string, unknown> | null;
+}
+
+/** Mirrors GET /v1/learners/:learner_reference/summary (OpenAPI LearnerSummaryResponse). */
+export interface LearnerSummaryResponse {
+  org_id: string;
+  learner_reference: string;
+  generated_at: string;
+  current_state: LearnerSummaryCurrentState;
+  recent_decisions: RecentDecisionItem[];
+  field_trajectories: Record<string, TrajectoryFieldSummary>;
+  active_policy: ActivePolicySummary | null;
+  signals_summary: SignalsSummary;
+}

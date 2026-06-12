@@ -4,30 +4,45 @@ import { PanelCard } from '@/components/layout/PanelCard';
 import { PanelEmpty, PanelError, PanelSkeleton } from '@/components/layout/panel-states';
 import { Button } from '@/components/ui/button';
 import { DecisionBadge } from '@/components/shared/DecisionBadge';
-import { useDecisions } from '@/hooks/use-decisions';
+import { useOrgLearnerSummaries } from '@/hooks/use-learner-summary';
 import { markReviewed, isReviewed } from '@/lib/decision-review';
 import { skillDisplayLine } from '@/lib/panel-helpers';
 import { queryClient } from '@/lib/query-client';
 
 export function WhatToDo({ orgId }: { orgId: string }) {
-  const { data, isLoading, isError, error, refetch } = useDecisions(orgId);
+  const { summaries, isLoading, isError, error, refetch } = useOrgLearnerSummaries(orgId);
   const [expanded, setExpanded] = useState(false);
 
-  const nextDecision = useMemo(() => {
-    const list = data ?? [];
-    const candidates = list
-      .filter(
-        (d) =>
-          (d.decision_type === 'intervene' || d.decision_type === 'pause') && !isReviewed(d.decision_id)
-      )
-      .sort((a, b) => b.decided_at.localeCompare(a.decided_at));
-    return candidates[0];
-  }, [data]);
+  const nextAction = useMemo(() => {
+    const candidates: Array<{
+      learnerRef: string;
+      dominantSkill: string | null;
+      decision: (typeof summaries)[number]['recent_decisions'][number];
+    }> = [];
+    for (const summary of summaries) {
+      const skillField = summary.current_state.fields.skill;
+      const dominantSkill = typeof skillField === 'string' && skillField.trim() ? skillField : null;
+      for (const decision of summary.recent_decisions) {
+        if (
+          (decision.decision_type === 'intervene' || decision.decision_type === 'pause') &&
+          !isReviewed(decision.decision_id)
+        ) {
+          candidates.push({
+            learnerRef: summary.learner_reference,
+            dominantSkill,
+            decision,
+          });
+        }
+      }
+    }
+    candidates.sort((a, b) => b.decision.decided_at.localeCompare(a.decision.decided_at));
+    return candidates[0] ?? null;
+  }, [summaries]);
 
   if (isLoading) {
     return (
       <PanelCard
-        title="What To Do?"
+        title="What Should Happen Next"
         description="Most recent actionable intervene or pause decision awaiting educator review."
         icon={Lightbulb}
         variant="action"
@@ -40,20 +55,20 @@ export function WhatToDo({ orgId }: { orgId: string }) {
   if (isError) {
     return (
       <PanelCard
-        title="What To Do?"
+        title="What Should Happen Next"
         description="Most recent actionable intervene or pause decision awaiting educator review."
         icon={Lightbulb}
         variant="action"
       >
-        <PanelError status={error.message} onRetry={() => void refetch()} />
+        <PanelError status={error?.message ?? 'Unknown error'} onRetry={() => void refetch()} />
       </PanelCard>
     );
   }
 
-  if (!nextDecision) {
+  if (!nextAction) {
     return (
       <PanelCard
-        title="What To Do?"
+        title="What Should Happen Next"
         description="Most recent actionable intervene or pause decision awaiting educator review."
         icon={Lightbulb}
         variant="action"
@@ -63,18 +78,19 @@ export function WhatToDo({ orgId }: { orgId: string }) {
     );
   }
 
-  const rationale = nextDecision.trace?.rationale ?? '';
-  const skillLine = skillDisplayLine(nextDecision.decision_context.skill);
+  const { decision, learnerRef, dominantSkill } = nextAction;
+  const rationale = decision.rationale ?? '';
+  const skillLine = skillDisplayLine(dominantSkill);
 
   const onReviewed = () => {
-    markReviewed(nextDecision.decision_id);
+    markReviewed(decision.decision_id);
     setExpanded(false);
-    void queryClient.invalidateQueries({ queryKey: ['decisions'] });
+    void queryClient.invalidateQueries({ queryKey: ['learner-summary'] });
   };
 
   return (
     <PanelCard
-      title="What To Do?"
+      title="What Should Happen Next"
       description="Most recent actionable intervene or pause decision awaiting educator review."
       icon={Lightbulb}
       variant="action"
@@ -82,15 +98,15 @@ export function WhatToDo({ orgId }: { orgId: string }) {
       <div className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4">
         <div className="flex flex-col gap-1">
           <div className="flex flex-wrap items-start gap-2">
-            <DecisionBadge type={nextDecision.decision_type} />
+            <DecisionBadge type={decision.decision_type} />
           </div>
-          {nextDecision.trace?.educator_summary ? (
+          {decision.educator_summary ? (
             <p className="text-sm text-foreground" aria-label="Educator-facing decision summary">
-              {nextDecision.trace.educator_summary}
+              {decision.educator_summary}
             </p>
           ) : null}
         </div>
-        <p className="text-base font-semibold text-foreground">{nextDecision.learner_reference}</p>
+        <p className="text-base font-semibold text-foreground">{learnerRef}</p>
         {skillLine ? <p className="text-sm text-muted-foreground">{skillLine}</p> : null}
         <div>
           <p
