@@ -29,6 +29,8 @@ Specifications in this folder are the **single source of truth for requirements 
 - [`skill-level-tracking.md`](skill-level-tracking.md) — Dot-path policy eval, nested delta detection, skill/assessment query filters
 - [`multi-source-transforms.md`](multi-source-transforms.md) — Expression grammar extension (`score / total` from multiple payload fields)
 - [`decision-panel-ui.md`](decision-panel-ui.md) — 4-panel read-only proof surface (React 19+, shadcn/ui, Tailwind CSS); served at `/dashboard`
+- [`dashboard-design-requirements.md`](dashboard-design-requirements.md) — **Design source of truth** for the redesigned dashboard (shadcn `dashboard-01` baseline): app shell, IA/navigation, page hierarchy, component catalog, states, responsive, visual language. Execution: `nextjs-amplify-dashboard-migration.md`.
+- [`nextjs-amplify-dashboard-migration.md`](nextjs-amplify-dashboard-migration.md) — Migrate dashboard → Next.js 15 on AWS Amplify Hosting (frontend-only; API stays on Fastify/CDK). References the design doc. **AWS provisioning blocked pending startup credits.**
 - [`dashboard-passphrase-gate.md`](dashboard-passphrase-gate.md) — FERPA-safe access control for Decision Panel; shared passphrase → session cookie
 - [`webhook-adapters.md`](webhook-adapters.md) — `POST /v1/webhooks/:source_system`; raw LMS webhook ingestion — no client-side `SignalEnvelope` construction required
 - [`integration-templates.md`](integration-templates.md) — Connector Layer: catalog, activation, event type config, pre-built templates (Canvas, I-Ready, Branching Minds)
