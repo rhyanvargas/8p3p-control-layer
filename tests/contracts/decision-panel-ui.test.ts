@@ -1,8 +1,8 @@
 /** @vitest-environment jsdom */
 import { describe, it, expect, beforeEach } from 'vitest';
-import { scoreToLevel } from '../../dashboard/src/lib/score-levels.ts';
-import { isReviewed, markReviewed } from '../../dashboard/src/lib/decision-review.ts';
-import { skillDisplayLine } from '../../dashboard/src/lib/panel-helpers.ts';
+import { scoreToLevel } from '../../dashboard/lib/score-levels.ts';
+import { isReviewed, markReviewed } from '../../dashboard/lib/decision-review.ts';
+import { skillDisplayLine } from '../../dashboard/lib/panel-helpers.ts';
 
 describe('DPU-007: score-to-level mapping', () => {
   it('DPU-007: 0.20 → emerging', () => expect(scoreToLevel(0.2)).toBe('emerging'));

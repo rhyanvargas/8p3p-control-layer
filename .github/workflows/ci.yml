@@ -7,6 +7,45 @@ on:
     branches: ["**"]
 
 jobs:
+  dashboard:
+    name: Dashboard build and e2e
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: dashboard
+
+    env:
+      CONTROL_LAYER_API_BASE_URL: http://127.0.0.1:9999
+      CONTROL_LAYER_API_KEY: ci-dashboard-placeholder
+      NEXT_PUBLIC_APP_NAME: Decision Panel
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: dashboard/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Playwright e2e
+        run: npm run test:e2e
+        env:
+          CI: true
+
   check:
     name: Build, validate, lint, test
     runs-on: ubuntu-latest

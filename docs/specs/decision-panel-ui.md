@@ -40,9 +40,9 @@ The Decision Panel mockup (CEO-provided) defines four panels:
 
 ### Design Tokens (8P3P Brand)
 
-> **Provenance:** The base theme is the shadcn/ui v4 `base-nova` style + Tailwind v4 palette using `oklch` color space, which ships with dark mode support out of the box. The 8P3P topbar maps to `--primary` (near-black `oklch(0.2050 0 0)`). The warm/green accent colors from `src/server.ts` (`--brand-accent`, `--brand-accent-2`) are preserved as custom additions in the 8P3P extension block. The urgency/status tokens are Decision Panel–only semantic tokens. Post-pilot, extract the 8P3P extension block into a shared `brand-tokens.css` consumed by Swagger, the Decision Panel, and the future admin platform (`8p3p-admin`).
+> **Provenance:** The base theme is the shadcn/ui v4 `base-nova` style + Tailwind v4 palette using `oklch` color space. **Light mode is the default** (`:root`); dark mode is supported via `.dark` override. The 8P3P topbar maps to `--primary` (near-black `oklch(0.2050 0 0)`). The warm/green accent colors from `src/server.ts` (`--brand-accent`, `--brand-accent-2`) are preserved as custom additions in the 8P3P extension block. The urgency/status tokens are Decision Panel–only semantic tokens. Post-pilot, extract the 8P3P extension block into a shared `brand-tokens.css` consumed by Swagger, the Decision Panel, and the future admin platform (`8p3p-admin`).
 
-**`dashboard/src/styles/globals.css` — full content:**
+**`dashboard/app/globals.css` — full content:**
 
 ```css
 @import "tailwindcss";

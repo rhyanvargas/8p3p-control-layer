@@ -1,14 +1,12 @@
 /**
- * Integration Tests: Inspection Panels
+ * Integration Tests: Inspection API (data endpoints formerly consumed by /inspect panels)
  * Plan: .cursor/plans/inspection-panels.plan.md (TASK-010)
  *
- * TEST-PANEL-001 through TEST-PANEL-012: static assets, HTML structure, API callability
+ * TEST-PANEL-011 through TEST-PANEL-013: API callability (static /inspect serving retired)
  */
 
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
-import { resolve } from 'path';
 import Fastify, { type FastifyInstance } from 'fastify';
-import fastifyStatic from '@fastify/static';
 import { registerIngestionRoutes } from '../../src/ingestion/routes.js';
 import { registerStateRoutes } from '../../src/state/routes.js';
 import { registerSignalLogRoutes } from '../../src/signalLog/routes.js';
@@ -42,9 +40,8 @@ import {
 import { loadPolicy } from '../../src/decision/policy-loader.js';
 
 const TEST_API_KEY = 'test-panel-api-key';
-const PANELS_ROOT = resolve(process.cwd(), 'src/panels');
 
-describe('Inspection Panels Integration', () => {
+describe('Inspection API integration', () => {
   let app: FastifyInstance;
   let originalApiKey: string | undefined;
 
@@ -80,15 +77,6 @@ describe('Inspection Panels Integration', () => {
 
     app = Fastify({ logger: false });
 
-    app.get('/inspect', async (_request, reply) => {
-      return reply.redirect('/inspect/');
-    });
-
-    await app.register(fastifyStatic, {
-      root: PANELS_ROOT,
-      prefix: '/inspect/',
-    });
-
     app.register(
       async (v1) => {
         v1.addHook('preHandler', apiKeyPreHandler);
@@ -123,92 +111,6 @@ describe('Inspection Panels Integration', () => {
     clearStateStore();
     clearIngestionLogStore();
     clearDecisionStore();
-  });
-
-  // ---------------------------------------------------------------------------
-  // TEST-PANEL-001: GET /inspect/ returns 200 HTML
-  // ---------------------------------------------------------------------------
-  it('TEST-PANEL-001: GET /inspect/ returns 200 with HTML content-type', async () => {
-    const res = await app.inject({ method: 'GET', url: '/inspect/' });
-    expect(res.statusCode).toBe(200);
-    expect(res.headers['content-type']).toMatch(/text\/html/);
-  });
-
-  // ---------------------------------------------------------------------------
-  // TEST-PANEL-002: GET /inspect/styles.css returns 200 CSS
-  // ---------------------------------------------------------------------------
-  it('TEST-PANEL-002: GET /inspect/styles.css returns 200 with CSS content-type', async () => {
-    const res = await app.inject({ method: 'GET', url: '/inspect/styles.css' });
-    expect(res.statusCode).toBe(200);
-    expect(res.headers['content-type']).toMatch(/text\/css/);
-  });
-
-  // ---------------------------------------------------------------------------
-  // TEST-PANEL-003: GET /inspect/app.js returns 200 JS
-  // ---------------------------------------------------------------------------
-  it('TEST-PANEL-003: GET /inspect/app.js returns 200 with JS content-type', async () => {
-    const res = await app.inject({ method: 'GET', url: '/inspect/app.js' });
-    expect(res.statusCode).toBe(200);
-    expect(res.headers['content-type']).toMatch(/javascript/);
-  });
-
-  // ---------------------------------------------------------------------------
-  // TEST-PANEL-004 through TEST-PANEL-007: Panel JS files
-  // ---------------------------------------------------------------------------
-  it('TEST-PANEL-004: GET /inspect/panel-signal-intake.js returns 200', async () => {
-    const res = await app.inject({ method: 'GET', url: '/inspect/panel-signal-intake.js' });
-    expect(res.statusCode).toBe(200);
-  });
-
-  it('TEST-PANEL-005: GET /inspect/panel-state-viewer.js returns 200', async () => {
-    const res = await app.inject({ method: 'GET', url: '/inspect/panel-state-viewer.js' });
-    expect(res.statusCode).toBe(200);
-  });
-
-  it('TEST-PANEL-006: GET /inspect/panel-decision-stream.js returns 200', async () => {
-    const res = await app.inject({ method: 'GET', url: '/inspect/panel-decision-stream.js' });
-    expect(res.statusCode).toBe(200);
-  });
-
-  it('TEST-PANEL-007: GET /inspect/panel-decision-trace.js returns 200', async () => {
-    const res = await app.inject({ method: 'GET', url: '/inspect/panel-decision-trace.js' });
-    expect(res.statusCode).toBe(200);
-  });
-
-  // ---------------------------------------------------------------------------
-  // TEST-PANEL-008: HTML contains all four panel container divs
-  // ---------------------------------------------------------------------------
-  it('TEST-PANEL-008: GET /inspect/ HTML contains all four panel container divs', async () => {
-    const res = await app.inject({ method: 'GET', url: '/inspect/' });
-    expect(res.statusCode).toBe(200);
-    const html = res.payload;
-    expect(html).toContain('id="panel-signal"');
-    expect(html).toContain('id="panel-state"');
-    expect(html).toContain('id="panel-decisions"');
-    expect(html).toContain('id="panel-trace"');
-  });
-
-  // ---------------------------------------------------------------------------
-  // TEST-PANEL-009: HTML includes script refs to all panel JS files
-  // ---------------------------------------------------------------------------
-  it('TEST-PANEL-009: GET /inspect/ HTML includes script refs to all panel JS files', async () => {
-    const res = await app.inject({ method: 'GET', url: '/inspect/' });
-    expect(res.statusCode).toBe(200);
-    const html = res.payload;
-    expect(html).toContain('panel-signal-intake.js');
-    expect(html).toContain('panel-state-viewer.js');
-    expect(html).toContain('panel-decision-stream.js');
-    expect(html).toContain('panel-decision-trace.js');
-    expect(html).toContain('app.js');
-  });
-
-  // ---------------------------------------------------------------------------
-  // TEST-PANEL-010: /inspect redirects to /inspect/
-  // ---------------------------------------------------------------------------
-  it('TEST-PANEL-010: GET /inspect redirects to /inspect/', async () => {
-    const res = await app.inject({ method: 'GET', url: '/inspect' });
-    expect(res.statusCode).toBe(302);
-    expect(res.headers.location).toBe('/inspect/');
   });
 
   // ---------------------------------------------------------------------------
@@ -305,18 +207,5 @@ describe('Inspection Panels Integration', () => {
     const receiptsBody = receiptsRes.json();
     expect(Array.isArray(receiptsBody.receipts)).toBe(true);
     expect(receiptsBody.receipts.length).toBe(decisionsBody.decisions.length);
-  });
-
-  // ---------------------------------------------------------------------------
-  // TEST-PANEL-014: Empty-state guidance references docs and state viewer
-  // ---------------------------------------------------------------------------
-  it('TEST-PANEL-014: panel JS includes actionable empty-state guidance links', async () => {
-    const signalPanelRes = await app.inject({ method: 'GET', url: '/inspect/panel-signal-intake.js' });
-    expect(signalPanelRes.statusCode).toBe(200);
-    expect(signalPanelRes.payload).toContain('/docs#/default/post_v1_signals');
-
-    const decisionPanelRes = await app.inject({ method: 'GET', url: '/inspect/panel-decision-stream.js' });
-    expect(decisionPanelRes.statusCode).toBe(200);
-    expect(decisionPanelRes.payload).toContain('href="#state"');
   });
 });

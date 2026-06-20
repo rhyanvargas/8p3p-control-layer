@@ -6,7 +6,7 @@
 
 ## ⛔ Stage Gate — AWS account is BLOCKED (do not provision yet)
 
-> **Status (2026-06-12): AWS startup credits not yet applied for.** No AWS account exists for this workstream. Until this status is updated by the repo owner:
+> **Status (2026-06-20): AWS startup credits not yet applied for.** No AWS account exists for this workstream. **Local Phases 1–4 are implemented** (Next.js app, proxy, educator/inspection surfaces, auth, CORS, CI build — no deploy). Until this status is updated by the repo owner:
 >
 > - **DO NOT** create an Amplify app, AWS account, IAM roles, Cognito user pool, or any billable AWS resource.
 > - **DO NOT** pull AWS cost estimates (deferred until the credits/account decision is made).
@@ -41,33 +41,33 @@ This spec migrates that SPA to a **standalone Next.js (App Router) app on AWS Am
 ### Functional
 
 #### Phase 1 — Next.js app shell + redesign foundation (local, NOT AWS-blocked)
-- [ ] `dashboard/` is a Next.js 15.5.x App Router project (TypeScript, Tailwind 4, shadcn/ui, lucide-react, TanStack Query) built to the **app shell, IA, and component catalog in `docs/specs/dashboard-design-requirements.md`** (sidebar + topbar + page hierarchy). The old Vite SPA UI is **not** ported 1:1.
-- [ ] The educator surfaces (legacy "Who Needs Help / What Do They Need Help With / What Should Happen Next / Did the Support Work") are rebuilt as the **Overview / Attention / Learners** pages defined in the design doc (§5–§8).
-- [ ] The browser **no longer** sends `x-api-key`. All control-layer calls go through the Next **route-handler proxy** (`app/api/control/[...path]`) that attaches `CONTROL_LAYER_API_KEY` server-side and forwards to `CONTROL_LAYER_API_BASE_URL`.
-- [ ] Data fetching uses the proxy (no `VITE_*` variables remain referenced anywhere in the dashboard).
+- [x] `dashboard/` is a Next.js 15.5.x App Router project (TypeScript, Tailwind 4, shadcn/ui, lucide-react, TanStack Query) built to the **app shell, IA, and component catalog in `docs/specs/dashboard-design-requirements.md`** (sidebar + topbar + page hierarchy). The old Vite SPA UI is **not** ported 1:1.
+- [x] The educator surfaces (legacy "Who Needs Help / What Do They Need Help With / What Should Happen Next / Did the Support Work") are rebuilt as the **Overview / Attention / Learners** pages defined in the design doc (§5–§8). See design doc § **Educator journey (implemented)** for the "who + why" mapping.
+- [x] The browser **no longer** sends `x-api-key`. All control-layer calls go through the Next **route-handler proxy** (`app/api/control/[...path]`) that attaches `CONTROL_LAYER_API_KEY` server-side and forwards to `CONTROL_LAYER_API_BASE_URL`.
+- [x] Data fetching uses the proxy (no `VITE_*` variables remain referenced in active dashboard source; legacy `dashboard/src/` Vite tree removed).
 
 #### Phase 1b — Inspection & reporting consolidation (local, NOT AWS-blocked)
-- [ ] The four inspection surfaces (`docs/specs/inspection-panels.md`) are rebuilt as the **Signals / Decisions / Learner-detail (State) / Decision-detail (Trace)** pages per the design doc (§6, §8), consuming `/v1/*` through the server-side proxy (no raw client API-key input):
-  - [ ] **Signal Intake** — `GET /v1/ingestion` with outcome filter (accepted/duplicate/rejected), rejection-reason drill-down, cursor pagination.
-  - [ ] **State Viewer** — `GET /v1/state/list` + `GET /v1/state` with **version drill-down** (historical `version=n`), canonical-field + raw-JSON views.
-  - [ ] **Decision Stream** — `GET /v1/receipts` with org/learner/time filters; row click drills into Decision Trace.
-  - [ ] **Decision Trace / Receipt** — full audit record (rationale, evaluated thresholds, state snapshot, rule condition) with JSON export.
-- [ ] Read-only doctrine preserved: inspection views perform **no** mutations (consistent with `inspection-panels.md` § Constraints and the "no UI ownership" principle).
-- [ ] The Fastify-served static `/inspect` panels remain available until dashboard parity is verified, then are removed in Phase 3.
+- [x] The four inspection surfaces (`docs/specs/inspection-panels.md`) are rebuilt as the **Signals / Decisions / Learner-detail (State) / Decision-detail (Trace)** pages per the design doc (§6, §8), consuming `/v1/*` through the server-side proxy (no raw client API-key input):
+  - [x] **Signal Intake** — `GET /v1/ingestion` with outcome filter (accepted/duplicate/rejected), rejection-reason drill-down, cursor pagination.
+  - [x] **State Viewer** — `GET /v1/state/list` + `GET /v1/state` with **version drill-down** (historical `version=n`), canonical-field + raw-JSON views.
+  - [x] **Decision Stream** — `GET /v1/receipts` with org/learner/time filters; row click drills into Decision Trace.
+  - [x] **Decision Trace / Receipt** — full audit record (rationale, evaluated thresholds, state snapshot, rule condition) with JSON export.
+- [x] Read-only doctrine preserved: inspection views perform **no** mutations (consistent with `inspection-panels.md` § Constraints and the "no UI ownership" principle).
+- [x] Fastify static `/inspect` serving (`src/panels/`) **removed** after dashboard parity (Phase 3).
 
 #### Phase 2 — Auth carry-over (local, NOT AWS-blocked)
-- [ ] The passphrase gate (`DASHBOARD_ACCESS_CODE` + HMAC `dp_session` cookie) is reimplemented as **Next.js middleware** + a login route, reusing the exact cookie scheme in `docs/specs/dashboard-passphrase-gate.md` (§ Cookie Value Structure) and `COOKIE_SECRET`.
-- [ ] When `DASHBOARD_ACCESS_CODE` is unset, the gate is disabled (local-dev backward compatible), matching current behavior.
-- [ ] Fastify’s dashboard serving and login routes (`@fastify/static` for `dashboard/dist`, `GET/POST /dashboard/login`, `/dashboard/logout`) are **removed** from `src/server.ts`; Fastify becomes API-only.
+- [x] The passphrase gate (`DASHBOARD_ACCESS_CODE` + HMAC session cookie) is reimplemented as **Next.js middleware** + login/logout route handlers, reusing the exact cookie scheme in `docs/specs/dashboard-passphrase-gate.md` (§ Cookie Value Structure) and `COOKIE_SECRET`.
+- [x] When `DASHBOARD_ACCESS_CODE` is unset, the gate is disabled (local-dev backward compatible), matching current behavior.
+- [x] Fastify’s dashboard serving and login routes removed from `src/server.ts`; Fastify is API-only.
 
 #### Phase 3 — CORS + API decoupling (local, NOT AWS-blocked)
-- [ ] `@fastify/cors` is added to the control layer, allowing the dashboard origin(s) with credentials. (New requirement: dashboard and API are no longer same-origin.)
-- [ ] After dashboard parity for all inspection views is verified, Fastify’s static `/inspect` serving (`src/panels/`) is removed.
-- [ ] `/v1/*`, `/v1/admin/*`, `/docs` (Swagger), `/health` remain unchanged on Fastify.
+- [x] `@fastify/cors` added to the control layer (`src/config/dashboard-cors.ts`), allowing dashboard origin(s) with credentials.
+- [x] Fastify static `/inspect` serving removed (`src/panels/` retired).
+- [x] `/v1/*`, `/v1/admin/*`, `/docs` (Swagger), `/health` remain unchanged on Fastify.
 
 #### Phase 4 — Build/CI (local build NOT blocked; deploy `[AWS-BLOCKED]`)
-- [ ] `amplify.yml` exists at the dashboard app root with Node 22 pinned (build is locally reproducible via `next build`).
-- [ ] `.github/workflows/ci.yml` gains a `dashboard` job: `next build` + `typecheck` + Playwright e2e. Existing server/CDK jobs unchanged.
+- [x] `amplify.yml` exists at the dashboard app root with Node 22 pinned (build is locally reproducible via `next build`; **deploy not started**).
+- [x] `.github/workflows/ci.yml` gains a `dashboard` job: `next build` + `typecheck` + Playwright e2e. Existing server/CDK jobs unchanged.
 - [ ] **`[AWS-BLOCKED]`** Amplify app creation, branch deploys, and PR previews are deferred until the AWS account exists.
 
 #### Phase 5 — Production auth (Cognito) `[AWS-BLOCKED]`
@@ -120,8 +120,9 @@ This spec migrates that SPA to a **standalone Next.js (App Router) app on AWS Am
 | Inspection API (`/v1/ingestion`, `/v1/state`, `/v1/state/list`) | `docs/specs/inspection-api.md` | **Defined ✓** — consumed via proxy |
 | Receipts query (`/v1/receipts`) | `docs/specs/receipts-api.md` | **Defined ✓** — consumed via proxy |
 | Control-layer REST contract (`/v1/*`) | `docs/api/openapi.yaml`, `docs/specs/aws-deployment.md` | **Defined ✓** — unchanged; consumed via proxy |
-| `@fastify/cors` | npm (official Fastify plugin) | **GAP** — add to root `package.json` |
-| `next`, `@aws-amplify/adapter-nextjs` (Phase 5) | npm (official) | **GAP** — add to `dashboard/package.json` |
+| `@fastify/cors` | npm (official Fastify plugin) | **Shipped ✓** — `registerDashboardCors()` in `src/server.ts` |
+| `next@15.5.x` | npm (official) | **Shipped ✓** — `dashboard/package.json` pins `15.5.19` |
+| `@aws-amplify/adapter-nextjs` (Phase 5) | npm (official) | **GAP** — `[AWS-BLOCKED]` until Cognito phase |
 | Amplify Hosting Next.js SSR support | [Amplify docs](https://docs.aws.amazon.com/amplify/latest/userguide/ssr-amplify-support.html) | **External** — Next 15 supported; no adapter needed |
 
 ### Provides to Other Specs
@@ -200,7 +201,7 @@ This spec migrates that SPA to a **standalone Next.js (App Router) app on AWS Am
 ### Cookies
 | Name | HttpOnly | Secure | SameSite | Path | Max-Age |
 |------|----------|--------|----------|------|---------|
-| `dp_session` | true | true (prod) / false (dev) | Strict | `/` (Next app is dashboard-only; was `/dashboard` under Fastify) | `DASHBOARD_SESSION_TTL_HOURS * 3600` (default 8h) |
+| `dp_session` (dev) / `__Host-dp_session` (prod) | true | true (prod) / false (dev) | Strict | `/` (Next app is dashboard-only; was `/dashboard` under Fastify) | `DASHBOARD_SESSION_TTL_HOURS * 3600` (default 8h) |
 | `fb_session` | true | true (prod) | Strict | per `dashboard-passphrase-gate.md` (`/v1/decisions`) **only if** educator-feedback flows are served from the Next app; otherwise N/A this migration | same as `dp_session` |
 
 > **Path change note:** Under Fastify the dashboard was path-scoped at `/dashboard`. As a standalone Next app (own origin/subdomain), `Path=/` is correct and the `__Host-` prefix becomes viable (requires `Secure`, `Path=/`, no `Domain`). Adopting `__Host-dp_session` is RECOMMENDED for the standalone deployment — see `dashboard-passphrase-gate.md` § Implementation Notes "future hardening".
@@ -324,6 +325,24 @@ Steps 1–6 proceed **now**. Steps 7–8 wait for the stage gate.
 
 ---
 
+## Implementation Notes (2026-06-20)
+
+Local Phases 1–4 are **merged in `dashboard/`**. AWS provisioning (Amplify app, branch deploys, Cognito) remains **`[AWS-BLOCKED]`** — do not deploy until the stage-gate banner is lifted.
+
+| Literal / behavior | Spec prose | Implementation |
+|--------------------|------------|----------------|
+| Next.js version | 15.5.x | `15.5.19` in `dashboard/package.json` |
+| Session cookie name | `dp_session`; `__Host-` recommended for standalone | **`__Host-dp_session`** when `NODE_ENV=production`; **`dp_session`** in dev (`dashboard/lib/session-cookie-edge.ts`) |
+| Geist fonts | design §4.2 `geist` package | `geist/font/sans` + `geist/font/mono` in `app/layout.tsx` (not `@fontsource-variable/geist`) |
+| Proxy timeout | 10s | `UPSTREAM_TIMEOUT_MS = 10_000` in `app/api/control/[...path]/route.ts` |
+| Legacy Vite tree | removed per TASK-001 | `dashboard/src/` deleted; no `import.meta.env` / `VITE_*` in active source (NXMIG-012) |
+| Fastify panels | retire post-parity | `src/panels/` and `src/auth/dashboard-*.ts` removed; API-only `src/server.ts` |
+| Educator UX | design §8 | Overview → Attention triage; "why" via `educator_summary`, skill lines, L2 Struggles tab — see `dashboard-design-requirements.md` § Educator journey |
+
+**Design Phase C (not blocking local pilot):** command palette (`⌘K`), full org-switcher multi-tenant behavior, Help external docs link, formal WCAG audit — tracked in design doc §14 Phase C.
+
+---
+
 ## Notes
 - **Why frontend-only (not full Amplify Gen 2):** The product is the Fastify control layer; rewriting validated ingestion/idempotency/decision code into Amplify functions is a lateral, high-risk rewrite that regenerates infra already owned (CDK + 10 DynamoDB tables + 5 Lambdas). The genuine weakness is the client-exposed API key, which this migration fixes without touching the backend.
 - **Why Next 15, not 16:** Amplify managed SSR documents support for Next 12–15 only ([Amplify docs](https://docs.aws.amazon.com/amplify/latest/userguide/ssr-amplify-support.html)). Chasing "latest" (16.2.x) would forfeit managed SSR.
@@ -333,10 +352,11 @@ Steps 1–6 proceed **now**. Steps 7–8 wait for the stage gate.
 ---
 
 ## Next Steps
-1. Owner: apply for **AWS startup credits**; update the stage-gate banner when an account exists.
-2. Run `/plan-impl docs/specs/nextjs-amplify-dashboard-migration.md` to generate the task-level plan for the **local** phases (1–5).
-3. Defer AWS phases (6–7) and cost estimation until the banner is lifted.
+1. **Pilot locally:** run control layer + `cd dashboard && npm run dev`; set `CONTROL_LAYER_ORG_ID` for live educator surfaces.
+2. **Educator UX polish (design Phase C):** command palette, Help link target, display-name vs learner reference, WCAG audit — see `dashboard-design-requirements.md` §14.
+3. Owner: apply for **AWS startup credits**; update the stage-gate banner when an account exists, then unblock Amplify deploy (TASK-017) and Cognito (TASK-018).
+4. Defer AWS cost estimation until the banner is lifted.
 
 ---
 
-*Spec created: 2026-06-12 | Updated: 2026-06-12 (consolidate inspection panels; reference dashboard-design-requirements.md as design source of truth — UI is rebuilt, not ported) | Phase: Frontend migration (pilot → production). Depends on: dashboard-design-requirements.md, dashboard-passphrase-gate.md, decision-panel-ui.md, inspection-panels.md, inspection-api.md, receipts-api.md, aws-deployment.md, api-key-middleware.md. AWS provisioning BLOCKED pending startup credits.*
+*Spec created: 2026-06-12 | Updated: 2026-06-20 (local Phases 1–4 implemented; educator journey cross-ref; cookie/font literals; AWS still BLOCKED) | Phase: Frontend migration (pilot → production). Depends on: dashboard-design-requirements.md, dashboard-passphrase-gate.md, decision-panel-ui.md, inspection-panels.md, inspection-api.md, receipts-api.md, aws-deployment.md, api-key-middleware.md. AWS provisioning BLOCKED pending startup credits.*

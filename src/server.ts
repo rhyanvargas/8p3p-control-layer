@@ -12,10 +12,9 @@ if (existsSync(localPath)) {
 
 import Fastify from 'fastify';
 import cookie from '@fastify/cookie';
-import formbody from '@fastify/formbody';
-import fastifyStatic from '@fastify/static';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
+import { registerDashboardCors } from './config/dashboard-cors.js';
 import { registerIngestionRoutes } from './ingestion/routes.js';
 import { registerStateRoutes } from './state/routes.js';
 import { initIdempotencyStore, closeIdempotencyStore } from './ingestion/idempotency.js';
@@ -31,8 +30,6 @@ import { DynamoDbFeedbackRepository } from './feedback/dynamodb-repository.js';
 import { registerFeedbackRoutes } from './feedback/routes.js';
 import { apiKeyPreHandler } from './auth/api-key-middleware.js';
 import { adminApiKeyPreHandler } from './auth/admin-api-key-middleware.js';
-import { registerDashboardLoginRoutes } from './auth/dashboard-login.js';
-import { dashboardGatePreHandler } from './auth/dashboard-gate.js';
 import { loadTenantFieldMappingsFromFile } from './config/tenant-field-mappings.js';
 import { registerPolicyManagementRoutes } from './admin/policy-management-routes.js';
 import { registerPolicyInspectionRoutes } from './policies/routes.js';
@@ -258,42 +255,8 @@ const swaggerBrandThemeCss = `
   }
 `;
 
-// Inspection panels: redirect /inspect → /inspect/, then static files
-server.get('/inspect', async (_request, reply) => {
-  return reply.redirect('/inspect/');
-});
-
-await server.register(fastifyStatic, {
-  root: resolve(process.cwd(), 'src/panels'),
-  prefix: '/inspect/',
-});
-
+await registerDashboardCors(server);
 await server.register(cookie);
-await server.register(formbody);
-
-// Decision Panel SPA (Pilot Wave 2) — only when built artifacts exist
-const dashboardDist = resolve(process.cwd(), 'dashboard', 'dist');
-if (existsSync(dashboardDist)) {
-  registerDashboardLoginRoutes(server);
-
-  // Gate the no-slash `/dashboard` redirect so unauthenticated users land on
-  // /dashboard/login in a single hop (spec § Architecture), rather than
-  // bouncing through /dashboard/ first.
-  server.get(
-    '/dashboard',
-    { preHandler: dashboardGatePreHandler },
-    async (_req, reply) => reply.redirect('/dashboard/')
-  );
-
-  await server.register(async (dashScope) => {
-    dashScope.addHook('preHandler', dashboardGatePreHandler);
-    await dashScope.register(fastifyStatic, {
-      root: dashboardDist,
-      prefix: '/',
-      decorateReply: false,
-    });
-  }, { prefix: '/dashboard/' });
-}
 
 await server.register(swagger, {
   mode: 'static',

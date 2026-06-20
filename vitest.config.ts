@@ -7,7 +7,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export default defineConfig({
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, 'dashboard/src'),
+      '@': path.resolve(__dirname, 'dashboard'),
+      'next/server': path.resolve(__dirname, 'dashboard/node_modules/next/server.js'),
     },
   },
   test: {

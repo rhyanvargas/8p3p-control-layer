@@ -10,29 +10,101 @@ The current dashboard is two disconnected surfaces: the educator **Decision Pane
 
 **Goals**
 - One navigation model for two audiences (educators; integration/compliance) without forking the UI.
-- Strong, Vercel-style product UX: calm, data-dense, fast, keyboard-friendly, dark-mode-first.
+- Strong, Vercel-style product UX: calm, data-dense, fast, keyboard-friendly, **light-mode-first** (matches shadcn `dashboard-01` baseline).
+- **Non-cluttered, data-driven surfaces** — each page answers one primary question; depth is reached through drill-downs (Sheet peek → route → tab), not by stacking widgets.
 - Implementation-ready with shadcn/ui + Tailwind v4 + Next.js App Router — no over-engineering.
 - A scalable component system the future `8p3p-admin` platform can inherit.
 
 **Audiences & primary jobs**
 | Audience | Primary job | Lands on |
 |----------|-------------|----------|
-| Educator / school staff | Triage who needs help, review recommended actions, confirm progress | Overview → Attention |
+| Educator / school staff | Triage who needs help, understand **why**, review recommended actions, confirm progress | Overview → Attention → Learner detail |
 | Integration engineer | Verify signals are arriving and parsing | Signals |
 | Compliance / reviewer | Audit a decision's provenance end-to-end | Decisions → Decision detail |
+
+### Educator journey (implemented)
+
+The educator experience is the product default: a teacher should reach **full context on who needs attention and why** in at most three clicks (Overview → Attention card → L1 Sheet or L2 tab), without raw JSON or duplicate KPI clutter.
+
+| Educator question | Route | L0 signal | "Why" context (plain language) | Drill-down |
+|-------------------|-------|-----------|--------------------------------|------------|
+| Is anything wrong? | `/` Overview | 4 KPIs max; Needs attention links to `/attention` when >0 | KPI deltas + trend text summary | Recent decision row → L1 Sheet → trace |
+| Who needs help now? | `/attention` | Ranked `LearnerCard` list (no KPI cards) | `DecisionBadge` + `educator_summary` (or type narration) + dominant skill line + `UrgencyBadge` | Card → L1 `LearnerDetailSheet` → `/learners/[ref]` |
+| What should I do? | `/attention` | Decision review cards (≤5 pending) | Expandable rationale; Approve/Reject (localStorage pilot) | — |
+| Why are they stuck? | `/learners/[ref]` → **Struggles & progress** tab | Per-skill struggle cards | Skill name, direction, evidence quote via `/v1/state` `skills.*` | — |
+| Did support work? | `/learners/[ref]` → **Struggles & progress** tab | Progress cards | Stability rationale from `buildStabilityRationale()` | — |
+| Full learner picture | `/learners/[ref]` tabs | One concern per tab | Overview (summary API), State (version selector), Trajectory | L3 `JsonViewer` collapsed only on State tab |
+
+**Legacy panel mapping:** "Who Needs Help Now" + "What Should Happen Next" → **Attention**; "What Do They Need Help With" + "Did the Support Work" → **Learner detail / Struggles & progress**; aggregates → **Overview** (no queue duplication per §2.1).
 
 ---
 
 ## 2. UX Principles (normative)
 
 1. **Progressive disclosure.** Summary → list → detail. Drill-down opens a right-side `Sheet` (peek) or a dedicated route (deep link). Never dump raw JSON at the top level.
-2. **Action-oriented triage.** The educator's actionable queue (Attention) is one click from landing and is the only surface with write-ish actions (Approve/Reject, client-side in pilot).
-3. **Read-only truth layer.** Inspection surfaces (Signals, State, Decision Trace) are strictly read-only — no mutations, preserving the `inspection-panels.md` doctrine.
-4. **One consistent system, two densities.** Educator views = generous spacing, friendly copy. Inspection views = denser tables + `font-mono` for IDs/JSON. Same tokens, same components — only spacing/typography density changes.
-5. **Security by default.** The browser never holds the API key; all data flows through the server-side proxy (`/api/control/*`). No "enter your API key" inputs in the redesigned UI (removes the legacy inspection-panel key prompt).
-6. **Honest states.** Every data view implements distinct loading, empty, and error states (no blank screens, no spinner-only).
-7. **Fast perceived load.** Use Next.js streaming + `Suspense` per section; skeletons sized to final content to avoid layout shift.
-8. **Accessible.** WCAG 2.1 AA: keyboard nav, focus-visible rings (already in tokens via `--ring`), semantic landmarks, color never the only signal (pair color with icon/label on badges).
+2. **One primary question per page.** Each route has a single headline job (e.g. Overview = "Is anything wrong?"; Attention = "Who do I act on?"; Signals = "Is ingestion healthy?"). Secondary questions defer to drill-downs — not extra panels on the same scroll.
+3. **Action-oriented triage.** The educator's actionable queue (Attention) is one click from landing and is the only surface with write-ish actions (Approve/Reject, client-side in pilot).
+4. **Read-only truth layer.** Inspection surfaces (Signals, State, Decision Trace) are strictly read-only — no mutations, preserving the `inspection-panels.md` doctrine.
+5. **One consistent system, two densities.** Educator views = generous spacing, friendly copy. Inspection views = denser tables + `font-mono` for IDs/JSON. Same tokens, same components — only spacing/typography density changes.
+6. **Security by default.** The browser never holds the API key; all data flows through the server-side proxy (`/api/control/*`). No "enter your API key" inputs in the redesigned UI (removes the legacy inspection-panel key prompt).
+7. **Honest states.** Every data view implements distinct loading, empty, and error states (no blank screens, no spinner-only).
+8. **Fast perceived load.** Use Next.js streaming + `Suspense` per section; skeletons sized to final content to avoid layout shift.
+9. **Accessible.** WCAG 2.1 AA: keyboard nav, focus-visible rings (already in tokens via `--ring`), semantic landmarks, color never the only signal (pair color with icon/label on badges).
+10. **Restraint over decoration.** Motion, color accents, and chart animation serve comprehension — not atmosphere. One orchestrated entrance per page; no competing visual focal points above the fold.
+
+### 2.1 Data-driven dashboard doctrine (normative)
+
+These rules govern **all** data surfaces. They extend principle #1 and define what "high quality" means for a control-layer dashboard — calm, scannable, and intentionally sparse at each tier.
+
+**Anti-clutter (what we refuse to build)**
+- No "everything dashboard" home pages: no simultaneous KPI grid + 3 charts + 2 full tables + JSON snippets on one scroll.
+- No technical columns (IDs, schema versions, raw policy paths) in default table views — those appear only in Sheet peek or detail routes.
+- No inline expansion of full JSON in list rows (use `Sheet` or collapsible `JsonViewer` on detail only).
+- No duplicate metrics: if a KPI appears on Overview, the Attention page does not repeat the same stat cards — it goes straight to the queue.
+- No chart junk: gridlines, legends, and series kept minimal; at most **one primary metric per chart** with an explicit toggle for a second view (e.g. decisions-by-type ↔ mastery trend), never both overlaid by default.
+
+**Three-tier drill-down model**
+
+Every entity (learner, decision, signal) follows the same depth ladder. Users never skip tiers accidentally — each tier adds *new* information, not a rearrangement of the parent.
+
+| Tier | Surface | User intent | Max density | Typical contents |
+|------|---------|-------------|-------------|------------------|
+| **L0 — Page summary** | Route list/overview | Scan & prioritize | ≤7 KPIs or ≤6 table columns visible | Counts, status chips, human labels, relative time |
+| **L1 — Peek** | Right `DetailSheet` (~480px) | Confirm identity + decide "open full view?" | 3–5 labeled fields + ≤5 recent rows | Header badge, current state snapshot, last N signals/decisions, single primary CTA |
+| **L2 — Detail route** | `/…/[id]` with tabs | Audit, compare, export | Tabbed sections; one concern per tab | Full history, version selector, thresholds, collapsible JSON |
+| **L3 — Raw truth** | Collapsed `JsonViewer` inside L2 | Compliance / engineering | Monospace, copy button, collapsed by default | Raw API payload only when explicitly expanded |
+
+**Peek vs route decision tree**
+- Row click / keyboard Enter → **always L1 Sheet first** (fast, preserves list context).
+- Sheet footer → **one** primary CTA: "Open full view" → L2 route (deep-linkable).
+- Direct URL to L2 → allowed (shareable); breadcrumbs reflect L0 → L2 path.
+- Esc / backdrop click closes Sheet; list scroll position preserved.
+
+**Visual hierarchy for data**
+- **Typography carries structure:** page title (`text-2xl`) → section label (`text-sm font-medium text-muted-foreground`) → data value (`text-sm` / `font-mono` for IDs). Never bold entire rows.
+- **Color is semantic only:** `--urgency-*`, `--status-*`, `--progress-*` on badges — not decorative backgrounds on cards.
+- **Whitespace defines tiers:** L0 educator pages use `gap-6`/`p-6`; L1 Sheet uses tighter `gap-4` but still one column (no nested cards-in-cards).
+- **Single focal action per view:** Overview has no primary button; Attention has Approve/Reject on cards; detail routes have Export JSON — never more than one emphasized CTA per viewport.
+
+**Table scannability defaults**
+
+Default visible columns per `DataTable` (additional columns via column picker or drill-down only):
+
+| Table | Default columns | Hidden until drill-down |
+|-------|-----------------|-------------------------|
+| Learners | Reference, level/trend, last activity, status | Skill breakdown, internal IDs, raw state hash |
+| Decisions | Time, type, learner, rule (truncated) | Policy version, full rationale, state snapshot |
+| Signals | Time, source, outcome chip | Signal ID, schema, rejection field path |
+| Overview recent decisions | Same as Decisions, last 20 only | Filters beyond time sort |
+
+**Chart interaction**
+- One chart per Overview; range selector (7/30/90d) changes window, not layout.
+- Provide a **textual summary** adjacent to or below the chart (e.g. "12 decisions this week, ↑3 vs prior") for screen readers and glanceability — chart is supplementary, not the only signal.
+- No auto-playing or looping chart animations; respect `prefers-reduced-motion`.
+
+**Educator vs inspection density (same drill-down ladder)**
+- Educators: L0/L1 use plain language labels ("Needs help", "Improving"); L2 tabs named for jobs ("Overview", "Struggles & progress").
+- Inspection: L0/L1 may show monospace IDs in peek headers; L2 exposes thresholds tables and `JsonViewer` — still collapsed by default.
 
 ---
 
@@ -59,7 +131,7 @@ We start from [`dashboard-01`](https://ui.shadcn.com/blocks#dashboard-01) (`npx 
 ## 4. Visual Design Language
 
 ### 4.1 Foundation
-Build on the **existing 8P3P token set** already defined in `docs/specs/decision-panel-ui.md` (shadcn v4 `base-nova`, `oklch`, dark mode, `--brand-accent-*`, `--urgency-*`, `--status-*`, `--progress-*`). **Do not redefine tokens here** — extend that block. This keeps Swagger, dashboard, and future admin UI on one palette.
+Build on the **existing 8P3P token set** already defined in `docs/specs/decision-panel-ui.md` (shadcn v4 `base-nova`, `oklch`, light + dark mode, `--brand-accent-*`, `--urgency-*`, `--status-*`, `--progress-*`). **Do not redefine tokens here** — extend that block. This keeps Swagger, dashboard, and future admin UI on one palette.
 
 ### 4.2 Typography (upgrade)
 "Vercel-style product UX" → adopt **Geist Sans** (UI) + **Geist Mono** (IDs, JSON, metrics) via `next/font` (`geist` package). This is an intentional, characterful, enterprise-appropriate choice that replaces the current generic system stack, and it pairs a refined UI face with a true monospace for the inspection "truth layer."
@@ -77,11 +149,11 @@ Wire into tokens: `--font-sans: var(--font-geist-sans)`, `--font-mono: var(--fon
 - **Compact** (inspection tables/JSON): `p-3`, `gap-3`, `text-xs`/`text-sm`, `font-mono` for data cells. Implemented as Tailwind utility presets, not a theme fork.
 
 ### 4.4 Color usage
-- Neutral `oklch` base carries the UI; **accent sparingly**. Status/urgency/progress badges use `--status-*` / `--urgency-*` / `--progress-*` only (never raw Tailwind colors), each paired with a Lucide icon + text label (a11y: color is never the sole signal).
-- Dark mode is first-class (tokens already defined); default theme follows system, user-toggleable, persisted (cookie, SSR-safe to avoid flash).
+- **Light mode is the default** (`:root` tokens — white/near-white surfaces, neutral `oklch` base per `dashboard-01`). Dark mode is first-class (`.dark` override); user-toggleable via theme toggle, persisted in a cookie (SSR-safe to avoid flash). Accent colors used sparingly.
+- Status/urgency/progress badges use `--status-*` / `--urgency-*` / `--progress-*` only (never raw Tailwind colors), each paired with a Lucide icon + text label (a11y: color is never the sole signal).
 
 ### 4.5 Motion (restraint)
-- One orchestrated entrance per page (staggered section reveal via `tw-animate-css`), `Sheet`/`Dialog` transitions, and table row hover. No scattered micro-animations. Respect `prefers-reduced-motion`.
+- One orchestrated entrance per page (staggered section reveal via `tw-animate-css`), **`Sheet`/`Dialog` slide transitions for drill-down** (L0→L1), and table row hover. No scattered micro-animations; no chart load animations. Respect `prefers-reduced-motion`.
 
 ---
 
@@ -102,7 +174,7 @@ Wire into tokens: `--font-sans: var(--font-geist-sans)`, `--font-mono: var(--fon
 |------|------|--------|
 | API Docs | `BookOpen` | External link to Fastify `/docs` (Swagger) |
 | Settings | `Settings` | `/settings` |
-| Help | `LifeBuoy` | docs/guide link |
+| Help | `LifeBuoy` | `/settings` (pilot placeholder; external guide link is Phase C) |
 
 ### 5.3 Sidebar footer — `nav-user`
 Org context (org name + environment badge), theme toggle, and session control: **Log out** (passphrase session in pilot; Cognito user menu in production — see migration spec Phase 5).
@@ -111,7 +183,7 @@ Org context (org name + environment badge), theme toggle, and session control: *
 - `SidebarTrigger` (collapse) · breadcrumbs (section → detail) · spacer
 - **Org switcher** (`Select`/`Combobox`) — hidden when single-org pinned via `CONTROL_LAYER_ORG_ID`
 - **Global refresh** (`RefreshCw`, invalidates active TanStack queries)
-- **Command palette** trigger (`⌘K`) for quick learner/decision lookup (progressive enhancement; Phase 2)
+- **Command palette** trigger (`⌘K`) for quick learner/decision lookup — **Phase C (not yet implemented)**
 - **Theme toggle**
 
 ---
@@ -131,9 +203,12 @@ Org context (org name + environment badge), theme toggle, and session control: *
 | `/settings` | Settings | Org/env info, theme, (later) user/Cognito | local + `/v1/policies` (read) |
 | `/login`, `/logout` | Auth | Passphrase gate (pilot) → Cognito (prod) | per migration spec |
 
-Drill-down convention: list rows open a **`Sheet`** (peek) by default; "Open full view" navigates to the detail **route** (deep-linkable, shareable).
-
----
+Drill-down convention (implements §2.1 three-tier model):
+- **L0** list/overview rows are scannable only (see default column tables in §2.1).
+- **L1** row click / `Enter` → right-side **`DetailSheet`** peek (~480px desktop; full-width mobile). Preserves list scroll position.
+- **L2** Sheet footer **one** primary CTA ("Open full view" / "Open trace") → detail **route** (deep-linkable, shareable).
+- **L3** raw JSON only inside L2, inside collapsed **`JsonViewer`** — never on L0/L1.
+- Breadcrumbs update on L2: `{Section} → {Entity label}`; Sheet does not change the URL.
 
 ## 7. Layout Structure (app shell)
 
@@ -156,34 +231,50 @@ Drill-down convention: list rows open a **`Sheet`** (peek) by default; "Open ful
 
 ## 8. Core Pages (detail)
 
-**Overview `/`** — the dashboard-01 adaptation.
-- `SectionCards` (KPIs, 4-up → 2-up → 1-up): **Needs attention** (count, Δ vs yesterday), **Pending decisions**, **Signals today** (accepted/rejected split), **Improving learners**.
-- `TrendChart` (area, interactive range 7/30/90d): decisions by type over time (toggle to mastery trend).
-- `RecentDecisionsTable` (reusable `DataTable`, last 20) → row opens decision `Sheet`.
+Each page below states its **primary question** (§2, principle #2), **L0 layout** (what stays on screen), and **drill-down exit** (where depth lives). Do not add widgets beyond what is listed — defer to Sheet/route tabs.
 
-**Attention `/attention`** — educator triage. Two stacked regions: **Who needs help now** (ranked `LearnerCard` list by urgency) and **What should happen next** (decision review cards with `Approve`/`Reject`, client-side localStorage in pilot per decision-panel-ui.md). Empty = "All caught up."
+**Overview `/`** — *"Is anything wrong right now?"*
+- **L0 only** (no Sheet on this page): `SectionCards` (4 KPIs max, 4-up → 2-up → 1-up): **Needs attention** (count, Δ vs yesterday), **Pending decisions**, **Signals today** (accepted/rejected split), **Improving learners**. No duplicate Attention queue here — KPI links to `/attention` when actionable.
+- `TrendChart` (single area chart; 7/30/90d range; decisions-by-type ↔ mastery toggle — one series visible at a time) + adjacent text summary line for glanceability + a11y.
+- `RecentDecisionsTable` (reusable `DataTable`, last 20, default columns per §2.1) → row opens decision **L1 Sheet** → "Open trace" → `/decisions/[id]`.
 
-**Learners `/learners`** — `DataTable`: learner reference, current level, trend (`ProgressBadge`), last activity, open. Search + filters (declining only, by skill). Row → `Sheet` peek (`LearnerDetailSheet`, §8.1) → "Open full view" → `/learners/[ref]`.
+**Attention `/attention`** — *"Who do I act on, and what should I do?"*
+- **No KPI cards** (Overview owns aggregates). Two stacked regions only:
+  - **Who needs help now** — ranked `LearnerCard` list by urgency (not a full `DataTable`; cards are the scannable L0).
+  - **What should happen next** — decision review cards with `Approve`/`Reject` (client-side localStorage in pilot per decision-panel-ui.md).
+- Card click → learner **L1 Sheet** (summary peek) or inline decision context; "Open full view" → `/learners/[ref]`. Empty = "All caught up."
 
-### 8.1 Learner drill-down `Sheet` (peek payload)
-Clicking a learner row opens the right-side `DetailSheet` (read-only, ~480px desktop / full-width mobile per §11). It carries **summary-level traceability only** — honoring progressive disclosure (§2.1: summary → list → detail); deep history stays on the route. Contents:
+**Learners `/learners`** — *"Who is in the program and how are they trending?"*
+- **L0:** `DataTable` with default columns only (reference, current level, trend `ProgressBadge`, last activity). Search + filters (declining only, by skill) in a compact filter bar — not a second panel.
+- Row → **L1** `LearnerDetailSheet` (§8.1) → "Open full view" → **L2** `/learners/[ref]`.
+
+### 8.1 Learner drill-down `Sheet` (L1 peek payload)
+Clicking a learner row opens the right-side `DetailSheet` (read-only, ~480px desktop / full-width mobile per §11). It carries **summary-level traceability only** — honoring the three-tier model (§2.1); deep history stays on the route. Contents (max — do not exceed):
 - **Header:** learner reference + current `ProgressBadge` (level + trend).
 - **Current traceability state:** latest canonical state fields (current version label, key mastery/struggle indicators). Not the full version history.
-- **Recent signals:** last N ingested signals (time, source, outcome chip) — preview, not the full log.
-- **Recent decisions:** last few receipts with `DecisionBadge`.
-- **Primary CTA:** "Open full view" → `/learners/[ref]` for the deep, deep-linkable detail.
+- **Recent signals:** last **3** ingested signals (time, source, outcome chip) — preview, not the full log.
+- **Recent decisions:** last **3** receipts with `DecisionBadge`.
+- **Primary CTA (footer, sole emphasized action):** "Open full view" → `/learners/[ref]`.
 
-Everything heavier (state **version drill-down**, full **signal history**, trajectory, struggles/progress) lives on the route tabs below — never crammed into the peek.
+Everything heavier (state **version drill-down**, full **signal history**, trajectory, struggles/progress) lives on **L2** route tabs below — never crammed into the peek.
 
-**Learner detail `/learners/[ref]`** — tabs: **Overview** (summary, recent decisions), **State** (canonical fields + raw JSON, **version selector** for historical drill-down), **Trajectory** (per-skill trend), **Struggles & progress** ("What Do They Need Help With" + "Did the Support Work" merged).
+**Learner detail `/learners/[ref]` (L2)** — tabs (one concern per tab; no all-in-one scroll):
+- **Overview** — summary + recent decisions (decision-driven via `/v1/learners/:ref/summary`).
+- **State** — canonical fields + **version selector** for historical drill-down; raw JSON in collapsed **L3** `JsonViewer`.
+- **Trajectory** — per-skill trend (reads `/v1/state`).
+- **Struggles & progress** — "What Do They Need Help With" + "Did the Support Work" merged.
 
-**Decisions `/decisions`** — `DataTable` of receipts (time, type w/ `DecisionBadge`, rule, policy, learner) + filter bar (org/learner/time). Row → `Sheet` peek → "Open trace" → `/decisions/[id]`.
+**Decisions `/decisions`** — *"What decisions were emitted?"*
+- **L0:** `DataTable` default columns (time, type w/ `DecisionBadge`, rule truncated, learner) + filter bar (org/learner/time). Row → **L1** Sheet peek (header + rationale excerpt + link) → "Open trace" → **L2** `/decisions/[id]`.
 
-**Decision detail `/decisions/[id]`** — the compliance trust view: decision header, rationale block (`font-mono`), evaluated-thresholds table (field/op/threshold/actual/pass), collapsible state snapshot + rule condition (`JsonViewer`), **Export JSON**.
+**Decision detail `/decisions/[id]` (L2)** — compliance trust view: decision header, rationale block (`font-mono`), evaluated-thresholds table (field/op/threshold/actual/pass), collapsible **L3** state snapshot + rule condition (`JsonViewer`, collapsed by default), **Export JSON** (sole primary CTA).
 
-**Signals `/signals`** — `DataTable` ingestion log (time, signal id, source, schema, outcome chip). Outcome filter (accepted/duplicate/rejected); rejected rows expand to reason code + field path. Cursor pagination.
+**Signals `/signals`** — *"Is ingestion healthy?"*
+- **L0:** `DataTable` default columns (time, source, schema, outcome chip). Outcome filter (accepted/duplicate/rejected); cursor pagination.
+- Rejected rows: **L1 inline expand** (single row accordion) for reason code + field path — not a Sheet (lightweight exception). Full signal payload → future detail route if needed; do not inline JSON in the table body.
 
-**Reports `/reports`** — program metrics cards + export actions (CSV/JSON). Honors read-only de-identified export contracts.
+**Reports `/reports`** — *"What are program-level outcomes?"*
+- Program metrics cards (≤6) + export actions (CSV/JSON). Honors read-only de-identified export contracts. No learner-level drill-down on this page — link out to Learners/Decisions routes instead.
 
 ---
 
@@ -202,7 +293,9 @@ Everything heavier (state **version drill-down**, full **signal history**, traje
 | `SectionCards` / `StatCard` | `components/dashboard/section-cards.tsx` | KPI grid + single metric card w/ delta |
 | `TrendChart` | `components/dashboard/trend-chart.tsx` | Interactive area chart (shadcn `chart`) |
 | `DataTable` | `components/data-table/data-table.tsx` | Generic TanStack Table (sort/filter/paginate/row-action); column defs per feature |
-| `DetailSheet` | `components/shared/detail-sheet.tsx` | Right-side drill-down peek wrapper (generic) |
+| `DetailSheet` | `components/shared/detail-sheet.tsx` | L1 peek wrapper: header slot, scroll body, **single** footer CTA; focus trap; preserves list context |
+| `SheetSection` | `components/shared/sheet-section.tsx` | Label + compact field list for peek payloads (avoids nested cards) |
+| `DrillDownLink` | `components/shared/drill-down-link.tsx` | Consistent "Open full view" / "Open trace" footer button + optional `ArrowRight` |
 | `LearnerDetailSheet` | `app/(dashboard)/learners/_components/learner-detail-sheet.tsx` | Learner peek payload (§8.1) on `DetailSheet`: summary, current state, recent signals/decisions, "Open full view" CTA |
 | `JsonViewer` | `components/shared/json-viewer.tsx` | Collapsible, `font-mono`, copy button |
 | `StatusBadge` family | `components/shared/{decision-badge,urgency-badge,progress-badge}.tsx` | Reuse existing 8P3P badges (icon + token color + label) |
@@ -275,7 +368,7 @@ dashboard/                                  # Next.js 15 App Router app (see mig
 │   ├── layout/        # app-sidebar, site-header, nav-*, page-header
 │   ├── dashboard/     # section-cards, stat-card, trend-chart
 │   ├── data-table/    # data-table + parts
-│   ├── shared/        # detail-sheet, json-viewer, *-badge, learner-card, theme-toggle, org-switcher
+│   ├── shared/        # detail-sheet, sheet-section, drill-down-link, json-viewer, *-badge, learner-card, theme-toggle, org-switcher
 │   ├── states/        # empty-state, error-state, loading-state
 │   └── ui/            # shadcn primitives
 ├── hooks/             # use-learners, use-decisions, use-signals, use-learner-summary, ...
@@ -289,24 +382,25 @@ dashboard/                                  # Next.js 15 App Router app (see mig
 ## 14. Phased Implementation Checklist
 
 **Phase A — Foundation (no AWS)**
-- [ ] Scaffold Next.js 15 app shell; install shadcn primitives (§9.1); `npx shadcn add dashboard-01` as scaffolding reference.
-- [ ] Port 8P3P tokens into `globals.css`; wire Geist Sans/Mono; ThemeProvider + persisted dark mode (no flash).
-- [ ] Build `AppSidebar`, `SiteHeader`, `NavMain/Secondary/User`, `PageHeader` per §5/§7.
-- [ ] Build standardized `EmptyState`/`ErrorState`/`LoadingState` (§10).
+- [x] Scaffold Next.js 15 app shell; install shadcn primitives (§9.1); `npx shadcn add dashboard-01` as scaffolding reference.
+- [x] Port 8P3P tokens into `globals.css`; wire Geist Sans/Mono via `geist` package; ThemeProvider + persisted theme (**light default**, SSR-safe, no flash).
+- [x] Build `AppSidebar`, `SiteHeader`, `NavMain/Secondary/User`, `PageHeader` per §5/§7.
+- [x] Build standardized `EmptyState`/`ErrorState`/`LoadingState` (§10).
 
 **Phase B — Core surfaces**
-- [ ] Overview (`SectionCards` + `TrendChart` + `RecentDecisionsTable`).
-- [ ] Reusable typed `DataTable` (sort/filter/paginate/row-action).
-- [ ] Learners roster + Learner detail (state **version drill-down**, trajectory, struggles/progress).
-- [ ] Decisions stream + Decision trace (`JsonViewer`, thresholds table, export).
-- [ ] Signals ingestion log (outcome filter + rejection drill-down).
-- [ ] Attention queue (educator triage + Approve/Reject client-side).
+- [x] Overview (`SectionCards` + `TrendChart` + `RecentDecisionsTable`) — **L0 only**; row → decision L1 Sheet; no Attention queue duplication (§8).
+- [x] Reusable typed `DataTable` (sort/filter/paginate/row-action) with **default column sets** per §2.1; hidden columns via drill-down only.
+- [x] `DetailSheet` + `SheetSection` + `DrillDownLink` implementing L1 peek pattern (§2.1, §6).
+- [x] Learners roster + Learner detail (state **version drill-down**, trajectory, struggles/progress); Sheet capped at 3 recent signals/decisions (§8.1).
+- [x] Decisions stream + Decision trace (`JsonViewer` collapsed by default, thresholds table, export).
+- [x] Signals ingestion log (outcome filter + rejection **row expand** drill-down, not Sheet).
+- [x] Attention queue (educator triage + Approve/Reject client-side) — **no KPI cards** on this route.
 
 **Phase C — Polish & scale**
-- [ ] Reports page (program metrics + export).
-- [ ] Command palette (`⌘K`), org switcher behavior, breadcrumbs.
-- [ ] Responsive passes (mobile sidebar `Sheet`, table degradation), a11y audit (WCAG AA), reduced-motion.
-- [ ] Playwright e2e for each surface; visual responsive checks.
+- [x] Reports page (program metrics + export) — metrics cap ≤6 cards.
+- [ ] Command palette (`⌘K`), org switcher multi-org behavior, Help external docs link, breadcrumbs polish.
+- [ ] Responsive passes (mobile sidebar `Sheet`, table degradation, L1 full-width Sheet), a11y audit (WCAG AA), reduced-motion.
+- [ ] **UX gate:** Playwright drill-down paths green in CI; formal educator walkthrough sign-off.
 
 ---
 
@@ -324,7 +418,8 @@ dashboard/                                  # Next.js 15 App Router app (see mig
 - Inspection surfaces: `docs/specs/inspection-panels.md`, `docs/specs/inspection-api.md`, `docs/specs/receipts-api.md`
 - Hosting/execution: `docs/specs/nextjs-amplify-dashboard-migration.md`
 - Perf patterns: `.agents/skills/vercel-react-best-practices/`
+- UX/UI quality bar (data-driven dashboards, drill-down, anti-clutter): `.agents/skills/frontend-design/SKILL.md` — apply **refined minimalism** (restraint, hierarchy, whitespace) not decorative maximalism.
 
 ---
 
-*Created: 2026-06-12 | Design-only. Execution & hosting: nextjs-amplify-dashboard-migration.md. Tokens: decision-panel-ui.md.*
+*Created: 2026-06-12 | Updated: 2026-06-20 (educator journey §; Phase A/B implemented; Phase C partial; Help/⌘K deferred) | Design-only. Execution & hosting: nextjs-amplify-dashboard-migration.md. Tokens: decision-panel-ui.md.*
