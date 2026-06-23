@@ -2,6 +2,8 @@
 
 > A lightweight, read-only proof surface that makes the control layer's intelligence visible to school staff — four panels answering: Who needs help now? What do they need help with? What should happen next? Did the support work?
 
+> **Implementation (2026-06):** The Decision Panel is a **standalone Next.js 15 App Router** app in `dashboard/`, rebuilt per [`dashboard-design-requirements.md`](dashboard-design-requirements.md). Fastify no longer serves `/dashboard` or `/inspect`. API calls go through server-side proxy route handlers (`/api/control/*`) — see [`nextjs-amplify-dashboard-migration.md`](nextjs-amplify-dashboard-migration.md). Sections below that describe Vite, `dashboard/dist`, or `@fastify/static` are **historical** unless marked current.
+
 ## Overview
 
 The API produces decisions, traces, state, and deltas. But for a pilot school, JSON responses are invisible. The Decision Panel is the **minimum viable proof surface** — a single-page React application that reads from existing API endpoints and presents the control layer's output in an educator-friendly four-panel layout.
@@ -29,14 +31,17 @@ The Decision Panel mockup (CEO-provided) defines four panels:
 
 | Category | Technology | Version | Rationale |
 |----------|------------|---------|-----------|
-| Framework | React | 19+ (latest) | Industry standard, large ecosystem, team familiarity |
-| Component Library | shadcn/ui | latest | Composable, accessible, unstyled primitives — full design control without fighting a design system |
-| Styling | Tailwind CSS | 4+ (latest) | Utility-first, rapid iteration; `@theme inline` replaces `tailwind.config.ts` for v4 theming — no config file needed |
-| Build Tool | Vite | latest | Fast HMR, native ESM, minimal config |
+| Framework | **Next.js** (App Router) | 15.5.x | Standalone SSR host; server route handlers hide API key |
+| UI | React | 19+ | Industry standard |
+| Component Library | shadcn/ui | latest | Composable, accessible primitives |
+| Styling | Tailwind CSS | 4+ | Utility-first; tokens in `dashboard/app/globals.css` |
 | Language | TypeScript | ~6.0 | Matches control-layer backend |
-| HTTP Client | Native `fetch` | — | No external dependency; API is same-origin or CORS-configured |
-| State Management | React Query (TanStack Query) | latest | Automatic polling, caching, refetch — purpose-built for server-state UIs |
-| Icons | Lucide React | latest | Default icon set for shadcn/ui, consistent with design language |
+| HTTP | Server proxy + TanStack Query | — | Browser calls `/api/control/*`; proxy adds `x-api-key` |
+| State Management | TanStack Query | latest | Polling, caching, refetch |
+| Icons | Lucide React | latest | shadcn default |
+| E2E | Playwright | latest | `dashboard/e2e/` |
+
+*(Legacy pilot used Vite 8 + client-side `VITE_API_KEY` — retired.)*
 
 ### Design Tokens (8P3P Brand)
 
@@ -238,43 +243,46 @@ The Decision Panel mockup (CEO-provided) defines four panels:
 
 ## Architecture
 
-### Deployment Model
+### Deployment Model (current)
 
-The Decision Panel is a **static SPA** served from the control-layer API server. No separate hosting required.
-
-```
-┌──────────────────────────────────────────────────┐
-│  Fastify Server (existing)                        │
-│                                                    │
-│  /v1/*          → API routes (existing)            │
-│  /docs          → Swagger UI (existing)            │
-│  /inspect       → Inspection panels (existing)     │
-│  /dashboard     → Decision Panel SPA (NEW)         │
-│                    Served via @fastify/static       │
-│                    Build output: dashboard/dist/    │
-└──────────────────────────────────────────────────┘
-```
-
-**Build process:** The Decision Panel lives in a `dashboard/` subdirectory at the project root. `npm run build:dashboard` compiles to `dashboard/dist/`. The Fastify server registers a second `@fastify/static` instance at `/dashboard` pointing to this dist folder, with `decorateReply: false` to avoid a Fastify decorator conflict with the existing `/inspect/` registration (same pattern noted in `.cursor/plans/inspection-panels.plan.md`). The SPA uses hash-based routing (e.g. `/#panel-1`) — consistent with the `/inspect` panels — which eliminates the need for a server-side catch-all route and works transparently with `@fastify/static`.
-
-**Alternative (if separate deploy preferred):** The SPA can be deployed to S3 + CloudFront independently, pointed at the API via `VITE_API_BASE_URL`. The spec supports both — the SPA is stateless and only needs fetch access to the API.
-
-### Data Flow
+The Decision Panel is a **standalone Next.js application** deployed separately from the Fastify API.
 
 ```
-Decision Panel (React SPA)
+┌─────────────────────────────┐     ┌──────────────────────────────┐
+│  Next.js (dashboard/)        │     │  Fastify API (repo root)      │
+│  Educator + inspection UI    │────▶│  /v1/*  /docs  /health        │
+│  /api/control/* proxy        │     │  SQLite or DynamoDB           │
+│  Runtime: CONTROL_LAYER_*    │     │  CORS: DASHBOARD_ALLOWED_*    │
+└─────────────────────────────┘     └──────────────────────────────┘
+```
+
+**Build:** `cd dashboard && npm run build` → `.next/`. Root `npm run build:dashboard` wraps the same.
+
+**Local dev:** API on `:3000`, dashboard on `:3001` — [`docs/foundation/setup.md`](../foundation/setup.md).
+
+**Production target:** AWS Amplify Hosting (blocked pending account); any Node 22 host with Next 15 SSR until then.
+
+### Deployment Model (legacy — superseded)
+
+<details>
+<summary>Fastify-served Vite SPA at <code>/dashboard</code> (pre-2026-06)</summary>
+
+The Decision Panel was previously a static SPA served from the control-layer API server via `@fastify/static` at `/dashboard` with hash routing and `VITE_*` build-time env vars. That path is removed. See git history and `nextjs-amplify-dashboard-migration.md`.
+
+</details>
+
+### Data Flow (current)
+
+```
+Decision Panel (Next.js, browser)
      │
-     ├── GET /v1/state/list?org_id=:org                              → learner index (unchanged)
-     ├── GET /v1/learners/:learner_reference/summary?org_id=:org       → Panels 1, 3 (decision-driven)
-     ├── GET /v1/state?org_id=:org&learner_reference=:ref              → Panels 2, 4 (per-skill breakdown)
-     └── GET /v1/policies?org_id=:org                                  → active policy (optional context)
-     
-     Headers: { "x-api-key": "<tenant_api_key>" }
+     └── GET/POST /api/control/v1/...  (same-origin)
+              │
+              └── Next route handler → CONTROL_LAYER_API_BASE_URL/v1/...
+                    Headers: { "x-api-key": CONTROL_LAYER_API_KEY }  (server-only)
 ```
 
-Panels 1 and 3 read `recent_decisions` and `current_state.fields` from the learner summary endpoint. Panels 2 and 4 require the full nested `skills.*` map from `GET /v1/state` (the summary URS projection intentionally omits per-skill fields). No raw `GET /v1/signals` prefetch is required for MVP — `signals_summary` on the summary response covers decision-panel needs.
-
-All requests use the existing tenant API key. No new auth mechanism required.
+Educator pages consume `/v1/learners/:ref/summary`, `/v1/state`, `/v1/receipts`, `/v1/ingestion`, etc. through the proxy. The browser never sends `x-api-key`.
 
 ### Auto-Refresh
 
@@ -608,7 +616,7 @@ Panels 1, 2, and 4 depend on `decision_context.skill`, `skills.*.stabilityScore_
 
 ## Acceptance Criteria
 
-- Given a deployed control layer with seeded learner data, when the Decision Panel loads at `/dashboard`, then all four panels render with data within 3 seconds.
+- Given a deployed control layer with seeded learner data, when the Decision Panel loads at the dashboard root URL, then educator surfaces render with data within 3 seconds.
 - Given a learner with `decision_type: intervene` and dominant skill `text_evidence`, when "Who Needs Help Now" renders, then the learner card shows urgency badge and "Skill: text_evidence" (or mapped literacy label).
 - Given a learner with `skills.text_evidence.stabilityScore_direction: "declining"`, when "What Do They Need Help With" renders, then the card shows "Text Evidence: stability declining" with a quoted rationale.
 - Given a recent intervene decision, when "What Should Happen Next" renders, then the INTERVENE badge, learner name, skill, and rationale are displayed with Approve/Reject buttons.
@@ -624,7 +632,7 @@ Panels 1, 2, and 4 depend on `decision_context.skill`, `skills.*.stabilityScore_
 
 - **No new write paths for MVP.** Panels read from `GET /v1/learners/:ref/summary` (decision panels) and `GET /v1/state` (per-skill panels). All aggregation logic (grouping by urgency, extracting skill trends, deriving levels) happens client-side.
 - **No write-back for Approve/Reject in MVP.** Educator review state is localStorage only. Post-pilot, add `POST /v1/decisions/:id/review`.
-- **No user authentication UI.** API key is injected via `VITE_API_KEY` env var at build time, or prompted once on first visit and stored in localStorage.
+- **Passphrase gate (not full SSO).** Human access via `DASHBOARD_ACCESS_CODE` + session cookie on the **dashboard app** — [`dashboard-passphrase-gate.md`](dashboard-passphrase-gate.md). API key stays server-side via proxy.
 - **No admin capabilities.** No policy editing, no field mapping config, no tenant management. This is a proof surface, not a dashboard.
 - **Separate `package.json`.** The `dashboard/` directory has its own dependencies, build scripts, and tsconfig. It does not share dependencies with the backend.
 
@@ -687,12 +695,11 @@ Panels 1, 2, and 4 depend on `decision_context.skill`, `skills.*.stabilityScore_
 
 ## Implementation Notes
 
-- **shadcn/ui init:** Run `npx shadcn@latest init` in `dashboard/` to scaffold the component library. Add components incrementally: `npx shadcn@latest add card badge button select tooltip`.
-- **API client:** A thin `fetch` wrapper in `api/client.ts` that prepends `VITE_API_BASE_URL` (default: same origin) and adds `x-api-key` header. No Axios or other HTTP library needed.
-- **Rationale builder:** `rationale-builder.ts` constructs human-readable sentences from state data: e.g., `stabilityScore: 0.22`, skill `"fractions"` → "Understanding of fractions is unstable (22% stability). May need reinforcement." This is purely client-side presentation logic — the decision trace `rationale` field is the authoritative source when available.
-- **GET /v1/decisions scope (legacy):** The shipped API requires `learner_reference`, `from_time`, and `to_time` (see `docs/api/openapi.yaml`). Decision panels now prefer `GET /v1/learners/:ref/summary` which embeds `recent_decisions`. The legacy org-wide decisions fan-out (`fetch-org-decisions.ts`) remains in the repo but is no longer used by panel components.
-- **Build integration:** Add `"build:dashboard": "cd dashboard && npm ci --quiet && npm run build"` to root `package.json`. The Fastify server registers `dashboard/dist/` as a static directory at `/dashboard`.
-- **Demo seed compatibility:** The existing `npm run seed:springs-demo` script produces decisions, states, and signals that the Decision Panel can display immediately — no additional seeding required once skill-level-tracking is implemented.
+- **shadcn/ui:** Initialized in `dashboard/components.json`; components under `dashboard/components/ui/`.
+- **API client:** `dashboard/lib/api/client.ts` calls same-origin `/api/control/*`; the route handler adds `x-api-key` server-side. No client `VITE_*` or browser API key.
+- **Rationale builder:** `dashboard/lib/rationale-builder.ts` — client-side presentation; decision trace `rationale` / `educator_summary` remain authoritative when present.
+- **Build:** Root `"build:dashboard": "cd dashboard && npm ci --quiet && npm run build"` produces `.next/`. Fastify does **not** serve the dashboard.
+- **Demo seed:** `npm run seed:springs-demo` + `CONTROL_LAYER_ORG_ID=springs` in `dashboard/.env.local` — see [`docs/foundation/setup.md`](../foundation/setup.md).
 
 ---
 

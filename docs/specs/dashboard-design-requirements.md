@@ -95,12 +95,24 @@ Default visible columns per `DataTable` (additional columns via column picker or
 | Learners | Reference, level/trend, last activity, status | Skill breakdown, internal IDs, raw state hash |
 | Decisions | Time, type, learner, rule (truncated) | Policy version, full rationale, state snapshot |
 | Signals | Time, source, outcome chip | Signal ID, schema, rejection field path |
-| Overview recent decisions | Same as Decisions, last 20 only | Filters beyond time sort |
+| Overview recent decisions | Time, type, learner, **summary** (`educator_summary`, plain-language, truncated) — last 20 only | Technical `matched_rule_id`, rationale excerpt (→ L1 Sheet), filters beyond time sort |
+
+**Educator-first vs inspection-first column ordering (normative).** The Overview recent-decisions table serves the **educator** audience, so its default L0 columns lead with the plain-language `educator_summary` ("Needs more practice"), and the technical `matched_rule_id` is **not** an L0 column — it moves into the L1 Sheet alongside the rationale excerpt (the technical/audit tier). The `/decisions` audit table serves the **inspection/compliance** audience and may keep the truncated rule id at L0. This applies the §2.1 "educator vs inspection density" rule and "no technical … raw policy paths in default table views": choose the L0 leading column by audience, defer IDs to the drill-down.
 
 **Chart interaction**
 - One chart per Overview; range selector (7/30/90d) changes window, not layout.
 - Provide a **textual summary** adjacent to or below the chart (e.g. "12 decisions this week, ↑3 vs prior") for screen readers and glanceability — chart is supplementary, not the only signal.
 - No auto-playing or looping chart animations; respect `prefers-reduced-motion`.
+
+**Cross-filter sync (linked brushing) — opt-in, normative**
+
+Data surfaces on a page (KPI cards ↔ chart ↔ table) may be wired into a **2-way linked filter** so adjusting a filter/selection on any one updates all of them. Because this adds interaction cost to a glance-first surface, it is governed strictly:
+
+- **Opt-in, default OFF.** Expose a single page-level `Switch` ("Sync filters"). When OFF, surfaces render independently (the 5-second "is anything wrong?" glance is preserved). When ON, a selection on any surface drives the others. Persist the toggle (versioned localStorage key).
+- **One shared filter object.** Sync mode lifts a single `{ decisionType, learner, dateWindow }` filter into a client provider wrapping only the synced surfaces; all three views are **derived** from it (no per-interaction refetch). Hydrate the already-fetched dataset client-side rather than re-querying.
+- **Linked state is always visible.** Render the active cross-filter as removable `Badge` chips ("Filtered: Reinforce ✕") above the affected surfaces — never an invisible/implicit filter. Color is never the sole indicator (§2 #9).
+- **Performance.** Derive filtered views with `useMemo`; feed the filter through `useDeferredValue` and `startTransition` so brushing/typing stays responsive (vercel-react-best-practices §5.9/§5.13/§5.14). Pass only the fields the client filters on across the RSC boundary (§3.6).
+- **Scope.** Cross-filter is an **exploratory** aid, not a replacement for drill-down — it never bypasses the L0→L1→L2 ladder; it only narrows what each tier shows.
 
 **Educator vs inspection density (same drill-down ladder)**
 - Educators: L0/L1 use plain language labels ("Needs help", "Improving"); L2 tabs named for jobs ("Overview", "Struggles & progress").
@@ -234,9 +246,12 @@ Drill-down convention (implements §2.1 three-tier model):
 Each page below states its **primary question** (§2, principle #2), **L0 layout** (what stays on screen), and **drill-down exit** (where depth lives). Do not add widgets beyond what is listed — defer to Sheet/route tabs.
 
 **Overview `/`** — *"Is anything wrong right now?"*
-- **L0 only** (no Sheet on this page): `SectionCards` (4 KPIs max, 4-up → 2-up → 1-up): **Needs attention** (count, Δ vs yesterday), **Pending decisions**, **Signals today** (accepted/rejected split), **Improving learners**. No duplicate Attention queue here — KPI links to `/attention` when actionable.
+- **L0** (decision **L1 Sheet** opens from the recent table — see below): `SectionCards` (4 KPIs max, 4-up → 2-up → 1-up): **Needs attention** (count, Δ vs yesterday), **Pending decisions**, **Signals today** (accepted/rejected split), **Improving learners**. No duplicate Attention queue here.
+  - **Decluttered KPI cards (normative):** each card shows a leading icon + short label + **one value** + delta/contextual comparison + status color — **no prose description sentences** (defer nuance to a `Tooltip`). Honors the data-ink ratio and one-number-per-card (≤4–6 contextual KPI cards). Split compound values (e.g. "Signals today") into a single number + icon-chip breakdown, not a sentence.
+  - **Uniform clickability (normative):** **every** KPI card is interactive with a consistent hover/focus affordance and links to its drill target — Needs attention→`/attention`, Pending→`/decisions?status=pending`, Signals→`/signals`, Improving→`/learners?trend=improving`. No card is a dead end.
 - `TrendChart` (single area chart; 7/30/90d range; decisions-by-type ↔ mastery toggle — one series visible at a time) + adjacent text summary line for glanceability + a11y.
-- `RecentDecisionsTable` (reusable `DataTable`, last 20, default columns per §2.1) → row opens decision **L1 Sheet** → "Open trace" → `/decisions/[id]`.
+- `RecentDecisionsTable` (reusable `DataTable`, last 20) — **educator-first L0 columns** `Time · Type · Learner · Summary` (`educator_summary`, plain-language, truncated); the technical `matched_rule_id` is **not** at L0 (per §2.1) → row opens decision **L1 Sheet** (technical tier) → "Open trace" → `/decisions/[id]`.
+- **Cross-filter "Sync filters" toggle** (default OFF) linking KPI cards ↔ chart ↔ table per the §2.1 cross-filter doctrine. OFF = independent surfaces (calm glance); ON = a filter/selection on any surface updates all three, with removable active-filter chips and `useDeferredValue`/`startTransition` for responsiveness.
 
 **Attention `/attention`** — *"Who do I act on, and what should I do?"*
 - **No KPI cards** (Overview owns aggregates). Two stacked regions only:
@@ -265,7 +280,8 @@ Everything heavier (state **version drill-down**, full **signal history**, traje
 - **Struggles & progress** — "What Do They Need Help With" + "Did the Support Work" merged.
 
 **Decisions `/decisions`** — *"What decisions were emitted?"*
-- **L0:** `DataTable` default columns (time, type w/ `DecisionBadge`, rule truncated, learner) + filter bar (org/learner/time). Row → **L1** Sheet peek (header + rationale excerpt + link) → "Open trace" → **L2** `/decisions/[id]`.
+- **L0:** `DataTable` default columns (time, type w/ `DecisionBadge`, rule truncated, learner) + filter bar (org/learner/time). Row → **L1** Sheet peek → "Open trace" → **L2** `/decisions/[id]`.
+- **Decision L1 Sheet payload (shared by Overview + Decisions):** header keeps the plain-language `educator_summary` for continuity, then a **Technical detail** section carrying `matched_rule_id` (mono), evaluated-fields summary, and the rationale excerpt (`font-mono`) — i.e. the Sheet is the technical/audit tier that the educator-first L0 table defers to (§2.1). Sole footer CTA: "Open trace" → L2.
 
 **Decision detail `/decisions/[id]` (L2)** — compliance trust view: decision header, rationale block (`font-mono`), evaluated-thresholds table (field/op/threshold/actual/pass), collapsible **L3** state snapshot + rule condition (`JsonViewer`, collapsed by default), **Export JSON** (sole primary CTA).
 
@@ -398,6 +414,9 @@ dashboard/                                  # Next.js 15 App Router app (see mig
 
 **Phase C — Polish & scale**
 - [x] Reports page (program metrics + export) — metrics cap ≤6 cards.
+- [ ] **D1** — Overview recent-decisions table educator-first columns (`Time·Type·Learner·Summary`); move `matched_rule_id` + rationale excerpt into the decision L1 Sheet (technical tier).
+- [ ] **D3** — Declutter KPI cards (one value + delta + status, no prose) and make all 4 cards clickable to a drill target.
+- [ ] **D2** — Cross-filter "Sync filters" toggle (default OFF) linking KPI cards ↔ chart ↔ table per §2.1 cross-filter doctrine.
 - [ ] Command palette (`⌘K`), org switcher multi-org behavior, Help external docs link, breadcrumbs polish.
 - [ ] Responsive passes (mobile sidebar `Sheet`, table degradation, L1 full-width Sheet), a11y audit (WCAG AA), reduced-motion.
 - [ ] **UX gate:** Playwright drill-down paths green in CI; formal educator walkthrough sign-off.
@@ -422,4 +441,4 @@ dashboard/                                  # Next.js 15 App Router app (see mig
 
 ---
 
-*Created: 2026-06-12 | Updated: 2026-06-20 (educator journey §; Phase A/B implemented; Phase C partial; Help/⌘K deferred) | Design-only. Execution & hosting: nextjs-amplify-dashboard-migration.md. Tokens: decision-panel-ui.md.*
+*Created: 2026-06-12 | Updated: 2026-06-22 (data-viz UX directives: D1 educator-first table / technical-tier Sheet, D2 cross-filter sync toggle, D3 KPI declutter + uniform clickability; §2.1 cross-filter doctrine + educator-first column ordering; §8 Overview) | Prior: 2026-06-20 (educator journey §; Phase A/B implemented). Design-only. Execution & hosting: nextjs-amplify-dashboard-migration.md. Tokens: decision-panel-ui.md.*
