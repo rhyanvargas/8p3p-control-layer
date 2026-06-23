@@ -19,7 +19,7 @@
 
 ## Overview
 
-The Decision Panel (`dashboard/`) is today a **Vite 8 + React 19 SPA** with a single API client (`dashboard/src/api/client.ts`) that injects a **build-time** `VITE_API_KEY` into the browser bundle. It is built by Fastify (`@fastify/static`) and served at `/dashboard/`, gated by the passphrase session cookie (`docs/specs/dashboard-passphrase-gate.md`).
+The Decision Panel (`dashboard/`) was previously a **Vite + React 19 SPA** with a build-time `VITE_API_KEY` in the browser bundle, served by Fastify at `/dashboard/`. **That architecture is retired.** The panel is now a **standalone Next.js (App Router) app** (local Phases 1–4 complete; AWS Amplify deploy blocked).
 
 This spec migrates that SPA to a **standalone Next.js (App Router) app on AWS Amplify Hosting**, for two concrete wins backed by evidence:
 

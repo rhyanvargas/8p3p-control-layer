@@ -138,16 +138,15 @@ Share the Decision Panel URL with your educator champion — this is the primary
 
 **Full details:** [Pilot Integration Guide §14](pilot-integration-guide.md#14-decision-panel--see-decisions-visually)
 
-## Optional: Inspection panels (developer debugging)
+## Optional: Inspection views (developer debugging)
 
-If 8P3P has given you access to the inspection UI:
+The read-only inspection surfaces (Signal Intake, State Viewer, Decision Stream, Decision Trace) live in the **Decision Panel** Next.js app — not on the API host.
 
-1. Open `https://<host>/inspect/` in a browser.
-2. Enter your **API key** in the header (if the server requires it).
-3. Enter **org_id** (e.g. `org_acme`) and click **Refresh**.
-4. Use the four panels: **Signal Intake**, **State Viewer**, **Decision Stream**, **Decision Trace**.
+**Local:** follow [Local Dev & Testing](../foundation/setup.md), then open http://localhost:3001/ and use **Signals**, **Decisions**, and learner detail tabs.
 
-To preload demo data (same host, e.g. for training): run `npm run seed:springs-demo` against the server with `--api-key <your_key>` and `--org <org_id>` (or use the org assigned to your key).
+**Deployed:** open the dashboard URL your operator provides (passphrase gate may apply). No client-side API key entry — the dashboard proxy holds credentials server-side.
+
+To preload demo data: run `npm run seed:springs-demo` against the API with `--api-key <your_key>` and `--org <org_id>`.
 
 ---
 

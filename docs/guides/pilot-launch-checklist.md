@@ -19,9 +19,9 @@ Use this checklist immediately before granting a pilot customer access to the De
 ## Security and access
 
 - [ ] `API_KEY` and `API_KEY_ORG_ID` set on the deployment (see [deployment-checklist.md](deployment-checklist.md))
-- [ ] `DASHBOARD_ACCESS_CODE` and `COOKIE_SECRET` (≥32 chars) set when serving `/dashboard`
+- [ ] `DASHBOARD_ACCESS_CODE` and `COOKIE_SECRET` (≥32 chars) set on the **dashboard** deployment when the passphrase gate is enabled
+- [ ] Dashboard runtime env: `CONTROL_LAYER_API_BASE_URL`, `CONTROL_LAYER_API_KEY`, `CONTROL_LAYER_ORG_ID` (server-side; no `VITE_*` / client API key)
 - [ ] Access code shared with customer via **secure channel** (not email)
-- [ ] Dashboard build uses `VITE_API_BASE_URL`, `VITE_API_KEY`, `VITE_ORG_ID` for the pilot tenant only
 - [ ] Customer data-use / FERPA acknowledgment documented (see `internal-docs/pilot-operations/`)
 
 ---
@@ -29,7 +29,7 @@ Use this checklist immediately before granting a pilot customer access to the De
 ## Functional smoke (deployed)
 
 - [ ] `GET /health` → 200
-- [ ] Passphrase login at `/dashboard/login` → four panels render
+- [ ] Passphrase login at dashboard `/login` → Overview, Attention, and Learners pages render with live data
 - [ ] `GET /v1/learners/{ref}/summary?org_id=...` with `x-api-key` returns all five sections
 - [ ] Seeded demo learner shows expected educator_summary (e.g. advance → "Ready to move on")
 - [ ] No PII keys in summary `current_state.fields` (URS projection)

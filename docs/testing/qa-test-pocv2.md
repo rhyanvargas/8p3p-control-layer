@@ -6,9 +6,11 @@ Swagger UI: **http://localhost:3000/docs**
 
 ## Prerequisites
 
+Full local setup (API + optional dashboard): [`docs/foundation/setup.md`](../foundation/setup.md).
+
 ```bash
 npm install
-npm run dev
+npm run dev    # API on http://localhost:3000
 ```
 
 Server: `http://localhost:3000` (docs at `http://localhost:3000/docs`).

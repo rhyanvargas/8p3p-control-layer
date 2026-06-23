@@ -109,8 +109,12 @@ For detailed contract specifications, see the API specs in [`docs/api/`](docs/ap
 
 | Technology | Purpose |
 |------------|---------|
-| **TypeScript** | Primary language |
-| **Fastify** | HTTP server framework |
+| **TypeScript** | Primary language (API + dashboard) |
+| **Fastify** | Control-layer HTTP server |
+| **Next.js 15** | Decision Panel (`dashboard/`) — App Router, server-side API proxy |
+| **React 19** | Dashboard UI |
+| **TanStack Query** | Dashboard data fetching |
+| **Tailwind CSS 4 + shadcn/ui** | Dashboard styling and components |
 | **@fastify/swagger** | OpenAPI spec serving |
 | **@fastify/swagger-ui** | Interactive API docs at `/docs` |
 | **Ajv** | JSON Schema validation |
@@ -118,129 +122,82 @@ For detailed contract specifications, see the API specs in [`docs/api/`](docs/ap
 | **@aws-sdk/client-dynamodb** | DynamoDB client (AWS deployment) |
 | **aws-lambda-fastify** | Lambda adapter bridge |
 | **AWS CDK** | Infrastructure as code (`infra/`) |
-| **Vitest** | Test framework |
+| **Vitest** | API test framework |
+| **Playwright** | Dashboard e2e tests |
 | **ESLint** | Code quality |
 | **Redocly CLI** | OpenAPI linting |
 
-> See [`package.json`](package.json) for current versions and all dependencies.
+> See [`package.json`](package.json) and [`dashboard/package.json`](dashboard/package.json) for current versions and all dependencies.
 
 ---
 
 ## Local development
 
+Two processes: **Fastify API** (repo root) and **Next.js Decision Panel** (`dashboard/`).
+
 ```bash
+# Terminal 1 — API (port 3000)
 cp .env.example .env && npm install && npm run dev
-npm run seed:springs-demo    # second terminal — reference org `springs`
+
+# Terminal 2 — seed reference org `springs`
+npm run seed:springs-demo
+
+# Terminal 3 — Decision Panel (port 3001)
+cd dashboard && cp .env.example .env.local && npm install && npm run dev -- -p 3001
 ```
 
-Open http://localhost:3000/dashboard/ after seeding. Full runbook (env profiles, new org checklist, reset, verify): **[Local Dev & Testing](docs/foundation/setup.md)**.
+| URL | Service |
+|-----|---------|
+| http://localhost:3000/docs | Swagger UI |
+| http://localhost:3000/health | API health |
+| http://localhost:3001/ | Decision Panel |
 
-**Environment variables:** names and defaults in [`.env.example`](.env.example). Two local profiles (auth off vs pilot-like) are documented in [setup § Environment profiles](docs/foundation/setup.md#environment-profiles). Dashboard gate spec: [`docs/specs/dashboard-passphrase-gate.md`](docs/specs/dashboard-passphrase-gate.md).
+Full runbook (env profiles, testing, making changes, reset, troubleshooting): **[Local Dev & Testing](docs/foundation/setup.md)**.
+
+**Environment variables:** API — [`.env.example`](.env.example); dashboard — [`dashboard/.env.example`](dashboard/.env.example). The dashboard holds `CONTROL_LAYER_API_KEY` server-side (no `VITE_*` build-time keys). Passphrase gate: [`docs/specs/dashboard-passphrase-gate.md`](docs/specs/dashboard-passphrase-gate.md).
 
 ---
 
 ## Project Structure
 
 ```
-src/
-├── admin/               # Admin policy management
-│   ├── policies-dynamodb.ts        # DynamoDB PoliciesTable adapter
-│   └── policy-management-routes.ts # Admin policy CRUD handlers
-├── auth/                # Authentication middleware
-│   ├── admin-api-key-middleware.ts  # x-admin-api-key auth
-│   ├── api-key-middleware.ts       # x-api-key tenant auth
-│   ├── dashboard-gate.ts           # Decision Panel session gate
-│   ├── dashboard-login.ts          # Dashboard login/logout routes
-│   ├── session-cookie.ts           # HMAC session cookie helpers
-│   └── login-rate-limiter.ts       # Login attempt rate limiter
-├── config/              # Tenant configuration
-│   └── tenant-field-mappings.ts    # Payload normalization + aliases
-├── contracts/           # JSON schemas and validators
-│   ├── schemas/         # signal-envelope.json, decision.json
-│   └── validators/      # Ajv-based validation
-├── ingestion/           # Signal ingestion layer
-│   ├── handler.ts / handler-core.ts  # Fastify wrapper + framework-agnostic core
-│   ├── forbidden-keys.ts
-│   ├── idempotency.ts / idempotency-repository.ts
-│   ├── ingestion-log-store.ts / ingestion-log-handler.ts
-│   ├── dynamodb-idempotency-repository.ts
-│   └── dynamodb-ingestion-log-repository.ts
-├── signalLog/           # Immutable signal storage
-│   ├── handler.ts / handler-core.ts
-│   ├── store.ts / repository.ts
-│   └── dynamodb-repository.ts
-├── state/               # STATE engine + delta detection
-│   ├── engine.ts        # applySignals, computeStateDeltas
-│   ├── store.ts / repository.ts
-│   ├── handler.ts / handler-core.ts
-│   └── dynamodb-repository.ts
-├── decision/            # Decision engine
-│   ├── engine.ts        # evaluateState() — policy evaluation
-│   ├── policy-loader.ts # Policy loading, validation, DynamoDB resolution
-│   ├── handler.ts / handler-core.ts
-│   ├── store.ts / repository.ts
-│   ├── dynamodb-repository.ts
-│   └── policies/        # Policy definitions (default + per-org)
-├── lambda/              # AWS Lambda entrypoints
-│   ├── ingest.ts        # POST /v1/signals
-│   ├── query.ts         # GET /v1/signals, /v1/decisions, /v1/receipts
-│   ├── inspect.ts       # GET /v1/state, /v1/ingestion
-│   ├── admin.ts         # Admin policy + mapping management
-│   └── admin-handler.ts # Fastify-based admin Lambda bridge
-├── shared/              # Shared types and error codes
-│   ├── types.ts
-│   └── error-codes.ts
-└── server.ts            # Application entry point
+src/                          # Control-layer API (Fastify)
+├── admin/                    # Admin policy management
+├── auth/                     # API key middleware, session cookie helpers
+├── config/                   # Tenant field mappings, dashboard CORS
+├── connectors/               # Connector templates and routes
+├── contracts/                # JSON schemas and Ajv validators
+├── decision/                 # Decision engine + policies/
+├── feedback/                 # Educator feedback persistence
+├── ingestion/                # Signal ingestion, idempotency, webhooks
+├── lambda/                   # AWS Lambda entrypoints
+├── learners/                 # Learner summary, trajectory, URS projection
+├── policies/                 # Tenant policy inspection routes
+├── routes/                   # Admin mappings, webhooks, preflight
+├── signalLog/                # Immutable signal storage
+├── state/                    # STATE engine + delta detection
+├── shared/                   # Types and error codes
+└── server.ts                 # API entry point
 
-infra/
-├── bin/
-│   └── control-layer.ts          # CDK app entry point
-├── lib/
-│   └── control-layer-stack.ts    # Main stack (API Gateway, Lambdas, DynamoDB)
-├── cdk.json
-└── tsconfig.json
+dashboard/                    # Decision Panel (Next.js 15 App Router)
+├── app/
+│   ├── (auth)/               # Login / logout route handlers
+│   ├── (dashboard)/          # Overview, Attention, Learners, Decisions, Signals, …
+│   └── api/control/          # Server-side proxy to control-layer /v1/*
+├── components/               # shadcn/ui, layout, panels, shared badges
+├── hooks/                    # TanStack Query hooks
+├── lib/                      # Auth, API client, env, navigation
+├── e2e/                      # Playwright tests
+└── amplify.yml               # Amplify Hosting build spec (deploy blocked pending AWS account)
 
-scripts/
-├── validate-schemas.ts    # JSON Schema compilation check
-├── validate-contracts.ts  # Contract alignment (JSON Schema ↔ OpenAPI ↔ AsyncAPI)
-└── validate-api.sh        # OpenAPI linting (Redocly)
-
-tests/
-├── contracts/        # Contract tests (spec-driven)
-│   ├── signal-ingestion.test.ts
-│   ├── signal-log.test.ts
-│   ├── state-engine.test.ts
-│   ├── decision-engine.test.ts
-│   ├── output-api.test.ts
-│   ├── inspection-api.test.ts
-│   ├── policy-management-api.test.ts
-│   ├── receipts-api.test.ts
-│   ├── api-key-middleware.test.ts
-│   └── contract-drift.test.ts
-├── integration/      # End-to-end integration tests
-│   ├── e2e-signal-to-decision.test.ts
-│   ├── springs-pilot.test.ts
-│   ├── inspection-panels.test.ts
-│   ├── dashboard-gate.test.ts
-│   └── gateway-403.test.ts
-├── unit/             # Unit tests
-│   ├── forbidden-keys.test.ts
-│   ├── idempotency.test.ts
-│   ├── signal-log-store.test.ts
-│   ├── ingestion-log-store.test.ts
-│   ├── state-engine.test.ts
-│   ├── state-store.test.ts
-│   ├── state-validator.test.ts
-│   ├── decision-engine.test.ts
-│   ├── decision-store.test.ts
-│   ├── decision-validator.test.ts
-│   ├── policy-loader.test.ts
-│   ├── api-key-middleware.test.ts
-│   ├── session-cookie.test.ts
-│   └── lambda/
-│       └── lambda-handlers.test.ts
-└── helpers/          # Shared test utilities
+infra/                        # AWS CDK (API Gateway, Lambdas, DynamoDB)
+scripts/                      # Schema/contract validation, API key generation
+tests/                        # Vitest — contracts/, integration/, unit/
+docs/                         # Specs, guides, API OpenAPI/AsyncAPI
+examples/springs/             # Springs demo seed script
 ```
+
+> Full local dev and test workflow: [`docs/foundation/setup.md`](docs/foundation/setup.md).
 
 ---
 
@@ -276,7 +233,9 @@ Common business use-cases and integration workflows (built from the existing API
 | [State Engine](docs/specs/state-engine.md) | v1 | **Implemented** |
 | [Decision Engine](docs/specs/decision-engine.md) | v1 | **Implemented** |
 | [Inspection API](docs/specs/inspection-api.md) | v1 | **Implemented** |
-| [Inspection Panels](docs/specs/inspection-panels.md) | v1 | **Implemented** |
+| [Inspection Panels](docs/specs/inspection-panels.md) | v1 | **Implemented** (rebuilt in Next.js dashboard) |
+| [Next.js Dashboard Migration](docs/specs/nextjs-amplify-dashboard-migration.md) | v1.1 | **Implemented** (local; AWS deploy blocked) |
+| [Dashboard Design Requirements](docs/specs/dashboard-design-requirements.md) | v1.1 | **Implemented** |
 | [API Key Middleware](docs/specs/api-key-middleware.md) | v1 | **Implemented** |
 | [Receipts API](docs/specs/receipts-api.md) | v1 | **Implemented** |
 | [State Delta Detection](docs/specs/state-delta-detection.md) | v1.1 | **Implemented** |
@@ -310,7 +269,7 @@ Common business use-cases and integration workflows (built from the existing API
 
 ## Project Status
 
-**503 tests passing** across 27 test files. Full pipeline proven end-to-end: signal → validate → store → state accumulate → delta detect → policy evaluate → decision with trace. All 4 decision types verified with JSON evidence. Admin policy CRUD operational.
+**948+ Vitest tests** across 59 test files plus **Playwright e2e** for the Next.js dashboard (CI `check` + `dashboard` jobs). Full pipeline proven end-to-end: signal → validate → store → state accumulate → delta detect → policy evaluate → decision with trace. All 4 decision types verified with JSON evidence. Admin policy CRUD operational.
 
 ### Milestone Summary
 
@@ -334,7 +293,7 @@ Common business use-cases and integration workflows (built from the existing API
 - [x] **Policy Expansion** — 4 rules covering all decision types, org-scoped policies with routing
 - [x] **Output API** — GET `/v1/decisions`, GET `/v1/receipts` with trace
 - [x] **Inspection API** — GET `/v1/state`, GET `/v1/state/list`, GET `/v1/ingestion`
-- [x] **Inspection Panels** — 4 read-only panels at `/inspect` (Signal Intake, State Viewer, Decision Stream, Decision Trace)
+- [x] **Decision Panel** — Next.js 15 dashboard (`dashboard/`) with educator surfaces + inspection views (Signals, Decisions, State, Trace); server-side API proxy (no client `x-api-key`)
 - [x] **API Key Middleware** — org-level isolation, forbidden on `/v1/*`
 - [x] **PII Hardening** — forbidden keys (DEF-DEC-008-PII), canonical snapshot (DEF-DEC-007)
 - [x] **Contract System** — JSON Schemas, OpenAPI, AsyncAPI, Ajv validators, contract drift detection
@@ -343,7 +302,7 @@ Common business use-cases and integration workflows (built from the existing API
 - [x] **Lambda Handlers** — ingest, query, inspect, admin entrypoints
 - [x] **CDK Stack** — API Gateway + Lambda + DynamoDB table definitions
 - [x] **Demo Seed Script** — `npm run seed:springs-demo`, Springs pilot data
-- [x] **503 tests** — unit, contract, integration, and drift detection across 27 files
+- [x] **948+ tests** — Vitest unit/contract/integration + Playwright dashboard e2e
 
 ### v1.1: Pre-Month 0 (In Progress)
 

@@ -2,7 +2,7 @@
 
 **Audience**: School principal, IT director, pilot stakeholders
 **Duration**: ~4 minutes with narration
-**Prerequisites**: Local server running and Springs seed loaded — see **[Local Dev & Testing](../foundation/setup.md)** (`npm run dev`, then `npm run seed:springs-demo`).
+**Prerequisites**: Local API running, Springs seed loaded, and Next.js dashboard running — see **[Local Dev & Testing](../foundation/setup.md)** (`npm run dev`, `npm run seed:springs-demo`, then `cd dashboard && npm run dev -- -p 3001`).
 
 ---
 
@@ -20,7 +20,7 @@ Point out Phase 1 (onboarding — 4 LMS field mappings registered) and Phase 2 (
 
 > **Talking point**: "This is the onboarding step — we told the system how to read data from each of your LMS platforms. After that, data just flows. No custom code per vendor."
 
-Open the dashboard at `http://localhost:3000/dashboard/` (org: `springs`).
+Open the dashboard at `http://localhost:3001/` (org: `springs`; set `CONTROL_LAYER_ORG_ID=springs` in `dashboard/.env.local`).
 
 ---
 

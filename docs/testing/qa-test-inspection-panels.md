@@ -1,6 +1,8 @@
 # QA Test Execution — Inspection Panels
 
-Manual test cases for the **Inspection Panels** UI at `/inspect`. Use for QA sign-off after implementation per `.cursor/plans/inspection-panels.plan.md`.
+> **Superseded (2026-06):** Fastify `/inspect` static panels were retired. The same read-only surfaces live in the **Next.js Decision Panel** (`dashboard/` — Signals, Decisions, learner State/Trace pages). For local setup see [`docs/foundation/setup.md`](../foundation/setup.md). Automated coverage: `dashboard/e2e/` (Playwright).
+
+Manual test cases for the **legacy Inspection Panels** UI at `/inspect`. Retained for historical QA sign-off reference.
 
 **Scope:** Static panels (Signal Intake, State Viewer, Decision Stream, Decision Trace), tab navigation, API key UX when `API_KEY` is set, and correct consumption of Inspection API endpoints.
 

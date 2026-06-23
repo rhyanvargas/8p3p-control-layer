@@ -2,14 +2,17 @@
 
 > Lightweight session-based access control for the Decision Panel. Prevents unauthenticated access to PII-adjacent data (learner names, skills, decision rationale) without requiring a full identity platform.
 
+> **Implementation (2026-06):** Gate runs in the **Next.js dashboard** (`dashboard/middleware.ts`, `dashboard/app/(auth)/login/route.ts`, `dashboard/lib/*`). Fastify `src/auth/dashboard-*.ts` routes are **removed**. Cookie scheme (`dp_session`, HMAC + `COOKIE_SECRET`) is unchanged. Login is at **`/login`** (not `/dashboard/login`). Standalone app uses `Path=/` for `dp_session` — see [`nextjs-amplify-dashboard-migration.md`](nextjs-amplify-dashboard-migration.md) § Cookie path change.
+
 ## Overview
 
-The Decision Panel at `/dashboard` displays `learner_reference` values that may resolve to real student names, skills where students are struggling, and educator-facing decision rationale. In a FERPA-regulated school environment, an open URL with an API key baked into the build is not defensible — any staff member (or anyone with the URL) could view student data without authentication.
+The Decision Panel displays `learner_reference` values that may resolve to real student names, skills where students are struggling, and educator-facing decision rationale. In a FERPA-regulated school environment, an open URL where anyone could view student data without authentication is not defensible.
 
 This spec defines a **passphrase-based session gate** for the Decision Panel: a single shared access code, server-validated, that issues an `HttpOnly` session cookie. It is the minimum viable auth layer that makes the panel defensible under FERPA scrutiny while adding zero user management overhead.
 
-**What this is:** A Fastify preHandler hook that requires a valid session cookie for `/dashboard/*` routes, with a single-field login form for first access.
-**What this is not:** User accounts, RBAC, SSO/OAuth, or per-user audit trails. Those are Phase 2 (`8p3p-admin` platform).
+**What this is:** Next.js **middleware** (plus login/logout route handlers) that requires a valid session cookie for dashboard pages and `/api/control/*`, with a single-field login form for first access.
+
+**What this is not:** User accounts, RBAC, SSO/OAuth, or per-user audit trails. Those are Phase 2 (`8p3p-admin` platform) / Phase 5 Cognito ([`nextjs-amplify-dashboard-migration.md`](nextjs-amplify-dashboard-migration.md)).
 
 ### Why Not SSO/OAuth?
 
@@ -26,25 +29,27 @@ This spec defines a **passphrase-based session gate** for the Decision Panel: a 
 ## Architecture
 
 ```
-Browser → GET /dashboard
+Browser → GET / (or any dashboard page)
      │
-     ├── Has valid session cookie? → Serve SPA
+     ├── Has valid dp_session cookie? → Serve page / proxy API
      │
-     └── No cookie (or expired) → 302 → /dashboard/login
+     └── No cookie (or expired) → 302 → /login
               │
-              └── POST /dashboard/login { passphrase: "..." }
+              └── POST /login { passphrase: "..." }
                     │
-                    ├── Match? → Set HttpOnly cookie, 302 → /dashboard
+                    ├── Match? → Set HttpOnly cookie(s), 303 → /
                     │
-                    └── No match? → Re-render login form with error
+                    └── No match? → Re-render login with error
 ```
 
-The passphrase gate sits **in front of** the static SPA. The SPA itself is unchanged — it still uses `VITE_API_KEY` for API calls. The passphrase and API key are independent credentials serving different purposes:
+The passphrase gate sits **in front of** the Next.js app. API calls from the browser go to **`/api/control/*`** on the same origin; the route handler attaches `CONTROL_LAYER_API_KEY` server-side. Passphrase and API key are independent:
 
 | Credential | Purpose | Who holds it | Storage |
 |-----------|---------|-------------|---------|
-| `DASHBOARD_ACCESS_CODE` | Human access to the web UI | School staff (shared by IT admin) | Env var (server) |
-| `VITE_API_KEY` / `API_KEY` | Machine access to API endpoints | Baked into SPA build or stored in localStorage | Env var (build-time) |
+| `DASHBOARD_ACCESS_CODE` | Human access to the web UI | School staff (shared by IT admin) | Dashboard runtime env |
+| `CONTROL_LAYER_API_KEY` / `API_KEY` | Machine access to control-layer `/v1/*` | Dashboard server (proxy only) | Dashboard runtime env — **never** in browser bundle |
+
+*(Legacy: Fastify served a Vite SPA at `/dashboard` with `VITE_API_KEY` in the client bundle — retired.)*
 
 ---
 
@@ -52,17 +57,17 @@ The passphrase gate sits **in front of** the static SPA. The SPA itself is uncha
 
 ### Functional
 
-- [ ] New env var `DASHBOARD_ACCESS_CODE`: when set, passphrase gate is enabled for `/dashboard/*`
-- [ ] When `DASHBOARD_ACCESS_CODE` is not set (or empty), gate is disabled — `/dashboard` serves the SPA directly (local dev backward compatible)
-- [ ] `GET /dashboard/login` serves a minimal HTML login form (single field: "Access Code")
-- [ ] `POST /dashboard/login` validates the submitted passphrase against `DASHBOARD_ACCESS_CODE` using constant-time comparison
-- [ ] On valid passphrase: set a signed `HttpOnly`, `Secure` (in production), `SameSite=Strict` session cookie and redirect to `/dashboard`
-- [ ] On invalid passphrase: re-render login form with "Invalid access code" error (no details about the expected value)
-- [ ] All `/dashboard/*` routes (except `/dashboard/login` and `/dashboard/logout`) check for a valid session cookie via Fastify `preHandler` hook. `/dashboard/logout` is exempt so expired or invalid sessions can still clear cookie state without hitting a redirect loop.
-- [ ] Missing or invalid session cookie → 302 redirect to `/dashboard/login`
-- [ ] Session cookie TTL: configurable via `DASHBOARD_SESSION_TTL_HOURS` env var (default: 8 hours — one school day)
-- [ ] `GET /dashboard/logout` clears the session cookie and redirects to `/dashboard/login`
-- [ ] Rate limit login attempts: max 5 failed attempts per IP per 15-minute window → 429 response
+- [x] Env var `DASHBOARD_ACCESS_CODE`: when set on the **dashboard app**, passphrase gate is active
+- [x] When `DASHBOARD_ACCESS_CODE` is unset (or empty), gate is disabled — dashboard loads without login (local dev default)
+- [x] `GET /login` serves the login form (see `dashboard/lib/login-page.ts`)
+- [x] `POST /login` validates passphrase with constant-time comparison
+- [x] On valid passphrase: signed `HttpOnly` session cookie + redirect to `/`
+- [x] On invalid passphrase: login page with "Invalid access code"
+- [x] Middleware protects dashboard pages and `/api/control/*` (exempt: `/login`, `/logout`)
+- [x] Missing or invalid cookie → redirect to `/login`
+- [x] Session TTL: `DASHBOARD_SESSION_TTL_HOURS` (default 8)
+- [x] `GET /logout` clears session cookie(s) and redirects to `/login`
+- [x] Rate limit: 5 failed attempts per IP per 15 minutes → 429 (`dashboard/lib/login-rate-limiter.ts`)
 
 ### Non-Functional
 
@@ -78,15 +83,18 @@ The passphrase gate sits **in front of** the static SPA. The SPA itself is uncha
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `DASHBOARD_ACCESS_CODE` | No | — | The passphrase value. When set, gate is active. When unset/empty, gate is disabled. |
+| `DASHBOARD_ACCESS_CODE` | No | — | Passphrase; when set, gate is active. Set on **dashboard** host (`dashboard/.env.local`). |
 | `DASHBOARD_SESSION_TTL_HOURS` | No | `8` | Session cookie lifetime in hours. |
-| `COOKIE_SECRET` | Yes (when gate active) | — | Secret used to sign session cookies. Min 32 chars. Generate with `openssl rand -hex 32`. |
+| `COOKIE_SECRET` | Yes (when gate active) | — | HMAC signing secret. Min 32 chars. Same on dashboard (and API if minting `fb_session` for feedback). |
+| `CONTROL_LAYER_API_KEY` | When API auth on | — | Server-only; used by proxy — not part of the gate but required for live data. |
 
 ---
 
 ## Login Page
 
-Server-rendered HTML. No React, no build step. Served by Fastify route handler.
+Server-rendered HTML via Next.js route handler (`dashboard/lib/login-page.ts`). No client React on the login route.
+
+*(HTML template below is representative; live markup is in `login-page.ts`.)*
 
 ```html
 <!DOCTYPE html>
@@ -125,7 +133,7 @@ Server-rendered HTML. No React, no build step. Served by Fastify route handler.
     <div class="card">
       <h2>Decision Panel</h2>
       <p>Enter the access code provided by your school's IT administrator.</p>
-      <form method="POST" action="/dashboard/login">
+      <form method="POST" action="/login">
         <label for="passphrase">Access Code</label>
         <input type="password" id="passphrase" name="passphrase"
                required autocomplete="off" aria-describedby="error-msg">
@@ -146,12 +154,12 @@ The template uses simple string interpolation (no template engine dependency nee
 
 | Attribute | Value | Rationale |
 |-----------|-------|-----------|
-| Name | `dp_session` | Scoped to `/dashboard` via `Path` attribute below. The `__Host-` prefix was considered but is incompatible with `Path=/dashboard` — browsers enforce that `__Host-` cookies MUST have `Path=/` and no `Domain`. Path-scoping to `/dashboard` is the higher-value property (cookie is not sent on `/v1/*` API calls), so the prefix is dropped. See § Implementation Notes for the future-hardening note. |
+| Name | `dp_session` | Standalone Next app: `Path=/` (see migration spec). Legacy Fastify path scope was `/dashboard`. |
 | Value | HMAC-SHA256 signature of `{ exp: <unix_timestamp> }` | Stateless — no server-side session store needed |
 | `HttpOnly` | `true` | Not accessible via JavaScript — XSS cannot steal the cookie |
 | `Secure` | `true` (production); `false` (localhost) | Only sent over HTTPS in production |
 | `SameSite` | `Strict` | Not sent on cross-site requests — CSRF protection |
-| `Path` | `/dashboard` | Only sent for dashboard routes — not leaked to API routes |
+| `Path` | `/` (standalone Next dashboard) | Legacy: `/dashboard` when served under Fastify |
 | `Max-Age` | `DASHBOARD_SESSION_TTL_HOURS * 3600` | Configurable expiry |
 
 ### Cookie Value Structure
@@ -185,13 +193,14 @@ After the window expires, the counter resets. Failed attempts are counted; succe
 
 ## Acceptance Criteria
 
-- Given `DASHBOARD_ACCESS_CODE=springfield-math-2026` and a browser with no session cookie, when navigating to `/dashboard`, then the browser is redirected to `/dashboard/login`
-- Given the login form, when submitting the correct passphrase, then a session cookie is set and the browser is redirected to `/dashboard` where the SPA loads
-- Given the login form, when submitting an incorrect passphrase, then the form re-renders with "Invalid access code" and no cookie is set
-- Given a valid session cookie, when navigating to `/dashboard`, then the SPA serves directly (no login redirect)
-- Given a session cookie older than `DASHBOARD_SESSION_TTL_HOURS`, when navigating to `/dashboard`, then the browser is redirected to `/dashboard/login`
-- Given `DASHBOARD_ACCESS_CODE` is unset, when navigating to `/dashboard`, then the SPA serves directly (gate disabled, local dev mode)
-- Given 5 failed login attempts from the same IP within 15 minutes, when a 6th attempt is made, then the response is 429
+- Given `DASHBOARD_ACCESS_CODE` set and no cookie, when navigating to `/`, then redirect to `/login`
+- Given correct passphrase POST, then session cookie set and redirect to `/`
+- Given invalid passphrase, then login shows error and no cookie
+- Given valid cookie, when navigating to protected routes, then content loads
+- Given expired cookie, then redirect to `/login`
+- Given `DASHBOARD_ACCESS_CODE` unset, then dashboard loads without redirect
+- Given 6 failed login attempts within 15 min, then 429
+- Given `/logout`, then cookies cleared and redirect to `/login`
 - Given a valid session, when navigating to `/dashboard/logout`, then the session cookie is cleared and the browser is redirected to `/dashboard/login`
 
 ---
@@ -259,9 +268,9 @@ To force all sessions to expire (e.g. staff turnover):
 
 | Dependency | Source Document | Status |
 |------------|----------------|--------|
-| Fastify server, `/dashboard` static serving | `docs/specs/decision-panel-ui.md` | **Spec'd** |
-| `@fastify/cookie` plugin | — | Add to `package.json` |
-| `@fastify/formbody` plugin (for POST form parsing) | — | Add to `package.json` |
+| Next.js dashboard app | `docs/specs/decision-panel-ui.md`, `dashboard/` | **Implemented ✓** |
+| Cookie helpers (shared scheme) | `dashboard/lib/session-cookie.ts`, `src/auth/session-cookie.ts` | **Implemented ✓** |
+| Server-side API proxy | `dashboard/app/api/control/[...path]/route.ts` | **Implemented ✓** |
 
 ### Provides to Other Specs
 
@@ -273,17 +282,22 @@ To force all sessions to expire (e.g. staff turnover):
 
 ---
 
-## File Structure
+## File Structure (current)
 
 ```
-src/
-├── auth/
-│   ├── api-key-middleware.ts       # Existing — API key validation
-│   ├── dashboard-gate.ts           # NEW — passphrase gate preHandler hook
-│   ├── dashboard-login.ts          # NEW — login form routes (GET + POST)
-│   ├── session-cookie.ts           # NEW — sign/verify/clear cookie helpers
-│   └── login-rate-limiter.ts       # NEW — in-memory IP-based rate limiter
+dashboard/
+├── middleware.ts                  # Gate redirect + cookie check
+├── app/(auth)/
+│   ├── login/route.ts             # GET/POST login
+│   └── logout/route.ts
+├── lib/
+│   ├── session-cookie.ts          # sign/verify (ports Fastify scheme)
+│   ├── login-page.ts              # HTML login form
+│   ├── login-rate-limiter.ts
+│   └── auth-gate.ts
 ```
+
+Fastify `src/auth/dashboard-gate.ts`, `dashboard-login.ts`, and `login-rate-limiter.ts` are **removed**.
 
 ---
 
@@ -291,28 +305,26 @@ src/
 
 | Test ID | Type | Description | Expected |
 |---------|------|-------------|----------|
-| GATE-001 | integration | `/dashboard` with no cookie → redirect | 302 to `/dashboard/login` |
-| GATE-002 | integration | POST valid passphrase → cookie set + redirect | 302 to `/dashboard`, `Set-Cookie` header present |
-| GATE-003 | integration | POST invalid passphrase → error re-render | 200, body contains "Invalid access code" |
-| GATE-004 | integration | `/dashboard` with valid cookie → SPA served | 200, HTML content |
-| GATE-005 | integration | `/dashboard` with expired cookie → redirect | 302 to `/dashboard/login` |
-| GATE-006 | integration | Gate disabled when `DASHBOARD_ACCESS_CODE` unset | 200 on `/dashboard` without cookie |
-| GATE-007 | unit | Cookie sign/verify round-trip | Signed cookie verifies correctly |
-| GATE-008 | unit | Expired cookie rejected | `verify()` returns null for expired cookie |
-| GATE-009 | unit | Tampered cookie rejected | `verify()` returns null for modified payload |
-| GATE-010 | integration | 6th failed login within 15 min → 429 | 429 response |
-| GATE-011 | integration | `/dashboard/logout` clears cookie | `Set-Cookie` with `Max-Age=0`, redirect to login |
+| GATE-001 | integration | Protected route with no cookie → redirect | 302 to `/login` |
+| GATE-002 | integration | POST valid passphrase → cookie set + redirect | 303 to `/`, `Set-Cookie` present |
+| GATE-003 | integration | POST invalid passphrase → error | 200 login, "Invalid access code" |
+| GATE-004 | integration | Valid cookie → dashboard served | 200 |
+| GATE-005 | integration | Expired cookie → redirect | 302 to `/login` |
+| GATE-006 | integration | Gate disabled when unset | 200 without cookie |
+| GATE-007–009 | unit | Cookie sign/verify/tamper | Parity with `src/auth/session-cookie.ts` |
+| GATE-010 | integration | Rate limit exceeded | 429 |
+| GATE-011 | integration | `/logout` clears cookies | Redirect to `/login` |
+
+Tests: `tests/integration/dashboard-auth-gate.test.ts`, Playwright e2e in `dashboard/e2e/`.
 
 ---
 
 ## Implementation Notes
 
-- **Constant-time comparison:** Use `crypto.timingSafeEqual()` for passphrase validation (same as API key middleware).
-- **HMAC signing:** Use `crypto.createHmac('sha256', COOKIE_SECRET)` — no external JWT library needed. The digest is emitted as lowercase hex (`.digest('hex')`) before concatenation with the `base64url` payload — see § Cookie Value Structure.
-- **Gate exempt paths:** The preHandler skips both `/dashboard/login` (login form + POST) and `/dashboard/logout`. Logout is intentionally reachable without a valid cookie so a user with an expired session can still clear local state without triggering a redirect loop back to `/dashboard/login`. See `DASHBOARD_LOGIN_EXEMPT_PATHS` in `src/auth/dashboard-gate.ts`.
-- **Login form:** Server-rendered HTML string in the route handler. No template engine dependency. Use string replacement for the error message.
-- **Why not the `__Host-` cookie prefix:** The `__Host-` prefix gives browser-enforced protection against cookie injection attacks, but it is only valid when the cookie is scoped to `Path=/` with no `Domain` attribute. This spec scopes the session cookie to `Path=/dashboard` so it is not sent on `/v1/*` API requests — a stronger isolation property for this deployment than the injection protection would provide. Future hardening: if the dashboard is ever split onto its own subdomain (e.g. `dashboard.8p3p.io`), revisit this decision — a subdomain-scoped deployment can safely adopt `__Host-dp_session` with `Path=/`.
-- **Integration with Decision Panel build:** No changes to the SPA. The gate sits in front of `@fastify/static`. The SPA loads after the gate passes.
+- **Gate exempt paths:** `/login`, `/logout` (see `dashboard/middleware.ts` matcher).
+- **Login form:** HTML from `dashboard/lib/login-page.ts`.
+- **Cookie path:** Standalone Next deployment uses `Path=/`. API and dashboard are different origins in production, so `dp_session` is not sent to `/v1/*` on the API host. **`__Host-dp_session`** recommended for production HTTPS standalone deploy — see `nextjs-amplify-dashboard-migration.md`.
+- **Integration with Decision Panel:** Gate runs in middleware before App Router pages and before `/api/control/*` proxy handlers.
 
 ---
 
@@ -320,9 +332,9 @@ src/
 
 > **Added 2026-04-23** to resolve an isolation conflict surfaced during `/review` of `educator-feedback-api.plan.md`. The `dp_session` cookie specification above is **unchanged**.
 
-The `dp_session` cookie is deliberately scoped to `Path=/dashboard` (see § Implementation Notes — "Why not the `__Host-` cookie prefix") so it is **not** sent to `/v1/*` endpoints. Downstream consumers that need to authenticate an educator's `/v1/*` request (currently: `educator-feedback-api.md`) cannot reuse `dp_session` without breaking that isolation property.
+To preserve API isolation, **`/login`** mints a **sibling cookie** `fb_session` alongside `dp_session` on successful passphrase match. **`/logout`** clears both.
 
-To preserve the isolation, `/dashboard/login` mints a **sibling cookie** alongside `dp_session` on successful passphrase match. `/dashboard/logout` clears both cookies.
+*(When dashboard and API share one origin in legacy Fastify+SPA deploys, `dp_session` used `Path=/dashboard` so it was not sent to `/v1/*`. With split origins, isolation is by host; `fb_session` still uses `Path=/v1/decisions` for feedback API calls from the browser to the API host.)*
 
 | Attribute | Value | Rationale |
 |-----------|-------|-----------|
@@ -338,10 +350,10 @@ To preserve the isolation, `/dashboard/login` mints a **sibling cookie** alongsi
 
 **Consumer contract.** Any spec that needs to authenticate educator feedback requests must reference this section and gate on `fb_session` — not `dp_session`. New `/v1/*` namespaces that need dashboard-gated auth must mint their own sibling cookie following this same pattern (name, path scope, same `COOKIE_SECRET`) rather than widening `dp_session`.
 
-**Logout.** `GET /dashboard/logout` issues `Set-Cookie` clears for both `dp_session` (`path=/dashboard`) and `fb_session` (`path=/v1/decisions`) before redirecting to `/dashboard/login`.
+**Logout.** `GET /logout` clears `dp_session` and `fb_session` before redirecting to `/login`.
 
-**Not a new contract test surface for this spec.** `fb_session`-specific contract tests live in `educator-feedback-api.md` (FEEDBACK-003). Dual-cookie login/logout assertions are covered by **GATE-002** (login sets `dp_session` + `fb_session`) and **GATE-011** (logout clears both) in `tests/integration/dashboard-gate.test.ts`.
+**Tests.** Dual-cookie behavior: `tests/integration/dashboard-auth-gate.test.ts`, educator feedback: `educator-feedback-api.md` (FEEDBACK-003).
 
 ---
 
-*Spec created: 2026-04-14 | Sibling cookie added: 2026-04-23 (Path `/v1/decisions` from 2026-05-14 — aligns cookie scope with `…/decisions/*/feedback` routes) | Phase: Pilot Wave 2 (same wave as Decision Panel UI) | Depends on: decision-panel-ui.md | Downstream consumers of `fb_session`: educator-feedback-api.md*
+*Spec created: 2026-04-14 | Updated: 2026-06 (Next.js middleware implementation; Fastify gate removed) | Sibling cookie: 2026-04-23 | Depends on: decision-panel-ui.md, nextjs-amplify-dashboard-migration.md*

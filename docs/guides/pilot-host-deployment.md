@@ -1,7 +1,7 @@
 # Pilot host deployment (Docker / Fly.io / Render)
 
-**Audience:** Engineering (Friday-morning deploy for the Springs dry run)  
-**Purpose:** Go from zero to a TLS URL with `/health`, runtime secrets, dashboard build args, and the CEO readiness **single curl gate**. For onboarding workflow and customer-facing steps, see the [Onboarding Runbook](../../internal-docs/pilot-operations/onboarding-runbook.md) and [Pilot Readiness Definition](../../internal-docs/pilot-operations/pilot-readiness-definition.md).
+**Audience:** Engineering (pilot API deploy + separate dashboard hosting)  
+**Purpose:** Go from zero to a TLS URL with `/health`, runtime secrets, and the CEO readiness **single curl gate**. The **Decision Panel** is a standalone Next.js app (`dashboard/`) — it does **not** ship inside the API Docker image. For local two-process setup see [`docs/foundation/setup.md`](../foundation/setup.md). For onboarding workflow see [Onboarding Runbook](../../internal-docs/pilot-operations/onboarding-runbook.md) and [Pilot Readiness Definition](../../internal-docs/pilot-operations/pilot-readiness-definition.md).
 
 ---
 
@@ -33,18 +33,42 @@ Normative text from the pilot readiness brief (*Decision 1 — Deployment path f
 
 Provision values out of band (vault / Phase 0–1 handoff per [Onboarding Runbook](../../internal-docs/pilot-operations/onboarding-runbook.md)). **Never** commit secrets; runtime only (`Dockerfile` excludes `.env*`).
 
+### Control layer (API) — Fly.io / Render
+
 | Secret | Source | Fly.io | Render |
 |--------|--------|--------|--------|
 | `API_KEY` | [`scripts/generate-api-key.mjs`](../../scripts/generate-api-key.mjs) or team vault | `fly secrets set API_KEY='...'` | Dashboard → Environment → Secret |
 | `ADMIN_API_KEY` | [`scripts/generate-api-key.mjs`](../../scripts/generate-api-key.mjs) | `fly secrets set ADMIN_API_KEY='...'` | Dashboard → Environment → Secret |
-| `DASHBOARD_ACCESS_CODE` | Human-memorable passphrase per [Dashboard passphrase gate — Key Lifecycle](../specs/dashboard-passphrase-gate.md#key-lifecycle) | `fly secrets set DASHBOARD_ACCESS_CODE='...'` | Dashboard → Environment → Secret |
-| `COOKIE_SECRET` | `openssl rand -hex 32` per [Dashboard passphrase gate — Environment Variables](../specs/dashboard-passphrase-gate.md#environment-variables) | `fly secrets set COOKIE_SECRET='...'` | Dashboard → Environment → Secret |
 
 You can set several Fly secrets in one invocation, for example:
 
 ```bash
-fly secrets set API_KEY='...' ADMIN_API_KEY='...' DASHBOARD_ACCESS_CODE='...' COOKIE_SECRET='...'
+fly secrets set API_KEY='...' ADMIN_API_KEY='...'
 ```
+
+### Decision Panel (Next.js) — separate host
+
+Dashboard secrets are **runtime env** on the Next.js host (Amplify, Vercel, Fly second app, etc.) — not Docker build args. See [`dashboard/.env.example`](../../dashboard/.env.example).
+
+| Secret | Source | Notes |
+|--------|--------|-------|
+| `CONTROL_LAYER_API_BASE_URL` | Pilot API URL | e.g. `https://8p3p-pilot-springs.fly.dev` |
+| `CONTROL_LAYER_API_KEY` | Same value as API `API_KEY` | **Server-only** — proxied by `/api/control/*`; never `NEXT_PUBLIC_` |
+| `CONTROL_LAYER_ORG_ID` | Pilot org | e.g. `springs` |
+| `DASHBOARD_ACCESS_CODE` | Human-memorable passphrase | [Dashboard passphrase gate](../specs/dashboard-passphrase-gate.md) |
+| `COOKIE_SECRET` | `openssl rand -hex 32` | Required when gate is enabled |
+
+Example (Amplify console or host env):
+
+```bash
+CONTROL_LAYER_API_BASE_URL=https://<pilot-api-host>
+CONTROL_LAYER_API_KEY=<same as API_KEY>
+CONTROL_LAYER_ORG_ID=springs
+DASHBOARD_ACCESS_CODE=<passphrase>
+COOKIE_SECRET=<32+ byte secret>
+```
+
+Ensure the API allows the dashboard origin via `DASHBOARD_ALLOWED_ORIGINS` (see [`.env.example`](../../.env.example)).
 
 ### Public (non-secret) runtime env
 
@@ -64,29 +88,20 @@ Optional overrides (paths, limits) from `.env.example` apply if you set them; ot
 
 ---
 
-## 3. Dashboard build-time bake-in (accepted scope)
+## 3. Two-artifact deployment (API + dashboard)
 
-Readiness brief — *What We Are Explicitly NOT Doing Before Saturday*:
+As of the Next.js migration ([`docs/specs/nextjs-amplify-dashboard-migration.md`](../specs/nextjs-amplify-dashboard-migration.md)):
 
-```
-1. Not fixing the `VITE_API_KEY` build-time bake-in. It is a finding, not a blocker.
-2. Not attempting a full AWS CDK deploy.
-3. Not adding new features or "polish."
-4. Not skipping cross-device testing.
-```
+| Artifact | Build | Host | Image / output |
+|----------|-------|------|----------------|
+| **Control layer API** | Root [`Dockerfile`](../../Dockerfile) (`npm run build` → `dist/`) | Fly.io / Render | Fastify only — **no dashboard bundle** |
+| **Decision Panel** | `cd dashboard && npm run build` | AWS Amplify (planned), or any Next.js host | `.next/` standalone SSR |
 
-`VITE_API_BASE_URL`, `VITE_API_KEY`, and `VITE_ORG_ID` are **Docker build args** in [`Dockerfile`](../../Dockerfile) Stage 1 (builder). They are embedded in `dashboard/dist` at `vite build` time. Changing them requires a **rebuild and redeploy**, not a runtime env flip. Do not retrofit first-visit prompt or other alternatives from [Dashboard passphrase gate — Architecture](../specs/dashboard-passphrase-gate.md#architecture) for this dry run; that is out of scope per the guardrail above.
+**Security win:** `CONTROL_LAYER_API_KEY` is a **runtime server env** on the dashboard host. It is not baked into a client JS bundle (legacy `VITE_API_KEY` pattern is retired).
 
-**Fly.io:** pass build args on deploy (values also appear in `fly.toml` `[build.args]` as placeholders):
+**Pilot minimum:** deploy the API first (this doc § 5–6). Deploy the dashboard separately with `CONTROL_LAYER_*` pointing at the API URL. Local parity: [`docs/foundation/setup.md`](../foundation/setup.md).
 
-```bash
-fly deploy \
-  --build-arg VITE_API_BASE_URL=https://<your-fly-hostname> \
-  --build-arg VITE_API_KEY=<pilot_key> \
-  --build-arg VITE_ORG_ID=springs
-```
-
-**Render:** define the same keys as **build-time** env vars on the service (secret values for `VITE_API_KEY` / URL as appropriate) so the Docker build receives them as `ARG`/`ENV` in the builder stage.
+**AWS Amplify** for the dashboard is spec'd but **blocked** pending startup credits — see migration spec stage gate. Until then, run the dashboard on any Node 22 host that supports Next.js 15 SSR, or develop locally with `npm run dev` in `dashboard/`.
 
 ---
 
@@ -197,28 +212,26 @@ At pilot scale none of these trigger; below them, SQLite-on-Fly is the right too
 
 ## 5. Friday morning runbook (zero → green)
 
-1. Provision secrets (vault → `fly secrets set` or Render dashboard).
-2. **Fly:** create the app if needed, e.g. `fly launch --name <app-name> --no-deploy --copy-config` (after `app` name is set in `fly.toml` as required by Fly). **Render:** create a Web Service from the repo; point at `Dockerfile` / Blueprint if `render.yaml` exists.
-3. Set runtime secrets (`API_KEY`, `ADMIN_API_KEY`, `DASHBOARD_ACCESS_CODE`, `COOKIE_SECRET`).
-4. Deploy with `VITE_*` build args (Fly example):
+1. Provision API secrets (vault → `fly secrets set` or Render dashboard): `API_KEY`, `ADMIN_API_KEY`.
+2. **Fly:** create the app if needed, e.g. `fly launch --name <app-name> --no-deploy --copy-config`. **Render:** create a Web Service from the repo; point at `Dockerfile`.
+3. Deploy the **API only** (no dashboard build args):
 
    ```bash
-   fly deploy \
-     --build-arg VITE_API_BASE_URL=https://<pilot-host> \
-     --build-arg VITE_API_KEY=<pilot_key> \
-     --build-arg VITE_ORG_ID=springs
+   fly deploy
    ```
 
-5. Verify health:
+4. Verify health:
 
    ```bash
    curl -sS https://<pilot-host>/health
    ```
 
-6. **Friday afternoon:** seed against the deployed URL (same key material as in secrets / build):
+5. **Dashboard (separate step):** build and deploy `dashboard/` to your Next.js host with runtime `CONTROL_LAYER_*` env vars (§ 2). Smoke the panel URL after deploy.
+
+6. **Friday afternoon:** seed against the deployed API URL:
 
    ```bash
-   node scripts/seed-springs-demo.mjs --host https://<pilot-host> --api-key <pilot_key> --admin-key <admin_key> --org springs
+   node examples/springs/seed-springs-demo.mjs --host https://<pilot-host> --api-key <pilot_key> --admin-key <admin_key> --org springs
    ```
 
 7. Run **§ 6** (single go/no-go gate) before **Friday 6:00 PM**.
