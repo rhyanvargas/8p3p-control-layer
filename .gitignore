@@ -4,6 +4,9 @@
 # Internal docs (investor, demo, pilot — not for public repo)
 internal-docs/
 
+# Archived completed plans/specs (kept locally for history, out of the active repo)
+archive/
+
 # Data
 data/
 *.db

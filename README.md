@@ -224,31 +224,11 @@ Common business use-cases and integration workflows (built from the existing API
 | [Terminology](docs/foundation/terminology.md) | Decision types, canonical fields, and core terms |
 | [Setup](docs/foundation/setup.md) | Local dev & testing runbook |
 
-### Specifications (prose)
+### Specifications
 
-| Spec | Phase | Status |
-|------|-------|--------|
-| [Signal Ingestion](docs/specs/signal-ingestion.md) | v1 | **Implemented** |
-| [Signal Log](docs/specs/signal-log.md) | v1 | **Implemented** |
-| [State Engine](docs/specs/state-engine.md) | v1 | **Implemented** |
-| [Decision Engine](docs/specs/decision-engine.md) | v1 | **Implemented** |
-| [Inspection API](docs/specs/inspection-api.md) | v1 | **Implemented** |
-| [Inspection Panels](docs/specs/inspection-panels.md) | v1 | **Implemented** (rebuilt in Next.js dashboard) |
-| [Next.js Dashboard Migration](docs/specs/nextjs-amplify-dashboard-migration.md) | v1.1 | **Implemented** (local; AWS deploy blocked) |
-| [Dashboard Design Requirements](docs/specs/dashboard-design-requirements.md) | v1.1 | **Implemented** |
-| [API Key Middleware](docs/specs/api-key-middleware.md) | v1 | **Implemented** |
-| [Receipts API](docs/specs/receipts-api.md) | v1 | **Implemented** |
-| [State Delta Detection](docs/specs/state-delta-detection.md) | v1.1 | **Implemented** |
-| [Policy Storage](docs/specs/policy-storage.md) | v1.1 | **Implemented** |
-| [Policy Management API](docs/specs/policy-management-api.md) | v1.1 | **Implemented** |
-| [AWS Deployment](docs/specs/aws-deployment.md) | v1.1 | **In Progress** — CDK, Lambda, DynamoDB |
-| [Tenant Provisioning](docs/specs/tenant-provisioning.md) | v1.1 | Spec'd |
-| [Policy Inspection API](docs/specs/policy-inspection-api.md) | v1.1 | Spec'd |
-| [Tenant Field Mappings](docs/specs/tenant-field-mappings.md) | v1.1 | Spec'd |
-| [Webhook Adapters](docs/specs/webhook-adapters.md) | v1.1 | Spec'd |
-| [Learner Trajectory API](docs/specs/learner-trajectory-api.md) | v1.1 | Spec'd |
-| [Learner Summary API](docs/specs/learner-summary-api.md) | v1.1 | Spec'd |
-| [LIU Usage Meter](docs/specs/liu-usage-meter.md) | v1.1 | Spec'd |
+The canonical, status-grouped spec index is **[`docs/specs/README.md`](docs/specs/README.md)** (Active / Shipped / Deferred). Specs are the single source of truth for requirements and interfaces.
+
+**Current product focus (P0):** [AI Educator Explanations](docs/specs/ai-educator-explanations.md) — a short, plain-language explanation of *where* a learner is showing learning decay and *why*, framed as the system's confidence in the learner's learning (not a grade) and fully auditable ("AI explains, never decides").
 
 ### API specifications (machine-readable)
 
@@ -279,7 +259,9 @@ Common business use-cases and integration workflows (built from the existing API
 | **POC v2** — 4-rule policy, all decision types | **Complete** |
 | **POC v2 QA** — full test execution with JSON trace evidence | **Complete** |
 | **v1: 1-Customer Pilot-Ready** — enriched trace, inspection panels, demo dataset, PII hardening | **Complete** |
-| **v1.1: Pre-Month 0** — AWS deployment, tenant provisioning, admin APIs, LIU metering, trajectory/summary | **In Progress** (specs complete, build underway) |
+| **v1.1 core** — multi-tenant, AWS deployment, LMS integrations, trajectory/summary/URS aggregation | **Complete** |
+| **v1.1 SBIR evidence layer** — LIU metering, program metrics, educator/product feedback, research export | **Spec'd; impl pending** |
+| **Current focus (P0)** — AI educator-explanation layer (plain-language "why"; confidence-not-grade; auditable) | **In progress** |
 
 ### What's Built (v1 — Complete)
 
@@ -304,24 +286,19 @@ Common business use-cases and integration workflows (built from the existing API
 - [x] **Demo Seed Script** — `npm run seed:springs-demo`, Springs pilot data
 - [x] **948+ tests** — Vitest unit/contract/integration + Playwright dashboard e2e
 
-### v1.1: Pre-Month 0 (In Progress)
+### Current Focus
 
-The v1.1 milestone completes all requirements for starting Phase 1 of the [24-Month Product Roadmap](#roadmap-alignment).
+The near-term goal is to prove a plain-language **educator-explanation** capability end-to-end on a controlled, de-identified dataset (local/SQLite). The single capability gap is the plain-language "why" — everything else needed is built or a narrow extension.
 
-- [x] State delta detection (`_delta` / `_direction` fields)
-- [x] Policy management API (admin CRUD + soft enable/disable)
-- [x] Policy storage (DynamoDB PoliciesTable)
-- [x] Handler-core extraction (framework-agnostic business logic)
-- [x] DynamoDB repository adapters (5 repositories)
-- [x] Lambda entrypoints (ingest, query, inspect, admin)
-- [x] CDK stack bootstrap (tables, API Gateway, Lambdas)
-- [ ] AWS deployment completion — custom domain, CI/CD ([plan](.cursor/plans/aws-deployment.plan.md))
-- [ ] Policy inspection API — tenant read-only policy view ([spec](docs/specs/policy-inspection-api.md))
-- [ ] Tenant field mappings — Canvas integration, computed transforms ([spec](docs/specs/tenant-field-mappings.md))
-- [ ] Webhook adapters — raw LMS webhook ingestion ([spec](docs/specs/webhook-adapters.md))
-- [ ] Learner trajectory API — version-range field trend view ([spec](docs/specs/learner-trajectory-api.md))
-- [ ] Learner summary API — educator-readable aggregated handoff view ([spec](docs/specs/learner-summary-api.md))
-- [ ] LIU usage meter — per-org monthly LIU metering ([spec](docs/specs/liu-usage-meter.md))
+- **P0** — [AI educator-explanation layer](docs/specs/ai-educator-explanations.md) (Bedrock Converse → template fallback, PII-safe)
+- **P0** — Decision Panel D1 inversion (educator summary first; rule id + rationale in detail view)
+- **P1** — Per-skill trajectory scope; controlled-evaluation runbook
+
+Full status-grouped spec matrix: [`docs/specs/README.md`](docs/specs/README.md).
+
+**Shipped in v1.1 core:** AWS deployment (API Gateway + Lambda + DynamoDB), tenant provisioning, policy management/inspection, tenant field mappings, webhook adapters, connector templates, learner trajectory + summary APIs, URS aggregation, skill-level tracking, multi-source transforms, ingestion preflight, Next.js Decision Panel + passphrase gate.
+
+> **SBIR evidence layer (LIU metering, program metrics, educator/product feedback, research export)** is spec'd with plans staged; implementation is pending. See [`docs/specs/README.md`](docs/specs/README.md) § Active.
 
 ### GitHub Environment Secrets (CI/CD)
 
@@ -347,7 +324,7 @@ The investor deck defines a 24-month product roadmap. The control layer's engine
 
 | Phase | Timeline | Control Layer Work |
 |-------|----------|-------------------|
-| **Pre-Phase 1** | Now | v1.1 completion — AWS deploy, metering, integrations |
+| **Pre-Phase 1 (Pilot proof)** | Now | Educator-explanation layer + controlled data evaluation; v1.1 core (AWS, integrations, trajectory/summary) shipped |
 | **Phase 1** | 0–6 months | Repeatable deployments, decision visibility, school-system integrations |
 | **Phase 2** | 6–12 months | Standardized ingestion, multi-school onboarding, API foundations |
 | **Phase 3** | 12–18 months | Public API, Zapier, workflow automation |
@@ -357,8 +334,10 @@ The investor deck defines a 24-month product roadmap. The control layer's engine
 
 User stories approved, specs deferred: [`docs/backlog/user-stories-v1.2.md`](docs/backlog/user-stories-v1.2.md)
 
-- US-SKILL-001: Skill-level signal ingestion + dot-path policy evaluation
 - US-POLICY-BUILDER-001: AI-assisted policy generation (decoupled LLM service)
+- INFRA-SQLITE-001: replace the `better-sqlite3` native addon with Node's built-in `node:sqlite` (post-pilot cleanup)
+
+> US-SKILL-001 (skill-level ingestion + dot-path policy evaluation) has shipped — see [`docs/specs/skill-level-tracking.md`](docs/specs/skill-level-tracking.md).
 
 ### Deferred (Full Contract / Production)
 
