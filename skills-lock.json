@@ -1,6 +1,12 @@
 {
   "version": 1,
   "skills": {
+    "designing-surveys": {
+      "source": "refoundai/lenny-skills",
+      "sourceType": "github",
+      "skillPath": "skills/designing-surveys/SKILL.md",
+      "computedHash": "6d988f04fc48420fe734a2d7172a69f9e32bbba12483d855ffffc4abdeab6f05"
+    },
     "fastify-best-practices": {
       "source": "mcollina/skills",
       "sourceType": "github",
@@ -15,6 +21,12 @@
       "source": "anthropics/skills",
       "sourceType": "github",
       "computedHash": "063a0e6448123cd359ad0044cc46b0e490cc7964d45ef4bb9fd842bd2ffbca67"
+    },
+    "inspired-product": {
+      "source": "wondelai/skills",
+      "sourceType": "github",
+      "skillPath": "inspired-product/SKILL.md",
+      "computedHash": "af9c253db6384375de3b32f4382b008bb1e68875590e94f95b8842d62490a329"
     },
     "shadcn": {
       "source": "shadcn/ui",
