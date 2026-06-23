@@ -1,0 +1,29 @@
+---
+description: When analyzing/summarizing roadmap, specs, or status docs, disambiguate overloaded infra terms and reconcile capability claims against infrastructure claims before reporting
+alwaysApply: true
+---
+
+# Analysis consistency checks (no contradictions in summaries)
+
+When asked to analyze, summarize, reconcile, or report on planning docs (roadmap, specs, reports, status), run these two checks **before** stating conclusions. They exist because a real contradiction shipped: the roadmap said the controlled eval needs "no deployment" while also asserting the pilot admin interacts with the hosted dashboard portal.
+
+## Check 1 — Disambiguate overloaded infrastructure terms
+
+Words like **deploy / host / integrate / ship / launch / live** are routinely overloaded. Do **not** treat them as atomic. Before summarizing, split them into the concrete tiers actually in play, e.g. for this repo:
+
+- **Tier A — AWS control-layer backend** (Lambda + API Gateway + DynamoDB). Heavyweight production stack.
+- **Tier B — Live LMS integration / classroom-workflow deployment** (webhooks, connectors, changes to a customer's live systems).
+- **Tier C — Dashboard hosting** (the customer-facing Next.js portal at a reachable URL).
+
+A blanket "no deployment" almost always means *some* tiers (commonly A and B), not all. State which tier each claim refers to. "Local/SQLite" describes the data + engine tier, **not** dashboard hosting.
+
+## Check 2 — Reconcile capability claims against infrastructure claims
+
+For every "user X can do Y" statement (e.g. "the pilot admin views decisions / gives feedback at any time"), verify the infrastructure to reach that user actually exists in the same document set:
+
+- A **user-facing surface implies a reachable host.** If a doc claims a customer/admin/educator interacts with something "at any time," there must be a hosting/access path for it. If that path is absent or contradicted by an infra exclusion, **flag it explicitly as a gap** rather than smoothing it over.
+- If two statements cannot both be true (capability vs. exclusion), say so directly and locate where the missing decision should live (which spec/runbook/plan owns it).
+
+## Output requirement
+
+When either check surfaces tension, report it as a finding **with file:line citations** for both sides of the tension. Never paper over a contradiction by quoting only one side. Prefer "these two claims conflict; here is the reconciliation / here is the gap" over a clean-sounding summary that hides it.

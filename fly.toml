@@ -18,13 +18,7 @@ primary_region = "dfw"
 [build]
   dockerfile = "Dockerfile"
 
-[build.args]
-  # These are consumed by Dockerfile ARG VITE_* in Stage 1 (builder) and
-  # baked into dashboard/dist at vite build time. Accepted per readiness-brief
-  # scope guardrail #1: "Not fixing the VITE_API_KEY build-time bake-in."
-  VITE_API_BASE_URL = ""   # set via: fly deploy --build-arg VITE_API_BASE_URL=https://8p3p-pilot-springs.fly.dev
-  VITE_API_KEY = ""        # set via: fly deploy --build-arg VITE_API_KEY=<pilot_key>
-  VITE_ORG_ID = "springs"
+# API-only image — no dashboard bundle. Decision Panel deploys separately (dashboard/).
 
 [env]
   PORT = "3000"
@@ -34,8 +28,8 @@ primary_region = "dfw"
   DASHBOARD_SESSION_TTL_HOURS = "8"
 
 # Runtime secrets (not in fly.toml — set via `fly secrets set`):
-#   API_KEY, ADMIN_API_KEY, DASHBOARD_ACCESS_CODE, COOKIE_SECRET
-# See docs/guides/pilot-host-deployment.md § Secrets for the exact commands.
+#   API_KEY, ADMIN_API_KEY
+# Dashboard secrets (DASHBOARD_ACCESS_CODE, COOKIE_SECRET, CONTROL_LAYER_*) live on the Next.js host — see dashboard/.env.example
 
 [http_service]
   internal_port = 3000

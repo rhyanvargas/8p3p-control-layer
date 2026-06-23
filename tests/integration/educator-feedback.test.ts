@@ -10,9 +10,11 @@ import { join } from 'path';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import Fastify, { type FastifyInstance } from 'fastify';
 import cookie from '@fastify/cookie';
-import formbody from '@fastify/formbody';
 import { apiKeyPreHandler } from '../../src/auth/api-key-middleware.js';
-import { registerDashboardLoginRoutes } from '../../src/auth/dashboard-login.js';
+import {
+  FEEDBACK_SESSION_COOKIE_NAME,
+  signSession,
+} from '../../src/auth/session-cookie.js';
 import {
   initDecisionStore,
   closeDecisionStore,
@@ -33,7 +35,6 @@ import {
   clearSignalLogStore,
 } from '../../src/signalLog/store.js';
 import type { Decision } from '../../src/shared/types.js';
-import { _resetForTest } from '../../src/auth/login-rate-limiter.js';
 
 const ORG = 'org_springs';
 const COOKIE_SECRET = '01234567890123456789012345678901';
@@ -103,8 +104,6 @@ describe('educator-feedback integration', () => {
 
     app = Fastify({ logger: false });
     await app.register(cookie);
-    await app.register(formbody);
-    registerDashboardLoginRoutes(app);
     await app.register(
       async (v1) => {
         v1.addHook('preHandler', apiKeyPreHandler);
@@ -123,7 +122,6 @@ describe('educator-feedback integration', () => {
     closeSignalLogStore();
     rmSync(tmpDir, { recursive: true, force: true });
     restoreEnv();
-    _resetForTest();
   });
 
   beforeEach(() => {
@@ -137,23 +135,15 @@ describe('educator-feedback integration', () => {
     vi.useRealTimers();
   });
 
-  async function loginCookies(): Promise<string> {
-    const res = await app.inject({
-      method: 'POST',
-      url: '/dashboard/login',
-      payload: `passphrase=${encodeURIComponent(ACCESS)}`,
-      headers: { 'content-type': 'application/x-www-form-urlencoded' },
-    });
-    expect(res.statusCode).toBe(302);
-    const setCookie = res.headers['set-cookie'];
-    const parts = Array.isArray(setCookie) ? setCookie : [String(setCookie ?? '')];
-    return parts.filter(Boolean).join('; ');
+  function feedbackSessionCookie(): string {
+    const signed = signSession(COOKIE_SECRET, 3600);
+    return `${FEEDBACK_SESSION_COOKIE_NAME}=${signed}`;
   }
 
   it('FEEDBACK-001: login mints cookies; POST approve + GET feedback', async () => {
     const d = makeDecision();
     saveDecision(d);
-    const jar = await loginCookies();
+    const jar = feedbackSessionCookie();
     const post = await app.inject({
       method: 'POST',
       url: `/v1/decisions/${d.decision_id}/feedback`,
@@ -179,7 +169,7 @@ describe('educator-feedback integration', () => {
   it('FEEDBACK-002: reject with reason round-trips', async () => {
     const d = makeDecision();
     saveDecision(d);
-    const jar = await loginCookies();
+    const jar = feedbackSessionCookie();
     await app.inject({
       method: 'POST',
       url: `/v1/decisions/${d.decision_id}/feedback`,
@@ -208,7 +198,7 @@ describe('educator-feedback integration', () => {
   it('FEEDBACK-008: view dedup within window', async () => {
     const d = makeDecision();
     saveDecision(d);
-    const jar = await loginCookies();
+    const jar = feedbackSessionCookie();
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-01-01T12:00:00.000Z'));
     const r1 = await app.inject({
@@ -242,7 +232,7 @@ describe('educator-feedback integration', () => {
         })
       );
     }
-    const jar = await loginCookies();
+    const jar = feedbackSessionCookie();
     await app.inject({
       method: 'POST',
       url: `/v1/decisions/${ids[0]}/feedback`,
@@ -275,7 +265,7 @@ describe('educator-feedback integration', () => {
   it('FEEDBACK-010: latest_action follows last feedback row', async () => {
     const d = makeDecision();
     saveDecision(d);
-    const jar = await loginCookies();
+    const jar = feedbackSessionCookie();
     for (const action of ['reject', 'reject', 'approve'] as const) {
       await app.inject({
         method: 'POST',

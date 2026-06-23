@@ -411,10 +411,10 @@ Panels 1 and 3 use the **learner summary** endpoint (`docs/specs/learner-summary
 
 ### Access
 
-- **URL:** `https://<host>/dashboard`
-- **Auth:** Passphrase gate when `DASHBOARD_ACCESS_CODE` and `COOKIE_SECRET` are set on the server (`docs/specs/dashboard-passphrase-gate.md`). Staff receive the access code via a secure channel; IT admin distributes to authorized educators.
-- **API key:** Embedded at dashboard build time (`VITE_API_KEY`, `VITE_ORG_ID`, `VITE_API_BASE_URL`) — one org per deployment.
-- **Auto-refresh:** Data refreshes every 30 seconds; manual **Refresh** reloads summary (panels 1/3) and per-learner state (panels 2/4).
+- **URL:** Standalone Next.js app (e.g. `https://dashboard.<host>/` locally `http://localhost:3001/`). The API remains at `https://<api-host>/` — see [`docs/foundation/setup.md`](../foundation/setup.md) for local two-process setup.
+- **Auth:** Passphrase gate when `DASHBOARD_ACCESS_CODE` and `COOKIE_SECRET` are set on the **dashboard** app (`docs/specs/dashboard-passphrase-gate.md`). Staff receive the access code via a secure channel.
+- **API key:** Held **server-side** by the dashboard proxy (`CONTROL_LAYER_API_KEY`, `CONTROL_LAYER_ORG_ID`, `CONTROL_LAYER_API_BASE_URL` in `dashboard/.env.local` or Amplify env). The browser never sends `x-api-key`.
+- **Auto-refresh:** TanStack Query refetches on an interval; manual **Refresh** reloads visible data.
 
 ### Verify summary for a learner
 

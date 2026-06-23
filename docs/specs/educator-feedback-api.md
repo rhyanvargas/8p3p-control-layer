@@ -182,7 +182,7 @@ Computed as: `decisions WHERE decided_at ≤ NOW - older_than_days AND NOT EXIST
 
 ## Integration Points
 
-1. **Decision Panel (`dashboard/src`).** The *What To Do?* panel's existing Approve / Reject buttons wire to `POST /v1/decisions/:id/feedback`. A new `POST /v1/decisions/:id/view` is called automatically when a card is scrolled into the viewport for ≥ 2 seconds (debounced). A toast appears when `GET /v1/decisions/feedback/pending` returns `pending_count ≥ 10` — non-blocking, dismissible.
+1. **Decision Panel (`dashboard/` Next.js app).** Educator review flows wire to `POST /v1/decisions/:id/feedback` via the server proxy. View logging uses `POST /v1/decisions/:id/view` when cards meet viewport thresholds. Pending feedback toasts use `GET /v1/decisions/feedback/pending`.
 2. **Program-metrics composition.** `GET /v1/admin/program-metrics` (per `program-metrics.md`) reads `decision_feedback` + `decision_view_log` to compute MC-B01..MC-B06, MC-C02 (action-confirmed intervene outcomes), MC-C05 (early-identification), MC-C06 (false-positive rate).
 3. **Research export.** `pilot-research-export.md` includes feedback rows (de-identified) alongside decisions and state deltas.
 

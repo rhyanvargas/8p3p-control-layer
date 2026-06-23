@@ -8,6 +8,8 @@ All tests are performed via Swagger UI at **http://localhost:3000/docs**.
 
 ## Prerequisites
 
+Local setup: [`docs/foundation/setup.md`](../foundation/setup.md).
+
 ```bash
 # Install dependencies
 npm install

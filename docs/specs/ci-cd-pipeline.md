@@ -1,14 +1,16 @@
 # CI/CD Pipeline
 
-> Codify the GitHub Actions pipelines that gate merges to `main` and deliver artifacts to the pilot (Fly.io) and production (AWS CDK) environments. Source of truth for what runs, where, when, and what blocks a deploy.
+> Codify the GitHub Actions pipelines that gate merges to `main` and deliver artifacts to the pilot (Fly.io API + separate Next.js dashboard) and production (AWS CDK) environments. Source of truth for what runs, where, when, and what blocks a deploy.
+
+**Status (2026-06):** Merge gate is implemented in [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) as two jobs — `dashboard` (Next.js build, typecheck, Playwright e2e) and `check` (API build, validate, lint, test, cdk:synth), both on **Node 22**. AWS [`deploy.yml`](../../.github/workflows/deploy.yml) is unchanged. **`deploy-fly.yml` is not yet in the repo** — Fly API deploy remains manual per [`docs/guides/pilot-host-deployment.md`](../guides/pilot-host-deployment.md). Legacy `VITE_*` dashboard bake-in is **retired**; the API Docker image is API-only.
 
 ## Overview
 
 This spec defines two orthogonal GitHub Actions pipelines:
 
-1. **CI** (existing, documented here): the merge gate. Runs on every push/PR to verify the repository builds, passes contract tests, and synthesizes the AWS CDK template.
-2. **Deploy → Pilot (Fly.io)** (new): builds the multi-stage Docker image from `Dockerfile`, bakes the `VITE_*` dashboard envs, pushes to Fly.io via `flyctl`, and verifies `/health` over TLS using the verbatim smoke-test from the readiness brief.
-3. **Deploy → Prod (AWS)** (existing, documented here): `cdk deploy` via OIDC-assumed role. Preserved unchanged.
+1. **CI** (implemented): the merge gate. Runs on every push/PR — **`dashboard`** job (Next.js) + **`check`** job (API + CDK synth).
+2. **Deploy → Pilot (Fly.io)** (planned): builds the API-only Docker image from `Dockerfile`, pushes via `flyctl`, verifies `/health` over TLS. Dashboard deploys separately (Amplify when unblocked, or any Next.js host with runtime `CONTROL_LAYER_*` env).
+3. **Deploy → Prod (AWS)** (existing): `cdk deploy` via OIDC-assumed role. Preserved unchanged.
 
 The two deploy tracks are independent: Fly.io is the pilot path per `internal-docs/reports/2026-04-16-pilot-dry-run-readiness.md` § Decision 1 Option A (explicitly **not** AWS CDK for pilot); AWS CDK remains the prod target per `docs/specs/aws-deployment.md`.
 
@@ -27,9 +29,9 @@ This spec does **not** change any application behavior. It codifies existing `.g
 | A3 | Two environments: **pilot** (Fly.io) and **prod** (AWS). No staging. | Readiness brief § Decision 1: "not AWS CDK" for pilot; AWS CDK is prod per `aws-deployment.md` |
 | A4 | Fly.io deploy triggers: **`workflow_dispatch` only for v1** (manual) | Readiness brief § pre-Saturday schedule: "No code deploys after 12:30 PM". Manual dispatch matches human-controlled release cadence during pilot. Automatic `push:main` can be added later without breaking the contract. |
 | A5 | AWS deploy triggers: **unchanged** (`push:main` + `workflow_dispatch`) | `.github/workflows/deploy.yml:3-11` |
-| A6 | Node version for CI matrix: **20 and 22**; deploy jobs pin **22** | `ci.yml:16` + `deploy.yml:18` |
+| A6 | Node version for CI: **22** (both jobs) | `ci.yml` — `dashboard` and `check` use Node 22 / `.nvmrc` |
 | A7 | Post-deploy smoke test for Fly.io is the **verbatim curl** from readiness brief § Single Go/No-Go Gate | `.cursor/plans/pilot-host-deployment.plan.md` § Spec Literals |
-| A8 | `VITE_*` bake-in at image build time is **accepted for pilot**, not refactored here | Readiness brief § What We Are Explicitly NOT Doing item 1 |
+| A8 | Dashboard API key is **server-side runtime env** (`CONTROL_LAYER_API_KEY`), not `VITE_*` build args | `docs/specs/nextjs-amplify-dashboard-migration.md`, `Dockerfile` (API-only) |
 | A9 | No per-PR preview environments | Out of scope; adds cost + Fly.io review-apps complexity not justified by current pilot scale |
 
 ---
@@ -38,22 +40,24 @@ This spec does **not** change any application behavior. It codifies existing `.g
 
 ### Functional — CI (merge gate)
 
-- [ ] FR-CI-001: Run on every `push` to any branch and every `pull_request` to any branch.
-- [ ] FR-CI-002: Execute in a Node matrix (`20`, `22`) on `ubuntu-latest`.
-- [ ] FR-CI-003: Run these steps in order, failing fast on any non-zero exit: `npm ci`, `npm run build`, `npm run validate:schemas`, `npm run validate:contracts`, `npm run validate:api`, `npm run lint`, `npm test`, `npm run cdk:synth`.
-- [ ] FR-CI-004: Use `actions/setup-node@v4` with `cache: npm` to cache the root lockfile.
-- [ ] FR-CI-005: A failing CI run MUST block merge to `main` (branch protection policy — enforced in GitHub settings, not YAML, but listed here as a contract obligation).
+- [x] FR-CI-001: Run on every `push` to any branch and every `pull_request` to any branch.
+- [x] FR-CI-002: **`dashboard` job** on `ubuntu-latest`, Node **22**: `npm ci`, `npm run build`, `npm run typecheck`, Playwright e2e (`dashboard/` working directory).
+- [x] FR-CI-003: **`check` job** on `ubuntu-latest`, Node **22**: `npm ci`, `npm run build`, `npm run validate:schemas`, `npm run validate:contracts`, `npm run validate:api`, `npm run lint`, `npm test`, `npm run cdk:synth`.
+- [x] FR-CI-004: Use `actions/setup-node@v4` with npm cache (root lockfile for `check`; `dashboard/package-lock.json` for `dashboard`).
+- [ ] FR-CI-005: A failing CI run MUST block merge to `main` (branch protection policy — enforced in GitHub settings, not YAML).
 
 ### Functional — Deploy → Pilot (Fly.io)
 
-- [ ] FR-FLY-001: Trigger: `workflow_dispatch` with inputs `vite_api_base_url` (string, required), `vite_api_key` (string, required, secret-ish), `vite_org_id` (string, default `springs`), and `fly_app_name` (string, required).
-- [ ] FR-FLY-002: Before deploy, run the full CI gate (reuse the `check` job via `needs:` or a reusable workflow). If CI fails, the deploy job MUST NOT execute.
-- [ ] FR-FLY-003: Install `flyctl` via `superfly/flyctl-actions/setup-flyctl@master` (official action from Fly.io).
-- [ ] FR-FLY-004: Authenticate to Fly.io using `FLY_API_TOKEN` from GitHub Secrets (repository scope).
-- [ ] FR-FLY-005: Execute `flyctl deploy --remote-only --app <fly_app_name> --build-arg VITE_API_BASE_URL=... --build-arg VITE_API_KEY=... --build-arg VITE_ORG_ID=...`. Use `--remote-only` so image build runs on Fly builders (no local buildx needed).
-- [ ] FR-FLY-006: After `flyctl deploy` returns success, run the verbatim smoke-test curl from the readiness brief against `https://<fly_app_name>.fly.dev`. The job MUST fail if either the `/health` GET or the `/v1/signals` POST returns non-2xx.
-- [ ] FR-FLY-007: Concurrency: one pilot deploy at a time per `fly_app_name` (`concurrency.group: fly-deploy-${{ inputs.fly_app_name }}`, `cancel-in-progress: false`).
-- [ ] FR-FLY-008: Runtime secrets (`API_KEY`, `ADMIN_API_KEY`, `DASHBOARD_ACCESS_CODE`, `COOKIE_SECRET`) are set out-of-band via `fly secrets set`. The workflow MUST NOT read or write them. This is called out in `docs/guides/pilot-host-deployment.md` (see `pilot-host-deployment.plan.md` TASK-005).
+> **Not implemented** — workflow file pending. When added, it deploys the **API-only** image; dashboard is out of scope for this workflow.
+
+- [ ] FR-FLY-001: Trigger: `workflow_dispatch` with inputs `fly_app_name` (string, required). Optional: `control_layer_org_id` for smoke payload only.
+- [ ] FR-FLY-002: Before deploy, require green **`check`** job (reuse via `needs:` or reusable workflow).
+- [ ] FR-FLY-003: Install `flyctl` via `superfly/flyctl-actions/setup-flyctl@master`.
+- [ ] FR-FLY-004: Authenticate to Fly.io using `FLY_API_TOKEN` from GitHub Secrets.
+- [ ] FR-FLY-005: Execute `flyctl deploy --remote-only --app <fly_app_name>` (**no** `VITE_*` build args — API Dockerfile only).
+- [ ] FR-FLY-006: After deploy success, run the verbatim smoke-test curl from § Spec Literals against `https://<fly_app_name>.fly.dev`.
+- [ ] FR-FLY-007: Concurrency: one pilot deploy at a time per `fly_app_name`.
+- [ ] FR-FLY-008: Runtime secrets (`API_KEY`, `ADMIN_API_KEY`) are set out-of-band via `fly secrets set`. Dashboard secrets (`CONTROL_LAYER_*`, `DASHBOARD_ACCESS_CODE`, `COOKIE_SECRET`) are set on the **dashboard host**, not the API Fly app.
 
 ### Functional — Deploy → Prod (AWS)
 
@@ -66,7 +70,7 @@ This spec does **not** change any application behavior. It codifies existing `.g
 
 ### Acceptance Criteria
 
-- Given a PR to `main`, when CI runs, then all eight steps in FR-CI-003 execute on Node 20 and 22, and merge is blocked if any step fails.
+- Given a PR to `main`, when CI runs, then the **`dashboard`** and **`check`** jobs execute on Node 22, and merge is blocked if either job fails.
 - Given a `workflow_dispatch` on the Fly.io workflow with valid inputs and a passing CI, when `flyctl deploy` succeeds, then the smoke-test curl against `https://<fly_app_name>.fly.dev/health` returns 200 and the POST `/v1/signals` returns 200/202 and the workflow concludes `success`. If either HTTP call fails, the workflow concludes `failure`.
 - Given a push to `main`, when the AWS deploy workflow runs, then `cdk deploy --require-approval never` completes without prompting and the optional post-deploy contract tests run if `CONTRACT_TEST_API_URL` is configured.
 - Given two concurrent dispatches targeting the same `fly_app_name`, when the second starts, then it queues behind the first (no in-flight cancellation).
@@ -75,8 +79,8 @@ This spec does **not** change any application behavior. It codifies existing `.g
 
 ## Constraints
 
-- **Image registry**: Fly.io manages the registry for its deploys (`registry.fly.io/<app>`). We do not publish to GHCR or ECR from this pipeline. Rationale: single-consumer artifact; no need for a shared registry.
-- **Dashboard env bake-in**: `VITE_API_BASE_URL`, `VITE_API_KEY`, `VITE_ORG_ID` are build-args, not runtime env. Rebuilding the dashboard requires a new image. This is accepted per readiness-brief guardrail; `liu-usage-meter.md`-style key rotation is out of scope.
+- **Image registry**: Fly.io manages the registry for API deploys. Dashboard artifacts are built in CI (`dashboard` job) and deployed separately (Amplify / other Next host).
+- **Dashboard credentials**: `CONTROL_LAYER_API_KEY` is runtime env on the dashboard host, never a Docker build arg. Rotating the API key requires updating both Fly `API_KEY` and dashboard `CONTROL_LAYER_API_KEY`.
 - **No shared state**: CI and deploy workflows do not share caches beyond the per-job `actions/setup-node` npm cache. Artifact sharing (`actions/upload-artifact` → `actions/download-artifact`) is preserved only where `deploy.yml` already uses it (dist passing between `build` and `cdk-synth`/`deploy`).
 - **Smoke-test payload is frozen**: the curl body in § Spec Literals is copied verbatim from the readiness brief. Do not paraphrase it; change it only by updating the source doc and re-syncing.
 - **Manual-only Fly.io dispatch for v1**: no `push:main` trigger until after the Saturday dry run lands. Rationale: human-gated release during pilot window.
@@ -139,9 +143,10 @@ CI/CD pipelines do not emit application error codes. Failure surface is the GitH
 | Test ID | Description | Input | Expected |
 |---------|-------------|-------|----------|
 | CICD-001 | `ci.yml` contains all eight steps from FR-CI-003 in order | Parse `ci.yml` steps | Exact match by `name:` |
-| CICD-002 | `ci.yml` runs on Node 20 and 22 | Parse `ci.yml` matrix | `[20, 22]` |
-| CICD-003 | `deploy-fly.yml` only triggers on `workflow_dispatch` | Parse `deploy-fly.yml` `on:` | Single key `workflow_dispatch` |
-| CICD-004 | `deploy-fly.yml` requires all four inputs from FR-FLY-001 | Parse workflow inputs | `{vite_api_base_url, vite_api_key, vite_org_id, fly_app_name}` present; first, second, fourth marked `required: true` |
+| CICD-002 | `ci.yml` runs API gate on Node 22 | Parse `check` job | Node `22` or `node-version-file: .nvmrc` |
+| CICD-002b | `ci.yml` has `dashboard` job with build + e2e | Parse `dashboard` job steps | `npm run build`, `npm run test:e2e` present |
+| CICD-003 | `deploy-fly.yml` only triggers on `workflow_dispatch` | Parse `deploy-fly.yml` `on:` | **GAP** — file not committed yet |
+| CICD-004 | `deploy-fly.yml` requires `fly_app_name` input | Parse workflow inputs | **GAP** — no `vite_*` inputs when implemented |
 | CICD-005 | `deploy-fly.yml` `deploy` job has `needs: [check]` (or equivalent reusable-workflow reference) | Parse job graph | Deploy depends on CI gate |
 | CICD-006 | `deploy-fly.yml` smoke-test step posts the verbatim payload from § Spec Literals | `rg` job script body against verbatim string | Exact substring match (JSON body and headers) |
 | CICD-007 | `deploy-fly.yml` uses `superfly/flyctl-actions/setup-flyctl@master` | Parse `uses:` values | Match |
@@ -182,16 +187,15 @@ curl -sS -X POST "https://<pilot-host>/v1/signals" \
 
 N/A — CI/CD does not set cookies.
 
-### Env vars / inputs (Fly.io deploy workflow)
+### Env vars / inputs (Fly.io deploy workflow — planned)
 
 | Name | Source | Required | Default | Type | Description |
 |------|--------|----------|---------|------|-------------|
-| `vite_api_base_url` | `workflow_dispatch` input | yes | — | string | Baked into dashboard at `vite build`. Example: `https://8p3p-pilot-springs.fly.dev` |
-| `vite_api_key` | `workflow_dispatch` input | yes | — | string | Baked into dashboard. Should match the runtime `API_KEY` set via `fly secrets set`. |
-| `vite_org_id` | `workflow_dispatch` input | no | `springs` | string | Baked into dashboard. |
-| `fly_app_name` | `workflow_dispatch` input | yes | — | string | Target Fly.io app. Example: `8p3p-pilot-springs`. |
-| `FLY_API_TOKEN` | `secrets.FLY_API_TOKEN` | yes | — | string | Fly.io deploy token. Generate via `fly tokens create deploy`. |
+| `fly_app_name` | `workflow_dispatch` input | yes | — | string | Target Fly.io API app. Example: `8p3p-pilot-springs`. |
+| `FLY_API_TOKEN` | `secrets.FLY_API_TOKEN` | yes | — | string | Fly.io deploy token. |
 | `PILOT_API_KEY` | `secrets.PILOT_API_KEY` | yes | — | string | Passed to smoke-test `x-api-key` header. Matches runtime `API_KEY` on the target app. |
+
+Dashboard deploy workflow (Amplify or other) is a **separate** spec/workflow with `CONTROL_LAYER_*` runtime env — not part of `deploy-fly.yml`.
 
 ### Env vars / inputs (AWS deploy workflow — existing, unchanged)
 
@@ -208,7 +212,7 @@ N/A — CI/CD does not set cookies.
 
 ### Constants / limits
 
-- CI matrix: Node `20`, `22`. No OS matrix (`ubuntu-latest` only).
+- CI matrix: Node **22** only (`ubuntu-latest`). No OS matrix.
 - Deploy job pins Node `22` (`env.NODE_VERSION: '22'`).
 - Concurrency group (AWS): `deploy-${{ github.ref }}`, `cancel-in-progress: false`.
 - Concurrency group (Fly.io): `fly-deploy-${{ inputs.fly_app_name }}`, `cancel-in-progress: false`.
@@ -220,7 +224,7 @@ N/A — CI/CD does not set cookies.
 | File | Trigger | Target | Blocks merge? |
 |------|---------|--------|---------------|
 | `.github/workflows/ci.yml` | `push:**`, `pull_request:**` | — (validation only) | yes |
-| `.github/workflows/deploy-fly.yml` | `workflow_dispatch` | Fly.io pilot | no |
+| `.github/workflows/deploy-fly.yml` | `workflow_dispatch` (planned) | Fly.io API | no |
 | `.github/workflows/deploy.yml` | `push:main`, `workflow_dispatch` | AWS prod | no |
 
 ---
@@ -235,9 +239,8 @@ N/A — CI/CD does not set cookies.
 - **Body size limits**: N/A. Smoke-test payload is ~350 bytes, well under Fastify's default 1 MB and the app's `SIGNAL_BODY_LIMIT=1048576`.
 - **Secrets scope**: GitHub Actions secrets are repository-scoped. OIDC minimizes long-lived AWS key surface; Fly.io uses a scoped `deploy` token (not a personal access token). Rotate `FLY_API_TOKEN` and `PILOT_API_KEY` if the pilot window extends past the dry run — track in `pilot-host-deployment.plan.md` § Secrets.
 - **Rate-limit storage scope**: N/A.
-- **Error-code surface**: pipeline failures are visible to repo collaborators via GitHub Actions logs. Logs MUST NOT echo `VITE_API_KEY`, `FLY_API_TOKEN`, `PILOT_API_KEY`, or any AWS secret — GitHub Actions masks registered secrets automatically, but any custom shell script that constructs curl commands MUST use `-H "x-api-key: $PILOT_API_KEY"` (variable substitution happens inside the shell, not in the YAML) rather than `run: |` blocks that echo the token.
-- **Horizontal scaling**: N/A — CI/CD jobs are ephemeral GitHub-hosted runners.
-- **Build-arg leakage**: `VITE_API_KEY` is baked into the image layer and visible in the built image's JS bundle. This is accepted per readiness-brief guardrail #1 for pilot only and documented in `pilot-host-deployment.plan.md`. Do not treat the Fly.io image as confidential.
+- **Error-code surface**: pipeline logs MUST NOT echo `CONTROL_LAYER_API_KEY`, `FLY_API_TOKEN`, `PILOT_API_KEY`, or AWS secrets.
+- **Build-arg leakage**: N/A for dashboard — API image contains no client API key. Dashboard secrets stay on the Next.js host runtime env.
 
 ---
 
