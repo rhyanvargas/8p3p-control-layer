@@ -9,8 +9,35 @@ import { DecisionBadge } from '@/components/shared/decision-badge';
 import { DetailSheet } from '@/components/shared/detail-sheet';
 import { DrillDownLink } from '@/components/shared/drill-down-link';
 import { SheetSection } from '@/components/shared/sheet-section';
-import type { Decision } from '@/lib/api/types';
+import type { Decision, DecisionType } from '@/lib/api/types';
 import { formatDecisionTime, truncateRule } from '@/lib/overview-metrics';
+
+const DECISION_TYPE_LABELS: Record<DecisionType, string> = {
+  reinforce: 'Reinforce',
+  advance: 'Advance',
+  intervene: 'Intervene',
+  pause: 'Pause',
+};
+
+function humanizeDecisionType(type: DecisionType): string {
+  return DECISION_TYPE_LABELS[type] ?? type;
+}
+
+function truncateSummary(text: string, max = 64): string {
+  if (text.length <= max) return text;
+  return `${text.slice(0, max - 1)}…`;
+}
+
+function educatorNarrative(
+  trace: Decision['trace'],
+  decisionType: DecisionType
+): string {
+  const explanation = trace.educator_explanation?.trim();
+  if (explanation) return explanation;
+  const summary = trace.educator_summary?.trim();
+  if (summary) return summary;
+  return humanizeDecisionType(decisionType);
+}
 
 type RecentDecisionsTableProps = {
   decisions: Decision[];
@@ -43,11 +70,13 @@ export function RecentDecisionsTable({ decisions }: RecentDecisionsTableProps) {
         ),
       },
       {
-        id: 'rule',
-        header: 'Rule',
+        id: 'summary',
+        header: 'Summary',
         cell: ({ row }) => (
-          <span className="text-muted-foreground font-mono text-xs">
-            {truncateRule(row.original.trace.matched_rule_id)}
+          <span className="text-muted-foreground text-sm">
+            {truncateSummary(
+              educatorNarrative(row.original.trace, row.original.decision_type)
+            )}
           </span>
         ),
       },
@@ -115,19 +144,31 @@ export function RecentDecisionsTable({ decisions }: RecentDecisionsTableProps) {
               fields={[
                 {
                   label: 'Educator summary',
-                  value:
-                    selected.trace.educator_summary ||
-                    'No educator summary was provided.',
-                },
-                {
-                  label: 'Rule',
-                  value: truncateRule(selected.trace.matched_rule_id, 48),
+                  value: educatorNarrative(selected.trace, selected.decision_type),
                 },
               ]}
             />
-            <SheetSection title="Rationale excerpt">
-              <p className="font-mono text-sm leading-relaxed">{rationaleExcerpt}</p>
-            </SheetSection>
+            <SheetSection
+              title="Technical detail"
+              fields={[
+                {
+                  label: 'Matched rule',
+                  value: (
+                    <span className="font-mono text-xs">
+                      {truncateRule(selected.trace.matched_rule_id, 48)}
+                    </span>
+                  ),
+                },
+                {
+                  label: 'Rationale excerpt',
+                  value: (
+                    <p className="font-mono text-sm leading-relaxed">
+                      {rationaleExcerpt}
+                    </p>
+                  ),
+                },
+              ]}
+            />
           </>
         ) : null}
       </DetailSheet>

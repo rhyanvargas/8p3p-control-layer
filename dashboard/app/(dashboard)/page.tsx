@@ -1,5 +1,6 @@
 import { Suspense } from 'react';
 
+import { OverviewFreshness } from '@/app/(dashboard)/_components/overview-freshness';
 import { OverviewKpiSection } from '@/app/(dashboard)/_components/overview-kpi-section';
 import { OverviewRecentDecisionsSection } from '@/app/(dashboard)/_components/overview-recent-decisions-section';
 import { OverviewTrendSection } from '@/app/(dashboard)/_components/overview-trend-section';
@@ -16,7 +17,13 @@ export default function OverviewPage() {
       <PageHeader
         title="Overview"
         description="Is anything wrong right now? Scan KPIs, trends, and recent decisions."
-      />
+      >
+        {orgId ? (
+          <Suspense fallback={null}>
+            <OverviewFreshness orgId={orgId} />
+          </Suspense>
+        ) : null}
+      </PageHeader>
 
       {!orgId ? (
         <Alert>

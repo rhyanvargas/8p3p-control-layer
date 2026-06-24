@@ -17,6 +17,8 @@ export interface DecisionTrace {
   matched_rule: unknown;
   rationale: string;
   educator_summary: string;
+  /** Rich narrative when AI explanations ship; optional until then. */
+  educator_explanation?: string | null;
 }
 
 export interface Decision {

@@ -1,22 +1,32 @@
+'use client';
+
 import Link from 'next/link';
-import { TrendingDown, TrendingUp } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
+import { Info, TrendingDown, TrendingUp } from 'lucide-react';
 
 import {
   Card,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
 type StatCardProps = {
   title: string;
   value: React.ReactNode;
-  description?: string;
+  tooltip?: string;
   delta?: number;
   href?: string;
-  footerLabel?: string;
+  /** Overrides default title+value aria-label when value is not plain text. */
+  ariaLabel?: string;
+  icon?: LucideIcon;
+  iconClassName?: string;
   className?: string;
 };
 
@@ -47,33 +57,63 @@ function DeltaBadge({ delta }: { delta: number }) {
 export function StatCard({
   title,
   value,
-  description,
+  tooltip,
   delta,
   href,
-  footerLabel,
+  ariaLabel,
+  icon: Icon,
+  iconClassName,
   className,
 }: StatCardProps) {
-  const footer =
-    href && footerLabel ? (
-      <Link
-        href={href}
-        className="text-primary text-sm font-medium underline-offset-4 hover:underline"
-      >
-        {footerLabel}
-      </Link>
-    ) : null;
+  const accessibleName =
+    ariaLabel ??
+    (typeof value === 'string' || typeof value === 'number'
+      ? `${title}: ${value}`
+      : title);
 
   return (
-    <Card className={className}>
-      <CardHeader>
-        <CardDescription>{title}</CardDescription>
+    <Card
+      className={cn(
+        href && 'relative transition-colors hover:bg-muted/40',
+        className
+      )}
+    >
+      {href ? (
+        <Link
+          href={href}
+          className="absolute inset-0 z-10 rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          aria-label={accessibleName}
+        />
+      ) : null}
+      <CardHeader className={cn(href && 'pointer-events-none relative')}>
+        <div className="flex items-center gap-2">
+          {Icon ? (
+            <Icon
+              aria-hidden="true"
+              className={cn('size-4 shrink-0', iconClassName)}
+            />
+          ) : null}
+          <CardDescription className="flex-1">{title}</CardDescription>
+          {tooltip ? (
+            <Tooltip>
+              <TooltipTrigger
+                type="button"
+                className="text-muted-foreground hover:text-foreground pointer-events-auto relative z-20 inline-flex shrink-0 rounded-sm"
+                aria-label={`More about ${title}`}
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                }}
+              >
+                <Info className="size-3.5" aria-hidden="true" />
+              </TooltipTrigger>
+              <TooltipContent>{tooltip}</TooltipContent>
+            </Tooltip>
+          ) : null}
+        </div>
         <CardTitle className="text-2xl font-semibold tabular-nums">{value}</CardTitle>
-        {description ? (
-          <p className="text-muted-foreground text-sm">{description}</p>
-        ) : null}
         {delta != null ? <DeltaBadge delta={delta} /> : null}
       </CardHeader>
-      {footer ? <CardFooter>{footer}</CardFooter> : null}
     </Card>
   );
 }

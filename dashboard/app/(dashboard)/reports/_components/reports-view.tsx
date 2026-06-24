@@ -104,7 +104,7 @@ export function ReportsView({ orgId }: ReportsViewProps) {
               key={id}
               title={metricLabel(id as ReportMetricId)}
               value={formatMetricValue(id as ReportMetricId, metric)}
-              description={metricDescription(id as ReportMetricId)}
+              tooltip={metricDescription(id as ReportMetricId)}
             />
           ))}
         </div>

@@ -58,6 +58,7 @@ async function fetchLearnerStatesSample(
 
 export type OverviewData = {
   orgId: string;
+  fetchedAt: string;
   kpis: OverviewKpis;
   decisions: Decision[];
   recentDecisions: Decision[];
@@ -85,6 +86,7 @@ export const getOverviewData = cache(async (orgId: string): Promise<OverviewData
 
   return {
     orgId,
+    fetchedAt: new Date().toISOString(),
     kpis,
     decisions,
     recentDecisions,
