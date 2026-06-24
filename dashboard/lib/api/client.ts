@@ -42,7 +42,20 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
 
   if (!res.ok) {
     const body = await parseErrorBody(res);
-    throw new ApiError(`API error ${res.status}: ${path}`, res.status, body);
+    const headerRequestId = res.headers.get('x-request-id') ?? undefined;
+    const bodyRequestId =
+      typeof body === 'object' &&
+      body !== null &&
+      'request_id' in body &&
+      typeof (body as { request_id: unknown }).request_id === 'string'
+        ? (body as { request_id: string }).request_id
+        : undefined;
+    throw new ApiError(
+      `API error ${res.status}: ${path}`,
+      res.status,
+      body,
+      headerRequestId ?? bodyRequestId
+    );
   }
 
   if (res.status === 204) {
