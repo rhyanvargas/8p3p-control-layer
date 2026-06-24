@@ -4,85 +4,85 @@ overview: "Implement the findings from the 2026-06-22 dashboard UX/UI analysis (
 todos:
   - id: TASK-001
     content: Remove dead org switcher from SiteHeader and clean unused props
-    status: pending
+    status: completed
   - id: TASK-002
     content: StatCard — add optional leading icon and full-card clickability (D3)
-    status: pending
+    status: completed
   - id: TASK-003
     content: Icon-first, re-ranked, decluttered, uniformly-clickable Overview KPIs (D3)
-    status: pending
+    status: completed
   - id: TASK-004
     content: Add icon to IngestionOutcomeChip
-    status: pending
+    status: completed
   - id: TASK-005
     content: Add fetchedAt to OverviewData
-    status: pending
+    status: completed
   - id: TASK-006
     content: Make global refresh call router.refresh
-    status: pending
+    status: completed
   - id: TASK-007
     content: Build freshness chip on Overview header
-    status: pending
+    status: completed
   - id: TASK-008
     content: Proxy request-id generation, forwarding, and failure logging
-    status: pending
+    status: completed
   - id: TASK-009
     content: Surface copyable reference id in ErrorState
-    status: pending
+    status: completed
   - id: TASK-010
     content: Extend reason-code to friendly-message map
-    status: pending
+    status: completed
   - id: TASK-011
     content: Add upload dependencies and progress primitive
-    status: pending
+    status: completed
   - id: TASK-012
     content: File parsing for JSON CSV XLSX
-    status: pending
+    status: completed
   - id: TASK-013
     content: Field mapping and client-side signal validation
-    status: pending
+    status: completed
   - id: TASK-014
     content: Dedicated preflight proxy route with admin key
-    status: pending
+    status: completed
   - id: TASK-015
     content: Bounded-concurrency commit client to signals endpoint
-    status: pending
+    status: completed
   - id: TASK-016
     content: Upload wizard shell and dropzone step
-    status: pending
+    status: completed
   - id: TASK-017
     content: Field-mapping wizard step
-    status: pending
+    status: completed
   - id: TASK-018
     content: Validate dry-run wizard step with per-row states
-    status: pending
+    status: completed
   - id: TASK-019
     content: Review commit and confirmation wizard steps
-    status: pending
+    status: completed
   - id: TASK-020
     content: Upload entry point on signals page and nav
-    status: pending
+    status: completed
   - id: TASK-021
     content: Update design-requirements to bring upload in scope
-    status: pending
+    status: completed
   - id: TASK-022
     content: Add dashboard admin API key env var
-    status: pending
+    status: completed
   - id: TASK-023
     content: Unit tests for parse map validate
-    status: pending
+    status: completed
   - id: TASK-024
     content: Unit tests for proxy observability and freshness and refresh
-    status: pending
+    status: completed
   - id: TASK-025
     content: E2E tests for upload refresh and org switcher
-    status: pending
+    status: completed
   - id: TASK-026
     content: Educator-first recent-decisions table; move rule id + rationale to L1 Sheet (D1)
-    status: pending
+    status: completed
   - id: TASK-027
     content: Unit/e2e tests for D1 educator-first table and D3 KPI clickability
-    status: pending
+    status: completed
 isProject: false
 ---
 

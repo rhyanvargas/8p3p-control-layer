@@ -44,7 +44,7 @@ The educator experience is the product default: a teacher should reach **full co
 1. **Progressive disclosure.** Summary → list → detail. Drill-down opens a right-side `Sheet` (peek) or a dedicated route (deep link). Never dump raw JSON at the top level.
 2. **One primary question per page.** Each route has a single headline job (e.g. Overview = "Is anything wrong?"; Attention = "Who do I act on?"; Signals = "Is ingestion healthy?"). Secondary questions defer to drill-downs — not extra panels on the same scroll.
 3. **Action-oriented triage.** The educator's actionable queue (Attention) is one click from landing and is the only surface with write-ish actions (Approve/Reject, client-side in pilot).
-4. **Read-only truth layer.** Inspection surfaces (Signals, State, Decision Trace) are strictly read-only — no mutations, preserving the `inspection-panels.md` doctrine.
+4. **Read-only truth layer.** Inspection surfaces (Signals log, State, Decision Trace) are strictly read-only for audit — no ad-hoc mutations, preserving the `inspection-panels.md` doctrine. **Exception (in scope):** authenticated bulk signal ingest via `/signals/upload` → `POST /v1/signals` with optional preflight dry-run — the only dashboard write surface besides pilot Approve/Reject (see §8, §15).
 5. **One consistent system, two densities.** Educator views = generous spacing, friendly copy. Inspection views = denser tables + `font-mono` for IDs/JSON. Same tokens, same components — only spacing/typography density changes.
 6. **Security by default.** The browser never holds the API key; all data flows through the server-side proxy (`/api/control/*`). No "enter your API key" inputs in the redesigned UI (removes the legacy inspection-panel key prompt).
 7. **Honest states.** Every data view implements distinct loading, empty, and error states (no blank screens, no spinner-only).
@@ -210,7 +210,8 @@ Org context (org name + environment badge), theme toggle, and session control: *
 | `/learners/[ref]` | Learner detail | State viewer (**version drill-down**), trajectory, struggles, progress | `/v1/state`, `/v1/state?version=n`, `/v1/learners/:ref/summary` |
 | `/decisions` | Decision stream | Filterable audit feed of receipts | `/v1/receipts` |
 | `/decisions/[id]` | Decision trace | Full provenance: rationale, thresholds, state snapshot, rule condition, JSON export | `/v1/decisions` |
-| `/signals` | Signal intake | Ingestion log w/ outcome filter + rejection drill-down | `/v1/ingestion` |
+| `/signals` | Signal intake | Ingestion log w/ outcome filter + rejection drill-down; **Upload signals** entry → `/signals/upload` | `/v1/ingestion` |
+| `/signals/upload` | Signal upload | Bulk ingest wizard: parse → map → validate → review → commit | `/v1/signals`; optional preflight via `/api/preflight` → `/v1/admin/ingestion/preflight` |
 | `/reports` | Reports | Program metrics, exports | `/v1/admin/program-metrics`, export endpoints |
 | `/settings` | Settings | Org/env info, theme, (later) user/Cognito | local + `/v1/policies` (read) |
 | `/login`, `/logout` | Auth | Passphrase gate (pilot) → Cognito (prod) | per migration spec |
@@ -287,7 +288,15 @@ Everything heavier (state **version drill-down**, full **signal history**, traje
 
 **Signals `/signals`** — *"Is ingestion healthy?"*
 - **L0:** `DataTable` default columns (time, source, schema, outcome chip). Outcome filter (accepted/duplicate/rejected); cursor pagination.
+- **Upload entry (normative):** `PageHeader` primary action **Upload signals** → `/signals/upload` (discoverable; not a sidebar item — design restraint).
 - Rejected rows: **L1 inline expand** (single row accordion) for reason code + field path — not a Sheet (lightweight exception). Full signal payload → future detail route if needed; do not inline JSON in the table body.
+
+**Signal upload `/signals/upload`** — *"How do I bulk-ingest signals?"* (control-plane write; see §15)
+- **Wizard stepper (normative):** Upload → Map → Validate → Review → Done — explicit progression; no auto-commit.
+- **Upload step:** accessible dropzone (JSON, CSV, XLSX); parse client-side with row/size caps.
+- **Map step:** column mappers to SignalEnvelope fields (`autoMap` heuristics); `org_id` proxy-injected (not collected).
+- **Validate step:** per-row client validation + optional preflight dry-run (when `CONTROL_LAYER_ADMIN_API_KEY` is set). PII-blocking verdict disables commit. Per-row projected outcomes via `IngestionOutcomeChip`; field-level errors inline.
+- **Review + Done:** explicit commit confirmation; bounded-concurrency `POST /v1/signals`; outcome summary + rejections export; link to `/signals` ingestion log to verify.
 
 **Reports `/reports`** — *"What are program-level outcomes?"*
 - Program metrics cards (≤6) + export actions (CSV/JSON). Honors read-only de-identified export contracts. No learner-level drill-down on this page — link out to Learners/Decisions routes instead.
@@ -377,9 +386,13 @@ dashboard/                                  # Next.js 15 App Router app (see mig
 │   │   ├── decisions/page.tsx
 │   │   ├── decisions/[id]/page.tsx
 │   │   ├── signals/page.tsx
+│   │   ├── signals/upload/
+│   │   │   ├── page.tsx                       # bulk signal ingest wizard
+│   │   │   └── _components/                   # upload-wizard, step-upload/map/validate/review/done
 │   │   ├── reports/page.tsx
 │   │   └── settings/page.tsx
-│   └── api/control/[...path]/route.ts       # server proxy (holds x-api-key)
+│   ├── api/control/[...path]/route.ts       # server proxy (holds x-api-key)
+│   └── api/preflight/route.ts               # scoped preflight proxy (admin key, server-only)
 ├── components/
 │   ├── layout/        # app-sidebar, site-header, nav-*, page-header
 │   ├── dashboard/     # section-cards, stat-card, trend-chart
@@ -388,7 +401,10 @@ dashboard/                                  # Next.js 15 App Router app (see mig
 │   ├── states/        # empty-state, error-state, loading-state
 │   └── ui/            # shadcn primitives
 ├── hooks/             # use-learners, use-decisions, use-signals, use-learner-summary, ...
-├── lib/               # api (client/query-client), score-levels, rationale-builder, utils (cn), constants
+├── lib/
+│   ├── api/           # client, query-client, errors, fetch-overview-data
+│   ├── upload/        # parse, mapping, validate, preflight, commit (bulk ingest)
+│   └── …              # score-levels, rationale-builder, utils (cn), constants, org-id, env
 ├── middleware.ts      # passphrase gate (pilot) → Cognito (prod)
 └── e2e/               # Playwright specs
 ```
@@ -417,6 +433,7 @@ dashboard/                                  # Next.js 15 App Router app (see mig
 - [ ] **D1** — Overview recent-decisions table educator-first columns (`Time·Type·Learner·Summary`); move `matched_rule_id` + rationale excerpt into the decision L1 Sheet (technical tier).
 - [ ] **D3** — Declutter KPI cards (one value + delta + status, no prose) and make all 4 cards clickable to a drill target.
 - [ ] **D2** — Cross-filter "Sync filters" toggle (default OFF) linking KPI cards ↔ chart ↔ table per §2.1 cross-filter doctrine.
+- [ ] Signal upload wizard (`/signals/upload`) — dropzone, field mapping, client validation, optional preflight dry-run, bounded-concurrency commit to `POST /v1/signals`.
 - [ ] Command palette (`⌘K`), org switcher multi-org behavior, Help external docs link, breadcrumbs polish.
 - [ ] Responsive passes (mobile sidebar `Sheet`, table degradation, L1 full-width Sheet), a11y audit (WCAG AA), reduced-motion.
 - [ ] **UX gate:** Playwright drill-down paths green in CI; formal educator walkthrough sign-off.
@@ -424,7 +441,7 @@ dashboard/                                  # Next.js 15 App Router app (see mig
 ---
 
 ## 15. Out of Scope (design)
-- Control-plane **mutations** beyond pilot Approve/Reject (inspection stays read-only).
+- Control-plane **mutations** beyond pilot Approve/Reject and **authenticated bulk signal ingest** (`/signals/upload` → `POST /v1/signals` + optional preflight dry-run). General inspection surfaces remain read-only.
 - Swagger `/docs` restyle (stays on Fastify).
 - Cognito UI states (defined in migration spec Phase 5).
 - Multi-theme/branding-per-tenant; native mobile app.
@@ -441,4 +458,4 @@ dashboard/                                  # Next.js 15 App Router app (see mig
 
 ---
 
-*Created: 2026-06-12 | Updated: 2026-06-22 (data-viz UX directives: D1 educator-first table / technical-tier Sheet, D2 cross-filter sync toggle, D3 KPI declutter + uniform clickability; §2.1 cross-filter doctrine + educator-first column ordering; §8 Overview) | Prior: 2026-06-20 (educator journey §; Phase A/B implemented). Design-only. Execution & hosting: nextjs-amplify-dashboard-migration.md. Tokens: decision-panel-ui.md.*
+*Created: 2026-06-12 | Updated: 2026-06-23 (signal upload in scope: §2 #4 carve-out, §6/§8 upload route + wizard, §13 file tree, §14 checklist, §15 scope amendment) | Prior: 2026-06-22 (D1/D2/D3 data-viz directives; §2.1 cross-filter + educator-first columns). Design-only. Execution & hosting: nextjs-amplify-dashboard-migration.md. Tokens: decision-panel-ui.md.*

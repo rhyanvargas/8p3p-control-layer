@@ -285,7 +285,7 @@ Aggregate signal counts from the signal log:
 
 | Item | Rationale | Revisit When |
 |------|-----------|--------------|
-| Nested dot-path trajectory fields | Per-skill/subject exposure is via `current_state.mastery_breakdown` (`docs/specs/urs-aggregation.md`), not dot-path trajectory queries | US-SKILL-001 for arbitrary dot-path trajectory over history |
+| Nested dot-path trajectory fields (`skills.{skillId}.{metric}`) | Scoped in `learner-trajectory-api.md` §v1.2 (A3, 2026-06-23); current per-skill snapshot via `current_state.mastery_breakdown` | §v1.2 impl pending |
 | PDF / document export | Client rendering responsibility; response is structured JSON | SDK or export spec |
 | Real-time summary streaming | Not required for pilot | WebSocket / EventBridge integration |
 | Multi-learner cohort summary | Separate analytics/reporting concern | Analytics API spec |

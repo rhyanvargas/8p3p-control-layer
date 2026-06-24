@@ -62,7 +62,7 @@ Two questions the board cares about, scored against the actual codebase:
 |---|--------|----------|----------|--------|
 | A1 | Build AI educator-explanation layer (Bedrock Converse, fail-safe to template, PII-safe, single write) | P0 | `docs/specs/ai-educator-explanations.md` → `.cursor/plans/ai-educator-explanations.plan.md` | Plan generated 2026-06-23; run `/implement-spec` |
 | A2 | Fix Decision Panel "D1" inversion (educator summary at L0, rule id + rationale in L1 Sheet) + freshness/refresh | P0 | `.cursor/plans/dashboard-uiux-improvements.plan.md` (TASK-026) | Planned |
-| A3 | Verify + scope **per-skill** trajectory (v1.2 `US-SKILL-001`); flat trajectory already shippable | P1 | `docs/specs/learner-trajectory-api.md` §v1.2 | Scope only |
+| A3 | Verify + scope **per-skill** trajectory (v1.2 `US-SKILL-001`); flat trajectory already shippable | P1 | `docs/specs/learner-trajectory-api.md` §v1.2 | **Scoped** 2026-06-23 |
 | A4 | Package a controlled-evaluation runbook (SQLite + seed → ingest pseudonymous export → decisions + receipts + explanations) **+ pin the dashboard access decision (tier C)** | P1 | `internal-docs/pilot-operations/controlled-evaluation-runbook.md` | Drafted 2026-06-23 (tier-C decision resolved; engagement fields TODO) |
 | A5 | Commit the proposal + meeting notes as dated artifacts (this report) for provenance | P0.5 | this file | In progress (TODO fill confirmations) |
 | A6 | Defer full AWS deploy, tenant field-mapping automation, webhook adapters (live-pilot, not eval) | P2 | existing specs | Deferred |

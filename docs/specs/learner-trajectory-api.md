@@ -169,22 +169,124 @@ Provides a cross-version aggregate per field:
 
 ## Constraints
 
-- **Flat fields only in v1.1** — field names in `fields` parameter must be top-level keys. Dot-path fields (e.g., `skills.fractions.stabilityScore`) return 400 `invalid_format` with message "Dot-path fields are not supported in v1.1. Use top-level canonical field names." Deferred to v1.2 (US-SKILL-001).
+- **Flat fields only in v1.1** — field names in `fields` parameter must be top-level keys. Dot-path fields (e.g., `skills.fractions.stabilityScore`) return 400 `invalid_format` with message "Dot-path fields are not supported in v1.1. Use top-level canonical field names." **v1.2 addendum scoped** — see §v1.2 Per-Skill Dot-Path Trajectory.
 - **Direction data comes from stored state** — the endpoint reads `{field}_direction` companion values from each stored state version. It does not recompute direction at query time. If state-delta-detection was not yet deployed when those versions were written, `directions` will be `null` for those historical versions.
 - **No real-time re-evaluation** — this is a historical read API only. It does not trigger new state or decision computation.
 - **`page_size` max 100** — prevents large memory allocation for learners with many state versions.
 
 ---
 
-## Out of Scope
+## Out of Scope (v1.1)
 
 | Item | Rationale | Revisit When |
 |------|-----------|--------------|
-| Dot-path nested field trajectory (`skills.fractions.stabilityScore`) | Requires US-SKILL-001 dot-path resolver | US-SKILL-001 is implemented (v1.2) |
+| Dot-path nested field trajectory (`skills.fractions.stabilityScore`) | v1.1 shipped flat fields only; see **§v1.2** below | §v1.2 (scoped 2026-06-23, A3) |
 | Smoothing / rolling average direction algorithm | Simple first-to-last delta sufficient for pilot | Customer requests more sophisticated trend analysis |
 | Cross-learner trajectory comparison | Multi-learner aggregation is a separate analytics concern | Analytics API spec |
 | Export (CSV, PDF) | Client-side rendering responsibility | SDK / export spec |
 | Real-time streaming trajectory | Async pattern; not required for pilot | EventBridge / WebSocket spec |
+
+---
+
+## v1.2 — Per-Skill Dot-Path Trajectory (US-SKILL-001 Extension)
+
+> **Status:** Scoped 2026-06-23 (roadmap P1 / CEO directive A3). **Not yet implemented.** Flat-field trajectory (v1.1) ships; nested delta companions and dot-path policy evaluation from `skill-level-tracking.md` (US-SKILL-001) also ship. This addendum closes the remaining read-path gap: trajectory queries over per-skill stored metrics.
+
+### Problem
+
+Educators and the AI explanation layer need to answer *"when did fractions stability start declining?"* — not only whether the dominant-skill mirror (`fields.stabilityScore`) moved. Stored state already carries per-skill metrics and `{metric}_direction` companions under `state.skills.{skillId}` (see `skill-level-tracking.md` §Change 3). The trajectory handler still rejects any `fields` value containing `.` and reads values/directions via top-level key lookup only (`trajectory-handler-core.ts`).
+
+### Prerequisites (all satisfied)
+
+| Prerequisite | Source | Status |
+|--------------|--------|--------|
+| `getAtPath()` dot-path resolver | `src/shared/dot-path.ts` | **Complete** |
+| Nested `{metric}_delta` / `{metric}_direction` at write time | `src/state/engine.ts` `computeNestedDeltas()` (max depth 5) | **Complete** |
+| `getStateVersionRange()` pagination | `src/state/store.ts` | **Complete** |
+| v1.1 trajectory response shape + `buildSummary` semantics | This spec §Endpoint | **Complete** |
+
+### In Scope (narrow)
+
+1. **Accept dot-path field names** in `GET /v1/state/trajectory?fields=…` and in `GET /v1/learners/:ref/summary?trajectory_fields=…`.
+2. **Allowed path pattern:** `skills.{skillId}.{metric}` where:
+   - `{skillId}` matches `^[A-Za-z0-9_-]{1,64}$` (same charset as skill keys in seed/pilot data, e.g. `text_evidence`, `fractions`).
+   - `{metric}` is a leaf numeric metric name (`stabilityScore`, `masteryScore`, or future numeric leaves written by signals) — **not** a companion suffix (`_delta`, `_direction`).
+   - Total path depth ≤ 5 segments (aligned with `computeNestedDeltas` recursion cap).
+3. **Read semantics unchanged:** for each version, return the numeric value at the path (or `null` if absent/non-numeric) and the stored direction companion — **no query-time recomputation**.
+4. **Direction companion resolution:** for a requested field path `P`, the direction key is the sibling `{leaf}_direction` at the same parent object:
+   - Flat (v1.1, unchanged): `stabilityScore` → `stabilityScore_direction`
+   - Nested (v1.2): `skills.fractions.stabilityScore` → read direction at `skills.fractions.stabilityScore_direction` via `getAtPath(state, directionPath(P))` where `directionPath(P)` replaces the final segment `S` with `S_direction`.
+5. **Limits unchanged:** max 10 fields per request; max 128 characters per field path; pagination and version-range filters unchanged.
+6. **Error behavior:** paths outside the allowed pattern return 400 `invalid_format` with message `"Field path must match skills.{skillId}.{metric}"`. Paths containing `..`, empty segments, or companion-suffix leaves return 400 `invalid_format`.
+7. **Remove v1.1 dot-path rejection** in `validateTrajectoryParams`, summary `trajectory_fields` validation, and Lambda `inspect.ts` mirrors — replace with pattern validation above.
+8. **OpenAPI + contract tests:** extend OpenAPI `fields` / `trajectory_fields` descriptions; add TRAJ-009–TRAJ-012 (see below). Update TRAJ-006 from "rejected" to "accepted when pattern-valid" (or supersede with TRAJ-009).
+
+### Explicitly Out of Scope (v1.2)
+
+| Item | Rationale |
+|------|-----------|
+| Arbitrary dot paths (`aggregation.overall.masteryScore`, `object.extensions.*`) | Narrow extension targets per-skill CEO "where" story only; URS aggregation already exposes current snapshot |
+| Auto-discovery of all skills/metrics when `fields` / `trajectory_fields` omitted | Summary default remains URS-projected flat numerics; callers pass explicit skill paths |
+| Dashboard Trajectory tab redesign | API-first; dashboard may follow in a separate plan (group rows by skill from `mastery_breakdown` + explicit `trajectory_fields`) |
+| Retroactive direction backfill for versions written before nested deltas | Same v1.1 rule: missing companions → `null` |
+| New routes or response-shape breaking changes | Extend existing endpoints only |
+| Smoothing / rolling average | Unchanged deferral |
+
+### Response Shape
+
+**No breaking changes.** Dot-path field names appear as keys in `fields`, `versions[].values`, `versions[].directions`, and `summary` exactly as requested (e.g. `"skills.fractions.stabilityScore"`).
+
+Example request:
+
+```
+GET /v1/state/trajectory?org_id=springs&learner_reference=stu-30456&fields=skills.text_evidence.stabilityScore,skills.text_evidence.masteryScore
+```
+
+Example excerpt (version 2):
+
+```json
+{
+  "values": {
+    "skills.text_evidence.stabilityScore": 0.55,
+    "skills.text_evidence.masteryScore": 0.70
+  },
+  "directions": {
+    "skills.text_evidence.stabilityScore": "declining",
+    "skills.text_evidence.masteryScore": "improving"
+  }
+}
+```
+
+### Implementation Touch Points
+
+| Surface | File(s) | Change |
+|---------|---------|--------|
+| Trajectory validation + version build | `src/state/trajectory-handler-core.ts` | Replace dot rejection with pattern check; `getAtPath` for values/directions; export `directionPathForField()` helper |
+| Summary trajectory fields | `src/learners/summary-handler-core.ts` | Same validation; `resolveTrajectoryFields` unchanged for default (flat URS keys only) |
+| Lambda routing | `src/lambda/inspect.ts` | Align validation with core (two duplicate checks today) |
+| OpenAPI | `docs/api/openapi.yaml` | Update `fields` / `trajectory_fields` param descriptions + examples |
+| Learner summary spec cross-ref | `docs/specs/learner-summary-api.md` §Out of Scope | Move nested trajectory row to "implemented in trajectory §v1.2" when impl lands |
+
+**Estimated blast radius:** ~4 production files, ~2 spec files, ~6 test files. No store/repository changes.
+
+### Contract Tests (additions)
+
+| Test ID | Description | Input | Expected |
+|---------|-------------|-------|----------|
+| TRAJ-009 | Per-skill trajectory across 3 versions | Learner with nested `skills.fractions.stabilityScore` history (seed via `saveStateWithAppliedSignals`) | 200; ascending versions; values/directions from nested companions |
+| TRAJ-010 | Direction `null` on first skill observation | Version 1 has metric but no `{metric}_direction` | `directions.skills…stabilityScore: null` for v1 |
+| TRAJ-011 | Invalid path rejected | `fields=aggregation.overall.masteryScore` | 400 `invalid_format` with pattern message |
+| TRAJ-012 | Companion suffix rejected as leaf | `fields=skills.fractions.stabilityScore_direction` | 400 `invalid_format` |
+
+> **Test strategy:** Reuse SKL-014 integration fixture pattern (`tests/integration/skill-level-tracking.test.ts`) — nested state is already seedable; trajectory read path is the only new behavior under test.
+
+### Controlled-Evaluation Posture
+
+Per `docs/reports/2026-06-23-ceo-meeting-directives.md` §3, flat-field trajectory is **demonstrable today** for the "risk appeared earlier" story. v1.2 is **P1, not eval-blocking** — it sharpens the per-skill temporal narrative for the CEO "where" ask once the explanation layer (A1) lands. Do not budget v1.2 as net-new infrastructure.
+
+### Next Step
+
+Run `/plan-impl docs/specs/learner-trajectory-api.md` scoped to §v1.2 only (do not re-plan v1.1 — archived at `archive/plans/learner-trajectory-api.plan.md`).
 
 ---
 
@@ -271,7 +373,7 @@ None. All error cases map to existing codes.
 
 ## Notes
 
-- **v1.1 scope rationale:** US-TRAJECTORY-001 in the backlog listed US-SKILL-001 (dot-path resolver) as a prerequisite. This spec intentionally scopes v1.1 to flat fields only, removing the US-SKILL-001 dependency and enabling the trajectory API to ship alongside the pilot. Dot-path support is a v1.2 addendum.
+- **v1.1 scope rationale:** US-TRAJECTORY-001 in the backlog listed US-SKILL-001 (dot-path resolver) as a prerequisite. This spec intentionally scopes v1.1 to flat fields only, removing the US-SKILL-001 dependency and enabling the trajectory API to ship alongside the pilot. Dot-path support is the §v1.2 addendum (scoped 2026-06-23, A3); US-SKILL-001 write-path prerequisites are now complete.
 - **Historical direction data:** Versions stored before `state-delta-detection.md` was deployed will have `null` direction values. This is expected and documented in the response. The trajectory API does not retroactively compute direction for historical versions.
 
 ---

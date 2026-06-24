@@ -28,7 +28,7 @@ Roadmap and sequencing: [`internal-docs/foundation/roadmap.md`](../../internal-d
 | [`tenant-config.md`](tenant-config.md) | Per-org overridable business rules + admin API; not pilot-blocking | Spec'd + plan staged |
 | [`ci-cd-pipeline.md`](ci-cd-pipeline.md) | GitHub Actions: merge-gate CI + Deploy→Pilot (Fly.io) + Deploy→Prod (AWS CDK) | Spec'd + plan staged |
 
-> **Per-skill trajectory (P1, A3):** scope-only extension of the shipped [`learner-trajectory-api.md`](learner-trajectory-api.md) (§v1.2 `US-SKILL-001`); flat-field trajectory already ships.
+> **Per-skill trajectory (P1, A3):** scoped in [`learner-trajectory-api.md`](learner-trajectory-api.md) §v1.2 (2026-06-23); flat-field trajectory already ships; impl pending `/plan-impl`.
 
 ## Shipped (implemented — interface source of truth)
 
