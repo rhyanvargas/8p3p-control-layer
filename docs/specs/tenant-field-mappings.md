@@ -11,7 +11,7 @@ This spec defines an **opt-in, per-tenant payload normalization + enforcement la
 3. **Admin API** — upload/list mappings with `ADMIN_API_KEY` (same auth model as `docs/specs/policy-management-api.md`).
 4. **Local-dev fallback** — `TENANT_FIELD_MAPPINGS_PATH` static JSON remains supported when DynamoDB mapping is absent or for offline dev.
 
-Domain knowledge stays **tenant-owned**; the control layer executes mappings it does not invent. See `internal-docs/foundation/ip-defensibility-and-value-proposition.md` §Canonical Fields.
+Domain knowledge stays **tenant-owned**; the control layer executes mappings it does not invent. See internal IP defensibility doc (local only) §Canonical Fields.
 
 ---
 

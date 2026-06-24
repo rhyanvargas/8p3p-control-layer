@@ -15,7 +15,7 @@ Scope of this spec:
 - Define the **enforcement points** in the ingestion and read pipelines.
 - Define the **Presidio evaluation framework** (and explicit alternatives) as an **options section** — a library decision is **not** finalized here.
 
-Not in scope: key management (KMS) infrastructure, token vault implementation (if `tokenize` is adopted), and customer agreements (BAA/DPA). Those are referenced but live in `internal-docs/compliance-security-posture-and-migration-path.md`.
+Not in scope: key management (KMS) infrastructure, token vault implementation (if `tokenize` is adopted), and customer agreements (BAA/DPA). Those are referenced but live in the internal compliance posture doc (local only).
 
 ---
 
@@ -122,7 +122,7 @@ A field's **default tier** is `allow` when no classification entry exists, **exc
 | Forbidden-key categorization (legacy rejection behavior this spec extends) | [`docs/specs/ingestion-preflight.md`](ingestion-preflight.md) | Spec'd |
 | Admin auth model | [`docs/specs/policy-management-api.md`](policy-management-api.md) | Defined ✓ |
 | Receipts API (read-side enforcement target) | [`docs/specs/receipts-api.md`](receipts-api.md) | Defined ✓ |
-| Compliance / security phased posture | [`internal-docs/compliance-security-posture-and-migration-path.md`](../../internal-docs/compliance-security-posture-and-migration-path.md) | Defined ✓ |
+| Compliance / security phased posture | Internal compliance posture doc (local only) | Defined ✓ |
 
 ### Provides to Other Specs
 | Function | Used By |
@@ -275,7 +275,7 @@ This section is **informative**. A library decision is **not** made by this spec
 - **Encryption vs decisions:** Fields that drive numeric policy rules (e.g. thresholds on `masteryScore`) must remain in plaintext or have a **sibling projection** (e.g. `masteryBucket: "high|mid|low"`) that policies consult. Otherwise decision determinism is lost. This constraint is surfaced at admin `PUT` validation: if a canonical path is referenced by any active policy's matched-field set **and** classified as `encrypt`, the admin API returns 400 unless a sibling projection is declared.
 - **Test coverage crosswalk:** CLS-001 guards the pilot; CLS-007/008 guard the override; CLS-012 guards audit completeness. These three must sit in the merge-gate suite.
 - **Downstream docs to update on adoption:**
-  - [`internal-docs/compliance-security-posture-and-migration-path.md`](../../internal-docs/compliance-security-posture-and-migration-path.md) Phase B — point to this spec as the implementation vehicle.
+  - Internal compliance posture doc (local only) Phase B — point to this spec as the implementation vehicle.
   - [`ingestion-preflight.md`](ingestion-preflight.md) — cross-link to classification as the structured evolution of PII handling.
   - README roadmap — add entry under enterprise posture.
 

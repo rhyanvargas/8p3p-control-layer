@@ -8,7 +8,7 @@ The control layer already captures **decision-level** feedback — educator Appr
 
 Two gaps motivate this spec:
 
-1. **The "gives feedback at any time" principle is unbacked.** `internal-docs/foundation/roadmap.md` §Current Direction states the dashboard is "the customer-facing portal… where the pilot customer admin views decisions/data, **gives feedback at any time**." The only wired mechanism is per-decision Approve/Reject/Ignore. There is no always-on, non-decision-scoped affordance.
+1. **The "gives feedback at any time" principle is unbacked.** [`docs/foundation/roadmap.md`](../foundation/roadmap.md) §Current Direction states the dashboard is "the customer-facing portal… where the pilot customer admin views decisions/data, **gives feedback at any time**." The only wired mechanism is per-decision Approve/Reject/Ignore. There is no always-on, non-decision-scoped affordance.
 2. **The closed-loop ritual is documented but not instantiated.** `roadmap.md` §"Pilot Feedback Intake" defines a CS-mediated loop that appends to `internal-docs/reports/pilot-feedback-log.md`, but that log file does not exist yet, and no in-product source feeds it.
 
 This spec adds:
@@ -200,7 +200,7 @@ Built per `.agents/skills/frontend-design/SKILL.md` and `vercel-react-best-pract
 ## Closed Loop (triage → roadmap)
 
 1. In-product submissions land in `product_feedback` (append-only).
-2. The CS lead reviews `GET /v1/admin/feedback` at the weekly cadence (`internal-docs/pilot-operations/onboarding-runbook.md` Phase 4) and appends triaged items — **plus** out-of-product items (interviews, email) and recurring decision-feedback themes — to `internal-docs/reports/pilot-feedback-log.md` using its schema `{date, customer, summary, category, feedback_type, proposed-roadmap-phase, status}`.
+2. The CS lead reviews `GET /v1/admin/feedback` at the weekly cadence (Internal onboarding runbook (local `internal-docs/`, not in public repo) Phase 4) and appends triaged items — **plus** out-of-product items (interviews, email) and recurring decision-feedback themes — to `internal-docs/reports/pilot-feedback-log.md` using its schema `{date, customer, summary, category, feedback_type, proposed-roadmap-phase, status}`.
 3. `proposed-roadmap-phase: Phase 1` items are triaged at the Monday roadmap sync; `Phase 2+` at the monthly review (unchanged ritual).
 4. Accepted items become specs/spec-amendments; `declined`/`closed` items carry a one-line rationale — and the loop is closed back to the customer (inspired-product §6).
 
@@ -290,7 +290,7 @@ Per `docs/specs/dashboard-passphrase-gate.md` § "Sibling cookie: `fb_session`" 
 | Capability | Used by |
 |------------|---------|
 | `product_feedback` rows + `csat_summary` | `internal-docs/reports/pilot-feedback-log.md` (triage); future Phase-1 feedback analytics |
-| Always-on feedback UX | `roadmap.md` §Current Direction "gives feedback at any time" principle |
+| Always-on feedback UX | [`docs/foundation/roadmap.md`](../foundation/roadmap.md) §Current Direction "gives feedback at any time" principle |
 
 ---
 

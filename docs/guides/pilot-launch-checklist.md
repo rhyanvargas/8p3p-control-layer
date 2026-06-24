@@ -2,6 +2,8 @@
 
 Use this checklist immediately before granting a pilot customer access to the Decision Panel and live API. It extends [Deployment Checklist](deployment-checklist.md) § Wave 3.
 
+**Gate criteria:** [Pilot Readiness Gates](pilot-readiness-gates.md) — 8P3P and customer readiness tables.
+
 **Master plan:** [`.cursor/plans/pilot-mvp-launch.plan.md`](../../.cursor/plans/pilot-mvp-launch.plan.md)
 
 ---

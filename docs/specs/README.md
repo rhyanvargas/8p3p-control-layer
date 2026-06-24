@@ -8,7 +8,9 @@ Specs are organized by **lifecycle status** so the active pilot path is obvious:
 - **Shipped** — implemented and in the codebase; kept as the interface source of truth for regression/contract safety.
 - **Deferred / forward-looking** — drafted but not scheduled.
 
-Roadmap and sequencing: [`internal-docs/foundation/roadmap.md`](../../internal-docs/foundation/roadmap.md).
+Roadmap and sequencing: [`docs/foundation/roadmap.md`](../foundation/roadmap.md).
+
+**MUST-read before adding docs or public surfaces:** [`docs/foundation/documentation-boundaries.md`](../foundation/documentation-boundaries.md) — tier model and agent reading order.
 
 ---
 
@@ -73,11 +75,11 @@ Roadmap and sequencing: [`internal-docs/foundation/roadmap.md`](../../internal-d
 - [`tiered-data-classification.md`](tiered-data-classification.md) — per-field `allow | tokenize | encrypt | reject` policy; evaluates Presidio / AWS Comprehend
 - [`document-extraction-service.md`](document-extraction-service.md) — **parked**; PDF/image → SignalEnvelope; depends on `tiered-data-classification.md`
 
-See [`internal-docs/compliance-security-posture-and-migration-path.md`](../../internal-docs/compliance-security-posture-and-migration-path.md) for how forward-looking specs fit the phased path.
+See the internal compliance posture doc (local only) for how forward-looking specs fit the phased path.
 
 ---
 
 - **API reference:** [`docs/api/openapi.yaml`](../api/openapi.yaml)
 - **Architecture overview:** [`docs/foundation/architecture.md`](../foundation/architecture.md)
 - **Terminology:** [`docs/foundation/terminology.md`](../foundation/terminology.md)
-- **API naming conventions:** [`internal-docs/foundation/api-naming-conventions.md`](../../internal-docs/foundation/api-naming-conventions.md) — durability rule for route/module names (MUST-read before adding a new public surface)
+- **API naming conventions:** [`docs/foundation/api-naming-conventions.md`](../foundation/api-naming-conventions.md) — durability rule for route/module names (MUST-read before adding a new public surface)

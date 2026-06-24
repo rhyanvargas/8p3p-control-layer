@@ -2,7 +2,7 @@
 
 > Defines how the 8P3P control layer proves — with data — that a deployed program (a) works, (b) helps educators, and (c) improves student and teacher outcomes. Written to the **ED/IES SBIR bar** so the same metrics support an ED/OCTAE narrative without rework.
 >
-> **Naming convention.** This spec defines the durable metrics catalog (`MC-*`) and the `/v1/admin/program-metrics` endpoint. Numeric targets are phase-scoped (Phase 0 Springs, Phase I SBIR) and live in the catalog tables below; endpoint and module identifiers are phase-neutral per [`internal-docs/foundation/api-naming-conventions.md`](../../internal-docs/foundation/api-naming-conventions.md).
+> **Naming convention.** This spec defines the durable metrics catalog (`MC-*`) and the `/v1/admin/program-metrics` endpoint. Numeric targets are phase-scoped (Phase 0 Springs, Phase I SBIR) and live in the catalog tables below; endpoint and module identifiers are phase-neutral per [`docs/foundation/api-naming-conventions.md`](../foundation/api-naming-conventions.md).
 
 ## Overview
 
@@ -23,7 +23,7 @@ All metrics derive from artifacts the control layer *already* emits (`Decision`,
 - `docs/specs/decision-outcomes.md` — joins a decision to subsequent state deltas (feeds student-impact metrics)
 - `docs/specs/pilot-research-export.md` — FERPA-safe de-identified bulk export (feeds external efficacy review)
 
-`docs/specs/liu-usage-meter.md` is **promoted from post-pilot to pre-Month 0** (see `internal-docs/foundation/roadmap.md`) because decisions/day and decisions/educator are the denominators for nearly every outcome metric below.
+`docs/specs/liu-usage-meter.md` is **promoted from post-pilot to pre-Month 0** (see [`docs/foundation/roadmap.md`](../foundation/roadmap.md)) because decisions/day and decisions/educator are the denominators for nearly every outcome metric below.
 
 ---
 
@@ -31,8 +31,8 @@ All metrics derive from artifacts the control layer *already* emits (`Decision`,
 
 | Concern | Existing artifact | What this spec adds |
 |---------|-------------------|---------------------|
-| Operational readiness (go/no-go, legibility) | `internal-docs/pilot-operations/pilot-readiness-definition.md`, `internal-docs/pilot-operations/dry-run-script.md` | Quantified success criteria (MC-* metrics) — gates live on; this spec defines the numbers they unlock |
-| Technical defensibility | `internal-docs/foundation/ip-defensibility-and-value-proposition.md` | DOE-shaped logic model in `internal-docs/foundation/logic-model.md` maps each IP capability to a success metric in this spec |
+| Operational readiness (go/no-go, legibility) | [`docs/guides/pilot-readiness-gates.md`](../guides/pilot-readiness-gates.md); internal dry-run script (local only) | Quantified success criteria (MC-* metrics) — gates live on; this spec defines the numbers they unlock |
+| Technical defensibility | Internal IP defensibility doc (local only) | DOE-shaped logic model (internal only; sanitized version out of scope for v1) maps each IP capability to a success metric in this spec |
 | LIU (billing usage) | `docs/specs/liu-usage-meter.md` | This spec re-purposes LIU as the **volume denominator** for all rate-based metrics (agreement rate, override rate, action latency) |
 | Audit receipts | `docs/specs/receipts-api.md` | Receipts are the per-decision evidence unit; this spec aggregates them |
 
@@ -40,7 +40,7 @@ All metrics derive from artifacts the control layer *already* emits (`Decision`,
 
 ## Metrics Catalog
 
-Metrics are grouped by DOE question. Each metric has a stable ID (MC-***NN***) used in the logic model (`internal-docs/foundation/logic-model.md`) and the research export (`docs/specs/pilot-research-export.md`).
+Metrics are grouped by DOE question. Each metric has a stable ID (MC-***NN***) used in the logic model (internal only; sanitized version out of scope for v1) and the research export (`docs/specs/pilot-research-export.md`).
 
 ### Group A — "How do we measure success?" (system-level)
 
@@ -86,7 +86,7 @@ These metrics rely on **`docs/specs/decision-outcomes.md`** (derived view joinin
 | MC-C06 | **False-positive rate (safety)** | % of `intervene` decisions marked by the educator as `reject` with `reason_category = "not_at_risk"` | `decision_feedback` | ≤ 20% | ≤ 15% |
 | MC-C07 | **Equity dispersion check** | Agreement/override rates split by any demographic attribute the site chooses to send in `decision_context` (opt-in; pseudonymous) | `decisions.decision_context` + feedback | No target — *report* differences ≥ 10 pp across groups | No target — *report* differences ≥ 10 pp across groups |
 
-> **MC-C07 notes.** The system never requires demographic data. Sites that choose to include it MUST do so only via pseudonymous flags in `decision_context` (never PII — see `internal-docs/foundation/terminology.md` and DEF-DEC-008-PII). This metric is descriptive; it is *not* a gate. It exists so IES reviewers can see we planned for equity instrumentation.
+> **MC-C07 notes.** The system never requires demographic data. Sites that choose to include it MUST do so only via pseudonymous flags in `decision_context` (never PII — see [`docs/foundation/terminology.md`](../foundation/terminology.md) and DEF-DEC-008-PII). This metric is descriptive; it is *not* a gate. It exists so IES reviewers can see we planned for equity instrumentation.
 
 ---
 
@@ -97,7 +97,7 @@ These metrics rely on **`docs/specs/decision-outcomes.md`** (derived view joinin
 | Phase 0 (Springs) | 8 weeks from first onboarded educator | Weekly pull; final report at week 8 | `internal-docs/reports/YYYY-MM-DD-springs-pilot-evidence.md` |
 | Phase I (SBIR) | 6 months from site activation | Bi-weekly pull; interim report at month 3; final report at month 6 | `internal-docs/reports/YYYY-MM-DD-sbir-phase-i-evidence.md`; plus a de-identified export per `pilot-research-export.md` for external review |
 
-> **Reporting cadence ≠ ingestion cadence (2026-05-15 CEO direction).** The weekly/bi-weekly cadence above is the **reporting** rhythm (the pull frequency for `GET /v1/admin/program-metrics` and the evidence report). It is **independent** of the **ingestion** cadence — how often the customer sends data. Pilot ingestion is continuous-by-default per `internal-docs/foundation/roadmap.md` item 29 (streaming + preflight + mappings); customers may push hourly via webhooks, daily via SFTP, or any other cadence, with an 8P3P-side watcher converting their cadence to per-event signals. MC-A04 (signal → decision latency, P95 ≤ 300 s) and MC-B05 (decision-to-action latency, ≤ 48 h) **assume continuous ingestion**; weekly batch ingestion would break both budgets by construction. If a pilot is forced into weekly-only ingestion (fallback path only — see `pilot-readiness-definition.md` § Integration), MC-A04 and MC-B05 must be reported as `degraded_by_ingestion_cadence` in that pilot's evidence report rather than computed normally.
+> **Reporting cadence ≠ ingestion cadence (2026-05-15 CEO direction).** The weekly/bi-weekly cadence above is the **reporting** rhythm (the pull frequency for `GET /v1/admin/program-metrics` and the evidence report). It is **independent** of the **ingestion** cadence — how often the customer sends data. Pilot ingestion is continuous-by-default per [`docs/foundation/roadmap.md`](../foundation/roadmap.md) item 29 (streaming + preflight + mappings); customers may push hourly via webhooks, daily via SFTP, or any other cadence, with an 8P3P-side watcher converting their cadence to per-event signals. MC-A04 (signal → decision latency, P95 ≤ 300 s) and MC-B05 (decision-to-action latency, ≤ 48 h) **assume continuous ingestion**; weekly batch ingestion would break both budgets by construction. If a pilot is forced into weekly-only ingestion (fallback path only — see [`docs/guides/pilot-readiness-gates.md`](../guides/pilot-readiness-gates.md) § Integration), MC-A04 and MC-B05 must be reported as `degraded_by_ingestion_cadence` in that pilot's evidence report rather than computed normally.
 
 ---
 
@@ -165,7 +165,7 @@ These metrics rely on **`docs/specs/decision-outcomes.md`** (derived view joinin
 
 | Capability | Used by |
 |------------|---------|
-| MC-* catalog | `internal-docs/foundation/logic-model.md` (§ Outcomes column), `internal-docs/pilot-operations/pilot-readiness-definition.md` (§ Pilot Success Criteria), SBIR proposal narrative |
+| MC-* catalog | Logic model (internal only; § Outcomes column), [`docs/guides/pilot-readiness-gates.md`](../guides/pilot-readiness-gates.md) (§ Pilot Success Criteria), SBIR proposal narrative |
 | `/v1/admin/program-metrics` endpoint | Pilot reports; future admin dashboard (Phase 2, `8p3p-admin` repo) |
 
 ---
@@ -213,4 +213,4 @@ These metrics rely on **`docs/specs/decision-outcomes.md`** (derived view joinin
 
 ---
 
-*Spec created: 2026-04-20 | Phase: v1.1 (pre-Month 0) / SBIR evidence layer | Anchors: `internal-docs/foundation/logic-model.md`, `docs/specs/educator-feedback-api.md`, `docs/specs/decision-outcomes.md`, `docs/specs/liu-usage-meter.md`, `docs/specs/pilot-research-export.md`*
+*Spec created: 2026-04-20 | Phase: v1.1 (pre-Month 0) / SBIR evidence layer | Anchors: logic model (internal only), `docs/specs/educator-feedback-api.md`, `docs/specs/decision-outcomes.md`, `docs/specs/liu-usage-meter.md`, `docs/specs/pilot-research-export.md`*

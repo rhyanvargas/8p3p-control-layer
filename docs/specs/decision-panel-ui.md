@@ -707,10 +707,10 @@ Panels 1, 2, and 4 depend on `decision_context.skill`, `skills.*.stabilityScore_
 
 The Decision Panel is referenced in the internal onboarding workflow. When deploying for a new pilot customer:
 
-1. **Readiness gate:** Decision Panel deployment is a required gate in the [Pilot Readiness Definition](../../internal-docs/pilot-operations/pilot-readiness-definition.md)
-2. **Onboarding call:** The Decision Panel walkthrough is part of the standard onboarding call agenda — see [Onboarding Runbook Phase 2](../../internal-docs/pilot-operations/onboarding-runbook.md#phase-2-onboarding-call-day-1-2)
+1. **Readiness gate:** Decision Panel deployment is a required gate in [Pilot Readiness Gates](../guides/pilot-readiness-gates.md)
+2. **Onboarding call:** The Decision Panel walkthrough is part of the standard onboarding call agenda — see Internal onboarding runbook (local `internal-docs/`, not in public repo) Phase 2
 3. **Customer docs:** The Decision Panel is documented for customers in [Pilot Integration Guide §14](../guides/pilot-integration-guide.md#14-decision-panel--see-decisions-visually)
-4. **Pilot close:** The four-panel walkthrough with live data is the primary proof artifact — see [Onboarding Runbook Phase 5](../../internal-docs/pilot-operations/onboarding-runbook.md#phase-5-pilot-close--renewal)
+4. **Pilot close:** The four-panel walkthrough with live data is the primary proof artifact — see Internal onboarding runbook (local `internal-docs/`, not in public repo) Phase 5
 5. **PII access control:** The passphrase gate spec defines the auth layer — see [Dashboard Passphrase Gate](dashboard-passphrase-gate.md)
 
 ---

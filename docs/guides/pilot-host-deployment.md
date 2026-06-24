@@ -1,7 +1,7 @@
 # Pilot host deployment (Docker / Fly.io / Render)
 
 **Audience:** Engineering (pilot API deploy + separate dashboard hosting)  
-**Purpose:** Go from zero to a TLS URL with `/health`, runtime secrets, and the CEO readiness **single curl gate**. The **Decision Panel** is a standalone Next.js app (`dashboard/`) — it does **not** ship inside the API Docker image. For local two-process setup see [`docs/foundation/setup.md`](../foundation/setup.md). For onboarding workflow see [Onboarding Runbook](../../internal-docs/pilot-operations/onboarding-runbook.md) and [Pilot Readiness Definition](../../internal-docs/pilot-operations/pilot-readiness-definition.md).
+**Purpose:** Go from zero to a TLS URL with `/health`, runtime secrets, and the CEO readiness **single curl gate**. The **Decision Panel** is a standalone Next.js app (`dashboard/`) — it does **not** ship inside the API Docker image. For local two-process setup see [`docs/foundation/setup.md`](../foundation/setup.md). For onboarding workflow see Internal onboarding runbook (local `internal-docs/`, not in public repo) and [`Pilot Readiness Gates`](pilot-readiness-gates.md).
 
 ---
 
@@ -25,13 +25,13 @@ Normative text from the pilot readiness brief (*Decision 1 — Deployment path f
 |--------------|-----|
 | **Fly.io** (Option A) | [`fly.toml`](../../fly.toml) at repo root — `fly launch` / `fly deploy` with `Dockerfile` |
 | **Render** (Option A) | Render **Web Service** from this repo’s `Dockerfile` (and Blueprint `render.yaml` when that file exists in the repo), with the same env/build-arg wiring as below |
-| **ngrok** (Option B) | This guide assumes a **container on Fly or Render**. For a local Fastify process plus a public tunnel, follow Option B in the readiness brief and use [Onboarding Runbook § Phase 1](../../internal-docs/pilot-operations/onboarding-runbook.md#phase-1-environment-provisioning-day-0-1) for tenant secrets and URL wiring against your tunnel host |
+| **ngrok** (Option B) | This guide assumes a **container on Fly or Render**. For a local Fastify process plus a public tunnel, follow Option B in the readiness brief and use Internal onboarding runbook (local `internal-docs/`, not in public repo) § Phase 1 for tenant secrets and URL wiring against your tunnel host |
 
 ---
 
 ## 2. Secrets provisioning
 
-Provision values out of band (vault / Phase 0–1 handoff per [Onboarding Runbook](../../internal-docs/pilot-operations/onboarding-runbook.md)). **Never** commit secrets; runtime only (`Dockerfile` excludes `.env*`).
+Provision values out of band (vault / Phase 0–1 handoff per Internal onboarding runbook (local `internal-docs/`, not in public repo)). **Never** commit secrets; runtime only (`Dockerfile` excludes `.env*`).
 
 ### Control layer (API) — Fly.io / Render
 
@@ -107,7 +107,7 @@ As of the Next.js migration ([`docs/specs/nextjs-amplify-dashboard-migration.md`
 
 ## 4. Persistence — dry-run-only caveat
 
-From [dry-run script — Saturday 12:00–12:45 pre-flight](../../internal-docs/pilot-operations/dry-run-script.md):
+From internal dry-run script (local `internal-docs/`, not in public repo) — Saturday 12:00–12:45 pre-flight:
 
 ```
 - Re-run deployment checklist
@@ -202,8 +202,8 @@ At pilot scale none of these trigger; below them, SQLite-on-Fly is the right too
 
 ### Cross-references
 
-- [`internal-docs/pilot-operations/pilot-readiness-definition.md`](../../internal-docs/pilot-operations/pilot-readiness-definition.md) § Pilot vs production readiness — this section is the **persistence ladder** the gate references.
-- [`internal-docs/foundation/roadmap.md`](../../internal-docs/foundation/roadmap.md) item 31 — adopts this recipe.
+- [`docs/guides/pilot-readiness-gates.md`](pilot-readiness-gates.md) § Pilot vs production readiness — this section is the **persistence ladder** the gate references.
+- [`docs/foundation/roadmap.md`](../foundation/roadmap.md) item 31 — adopts this recipe.
 - [`fly.toml`](../../fly.toml) — `[[mounts]]` block commented in place; uncomment when running a real pilot.
 
 ---
@@ -262,8 +262,8 @@ curl -sS -X POST "https://<pilot-host>/v1/signals" \
 
 | Document | Purpose |
 |----------|---------|
-| [Dry-run script](../../internal-docs/pilot-operations/dry-run-script.md) | Saturday timeline and observation log |
-| [Pilot readiness definition](../../internal-docs/pilot-operations/pilot-readiness-definition.md) | Pilot-ready gates |
+| Internal dry-run script (local `internal-docs/`, not in public repo) | Saturday timeline and observation log |
+| [Pilot Readiness Gates](pilot-readiness-gates.md) | Pilot-ready gates |
 | [Deployment checklist](./deployment-checklist.md) | Pre-deploy technical gates |
 | [Dashboard passphrase gate](../specs/dashboard-passphrase-gate.md) | `DASHBOARD_ACCESS_CODE`, `COOKIE_SECRET` |
 | [`.env.example`](../../.env.example) | Full server env contract |

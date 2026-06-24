@@ -1,6 +1,6 @@
 # 8P3P Control Layer Architecture
 
-**Related:** [`docs/foundation/terminology.md`](terminology.md) | [`docs/api/openapi.yaml`](../api/openapi.yaml) | [`internal-docs/compliance-security-posture-and-migration-path.md`](../../internal-docs/compliance-security-posture-and-migration-path.md) (enterprise posture and phased compliance path)
+**Related:** [`docs/foundation/terminology.md`](terminology.md) | [`docs/api/openapi.yaml`](../api/openapi.yaml) | Internal compliance posture doc (local only) — enterprise posture and phased compliance path
 
 ## System Architecture Diagram
 
@@ -170,7 +170,7 @@ The Living Student Record grows more valuable with each signal. It persists even
 
 ## Compliance and security evolution
 
-Stronger customer security requirements (identity beyond API keys, regulated data, formal audit programs) are **process and deployment migrations** on top of this architecture, not a redesign of the signal → state → decision pipeline. The phased engineering and program checklist lives in [`internal-docs/compliance-security-posture-and-migration-path.md`](../../internal-docs/compliance-security-posture-and-migration-path.md).
+Stronger customer security requirements (identity beyond API keys, regulated data, formal audit programs) are **process and deployment migrations** on top of this architecture, not a redesign of the signal → state → decision pipeline. The phased engineering and program checklist lives in the internal compliance posture doc (local only).
 
 ## Key Properties
 
