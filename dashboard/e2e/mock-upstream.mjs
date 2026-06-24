@@ -13,6 +13,9 @@ const now = new Date();
 const today = now.toISOString();
 const todayDate = today.slice(0, 10);
 
+/** @type {Set<string>} */
+const acceptedSignalIds = new Set(['signal-001', 'signal-rejected-001', 'signal-dup-001']);
+
 const decisionFixture = {
   org_id: ORG_ID,
   decision_id: 'decision-001',
@@ -165,12 +168,80 @@ function json(res, status, body) {
   res.end(JSON.stringify(body));
 }
 
-function routeRequest(req, res) {
+function readJsonBody(req) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    req.on('data', (chunk) => chunks.push(chunk));
+    req.on('end', () => {
+      try {
+        const raw = Buffer.concat(chunks).toString('utf8');
+        resolve(raw ? JSON.parse(raw) : {});
+      } catch (err) {
+        reject(err);
+      }
+    });
+    req.on('error', reject);
+  });
+}
+
+async function routeRequest(req, res) {
   const url = new URL(req.url ?? '/', `http://127.0.0.1:${PORT}`);
   const path = url.pathname;
 
   if (path === '/health') {
     json(res, 200, { status: 'ok' });
+    return;
+  }
+
+  if (req.method === 'POST' && path === '/v1/signals') {
+    const body = await readJsonBody(req);
+    const signalId = body.signal_id;
+    if (!signalId) {
+      json(res, 400, { error: { code: 'missing_required_field', message: 'signal_id required' } });
+      return;
+    }
+    if (acceptedSignalIds.has(signalId)) {
+      json(res, 200, {
+        org_id: ORG_ID,
+        signal_id: signalId,
+        status: 'duplicate',
+        received_at: today,
+      });
+      return;
+    }
+    acceptedSignalIds.add(signalId);
+    ingestionEntries.push({
+      signal_id: signalId,
+      source_system: body.source_system ?? 'lms-demo',
+      learner_reference: body.learner_reference ?? LEARNER_REF,
+      timestamp: body.timestamp ?? today,
+      schema_version: body.schema_version ?? 'v1',
+      outcome: 'accepted',
+      received_at: today,
+      rejection_reason: null,
+    });
+    json(res, 200, {
+      org_id: ORG_ID,
+      signal_id: signalId,
+      status: 'accepted',
+      received_at: today,
+    });
+    return;
+  }
+
+  if (req.method === 'POST' && path === '/v1/admin/ingestion/preflight') {
+    const body = await readJsonBody(req);
+    const payload = body.payload ?? {};
+    const hasPii = JSON.stringify(payload).includes('ssn');
+    json(res, 200, {
+      preflight_id: 'pf-mock',
+      received_at: today,
+      forbidden_pii: hasPii ? [{ key: 'ssn', path: 'payload.ssn' }] : [],
+      forbidden_semantic_raw: [],
+      forbidden_semantic_after_mapping: null,
+      mapping_suggestions: [],
+      verdict: hasPii ? 'pii_blocking' : 'clean',
+    });
     return;
   }
 
@@ -272,11 +343,9 @@ function routeRequest(req, res) {
 }
 
 const server = http.createServer((req, res) => {
-  try {
-    routeRequest(req, res);
-  } catch (err) {
+  routeRequest(req, res).catch((err) => {
     json(res, 500, { error: 'mock_upstream_error', message: String(err) });
-  }
+  });
 });
 
 server.listen(PORT, '127.0.0.1', () => {

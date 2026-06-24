@@ -39,6 +39,7 @@ const ROUTE_LABELS: Record<string, string> = {
   '/learners': 'Learners',
   '/decisions': 'Decisions',
   '/signals': 'Signals',
+  '/signals/upload': 'Upload',
   '/reports': 'Reports',
   '/settings': 'Settings',
 };
@@ -68,6 +69,13 @@ export function getBreadcrumbs(pathname: string): BreadcrumbItem[] {
 
   if (segments.length === 1) {
     return [{ label: rootLabel }];
+  }
+
+  if (rootPath === '/signals' && segments[1] === 'upload') {
+    return [
+      { label: rootLabel, href: rootPath },
+      { label: 'Upload' },
+    ];
   }
 
   const detailLabel = decodeURIComponent(segments[segments.length - 1] ?? rootLabel);

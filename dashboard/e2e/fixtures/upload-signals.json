@@ -1,0 +1,10 @@
+[
+  {
+    "signal_id": "e2e-upload-001",
+    "source_system": "lms-demo",
+    "learner_reference": "learner-1",
+    "timestamp": "2026-06-23T10:00:00Z",
+    "schema_version": "v1",
+    "masteryScore": 0.75
+  }
+]
