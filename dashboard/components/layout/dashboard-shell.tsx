@@ -11,7 +11,6 @@ export type DashboardShellProps = {
   children: ReactNode;
   defaultSidebarOpen?: boolean;
   orgId: string;
-  isOrgPinned: boolean;
   appName: string;
   apiDocsUrl: string;
   environmentLabel?: string;
@@ -21,7 +20,6 @@ export function DashboardShell({
   children,
   defaultSidebarOpen = true,
   orgId,
-  isOrgPinned,
   appName,
   apiDocsUrl,
   environmentLabel,
@@ -45,7 +43,7 @@ export function DashboardShell({
         environmentLabel={environmentLabel}
       />
       <SidebarInset>
-        <SiteHeader orgId={orgId} isOrgPinned={isOrgPinned} />
+        <SiteHeader />
         <div className="flex flex-1 flex-col gap-4 p-4 md:gap-6 md:p-6">
           {children}
         </div>

@@ -14,24 +14,12 @@ import {
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { useRefreshQueries } from '@/hooks/use-refresh-queries';
 import { getBreadcrumbs } from '@/lib/navigation';
 
-type SiteHeaderProps = {
-  orgId: string;
-  isOrgPinned: boolean;
-};
-
-export function SiteHeader({ orgId, isOrgPinned }: SiteHeaderProps) {
+export function SiteHeader() {
   const pathname = usePathname();
   const refresh = useRefreshQueries();
   const breadcrumbs = getBreadcrumbs(pathname);
@@ -65,17 +53,6 @@ export function SiteHeader({ orgId, isOrgPinned }: SiteHeaderProps) {
         </BreadcrumbList>
       </Breadcrumb>
       <div className="ml-auto flex items-center gap-2">
-        {!isOrgPinned ? (
-          <Select defaultValue={orgId || 'all'}>
-            <SelectTrigger size="sm" className="hidden w-40 md:flex">
-              <SelectValue placeholder="Organization" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All organizations</SelectItem>
-              {orgId ? <SelectItem value={orgId}>{orgId}</SelectItem> : null}
-            </SelectContent>
-          </Select>
-        ) : null}
         <Button
           variant="ghost"
           size="icon-sm"
