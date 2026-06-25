@@ -39,6 +39,9 @@ export type DataTableProps<TData> = {
   emptyMessage?: string;
   showPagination?: boolean;
   showFilter?: boolean;
+  /** Controlled column/global filter — when set, bypasses internal filter state. */
+  filterValue?: string;
+  onFilterChange?: (value: string) => void;
   className?: string;
 };
 
@@ -53,11 +56,14 @@ export function DataTable<TData>({
   emptyMessage = 'No results.',
   showPagination = true,
   showFilter = true,
+  filterValue: controlledFilterValue,
+  onFilterChange,
   className,
 }: DataTableProps<TData>) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [globalFilter, setGlobalFilter] = useState('');
+  const isControlledFilter = controlledFilterValue !== undefined && onFilterChange != null;
 
   const table = useReactTable({
     data,
@@ -81,11 +87,17 @@ export function DataTable<TData>({
     globalFilterFn: 'includesString',
   });
 
-  const filterValue = filterColumn
-    ? ((table.getColumn(filterColumn)?.getFilterValue() as string) ?? '')
-    : globalFilter;
+  const filterValue = isControlledFilter
+    ? controlledFilterValue
+    : filterColumn
+      ? ((table.getColumn(filterColumn)?.getFilterValue() as string) ?? '')
+      : globalFilter;
 
   function handleFilterChange(value: string) {
+    if (isControlledFilter) {
+      onFilterChange(value);
+      return;
+    }
     if (filterColumn) {
       table.getColumn(filterColumn)?.setFilterValue(value);
       return;

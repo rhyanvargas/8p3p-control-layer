@@ -21,6 +21,17 @@ export function formatLevel(level: Level): string {
   return LEVEL_LABELS[level];
 }
 
+/** Ordinal rank for roster sorting (lower = needs more support). */
+const TREND_ORDER: Record<ProgressVariant, number> = {
+  declining: 1,
+  stable: 2,
+  improving: 3,
+};
+
+export function trendRank(trend: ProgressVariant): number {
+  return TREND_ORDER[trend];
+}
+
 export function formatRelativeActivity(iso: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return iso;
@@ -92,14 +103,31 @@ export function buildLearnerRosterRows(
   });
 }
 
+export type RosterTrendFilter = ProgressVariant | null;
+
+const ROSTER_TREND_FILTERS = new Set<ProgressVariant>([
+  'improving',
+  'declining',
+  'stable',
+]);
+
+export function parseRosterTrendFilter(
+  value: string | null | undefined
+): RosterTrendFilter {
+  if (!value || value === 'all') return null;
+  return ROSTER_TREND_FILTERS.has(value as ProgressVariant)
+    ? (value as ProgressVariant)
+    : null;
+}
+
 export function filterRosterRows(
   rows: LearnerRosterRow[],
-  options: { decliningOnly?: boolean; skill?: string | null }
+  options: { trend?: RosterTrendFilter; skill?: string | null }
 ): LearnerRosterRow[] {
   let filtered = rows;
 
-  if (options.decliningOnly) {
-    filtered = filtered.filter((row) => row.trend === 'declining');
+  if (options.trend) {
+    filtered = filtered.filter((row) => row.trend === options.trend);
   }
 
   if (options.skill) {

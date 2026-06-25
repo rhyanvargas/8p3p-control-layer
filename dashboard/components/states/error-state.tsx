@@ -9,8 +9,8 @@ import {
   AlertDescription,
   AlertTitle,
 } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
-import { getErrorRequestId, getErrorStatus, getSafeErrorMessage } from '@/lib/api/errors';
+import { Button, buttonVariants } from '@/components/ui/button';
+import { getUserFacingError } from '@/lib/api/errors';
 import { cn } from '@/lib/utils';
 
 type ErrorStateProps = {
@@ -22,9 +22,10 @@ type ErrorStateProps = {
 };
 
 export function ErrorState({ error, onRetry, message, className }: ErrorStateProps) {
-  const displayMessage = message ?? getSafeErrorMessage(error);
-  const status = getErrorStatus(error);
-  const requestId = getErrorRequestId(error);
+  const facing = getUserFacingError(error);
+  const displayMessage = message ?? facing.message;
+  const status = facing.status;
+  const requestId = facing.requestId;
 
   async function copyReferenceId() {
     if (!requestId) return;
@@ -60,7 +61,15 @@ export function ErrorState({ error, onRetry, message, className }: ErrorStatePro
           </span>
         ) : null}
       </AlertDescription>
-      <AlertAction>
+      <AlertAction className="flex gap-2">
+        {facing.action ? (
+          <a
+            href={facing.action.href}
+            className={buttonVariants({ variant: 'outline', size: 'sm' })}
+          >
+            {facing.action.label}
+          </a>
+        ) : null}
         <Button type="button" variant="outline" size="sm" onClick={onRetry}>
           Retry
         </Button>

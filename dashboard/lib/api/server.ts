@@ -77,7 +77,17 @@ export async function serverApiFetch<T>(path: string, init?: RequestInit): Promi
     });
 
     if (!res.ok) {
+      const contentType = res.headers.get('content-type') ?? '';
       const body = await parseErrorBody(res);
+
+      if (res.status === 404 && contentType.includes('text/html')) {
+        throw new ApiError(
+          'CONTROL_LAYER_API_BASE_URL is hitting the Next.js dashboard, not the Fastify API. Run the API at repo root (`npm run dev`, port 3000) and the dashboard on port 3001 (`cd dashboard && npm run dev`), or set CONTROL_LAYER_API_BASE_URL to the API port.',
+          502,
+          { error: 'dashboard_upstream_not_api', path }
+        );
+      }
+
       throw new ApiError(`API error ${res.status}: ${path}`, res.status, body);
     }
 

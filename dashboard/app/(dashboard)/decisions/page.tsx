@@ -1,3 +1,4 @@
+import { redirect } from 'next/navigation';
 import { Suspense } from 'react';
 
 import { DecisionsStream } from '@/app/(dashboard)/decisions/_components/decisions-stream';
@@ -6,7 +7,16 @@ import { LoadingState } from '@/components/states/loading-state';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { getServerOrgId } from '@/lib/org-id';
 
-export default function DecisionsPage() {
+type DecisionsPageProps = {
+  searchParams: Promise<{ status?: string }>;
+};
+
+export default async function DecisionsPage({ searchParams }: DecisionsPageProps) {
+  const { status } = await searchParams;
+  if (status === 'pending') {
+    redirect('/attention?from=pending');
+  }
+
   const orgId = getServerOrgId();
 
   return (

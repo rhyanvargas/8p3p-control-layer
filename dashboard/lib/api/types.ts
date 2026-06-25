@@ -192,6 +192,38 @@ export interface PolicyListResponse {
   routing: PolicyRoutingConfig | null;
 }
 
+export interface PolicyConditionLeaf {
+  field: string;
+  operator: string;
+  value: unknown;
+}
+
+export type PolicyConditionNode =
+  | PolicyConditionLeaf
+  | { all: PolicyConditionNode[] }
+  | { any: PolicyConditionNode[] };
+
+export interface PolicyRule {
+  rule_id: string;
+  decision_type: DecisionType;
+  condition: PolicyConditionNode;
+}
+
+export interface PolicyDefinition {
+  policy_id: string;
+  policy_version: string;
+  description: string;
+  rules: PolicyRule[];
+  default_decision_type?: DecisionType;
+}
+
+/** Mirrors GET /v1/policies/:policy_key (OpenAPI PolicyDetailResponse). */
+export interface PolicyDetailResponse {
+  org_id: string;
+  policy_key: string;
+  policy: PolicyDefinition;
+}
+
 /** Mirrors GET /v1/program-metrics (see docs/specs/program-metrics.md). */
 export interface ProgramMetricValue {
   value: number | null;

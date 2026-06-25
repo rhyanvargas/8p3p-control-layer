@@ -12,6 +12,8 @@ const e2eEnv = {
   CONTROL_LAYER_API_KEY: process.env.CONTROL_LAYER_API_KEY ?? 'ci-e2e-placeholder',
   CONTROL_LAYER_ORG_ID: process.env.CONTROL_LAYER_ORG_ID ?? 'e2e-org',
   NEXT_PUBLIC_APP_NAME: process.env.NEXT_PUBLIC_APP_NAME ?? 'Decision Panel',
+  /** `next start` sets NODE_ENV=production (Secure cookies); e2e uses plain HTTP. */
+  DASHBOARD_COOKIE_SECURE: 'false',
 };
 
 /**
