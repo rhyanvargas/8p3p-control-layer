@@ -28,8 +28,9 @@ function decisionAt(iso: string): Decision {
         evaluated_fields: [],
       },
       rationale: 'test',
+      educator_summary: 'test',
     },
-    output_metadata: {},
+    output_metadata: { priority: null },
   };
 }
 

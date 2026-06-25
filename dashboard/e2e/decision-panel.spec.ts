@@ -87,7 +87,7 @@ test.describe('NXMIG-012: app shell and build parity smoke', () => {
     await expect(page.getByRole('heading', { name: 'Overview', exact: true })).toBeVisible({
       timeout: 15_000,
     });
-    await page.getByRole('link', { name: 'Signals' }).click();
+    await clickSidebarNav(page, 'Signals');
     await expect(page.getByRole('heading', { name: 'Signals', exact: true })).toBeVisible({
       timeout: 15_000,
     });
@@ -464,9 +464,11 @@ test.describe('Attention review UX Phase 3 (REVIEW-UX-017)', () => {
 
     await clickSidebarNav(page, 'Learners');
     await page.getByRole('button', { name: E2E_LEARNER_REF_2 }).click();
-    await expect(page.getByRole('heading', { name: E2E_LEARNER_REF_2, exact: true })).toBeVisible({
+    await expect(page.getByRole('heading', { name: new RegExp(E2E_LEARNER_REF_2) })).toBeVisible({
       timeout: 15_000,
     });
+    await clickSheetDrillDown(page, 'Open full view');
+    await expect(page).toHaveURL(new RegExp(`/learners/${E2E_LEARNER_REF_2}$`));
 
     const overviewPanel = page.getByRole('tabpanel');
     await expect(overviewPanel.getByText('Rejected', { exact: true }).first()).toBeVisible({

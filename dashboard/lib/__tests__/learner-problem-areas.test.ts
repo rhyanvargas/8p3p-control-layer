@@ -74,7 +74,12 @@ describe('extractProblemAreas', () => {
         mastery_breakdown: null,
       },
       field_trajectories: {
-        stabilityScore: { overall_direction: 'declining' },
+        stabilityScore: {
+          first_value: 0.4,
+          latest_value: 0.22,
+          overall_direction: 'declining',
+          version_count: 3,
+        },
       },
     });
 

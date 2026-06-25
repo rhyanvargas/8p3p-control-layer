@@ -41,8 +41,9 @@ function makeDecision(
         evaluated_fields: [],
       },
       rationale: 'test',
+      educator_summary: 'test',
     },
-    output_metadata: {},
+    output_metadata: { priority: null },
     ...overrides,
   };
 }
@@ -120,7 +121,7 @@ const FIXTURE_LEARNER_STATES: LearnerStateResponse[] = [
       masteryScore: 0.8,
       masteryScore_direction: 'improving',
     },
-    provenance: { source: 'test' },
+    provenance: { last_signal_id: 'sig-1', last_signal_timestamp: daysAgo(0) },
   },
   {
     org_id: 'org-1',
@@ -132,7 +133,7 @@ const FIXTURE_LEARNER_STATES: LearnerStateResponse[] = [
       masteryScore: 0.5,
       masteryScore_direction: 'stable',
     },
-    provenance: { source: 'test' },
+    provenance: { last_signal_id: 'sig-2', last_signal_timestamp: daysAgo(0) },
   },
 ];
 

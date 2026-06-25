@@ -111,6 +111,20 @@ const ROSTER_TREND_FILTERS = new Set<ProgressVariant>([
   'stable',
 ]);
 
+export const ROSTER_TREND_FILTER_LABELS: Record<
+  'all' | ProgressVariant,
+  string
+> = {
+  all: 'All learners',
+  improving: 'Improving only',
+  declining: 'Declining only',
+  stable: 'Stable only',
+};
+
+export function rosterTrendFilterLabel(trend: RosterTrendFilter): string {
+  return ROSTER_TREND_FILTER_LABELS[trend ?? 'all'];
+}
+
 export function parseRosterTrendFilter(
   value: string | null | undefined
 ): RosterTrendFilter {

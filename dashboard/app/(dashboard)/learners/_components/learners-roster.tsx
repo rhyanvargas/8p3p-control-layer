@@ -27,6 +27,7 @@ import {
   formatLevel,
   formatRelativeActivity,
   parseRosterTrendFilter,
+  rosterTrendFilterLabel,
   trendRank,
   type LearnerRosterRow,
   type RosterTrendFilter,
@@ -172,7 +173,7 @@ export function LearnersRoster({ orgId }: LearnersRosterProps) {
               }
             >
               <SelectTrigger id="trend-filter" className="w-44">
-                <SelectValue />
+                <SelectValue>{rosterTrendFilterLabel(trendFilter)}</SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All learners</SelectItem>

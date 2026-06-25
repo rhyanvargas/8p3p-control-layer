@@ -62,6 +62,10 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Install dashboard dependencies
+        run: npm ci
+        working-directory: dashboard
+
       - name: Build
         run: npm run build
 

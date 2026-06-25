@@ -49,7 +49,7 @@ describe('OBS-001/OBS-002: proxy request-id and failure logging', () => {
     expect(body.request_id).toBe(res.headers.get('x-request-id'));
     expect(console.error).toHaveBeenCalled();
 
-    const logged = JSON.stringify(console.error.mock.calls);
+    const logged = JSON.stringify(vi.mocked(console.error).mock.calls);
     expect(logged).not.toContain('test-key');
     expect(logged).not.toContain('x-api-key');
     expect(logged).toContain('fetch_failed');

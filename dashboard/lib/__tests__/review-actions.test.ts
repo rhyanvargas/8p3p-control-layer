@@ -129,7 +129,7 @@ describe('REVIEW-UX-005: toast payload shape', () => {
       onSheetReopen,
     });
 
-    const toastOptions = toastSuccess.mock.calls[0]?.[1] as unknown as {
+    const toastOptions = (vi.mocked(toastSuccess).mock.calls as unknown[][])[0]?.[1] as {
       action?: { onClick?: () => void };
     };
 
@@ -151,7 +151,7 @@ describe('REVIEW-UX-005: toast payload shape', () => {
       onQueueChange: vi.fn(),
     });
 
-    const toastOptions = toastSuccess.mock.calls[0]?.[1] as unknown as {
+    const toastOptions = (vi.mocked(toastSuccess).mock.calls as unknown[][])[0]?.[1] as {
       cancel?: { onClick?: () => void };
     };
 

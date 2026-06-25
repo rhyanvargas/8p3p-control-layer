@@ -36,7 +36,7 @@ test.describe('UPL-E2E-001: signal upload wizard', () => {
     await expect(outcomeCounts.nth(1)).toHaveText('0');
     await expect(outcomeCounts.nth(2)).toHaveText('0');
 
-    await expect(page.getByRole('link', { name: 'View ingestion log' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'View ingestion log' })).toBeVisible();
     await expect(page.getByText('1 signal processed')).toBeVisible();
   });
 });
