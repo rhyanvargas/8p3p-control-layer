@@ -19,7 +19,12 @@ type DetailSheetProps = {
   /** Optional custom header; overrides title/description when set. */
   header?: React.ReactNode;
   children: React.ReactNode;
-  /** Single primary footer CTA (typically DrillDownLink). */
+  /**
+   * Footer actions. Prefer multiple direct children so `SheetFooter`'s column
+   * layout stacks them (review buttons, then a full-width DrillDownLink).
+   * Avoid viewport breakpoints like `sm:flex-row` here — the sheet is ~480px
+   * wide while `sm:` follows the viewport, which causes horizontal overflow.
+   */
   footer?: React.ReactNode;
   className?: string;
 };
@@ -57,7 +62,7 @@ export function DetailSheet({
         </ScrollArea>
 
         {footer ? (
-          <SheetFooter className="border-border shrink-0 border-t px-4 py-4">
+          <SheetFooter className="border-border w-full min-w-0 shrink-0 border-t px-4 py-4">
             {footer}
           </SheetFooter>
         ) : null}

@@ -4,7 +4,7 @@ import { getServerOrgId } from '@/lib/org-id';
 
 type LearnerDetailPageProps = {
   params: Promise<{ ref: string }>;
-  searchParams: Promise<{ version?: string }>;
+  searchParams: Promise<{ version?: string; reviewDecision?: string; from?: string }>;
 };
 
 export default async function LearnerDetailPage({
@@ -20,6 +20,9 @@ export default async function LearnerDetailPage({
     versionRaw != null && versionRaw !== '' && !Number.isNaN(Number(versionRaw))
       ? Number(versionRaw)
       : undefined;
+
+  const reviewDecisionId = sp.reviewDecision?.trim() || undefined;
+  const fromAttention = sp.from === 'attention';
 
   if (!orgId) {
     return (
@@ -38,6 +41,8 @@ export default async function LearnerDetailPage({
       orgId={orgId}
       learnerRef={learnerRef}
       version={version}
+      reviewDecisionId={reviewDecisionId}
+      fromAttention={fromAttention}
     />
   );
 }
