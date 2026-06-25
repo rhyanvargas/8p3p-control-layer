@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 
+import { useOptionalOverviewFilter } from '@/app/(dashboard)/_components/overview-sync-provider';
 import {
   Card,
   CardContent,
@@ -54,17 +55,62 @@ const chartConfig = {
   },
 } satisfies ChartConfig;
 
+function decisionTypeToSeries(decisionType: DecisionType | null): DecisionSeriesKey {
+  return decisionType ?? 'all';
+}
+
 export function TrendChart({ decisions, learnerStates }: TrendChartProps) {
-  const [rangeDays, setRangeDays] = useState<TrendRangeDays>(30);
+  const sync = useOptionalOverviewFilter();
+  const syncEnabled = sync?.syncEnabled ?? false;
+
+  const [localRangeDays, setLocalRangeDays] = useState<TrendRangeDays>(30);
   const [viewMode, setViewMode] = useState<TrendViewMode>('decisions');
-  const [decisionSeries, setDecisionSeries] = useState<DecisionSeriesKey>('all');
+  const [localDecisionSeries, setLocalDecisionSeries] = useState<DecisionSeriesKey>('all');
+
+  const rangeDays = syncEnabled ? sync!.filter.range : localRangeDays;
+  const decisionSeries = syncEnabled
+    ? decisionTypeToSeries(sync!.filter.decisionType)
+    : localDecisionSeries;
+
+  const chartDecisions =
+    syncEnabled && viewMode === 'decisions' ? sync!.derived.filteredDecisions : decisions;
+
+  function handleRangeChange(value: string | null) {
+    if (value == null) return;
+    const days = Number(value) as TrendRangeDays;
+    if (syncEnabled) {
+      sync!.setFilter((prev) => ({ ...prev, range: days }));
+      return;
+    }
+    setLocalRangeDays(days);
+  }
+
+  function handleDecisionSeriesChange(value: DecisionSeriesKey) {
+    if (syncEnabled) {
+      sync!.setFilter((prev) => ({
+        ...prev,
+        decisionType: value === 'all' ? null : value,
+      }));
+      return;
+    }
+    setLocalDecisionSeries(value);
+  }
 
   const points = useMemo(() => {
     if (viewMode === 'mastery') {
       return buildMasteryTrendSeries(learnerStates, rangeDays);
     }
-    return buildDecisionTrendSeries(decisions, rangeDays, decisionSeries);
-  }, [decisions, learnerStates, rangeDays, viewMode, decisionSeries]);
+    const seriesForBuild =
+      syncEnabled && viewMode === 'decisions' ? 'all' : decisionSeries;
+    return buildDecisionTrendSeries(chartDecisions, rangeDays, seriesForBuild);
+  }, [
+    chartDecisions,
+    learnerStates,
+    rangeDays,
+    viewMode,
+    decisionSeries,
+    syncEnabled,
+  ]);
 
   const seriesLabel =
     viewMode === 'mastery'
@@ -96,10 +142,7 @@ export function TrendChart({ decisions, learnerStates }: TrendChartProps) {
               <TabsTrigger value="mastery">Mastery</TabsTrigger>
             </TabsList>
           </Tabs>
-          <Select
-            value={String(rangeDays)}
-            onValueChange={(value) => setRangeDays(Number(value) as TrendRangeDays)}
-          >
+          <Select value={String(rangeDays)} onValueChange={handleRangeChange}>
             <SelectTrigger size="sm" className="w-[120px]" aria-label="Chart range">
               <SelectValue />
             </SelectTrigger>
@@ -112,7 +155,9 @@ export function TrendChart({ decisions, learnerStates }: TrendChartProps) {
           {viewMode === 'decisions' ? (
             <Select
               value={decisionSeries}
-              onValueChange={(value) => setDecisionSeries(value as DecisionType | 'all')}
+              onValueChange={(value) =>
+                handleDecisionSeriesChange(value as DecisionType | 'all')
+              }
             >
               <SelectTrigger size="sm" className="w-[160px]" aria-label="Decision series">
                 <SelectValue />

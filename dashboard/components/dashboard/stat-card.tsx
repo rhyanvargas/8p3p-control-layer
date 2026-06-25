@@ -21,6 +21,8 @@ type StatCardProps = {
   title: string;
   value: React.ReactNode;
   tooltip?: string;
+  /** Secondary line below value (e.g. reviewed-today copy on Pending KPI). */
+  secondaryLine?: React.ReactNode;
   delta?: number;
   href?: string;
   /** Overrides default title+value aria-label when value is not plain text. */
@@ -58,6 +60,7 @@ export function StatCard({
   title,
   value,
   tooltip,
+  secondaryLine,
   delta,
   href,
   ariaLabel,
@@ -112,6 +115,9 @@ export function StatCard({
           ) : null}
         </div>
         <CardTitle className="text-2xl font-semibold tabular-nums">{value}</CardTitle>
+        {secondaryLine ? (
+          <p className="text-muted-foreground text-xs font-medium">{secondaryLine}</p>
+        ) : null}
         {delta != null ? <DeltaBadge delta={delta} /> : null}
       </CardHeader>
     </Card>

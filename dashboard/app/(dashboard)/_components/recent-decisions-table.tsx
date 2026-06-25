@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
 
+import { useOptionalOverviewFilter } from '@/app/(dashboard)/_components/overview-sync-provider';
 import { DataTable } from '@/components/data-table/data-table';
 import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header';
 import { DecisionBadge } from '@/components/shared/decision-badge';
@@ -39,12 +40,29 @@ function educatorNarrative(
   return humanizeDecisionType(decisionType);
 }
 
+function hasActiveDecisionFilters(
+  decisionType: DecisionType | null,
+  learner: string | null
+): boolean {
+  return decisionType !== null || (learner !== null && learner.trim() !== '');
+}
+
 type RecentDecisionsTableProps = {
   decisions: Decision[];
 };
 
 export function RecentDecisionsTable({ decisions }: RecentDecisionsTableProps) {
+  const sync = useOptionalOverviewFilter();
+  const syncEnabled = sync?.syncEnabled ?? false;
   const [selected, setSelected] = useState<Decision | null>(null);
+
+  const tableData = syncEnabled ? sync!.derived.filteredRecentDecisions : decisions;
+  const learnerFilterValue = syncEnabled ? (sync!.filter.learner ?? '') : undefined;
+
+  const subtitle =
+    syncEnabled && hasActiveDecisionFilters(sync!.filter.decisionType, sync!.filter.learner)
+      ? 'Matching decisions — click a row for a quick peek.'
+      : 'Last 20 decisions — click a row for a quick peek.';
 
   const columns = useMemo<ColumnDef<Decision>[]>(
     () => [
@@ -90,22 +108,29 @@ export function RecentDecisionsTable({ decisions }: RecentDecisionsTableProps) {
       : selected.trace.rationale
     : 'No rationale text was provided for this decision.';
 
+  function handleLearnerFilterChange(value: string) {
+    sync!.setFilter((prev) => ({
+      ...prev,
+      learner: value.trim() === '' ? null : value,
+    }));
+  }
+
   return (
     <>
       <section aria-label="Recent decisions" className="flex flex-col gap-3">
         <div>
           <h2 className="text-sm font-medium">Recent decisions</h2>
-          <p className="text-muted-foreground text-sm">
-            Last 20 decisions — click a row for a quick peek.
-          </p>
+          <p className="text-muted-foreground text-sm">{subtitle}</p>
         </div>
         <DataTable
           columns={columns}
-          data={decisions}
-          filterColumn="learner_reference"
+          data={tableData}
+          filterColumn={syncEnabled ? undefined : 'learner_reference'}
           filterPlaceholder="Filter by learner…"
+          filterValue={syncEnabled ? learnerFilterValue : undefined}
+          onFilterChange={syncEnabled ? handleLearnerFilterChange : undefined}
           pageSize={10}
-          showPagination={decisions.length > 10}
+          showPagination={tableData.length > 10}
           getRowId={(row) => row.decision_id}
           onRowClick={setSelected}
           emptyMessage="No decisions recorded yet."
