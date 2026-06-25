@@ -4,7 +4,7 @@
  *
  * Full onboarding-to-intelligence pipeline demo:
  *   Phase 1 — Register field mappings for 4 LMS source systems via admin API
- *   Phase 2 — Send 11 realistic LMS-shaped signals across 5 personas
+ *   Phase 2 — Send synthesized LMS-shaped signals across 6 personas (learning gaps, trajectories, gifted flag)
  *   Phase 3 — Verify decisions and output narrative summary
  *
  * Source systems: Canvas LMS, Blackboard LMS, i-Ready Diagnostic, Absorb LMS
@@ -130,21 +130,6 @@ const FIELD_MAPPINGS = {
         source: 'progress',
         expression: 'value',
       },
-      {
-        target: 'trainingScore',
-        sources: { score: 'score', maxScore: 'maxScore' },
-        expression: 'Math.min(score / maxScore, 1)',
-      },
-      {
-        target: 'daysOverdue',
-        source: 'daysOverdue',
-        expression: 'value',
-      },
-      {
-        target: 'certificationValid',
-        source: 'certificationValid',
-        expression: 'value',
-      },
     ],
     types: {
       complianceScore: 'number',
@@ -158,10 +143,11 @@ const FIELD_MAPPINGS = {
 // ─── Personas ────────────────────────────────────────────────────────────────
 
 const PERSONAS = {
-  'stu-10042': { name: 'Maya Kim', summary: 'Canvas Math + i-Ready Reading' },
-  'stu-20891': { name: 'Alex Rivera', summary: 'Canvas ELA + Blackboard Science' },
+  'stu-10042': { name: 'Maya Kim', summary: 'Cross-system gap — Math strong, Reading decaying vs ELA' },
+  'stu-20891': { name: 'Alex Rivera', summary: 'Multi-skill English gap + Blackboard Science struggle' },
   'stu-30456': { name: 'Jordan Mitchell', summary: 'Canvas Math trajectory + Blackboard History' },
-  'stu-40123': { name: 'Sam Torres', summary: 'Canvas ELA' },
+  'stu-40123': { name: 'Sam Torres', summary: 'Declining ELA trajectory (borderline → intervene)' },
+  'stu-50199': { name: 'Priya Patel', summary: 'Cross-subject excellence — gifted-interest flag' },
   'staff-0201': { name: 'Ms. Davis', summary: 'Absorb Compliance' },
 };
 
@@ -172,6 +158,46 @@ function offsetTs(minutes) {
   const d = new Date(BASE_TS);
   d.setMinutes(d.getMinutes() + minutes);
   return d.toISOString().replace('.000Z', 'Z');
+}
+
+/** Three advance-only signals per skill — evidenceCount ≥ 3 for gifted-interest (URS G6). */
+function buildGiftedSignals(learnerRef, personaName, startMinute) {
+  const tracks = [
+    { skill: 'MATH-301', courseNumber: 'MATH-301', scores: [96, 97, 98] },
+    { skill: 'SCI-101', courseNumber: 'SCI-101', scores: [95, 96, 97] },
+    { skill: 'ELA-101', courseNumber: 'ELA-101', scores: [97, 98, 99] },
+  ];
+  const signals = [];
+  let minute = startMinute;
+
+  for (const track of tracks) {
+    track.scores.forEach((scoreGiven, idx) => {
+      const masteryScore = scoreGiven / 100;
+      const stabilityScore = Math.min(masteryScore * 0.9, 1);
+      signals.push({
+        signalId: `priya-${track.skill.toLowerCase()}-00${idx + 1}`,
+        sourceSystem: 'canvas-lms',
+        learnerRef,
+        timestamp: offsetTs(minute),
+        persona: personaName,
+        skill: track.skill,
+        expectDecision: 'advance',
+        payload: {
+          generated: { scoreGiven, maxScore: 100 },
+          group: { courseNumber: track.courseNumber },
+          object: { extensions: { com_instructure_canvas: { submission_type: 'online_quiz' } } },
+          extensions: { timeSinceLastActivity: 30000 + idx * 5000 },
+          skill: track.skill,
+          skills: {
+            [track.skill]: { masteryScore, stabilityScore },
+          },
+        },
+      });
+      minute += 1;
+    });
+  }
+
+  return signals;
 }
 
 const SIGNALS = [
@@ -194,7 +220,26 @@ const SIGNALS = [
     },
   },
 
-  // Signal 2: Maya Kim — i-Ready Reading (intervene)
+  // Signal 2: Maya Kim — Canvas ELA (advance) — pairs with Reading for English learning gap
+  {
+    signalId: 'maya-canvas-ela-001',
+    sourceSystem: 'canvas-lms',
+    learnerRef: 'stu-10042',
+    timestamp: offsetTs(1),
+    persona: 'Maya Kim',
+    skill: 'ELA-201',
+    expectDecision: 'reinforce',
+    payload: {
+      generated: { scoreGiven: 88, maxScore: 100 },
+      group: { courseNumber: 'ELA-201' },
+      object: { extensions: { com_instructure_canvas: { submission_type: 'online_upload' } } },
+      extensions: { timeSinceLastActivity: 45000 },
+      skill: 'ELA-201',
+      skills: { 'ELA-201': { masteryScore: 0.88, stabilityScore: 0.792 } },
+    },
+  },
+
+  // Signal 3: Maya Kim — i-Ready Reading (intervene) — learning gap vs ELA in English
   {
     signalId: 'maya-iready-read-001',
     sourceSystem: 'iready-diagnostic',
@@ -216,7 +261,26 @@ const SIGNALS = [
     },
   },
 
-  // Signal 3: Alex Rivera — Canvas ELA (intervene)
+  // Signal 4: Alex Rivera — Canvas ELA-101 (advance) — strong skill for within-subject gap
+  {
+    signalId: 'alex-canvas-ela-101-001',
+    sourceSystem: 'canvas-lms',
+    learnerRef: 'stu-20891',
+    timestamp: offsetTs(4),
+    persona: 'Alex Rivera',
+    skill: 'ELA-101',
+    expectDecision: 'reinforce',
+    payload: {
+      generated: { scoreGiven: 82, maxScore: 100 },
+      group: { courseNumber: 'ELA-101' },
+      object: { extensions: { com_instructure_canvas: { submission_type: 'online_quiz' } } },
+      extensions: { timeSinceLastActivity: 50000 },
+      skill: 'ELA-101',
+      skills: { 'ELA-101': { masteryScore: 0.82, stabilityScore: 0.738 } },
+    },
+  },
+
+  // Signal 5: Alex Rivera — Canvas ELA-201 (intervene) — learning gap vs ELA-101
   {
     signalId: 'alex-canvas-ela-001',
     sourceSystem: 'canvas-lms',
@@ -332,7 +396,7 @@ const SIGNALS = [
     },
   },
 
-  // Signal 9: Sam Torres — Canvas ELA (reinforce)
+  // Signal 9: Sam Torres — Canvas ELA t1 (reinforce)
   {
     signalId: 'sam-canvas-ela-001',
     sourceSystem: 'canvas-lms',
@@ -351,7 +415,48 @@ const SIGNALS = [
     },
   },
 
-  // Signal 10: Ms. Davis — Absorb Compliance t1 (reinforce)
+  // Signal 10: Sam Torres — Canvas ELA t2 (reinforce, declining)
+  {
+    signalId: 'sam-canvas-ela-002',
+    sourceSystem: 'canvas-lms',
+    learnerRef: 'stu-40123',
+    timestamp: offsetTs(17),
+    persona: 'Sam Torres',
+    skill: 'ELA-201',
+    expectDecision: 'reinforce',
+    payload: {
+      generated: { scoreGiven: 48, maxScore: 100 },
+      group: { courseNumber: 'ELA-201' },
+      object: { extensions: { com_instructure_canvas: { submission_type: 'online_upload' } } },
+      extensions: { timeSinceLastActivity: 120000 },
+      skill: 'ELA-201',
+      skills: { 'ELA-201': { masteryScore: 0.48, stabilityScore: 0.432 } },
+    },
+  },
+
+  // Signal 11: Sam Torres — Canvas ELA t3 (intervene, decay surfaced in trajectory)
+  {
+    signalId: 'sam-canvas-ela-003',
+    sourceSystem: 'canvas-lms',
+    learnerRef: 'stu-40123',
+    timestamp: offsetTs(18),
+    persona: 'Sam Torres',
+    skill: 'ELA-201',
+    expectDecision: 'intervene',
+    payload: {
+      generated: { scoreGiven: 32, maxScore: 100 },
+      group: { courseNumber: 'ELA-201' },
+      object: { extensions: { com_instructure_canvas: { submission_type: 'online_upload' } } },
+      extensions: { timeSinceLastActivity: 200000 },
+      skill: 'ELA-201',
+      skills: { 'ELA-201': { masteryScore: 0.32, stabilityScore: 0.288 } },
+    },
+  },
+
+  // Signals 12–20: Priya Patel — cross-subject advance-only (gifted-interest flag)
+  ...buildGiftedSignals('stu-50199', 'Priya Patel', 22),
+
+  // Signal 21: Ms. Davis — Absorb Compliance t1 (reinforce)
   {
     signalId: 'davis-absorb-001',
     sourceSystem: 'absorb-lms',
@@ -362,18 +467,20 @@ const SIGNALS = [
     expectDecision: 'reinforce',
     payload: {
       progress: 0.60,
-      score: 70,
-      maxScore: 100,
       daysOverdue: 5,
       certificationValid: true,
       name: 'Annual Compliance 2026',
       enrollmentType: 'required',
       skill: 'Annual Compliance 2026',
+      complianceScore: 0.60,
+      trainingScore: 0.70,
+      stabilityScore: 0.60,
+      masteryScore: 0.70,
       skills: { 'Annual Compliance 2026': { complianceScore: 0.60, trainingScore: 0.70, daysOverdue: 5, stabilityScore: 0.60, masteryScore: 0.70 } },
     },
   },
 
-  // Signal 11: Ms. Davis — Absorb Compliance t2 (intervene, declining)
+  // Signal 22: Ms. Davis — Absorb Compliance t2 (intervene, declining)
   {
     signalId: 'davis-absorb-002',
     sourceSystem: 'absorb-lms',
@@ -384,13 +491,15 @@ const SIGNALS = [
     expectDecision: 'intervene',
     payload: {
       progress: 0.35,
-      score: 40,
-      maxScore: 100,
       daysOverdue: 20,
       certificationValid: true,
       name: 'Annual Compliance 2026',
       enrollmentType: 'required',
       skill: 'Annual Compliance 2026',
+      complianceScore: 0.35,
+      trainingScore: 0.40,
+      stabilityScore: 0.35,
+      masteryScore: 0.40,
       skills: { 'Annual Compliance 2026': { complianceScore: 0.35, trainingScore: 0.40, daysOverdue: 20, stabilityScore: 0.35, masteryScore: 0.40 } },
     },
   },
@@ -574,7 +683,7 @@ async function verifyNarrative(base, apiKey, org, signalResults) {
   const decisionCounts = { advance: 0, intervene: 0, reinforce: 0, pause: 0 };
   const sourceCounts = {};
 
-  const personaOrder = ['stu-10042', 'stu-20891', 'stu-30456', 'stu-40123', 'staff-0201'];
+  const personaOrder = ['stu-10042', 'stu-20891', 'stu-30456', 'stu-40123', 'stu-50199', 'staff-0201'];
 
   for (const learnerRef of personaOrder) {
     const persona = PERSONAS[learnerRef];
@@ -615,14 +724,17 @@ async function verifyNarrative(base, apiKey, org, signalResults) {
     }
 
     if (learnerRef === 'stu-10042') {
-      console.log('  \uD83D\uDCCA Cross-system: 2 sources, 2 decisions. Math advancing; Reading needs intervention.');
+      console.log('  \uD83D\uDCCA Cross-system: Math advancing; ELA strong (88%) but Reading gap (48%) vs subject mean.');
+      console.log('  \uD83D\uDCCA Learning gap: Reading below English subject average — visible in mastery_breakdown.');
     } else if (learnerRef === 'stu-20891') {
-      console.log('  \uD83D\uDCCA Multi-platform struggle: both systems show < 0.3 stability.');
+      console.log('  \uD83D\uDCCA Multi-platform struggle + learning gap: ELA-201 (28%) vs ELA-101 (82%) in English.');
     } else if (learnerRef === 'stu-30456') {
       console.log('  \uD83D\uDCCA Trajectory: intervention worked \u2014 MATH-301 masteryScore 0.45 \u2192 0.68 \u2192 0.90 over 3 signals.');
       console.log('  \uD83D\uDCCA Multi-subject: Math (MATH-301) + History (HIST-202) \u2014 subjects.json maps both; overall is equal-weight subject mean.');
     } else if (learnerRef === 'stu-40123') {
-      console.log('  \uD83D\uDCCA Borderline reinforcement \u2014 not crisis, but needs support. Visible in inspection panels.');
+      console.log('  \uD83D\uDCCA Declining trajectory: ELA-201 55% \u2192 48% \u2192 32% \u2014 reinforce then intervene; decay visible in trajectory tab.');
+    } else if (learnerRef === 'stu-50199') {
+      console.log('  \uD83D\uDCCA Gifted-interest: 3 skills \u00d7 3 advance signals, all mastery \u2265 0.95, advance-only history.');
     } else if (learnerRef === 'staff-0201') {
       console.log('  \uD83D\uDCCA Staff alert: compliance dropped 0.60 \u2192 0.35, 20 days overdue. Panel 3 action pending.');
     }
@@ -674,10 +786,10 @@ async function main() {
 
   const base = host.replace(/\/$/, '');
 
-  console.log(`\nSprings Realistic Seed (v2) \u2014 ${base} (org: ${org})\n`);
-  console.log('Personas: Maya Kim, Alex Rivera, Jordan Mitchell, Sam Torres, Ms. Davis');
+  console.log(`\nSprings Realistic Seed (v3) \u2014 ${base} (org: ${org})\n`);
+  console.log('Personas: Maya Kim, Alex Rivera, Jordan Mitchell, Sam Torres, Priya Patel, Ms. Davis');
   console.log('Sources:  canvas-lms, blackboard-lms, iready-diagnostic, absorb-lms');
-  console.log(`Signals:  ${SIGNALS.length}\n`);
+  console.log(`Signals:  ${SIGNALS.length} (learning gaps, trajectories, gifted-interest)\n`);
 
   // Phase 1
   await registerMappings(base, adminKey, org);

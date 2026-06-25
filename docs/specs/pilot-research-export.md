@@ -125,7 +125,7 @@ Auto-generated. Includes:
 
 Two layers, applied in order during export:
 
-1. **Structural.** The export tool rejects (fails the export) if any row contains a key in `src/ingestion/forbidden-keys.ts` at top level or at `data.*` / `state_snapshot.*` / `decision_context.*`. This is the same list that hardens `POST /v1/signals` today — if a forbidden key made it through to storage, it's a breach we want to stop at export, not continue.
+1. **Structural.** The export tool rejects (fails the export) if any row contains a key in `src/ingestion/forbidden-keys.ts` at top level or at `data.*` / `state_snapshot.*` / `decision_context.*` / `policies/*.json`. This is the same list that hardens `POST /v1/signals` today — if a forbidden key made it through to storage, it's a breach we want to stop at export, not continue. The manifest records the full scan scope in `de_identification.structural_scan_scope` (see § `MANIFEST.json`).
 2. **Textual.** Free-text fields (`decision_feedback.reason_text`, `trace.rationale`, `trace.educator_summary`, `policies/*.json` if the site put names into rule descriptions) are scanned with a small regex sweep:
    - Email: `[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}` → replaced with `[EMAIL_REDACTED]`
    - US phone: `\b\d{3}[-.\s]?\d{3}[-.\s]?\d{4}\b` → `[PHONE_REDACTED]`

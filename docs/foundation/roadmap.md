@@ -45,11 +45,11 @@ Actionable implementation work is driven by Cursor plans in `.cursor/plans/`. Co
 | Plan | Status |
 |------|--------|
 | `ai-educator-explanations.plan.md` | **P0** — Spec'd + plan staged (2026-06-23); impl pending (`src/decision/explanations/` = 0 files) |
-| `dashboard-uiux-improvements.plan.md` | **P0/P1** — plan staged (2026-06-23); D1/D2/D3 |
+| `dashboard-uiux-improvements.plan.md` | **P0/P1** — D1/D3/D2 data-viz directives shipped on dashboard branch (2026-06-25) |
 | `ci-cd-pipeline.plan.md` | Staged; not yet merged (Fly.io pilot deploy + Node 20/22 CI matrix) |
 | `liu-usage-meter.plan.md` | Plan committed; impl pending (SBIR denominator) |
 | `program-metrics.plan.md` | Plan committed; impl pending (SBIR evidence) |
-| `educator-feedback-api.plan.md` | Spec'd + plan staged (SBIR) |
+| `educator-feedback-api.plan.md` | Backend shipped (`src/feedback/`); dashboard write path wired (2026-06-25) |
 | `decision-outcomes.plan.md` | Spec'd + plan staged (SBIR) |
 | `pilot-research-export.plan.md` | Spec'd + plan staged (SBIR) |
 | `tenant-config.plan.md` | Spec'd + plan staged; not pilot-blocking |

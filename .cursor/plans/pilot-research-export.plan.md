@@ -106,6 +106,7 @@ isProject: false
     "springs:learner@1.1.0",
     "springs:staff@1.0.0"
   ],
+  "metrics_snapshot_available": true,
   "metrics_snapshot": {
     "MC-A01": { "value": 14320, "window_days": 89 },
     "MC-A02": { "value": 1.0 },
@@ -114,7 +115,8 @@ isProject: false
   "de_identification": {
     "method": "pseudonymous_learner_reference",
     "forbidden_keys_version": "2026-02-24",
-    "pii_regex_applied": ["email", "phone_us", "ssn", "given_name_heuristic"]
+    "pii_regex_applied": ["email", "phone_us", "ssn", "given_name_heuristic"],
+    "structural_scan_scope": ["top_level", "data.*", "state_snapshot.*", "decision_context.*", "policies/*.json"]
   },
   "files": [
     { "path": "decisions.jsonl", "sha256": "...", "rows": 14320, "schema_version": "1.0.0" }
@@ -137,7 +139,7 @@ isProject: false
 
 Two layers, applied in order during export:
 
-1. **Structural.** The export tool rejects (fails the export) if any row contains a key in `src/ingestion/forbidden-keys.ts` at top level or at `data.*` / `state_snapshot.*` / `decision_context.*`.
+1. **Structural.** The export tool rejects (fails the export) if any row contains a key in `src/ingestion/forbidden-keys.ts` at top level or at `data.*` / `state_snapshot.*` / `decision_context.*` / `policies/*.json`. The manifest records the full scan scope in `de_identification.structural_scan_scope`.
 2. **Textual.** Free-text fields (`decision_feedback.reason_text`, `trace.rationale`, `trace.educator_summary`, `policies/*.json` if the site put names into rule descriptions) are scanned with a small regex sweep:
    - Email: `[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}` → replaced with `[EMAIL_REDACTED]`
    - US phone: `\b\d{3}[-.\s]?\d{3}[-.\s]?\d{4}\b` → `[PHONE_REDACTED]`
@@ -193,7 +195,7 @@ Streams the `.tar.gz`. Signed URL lifetime ≤ 24 h.
 - Forbidden-key check fails the export with `pii_detected` if any row contains a forbidden key (the export tool does not silently strip)
 - Textual PII regexes are applied and logged in the manifest
 - Session IDs are rotated to per-bundle opaque tokens
-- CSV format is available via flag; it parallels JSONL but flattens nested fields into dotted columns
+- CSV format is available via CLI `--format csv` flag (not a server `format` enum value); it parallels JSONL but flattens nested fields into dotted columns and is emitted **next to** the `.tar.gz` bundle on the operator filesystem (not inside the archive)
 - Download URL is signed and expires ≤ 24 h
 - Export is deterministic: two exports with identical params over the same data produce byte-identical bundles (modulo `exported_at` and `bundle_id`)
 
@@ -274,7 +276,7 @@ Before starting implementation:
   - `ExportRequest`: `{ org_id: string; from_time: string; to_time: string; window_days?: number; redact_name_heuristic?: boolean; format?: ExportFormat }` — field names and types match the spec body verbatim.
   - `ExportJobStatus = 'running' | 'ready' | 'failed'` (closed set from spec § `GET /v1/admin/exports/:id`).
   - `ExportJob`: `{ export_id: string; org_id: string; from_time: string; to_time: string; window_days: number; redact_name_heuristic: boolean; format: ExportFormat; status: ExportJobStatus; created_at: string; updated_at: string; file_path: string | null; file_sha256: string | null; file_size_bytes: number | null; manifest_preview: ExportManifest | null; error: { code: string; message: string; path?: string } | null }`.
-  - `ExportManifest`: literal-mirror of Spec Literals § `MANIFEST.json`, including nested `exporter`, `counts`, `policy_versions_referenced`, `metrics_snapshot` (record of metric_id → value object), `de_identification` (`{ method: 'pseudonymous_learner_reference'; forbidden_keys_version: string; pii_regex_applied: string[] }`), `files: BundleFileEntry[]`.
+  - `ExportManifest`: literal-mirror of Spec Literals § `MANIFEST.json`, including nested `exporter`, `counts`, `policy_versions_referenced`, `metrics_snapshot_available: boolean`, `metrics_snapshot` (record of metric_id → value object), `de_identification` (`{ method: 'pseudonymous_learner_reference'; forbidden_keys_version: string; pii_regex_applied: string[]; structural_scan_scope: string[] }`), `files: BundleFileEntry[]`.
   - `BundleFileEntry`: `{ path: string; sha256: string; rows: number; schema_version: string }` — exactly the object shape in Spec Literals § `MANIFEST.json` `files[]`.
   - `TriggerExportResponse`: `{ export_id: string; status: 'accepted'; estimated_rows: number; poll_url: string }` — matches the 202 body in Spec Literals § `POST /v1/admin/exports`.
   - `ExportJobView`: `{ status: ExportJobStatus; download_url?: string; file_size_bytes?: number; manifest_preview?: ExportManifest; error?: ExportJob['error'] }` — matches Spec Literals § `GET /v1/admin/exports/:id`.
@@ -344,7 +346,7 @@ Before starting implementation:
 - **Action**: Create
 - **Details**: Implements Spec Literals § De-identification (normative) verbatim. Export three pure functions:
 
-  1. `assertNoForbiddenKeys(row: unknown, rowKind: 'decision' | 'state_version' | 'feedback' | 'outcome' | 'policy', scopedPaths: ReadonlyArray<string>): void` — throws `PiiDetectedError` (carries `{ code: 'pii_detected', path: string, key: string, rowKind }`). `scopedPaths` are the dotted paths the spec calls out — for decisions that is `['', 'decision_context', 'trace.state_snapshot']`; for state versions `['', 'state']` (the snapshot lives at the row root per `state-engine.md`); for feedback `['']`; for policies `['']`. At each path, run `detectForbiddenKeys(value, path)` from `src/ingestion/forbidden-keys.ts` (PREREQ-002). On first hit the export aborts — Spec Literals § De-identification explicitly forbids silent stripping ("the export tool rejects (fails the export) … This is the same list that hardens `POST /v1/signals` today — if a forbidden key made it through to storage, it's a breach we want to stop at export, not continue").
+  1. `assertNoForbiddenKeys(row: unknown, rowKind: 'decision' | 'state_version' | 'feedback' | 'outcome' | 'policy', scopedPaths: ReadonlyArray<string>): void` — throws `PiiDetectedError` (carries `{ code: 'pii_detected', path: string, key: string, rowKind }`). `scopedPaths` are the dotted paths the spec calls out — for decisions that is `['', 'decision_context', 'trace.state_snapshot']`; for state versions `['', 'state']` (the snapshot lives at the row root per `state-engine.md`); for feedback `['']`; for policies `['']`. At each path, run `detectForbiddenKeys(value, path)` from `src/ingestion/forbidden-keys.ts` (PREREQ-002). On first hit the export aborts — Spec Literals § De-identification explicitly forbids silent stripping ("the export tool rejects (fails the export) … This is the same list that hardens `POST /v1/signals` today — if a forbidden key made it through to storage, it's a breach we want to stop at export, not continue"). Export a constant `STRUCTURAL_SCAN_SCOPE = ['top_level', 'data.*', 'state_snapshot.*', 'decision_context.*', 'policies/*.json']` matching Spec Literals § `MANIFEST.json` `de_identification.structural_scan_scope` verbatim; `buildManifest` (TASK-007) copies this into the manifest.
 
   2. `redactFreeText(value: string, opts: { redactNameHeuristic: boolean }): string` — applies, in order, the four regexes from Spec Literals § De-identification. **Do not paraphrase the regex source**; copy the spec's four literal patterns into named constants:
      ```ts
@@ -393,8 +395,9 @@ Before starting implementation:
      - `exporter: { tool: '8p3p-control-layer', git_sha: process.env.GIT_SHA ?? 'unknown', cli_version: '1.0.0' }` — strings match Spec Literals § `MANIFEST.json` `exporter` block verbatim.
      - `counts`: populated by the bundler after all iterators complete; `state_deltas_nonzero` is the literal key per Spec Literals (**not** `state_deltas`).
      - `policy_versions_referenced`: sorted array of `"<policy_id>@<version>"` — Spec Literals example shows `"springs:learner@1.0.0"`, i.e. `<policy_id>@<version>` with `@` as separator. Do NOT use `:` or `#`.
-     - `metrics_snapshot`: record keyed by metric ID (e.g. `"MC-A01"`) to `{ value, window_days?, numerator?, denominator? }` — shape matches Spec Literals example exactly. When `program-metrics` is unavailable (PREREQ-007), emit `{}` and set the sibling `metrics_snapshot_available: false` (deviation documented).
-     - `de_identification: { method: 'pseudonymous_learner_reference', forbidden_keys_version: '2026-02-24', pii_regex_applied: [...] }` — `forbidden_keys_version` literal from Spec Literals § `MANIFEST.json`; `pii_regex_applied` from `piiRegexAppliedFor` (TASK-005).
+     - `metrics_snapshot_available`: `true` when `program-metrics` is wired; `false` when unavailable (PREREQ-007). Sibling key must precede `metrics_snapshot` per Spec Literals § `MANIFEST.json`.
+     - `metrics_snapshot`: record keyed by metric ID (e.g. `"MC-A01"`) to `{ value, window_days?, numerator?, denominator? }` — shape matches Spec Literals example exactly. When `program-metrics` is unavailable (PREREQ-007), emit `{}` with `metrics_snapshot_available: false`.
+     - `de_identification: { method: 'pseudonymous_learner_reference', forbidden_keys_version: '2026-02-24', pii_regex_applied: [...], structural_scan_scope: STRUCTURAL_SCAN_SCOPE }` — `forbidden_keys_version` literal from Spec Literals § `MANIFEST.json`; `pii_regex_applied` from `piiRegexAppliedFor` (TASK-005); `structural_scan_scope` from `STRUCTURAL_SCAN_SCOPE` (TASK-005).
      - `files: BundleFileEntry[]` — assembled last, post-stream, with per-file `sha256` from the tar writer (TASK-003) and `rows` from the iterator counts; `schema_version: '1.0.0'` per entry until a schema evolves.
 
   2. `buildReadme(manifest: ExportManifest): string` — markdown template covering all six bullets in Spec Literals § `README.md`:
@@ -517,17 +520,17 @@ Before starting implementation:
   --to <RFC3339 or YYYY-MM-DD>
   --window-days <n>            default 21
   --redact-name-heuristic      default off
-  --format csv                 optional; post-process JSONL → .csv/
+  --format csv                 optional; CLI-side post-process JSONL → .csv/ next to --out
   --out <path>                 output .tar.gz path
   ```
 
   Flow:
-  1. `POST /v1/admin/exports` with the constructed body; read `202` `{ export_id, poll_url }`.
+  1. `POST /v1/admin/exports` with the constructed body (`format: "jsonl_tar_gz"` — the only server-accepted value per Spec Literals § `POST /v1/admin/exports`); read `202` `{ export_id, poll_url }`.
   2. Poll `GET ${host}${poll_url}` every 2 s until `status in {ready, failed}` (max wait configurable via `--timeout-sec`, default 300).
   3. On `ready`, `GET ${download_url}` and pipe the response to `--out`.
   4. If `--format csv`:
      - After download, `tar -xzf <out>` to a temp dir (use node `tar-stream.extract` to avoid the need for system tar).
-     - For each `*.jsonl`, stream-parse rows and emit `<name>.csv` into a `csv/` subdirectory next to `<out>` (not inside the `.tar.gz` — that would invalidate its SHA). Spec Literals § CLI says "flattens the JSONL files into a parallel `.csv/` directory inside the bundle"; emitting alongside rather than inside is a deviation — see Deviations table (rationale: immutability of the server-produced `.tar.gz`).
+     - For each `*.jsonl`, stream-parse rows and emit `<name>.csv` into a `csv/` subdirectory **next to** `<out>` on the operator filesystem (not inside the `.tar.gz` — re-tarring would invalidate outer `file_sha256` and per-file SHA-256s per Spec Literals § CLI / FR10 determinism).
      - Flattening: columns are dotted paths from the flat JSON (e.g. `trace.state_id`), one row per input row. Arrays/objects that remain nested are written as JSON-stringified cells.
 
   Exit code 0 on success; 1 on any error; echoes the final manifest's `counts` block on success for operator sanity.
@@ -589,7 +592,7 @@ Before starting implementation:
   - **EXPORT-004** (determinism): Run the export twice, ~2 s apart, with identical params over unchanged source data. Assert every `manifest.files[].sha256` is equal between the two runs; the outer bundle SHA-256 **may** differ only because `MANIFEST.json` carries `exported_at` (FR10 explicitly excludes `exported_at` and `bundle_id` from the determinism guarantee).
   - **EXPORT-008** (policies): Seed decisions referencing three distinct `(policy_id, policy_version)` pairs. Assert `policies/` contains three files and `manifest.policy_versions_referenced.length === 3`.
   - **EXPORT-009** (session rotation): Seed three feedback rows with a known `session_id = 'sess_abc'`. Extract `decision_feedback.jsonl`; assert no row's `session_id === 'sess_abc'` and all three rows share the same rotated token (consistent within a bundle).
-  - **EXPORT-010** (CSV flag): Run the CLI (TASK-013) with `--format csv`. Assert a `csv/decisions.csv` file exists alongside the `.tar.gz`, row count matches `decisions.jsonl`, and flat columns like `trace.state_id` are present.
+  - **EXPORT-010** (CSV flag): Run the CLI (TASK-013) with `--format csv`. Assert a `csv/decisions.csv` file exists **next to** the `.tar.gz` (not inside the archive), row count matches `decisions.jsonl`, and flat columns like `trace.state_id` are present. Assert outer `file_sha256` is unchanged by CSV generation.
   - **EXPORT-012** (README regeneration): Assert extracted `README.md` contains the current bundle's `counts` block rendered into a table.
 - **Depends on**: TASK-012, TASK-013
 - **Verification**: `npm run test:integration` passes; every EXPORT-0xx test ID from spec § Contract Tests appears as a named case.

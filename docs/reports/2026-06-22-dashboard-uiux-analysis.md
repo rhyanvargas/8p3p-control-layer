@@ -1,9 +1,11 @@
 # 8P3P Dashboard — UX/UI Design Analysis
 
 **Date:** 2026-06-22
-**Scope:** full (updated 2026-06-22 — data-visualization UX directives)
+**Scope:** full (updated 2026-06-23 — D2 implementation notes; directive status refresh)
 **Skills referenced:** frontend-design, vercel-react-best-practices, shadcn, BI dashboard layout best-practices (external)
 **Ground truth:** docs/specs/dashboard-design-requirements.md + dashboard/ implementation
+
+> **Amendment (2026-06-23):** D1, D3, Overview freshness, and chart local-date bucketing are implemented. D2 cross-filter spec is unchanged in intent but clarified in `dashboard-design-requirements.md` §2.1 (KPI navigation vs filter scope, chart-local mastery mode, Select-based sync sources, one RSC + client wrapper prerequisite). This report's D2 section below reflects those clarifications.
 
 ## Executive Summary
 The dashboard is structurally sound and faithful to the design doctrine: the three-tier drill-down (L0 list → L1 Sheet → L2 route) is implemented, badges pair color+label, no API key reaches the browser, and inspection surfaces are read-only. Two systemic gaps cap the customer value: (1) the **primary Overview surface never tells the user how fresh the data is, and the global Refresh control silently does nothing on it** because the KPIs/trend/recent-decisions are React Server Components while `useRefreshQueries` only invalidates TanStack caches; (2) **server-side failures are swallowed** (`catch {}` in the proxy with zero logging and no request-id), so a dev cannot answer *why*/*where* an error happened. The single biggest customer-value win is making "Is anything wrong right now?" trustworthy: add a freshness indicator + a refresh that actually re-renders the Overview, and make the KPI cards icon-first. The top risk is the developer-observability blind spot, which turns any upstream incident into a guessing game.
@@ -14,9 +16,9 @@ Three product directives sharpen the Overview's data experience. They are addres
 
 | # | Directive | Net change | Status today |
 |---|-----------|-----------|--------------|
-| D1 | **Main table leads with educator-friendly info** (educator summary first); **drill-down Sheet carries the technical detail** (rule id + rationale excerpt) | Invert the column/sheet split — promote `educator_summary` to L0, demote the raw `matched_rule_id` to L1 | 🔴 Inverted today: L0 shows the technical `rule` mono column and **no** educator summary; the summary only appears in the Sheet `(recent-decisions-table.tsx:45-53, :113-127)` |
-| D2 | **Cross-filter sync toggle** — opt-in 2-way linked filtering across KPI cards ↔ chart ↔ table so adjusting a filter on any one updates all three | Add a single overview-level toggle (default OFF) that hydrates the fetched dataset into a shared client filter state | 🔴 Not present; KPIs/chart/table are independent RSC/island renders with no shared selection `(page.tsx; overview-kpi-section.tsx; overview-trend-section.tsx; recent-decisions-table.tsx)` |
-| D3 | **Declutter metric panels + uniform clickability** — fewer words per card, one number + context; every KPI card is interactive | Strip prose descriptions to a value + delta + status; give all four cards a consistent drill target | 🟡 Cards carry multi-clause `description` prose and a compound string value; only **1 of 4** (Needs attention) is clickable `(section-cards.tsx:13-34; stat-card.tsx:56-64)` |
+| D1 | **Main table leads with educator-friendly info** (educator summary first); **drill-down Sheet carries the technical detail** (rule id + rationale excerpt) | Invert the column/sheet split — promote `educator_summary` to L0, demote the raw `matched_rule_id` to L1 | ✅ Done — L0 columns `Time·Type·Learner·Summary`; rule id + rationale in L1 Sheet `(recent-decisions-table.tsx)` |
+| D2 | **Cross-filter sync toggle** — opt-in 2-way linked filtering across chart ↔ table ↔ decision-derived KPI values | Add a single overview-level toggle (default OFF) that hydrates the fetched dataset into a shared client filter state | 🔴 Not present; KPIs/chart/table are independent RSC/island renders with no shared selection. Spec clarified 2026-06-23 — see §2.1 implementation notes in design requirements. |
+| D3 | **Declutter metric panels + uniform clickability** — fewer words per card, one number + context; every KPI card is interactive | Strip prose descriptions to a value + delta + status; give all four cards a consistent drill target | ✅ Done — icon-first cards, all four clickable `(section-cards.tsx; stat-card.tsx)` |
 
 ## Critical-Path Scorecard
 
@@ -89,13 +91,16 @@ Answers "Is anything wrong right now?" (§8). ≤4 KPIs, one chart, one recent t
 
 ### Cross-filter sync toggle (D2)
 
-A single Overview-level **`Switch` ("Sync filters")**, **default OFF**, enables 2-way linked filtering across the KPI cards ↔ trend chart ↔ recent-decisions table. With it ON, a selection on any surface drives the other two (e.g. click `Reinforce` in the chart legend → table filters to reinforce rows and KPIs recompute on the filtered set; type a learner in the table filter → chart + KPIs scope to that learner). With it OFF, the surfaces render independently exactly as today (the calm "is anything wrong?" glance is preserved).
+A single Overview-level **`Switch` ("Sync filters")**, **default OFF**, enables 2-way linked filtering across the **trend chart ↔ recent-decisions table ↔ decision-derived KPI values** (Needs attention, Pending decisions). With it ON, a filter on the chart or table drives the others (e.g. set decision type to **Intervene** in the chart `Select` → table narrows to intervene rows and decision KPIs recompute; type a learner in the table filter → chart + KPIs scope to that learner). With it OFF, the surfaces render independently exactly as today (the calm "is anything wrong?" glance is preserved).
 
 - **Why default OFF:** the Overview's primary job is a 5-second status glance (§8); cross-filtering is an *exploratory* power-feature, so it is opt-in and persisted (localStorage, versioned key) — per §2.1 (anti-clutter; one primary question per page) and BI best-practices (don't make the glance surface pay an interaction cost it doesn't need).
-- **State model:** lift a shared `overviewFilter` (decisionType, learner, dateWindow) into a small client provider that wraps the three surfaces only when sync is ON. Because today's KPIs/chart/table are independent RSC/islands, sync mode must hydrate the already-fetched overview dataset client-side and derive all three views from the shared filter (no refetch per interaction) — per vercel-react-best-practices §3.6 (minimize RSC payload — pass only the fields the client filters on) and §5.1 (calculate derived state during render).
-- **Performance:** wrap the filtered recompute in `useMemo` keyed on the shared filter, and feed the filter through `useDeferredValue` so typing/brushing stays responsive while the chart/table catch up; mark non-urgent recomputes with `startTransition` — per vercel-react-best-practices §5.14 (useDeferredValue) / §5.13 (transitions) / §5.9 (split combined computations).
+- **KPI cards stay navigation (D3 wins):** all four KPI cards remain drill targets (`/attention`, `/signals`, etc.) — sync does **not** repurpose card clicks as filters. Only Needs attention and Pending decisions **recompute** when sync filters are active; Rejected signals today and Improving learners stay program-wide.
+- **Mastery toggle is chart-local:** the decisions ↔ mastery view on `TrendChart` does not participate in cross-filter; sync applies only in decisions mode.
+- **State model:** lift a shared `overviewFilter` (`decisionType`, `learner`, `dateWindow`) into a small client provider (`OverviewExplorer` or equivalent). Consolidate today's three Suspense RSC sections into **one RSC fetch** + client wrapper; hydrate the already-fetched dataset client-side and derive all synced views from the shared filter (no refetch per interaction) — per vercel-react-best-practices §3.6 (minimize RSC payload) and §5.1 (calculate derived state during render). TanStack Query is not required for D2.
+- **Sync sources (v1):** chart `Select` controls (7/30/90d range, decision type) and the recent-decisions table learner text filter — not legend/area click brushing (optional post-D2).
+- **Performance:** wrap the filtered recompute in `useMemo` keyed on the shared filter, and feed the filter through `useDeferredValue` so typing stays responsive while the chart/table catch up; mark non-urgent recomputes with `startTransition` — per vercel-react-best-practices §5.14 / §5.13 / §5.9.
 - **A11y + clarity:** the active cross-filter renders as a removable `Badge` chip row ("Filtered: Reinforce ✕") above the table so the linked state is never invisible; the toggle has a `Tooltip` explaining the behavior; color is never the only indicator of an active filter — per §2 #9 / §12.
-- **Components:** shadcn `Switch` (toggle), `Badge` (active-filter chips), existing `DataTable` column filters, `Chart` click/legend handlers — per shadcn.
+- **Components:** shadcn `Switch` (toggle), `Badge` (active-filter chips), existing `DataTable` column filters, chart `Select` controls — per shadcn.
 
 ## Design System Notes
 - **Icon-first restraint:** add exactly one leading icon per KPI; do not decorate cards with backgrounds — color stays on badges only (§2.1 "color is semantic only") — per frontend-design / §4.4.
@@ -113,13 +118,13 @@ A single Overview-level **`Switch` ("Sync filters")**, **default OFF**, enables 
 
 | Priority | Item | Lens | Effort | Citation |
 |----------|------|------|--------|----------|
-| P0 | Make global Refresh call `router.refresh()` so the RSC Overview actually updates | 3 | S | vercel-react-best-practices §3.7 |
-| P0 | Add `fetchedAt` + "Updated {relative}" freshness chip on Overview | 3,5 | S | dashboard-design-requirements.md §2.1/§8 |
+| P0 | Make global Refresh call `router.refresh()` so the RSC Overview actually updates | 3 | S | ✅ Done — `use-refresh-queries.ts` |
+| P0 | Add `fetchedAt` + "Updated {relative}" freshness chip on Overview | 3,5 | S | ✅ Done — `overview-freshness.tsx`, `FreshnessChip` |
 | P0 | Stop swallowing proxy errors: server-side log (via `after()`) + `x-request-id` propagation, surface copyable reference in `ErrorState` | 4 | M | vercel-react-best-practices §3.10/§3.1; §10 |
-| P0 | **D1** — Lead recent-decisions L0 with `educator_summary` (`Time·Type·Learner·Summary`); move `matched_rule_id` + rationale excerpt into the L1 Sheet (technical tier) | 5 | S | §2.1; BI best-practices |
-| P1 | Make KPI cards icon-first (leading Lucide icon per metric) + icon on `IngestionOutcomeChip` | 5 | S | frontend-design; §2 #9 |
-| P1 | **D3** — Declutter KPI cards (one value + delta + status, drop prose) and make all 4 clickable to a drill target | 5 | S | BI best-practices; frontend-design; §2.1 |
-| P1 | **D2** — Cross-filter "Sync filters" toggle (default OFF) linking KPI ↔ chart ↔ table via shared client filter | 5 | M | vercel-react-best-practices §3.6/§5.13/§5.14; shadcn |
+| P0 | **D1** — Lead recent-decisions L0 with `educator_summary` (`Time·Type·Learner·Summary`); move `matched_rule_id` + rationale excerpt into the L1 Sheet (technical tier) | 5 | S | ✅ Done |
+| P1 | Make KPI cards icon-first (leading Lucide icon per metric) + icon on `IngestionOutcomeChip` | 5 | S | ✅ Done (KPI icons); ingestion chip TBD |
+| P1 | **D3** — Declutter KPI cards (one value + delta + status, drop prose) and make all 4 clickable to a drill target | 5 | S | ✅ Done |
+| P1 | **D2** — Cross-filter "Sync filters" toggle (default OFF); chart ↔ table ↔ decision KPIs via shared client filter — see §2.1 implementation notes | 5 | M | vercel-react-best-practices §3.6/§5.13/§5.14; shadcn |
 | P1 | Resolve the org switcher: hide while single-org-pinned, or wire `onValueChange` end-to-end | 1 | S/M | §2 #6/§5.4; vercel-react-best-practices §3.1 |
 | P1 | Decide upload scope; if in-scope, build `/signals/upload` with shadcn dropzone/validation/field-level rejection | 2 | L | shadcn (Forms/Empty/Alert); §10/§15 |
 | P2 | Re-rank Overview KPIs to surface "Rejected signals today" (pipeline health) above "Improving learners" | 5 | S | §8 |

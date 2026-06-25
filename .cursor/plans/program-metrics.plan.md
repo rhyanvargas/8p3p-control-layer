@@ -46,7 +46,7 @@ isProject: false
 
 # Program Metrics (SBIR Evidence Layer)
 
-**Spec**: `docs/specs/pilot-success-metrics.md` → renamed to `docs/specs/program-metrics.md` in TASK-001.
+**Spec**: `docs/specs/program-metrics.md`
 
 ---
 
@@ -58,19 +58,19 @@ isProject: false
 
 **Evidence.**
 
-- Existing admin endpoints are already lifecycle-neutral: `/v1/admin/usage`, `/v1/admin/policies`, `/v1/admin/outcomes-summary`. None are phase-scoped. `pilot-metrics` is the outlier.
+- Existing admin endpoints are already lifecycle-neutral: `/v1/admin/usage`, `/v1/admin/policies`, `/v1/admin/outcomes-summary`. None are phase-scoped.
 - The metric IDs (`MC-A01`..`MC-C07`) and their computation never change between Phase 0 (Springs), Phase I (SBIR), and GA. Only the numeric *targets* in comparison tables change. Naming the endpoint after the phase forces a rename on every lifecycle step.
 - "Program" is the K-12 term of art for a deployed initiative (intervention program, reading-fluency program). It maps cleanly to the unit these metrics describe (an org × policy deployment), matches ESSA/SBIR reviewer vocabulary, and does not collide with operational "metrics" (Prometheus-style `/health`).
 
 **Applied name table.**
 
 
-| Spec-literal ( spec says )                                                                     | Plan uses                       | Why                                              |
+| Spec endpoint / module (current)                                                               | Plan uses                       | Why                                              |
 | ---------------------------------------------------------------------------------------------- | ------------------------------- | ------------------------------------------------ |
-| `GET /v1/admin/pilot-metrics`                                                                  | `GET /v1/admin/program-metrics` | Durability rule above                            |
-| `GET /v1/pilot-metrics`                                                                        | `GET /v1/program-metrics`       | Same                                             |
-| `src/pilot-metrics/` (implicit)                                                                | `src/program-metrics/`          | Same                                             |
-| `PilotMetricsService` (implicit)                                                               | `ProgramMetricsService`         | Same                                             |
+| `GET /v1/admin/program-metrics`                                                                | `GET /v1/admin/program-metrics` | Matches spec § Requirements                      |
+| `GET /v1/program-metrics`                                                                      | `GET /v1/program-metrics`       | Matches spec § Requirements                      |
+| `src/program-metrics/` (implicit)                                                              | `src/program-metrics/`          | Domain-neutral module path                       |
+| `ProgramMetricsService` (implicit)                                                               | `ProgramMetricsService`         | Domain-neutral service name                      |
 | `MC-A01..MC-C07` metric IDs                                                                    | **unchanged**                   | Spec-stable identifiers                          |
 | `metric_window_too_wide`, `metric_unavailable` error codes                                     | **unchanged**                   | Already lifecycle-neutral                        |
 | Report filenames `YYYY-MM-DD-springs-pilot-evidence.md`, `YYYY-MM-DD-sbir-phase-i-evidence.md` | **unchanged**                   | These artifacts *are* lifecycle-scoped by design |
@@ -89,11 +89,11 @@ isProject: false
 ```
 - Every metric MC-A*, MC-B*, MC-C* is computable from data that already exists in the control layer
   or from the three companion specs (educator-feedback-api.md, decision-outcomes.md, liu-usage-meter.md).
-- A single admin endpoint GET /v1/admin/pilot-metrics?org_id=<id>&from=<YYYY-MM-DD>&to=<YYYY-MM-DD>
+- A single admin endpoint GET /v1/admin/program-metrics?org_id=<id>&from=<YYYY-MM-DD>&to=<YYYY-MM-DD>
   returns a JSON object keyed by metric ID, with {value, numerator, denominator, window, computed_at}.
   Implementation is a read-only projection — no new storage; it composes the LIU meter, decisions table,
   feedback store, and outcomes view.
-- A per-tenant endpoint GET /v1/pilot-metrics returns the calling org's MC-A* and MC-B* only
+- A per-tenant endpoint GET /v1/program-metrics returns the calling org's MC-A* and MC-B* only
   (MC-C* requires x-admin-api-key because equity/outcome aggregations cross multiple educators).
 - The decision_context field is documented as the sole opt-in channel for site-provided
   pseudonymous demographic flags (no PII; forbidden-keys list in src/ingestion/forbidden-keys.ts continues to apply).
@@ -101,12 +101,12 @@ isProject: false
   simple 5-question form; no survey tech required for Phase 0.
 ```
 
-> **Plan mapping:** the endpoint identifiers are renamed per the durability rule; the response shape `{value, numerator, denominator, window, computed_at}` is **unchanged** and is the canonical per-metric wire format below.
+> **Endpoint naming:** Spec and plan both use `/v1/admin/program-metrics` and `/v1/program-metrics` (renamed from `pilot-metrics` / `pilot-success-metrics` in PREP-001, 2026-04-21 — see § Historical note below).
 
 ### From spec § Acceptance Criteria
 
 ```
-- Given 100 decisions for org_springs in April 2026, when GET /v1/admin/pilot-metrics?org_id=org_springs&from=2026-04-01&to=2026-04-30
+- Given 100 decisions for org_springs in April 2026, when GET /v1/admin/program-metrics?org_id=org_springs&from=2026-04-01&to=2026-04-30
   is called, then MC-A01 value == 100 and denominator == learners_with_at_least_one_signal_in_window.
 - Given MC-A02 is 100% on the test dataset, when one seeded decision is mutated to have trace.rationale = null,
   then MC-A02 drops below 100% in the next query.
@@ -182,7 +182,7 @@ isProject: false
 ### From spec § Non-functional
 
 ```
-- GET /v1/admin/pilot-metrics completes in <= 2 s at pilot scale (<= 500 learners x 8 weeks ~ 15k decisions) under P95.
+- GET /v1/admin/program-metrics completes in <= 2 s at pilot scale (<= 500 learners x 8 weeks ~ 15k decisions) under P95.
 - No metric computation writes to the signal/state/decision stores. Metrics are read-only.
 - All metric values are derived deterministically from the underlying stores.
 ```
@@ -230,7 +230,7 @@ If PREREQ-001..003 are not complete, TASK-003..006 produce `metric_unavailable` 
 > - Spec renamed: `docs/specs/program-metrics.md` (H1 `# Program Metrics`; endpoints `/v1/admin/program-metrics` and `/v1/program-metrics`).
 > - Naming convention doc created: `internal-docs/foundation/api-naming-conventions.md`.
 > - Cross-refs updated in `docs/specs/README.md`, `docs/specs/educator-feedback-api.md`, `docs/specs/decision-outcomes.md`, `docs/specs/pilot-research-export.md`, `internal-docs/pilot-operations/pilot-runbook.md`, `internal-docs/pilot-operations/pilot-readiness-definition.md`, `internal-docs/foundation/roadmap.md`.
-> - Verification: `rg "pilot-metrics"` and `rg "pilot-success-metrics"` return zero hits outside `.cursor/plans/` (plan files retain literals for the deviation audit trail; this is expected and does not indicate drift).
+> - Verification: `rg "pilot-metrics"` and `rg "pilot-success-metrics"` return zero hits outside `.cursor/plans/` historical notes (see § Historical note below).
 >
 > **Why kept in the plan:** future readers tracing `/v1/admin/program-metrics` back through the plan need a pointer to the rename event. Frontmatter status (`cancelled`) is the execution signal; this section is the narrative signal.
 
@@ -460,7 +460,7 @@ If PREREQ-001..003 are not complete, TASK-003..006 produce `metric_unavailable` 
 
 ## Files Summary
 
-### /plan-impl @docs/specs/[ingestion-preflight.md](http://ingestion-preflight.md)To Create
+### To Create
 
 
 | File                                                 | Task     | Purpose                                      |
@@ -490,7 +490,7 @@ If PREREQ-001..003 are not complete, TASK-003..006 produce `metric_unavailable` 
 
 | File                                                                    | Task     | Changes                                                                                                                                               |
 | ----------------------------------------------------------------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `docs/specs/pilot-success-metrics.md` → `docs/specs/program-metrics.md` | TASK-001 | Rename; update title; replace `pilot-metrics` → `program-metrics` in route/module identifiers; keep MC-* IDs unchanged; add naming-convention pointer |
+| `docs/specs/program-metrics.md` | TASK-001 | Spec already renamed; cross-refs updated in PREP-001 |
 | `docs/specs/educator-feedback-api.md`                                   | TASK-001 | 2 endpoint references updated                                                                                                                         |
 | `docs/specs/decision-outcomes.md`                                       | TASK-001 | 3 endpoint references updated                                                                                                                         |
 | `docs/specs/pilot-research-export.md`                                   | TASK-001 | Cross-reference to renamed spec                                                                                                                       |
@@ -563,15 +563,12 @@ All 8 spec-defined contract test IDs map to a plan task. Additional non-spec tes
 
 > Every place the plan's literal values differ from the spec. Resolution must be chosen before coding starts.
 
+### Historical note — endpoint rename (resolved 2026-04-21)
+
+PREP-001 renamed `docs/specs/pilot-success-metrics.md` → `docs/specs/program-metrics.md` and updated all endpoint references from `/v1/admin/pilot-metrics` / `/v1/pilot-metrics` to `/v1/admin/program-metrics` / `/v1/program-metrics`. The spec is the current source of truth; no further rename is pending.
 
 | Spec section                                       | Spec says                                                            | Plan does                                                                                                                     | Resolution                                                                                                                                                                                                                                                                                                                                                                               |
 | -------------------------------------------------- | -------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| § Requirements > Functional (endpoint path)        | `GET /v1/admin/pilot-metrics`                                        | `GET /v1/admin/program-metrics`                                                                                               | **Update spec in same PR** (TASK-001 renames the spec and its endpoint references per the durability rule; justification in plan § Naming Convention)                                                                                                                                                                                                                                    |
-| § Requirements > Functional (tenant endpoint path) | `GET /v1/pilot-metrics`                                              | `GET /v1/program-metrics`                                                                                                     | **Update spec in same PR** (TASK-001)                                                                                                                                                                                                                                                                                                                                                    |
-| § Provides to other docs                           | `/v1/admin/pilot-metrics` endpoint                                   | `/v1/admin/program-metrics` endpoint                                                                                          | **Update spec in same PR** (TASK-001)                                                                                                                                                                                                                                                                                                                                                    |
-| § Contract Tests table                             | MET-001..MET-004 use `GET /v1/admin/pilot-metrics`                   | MET-001..MET-004 use `GET /v1/admin/program-metrics`                                                                          | **Update spec in same PR** (TASK-001)                                                                                                                                                                                                                                                                                                                                                    |
-| Spec filename itself                               | `docs/specs/pilot-success-metrics.md`                                | `docs/specs/program-metrics.md`                                                                                               | **Update spec in same PR** (TASK-001 performs `git mv` and updates cross-refs in `educator-feedback-api.md`, `decision-outcomes.md`, `pilot-research-export.md`, `docs/specs/README.md`)                                                                                                                                                                                                 |
-| Spec title                                         | `# Pilot Success Metrics`                                            | `# Program Metrics`                                                                                                           | **Update spec in same PR** (TASK-001); body retains Phase 0 / Phase I target columns — they are the program's numeric targets for its first two program deployments, not phase-identifiers in the spec structure                                                                                                                                                                         |
 | § Metrics Catalog Group A — MC-A04 data source     | "Server logs + `Decision.decided_at`"                                | `signal_log.received_at` ↔ `decision.decided_at` DB join (plus `source_note`)                                                 | **Implementation detail — spec silent** on *which* logs; the DB join is deterministic and lossless (every decision has its triggering signal's ID), whereas raw server logs are non-deterministic and would violate § Constraints > Determinism                                                                                                                                          |
 | Wire format — extra `source_note` field            | spec JSON has `{value, numerator, denominator, window, computed_at}` | Plan adds optional `source_note?: string` for metrics whose data source is external (MC-A05..A08, MC-B07/B08, MC-C04, MC-C07) | **Update spec in same PR** — document `source_note` as an optional, non-normative field in the renamed spec. Required to make the contract honest: the spec says "computable from existing data" but concedes in § Implementation Notes that MC-B07/B08 are survey-sourced and MC-A06 is replay-script-sourced. The plan surfaces this explicitly rather than silently returning `null`. |
 
@@ -584,7 +581,7 @@ All 8 spec-defined contract test IDs map to a plan task. Additional non-spec tes
 | Risk                                                                                                | Impact       | Mitigation                                                                                                                                                                                                                                 |
 | --------------------------------------------------------------------------------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Prerequisites (PREREQ-001..003) slip, blocking Group B/C                                            | High         | Groups are independently computable; `ProgramMetricsService` returns `metric_unavailable` (409) only for affected groups; Group A still functions. TASK-011 asserts this isolation.                                                        |
-| Endpoint-rename churn breaks documentation links elsewhere in repo                                  | Medium       | TASK-001 runs `rg "pilot-metrics"` and `rg "pilot-success-metrics"` over the full repo (not just `docs/specs/`) and updates every hit. `markdown-link-check` (or manual) verifies after.                                                   |
+| Endpoint-rename churn breaks documentation links elsewhere in repo                                  | Medium       | PREP-001 (2026-04-21) already ran `rg "pilot-metrics"` / `rg "pilot-success-metrics"` and updated all hits outside plan historical notes. Re-verify after implementation PR. |
 | MC-C07 demographic fields arrive via `decision_context` in ways that exceed the forbidden-keys list | High (FERPA) | No code change — `src/ingestion/forbidden-keys.ts` enforces at ingestion time. TASK-005 documents this explicitly in MC-C07's `source_note`. Equity dispersion is descriptive only and never a gate.                                       |
 | P95 > 2 s at pilot scale, violating non-functional requirement                                      | Medium       | TASK-006 parallelizes the three groups via `Promise.all`; TASK-012 asserts < 2 s on seeded Springs data set (500 learners × 8 weeks). If exceeded, add memoization only for the outcomes-summary branch (the expensive path) — not before. |
 | Future developer writes a new phase-scoped endpoint and reintroduces the anti-pattern               | Medium       | TASK-001 creates `internal-docs/foundation/api-naming-conventions.md` with the durability rule. `/review --spec` and `/plan-impl` workflows should flag phase-scoped identifiers in the Deviations pass.                                   |
@@ -646,9 +643,10 @@ The `/v1/admin/program-metrics` endpoint, the `MC-*` metric IDs, the `{value, nu
 ## Next Steps
 
 1. TASK-001 is complete (via PREP-001, 2026-04-21). Ignore TASK-001 Details narrative except as historical breadcrumb.
-2. Verify PREREQ-001..003 status before running `/implement-spec`. As of 2026-04-21, all three are **spec'd but not implemented**; their plans must be authored first:
-  - `docs/specs/liu-usage-meter.md` → needs `/plan-impl`
-  - `docs/specs/educator-feedback-api.md` → needs `/plan-impl`
-  - `docs/specs/decision-outcomes.md` → needs `/plan-impl`
-3. Once PREREQ plans are authored (or explicitly deferred with `metric_unavailable` handling as the contract), run `/implement-spec .cursor/plans/program-metrics.plan.md` starting at TASK-002.
+2. Verify PREREQ-001..003 status before running `/implement-spec`. As of 2026-06-25, all three are **spec'd with committed plans but not yet implemented**:
+   - `docs/specs/liu-usage-meter.md` → [`.cursor/plans/liu-usage-meter.plan.md`](liu-usage-meter.plan.md)
+   - `docs/specs/educator-feedback-api.md` → [`.cursor/plans/educator-feedback-api.plan.md`](educator-feedback-api.plan.md)
+   - `docs/specs/decision-outcomes.md` → [`.cursor/plans/decision-outcomes.plan.md`](decision-outcomes.plan.md)
+3. Execute upstream plans in dependency order per [`.cursor/plans/dashboard_pilot_roadmap_0fa0e18a.plan.md`](dashboard_pilot_roadmap_0fa0e18a.plan.md) Track 6: LIU → feedback (backend + Track 2 dashboard writes) → decision-outcomes → program-metrics.
+4. Once PREREQ-001..003 are implemented (or explicitly deferred with `metric_unavailable` handling as the contract), run `/implement-spec .cursor/plans/program-metrics.plan.md` starting at TASK-002.
 
