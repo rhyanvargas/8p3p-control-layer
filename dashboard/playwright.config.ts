@@ -27,6 +27,7 @@ export default defineConfig({
   workers: 1,
   use: {
     baseURL,
+    viewport: { width: 1280, height: 720 },
   },
   webServer: process.env.E2E_BASE_URL
     ? undefined

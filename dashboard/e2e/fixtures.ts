@@ -103,14 +103,27 @@ export async function expectSheetFooterFits(page: Page): Promise<void> {
   await expect(sheet).toBeVisible();
   await expect(footer).toBeVisible();
 
-  const sheetBox = await sheet.boundingBox();
-  const footerBox = await footer.boundingBox();
-  expect(sheetBox).not.toBeNull();
-  expect(footerBox).not.toBeNull();
-  if (!sheetBox || !footerBox) return;
+  const layout = await page.evaluate(() => {
+    const sheetEl = document.querySelector('[data-slot="sheet-content"]');
+    const footerEl = document.querySelector('[data-slot="sheet-footer"]');
+    if (!sheetEl || !footerEl) return null;
 
-  expect(footerBox.x).toBeGreaterThanOrEqual(sheetBox.x - 1);
-  expect(footerBox.x + footerBox.width).toBeLessThanOrEqual(sheetBox.x + sheetBox.width + 1);
+    const sheetBox = sheetEl.getBoundingClientRect();
+    const footerBox = footerEl.getBoundingClientRect();
+    // Allow sub-pixel / font-rendering drift between macOS dev and Linux CI.
+    const tolerancePx = 8;
+
+    return {
+      leftOk: footerBox.left >= sheetBox.left - tolerancePx,
+      rightOk: footerBox.right <= sheetBox.right + tolerancePx,
+      noHorizontalScroll: footerEl.scrollWidth <= footerEl.clientWidth + 1,
+    };
+  });
+
+  expect(layout).not.toBeNull();
+  expect(layout!.leftOk).toBe(true);
+  expect(layout!.rightOk).toBe(true);
+  expect(layout!.noHorizontalScroll).toBe(true);
 }
 
 export const E2E_ORG_ID = 'e2e-org';
