@@ -1,6 +1,12 @@
 {
   "version": 1,
   "skills": {
+    "ai-sdk": {
+      "source": "vercel/ai",
+      "sourceType": "github",
+      "skillPath": "skills/use-ai-sdk/SKILL.md",
+      "computedHash": "7ed1d9712b9bac9cd0506394c772717698720a28499183a0cd8d6a4c0424ca60"
+    },
     "designing-surveys": {
       "source": "refoundai/lenny-skills",
       "sourceType": "github",
