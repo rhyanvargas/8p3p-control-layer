@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { AlertCircle } from 'lucide-react';
 import { describe, expect, it } from 'vitest';
 
@@ -38,17 +38,17 @@ describe('KPI-001 / KPI-004: StatCard icon and clickability', () => {
     renderCard({
       title: 'Pending',
       value: 2,
-      href: '/decisions?status=pending',
+      href: '/attention?from=pending',
     });
     const link = screen.getByRole('link', { name: /Pending: 2/ });
-    expect(link).toHaveAttribute('href', '/decisions?status=pending');
+    expect(link).toHaveAttribute('href', '/attention?from=pending');
   });
 
   it('is keyboard-focusable when href is provided', () => {
     renderCard({
       title: 'Pending',
       value: 2,
-      href: '/decisions?status=pending',
+      href: '/attention?from=pending',
     });
     const link = screen.getByRole('link', { name: /Pending: 2/ });
     link.focus();
@@ -91,7 +91,7 @@ describe('KPI-004: SectionCards drill targets and declutter', () => {
     );
     expect(screen.getByRole('link', { name: /Pending decisions: 5/ })).toHaveAttribute(
       'href',
-      '/decisions?status=pending'
+      '/attention?from=pending'
     );
     expect(screen.getByRole('link', { name: /Improving learners: 4/ })).toHaveAttribute(
       'href',
@@ -107,7 +107,7 @@ describe('KPI-004: SectionCards drill targets and declutter', () => {
     );
 
     expect(
-      screen.queryByText('Intervene and pause decisions awaiting review.')
+      screen.queryByText('Intervene and pause decisions awaiting your review. Approve or reject each one.')
     ).not.toBeInTheDocument();
     expect(
       screen.queryByText('Learners with at least one improving mastery signal.')

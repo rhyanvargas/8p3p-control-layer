@@ -61,7 +61,7 @@ export function StepDone({ summary, onRestart }: StepDoneProps) {
             Download rejections
           </Button>
         ) : null}
-        <Button render={<Link href="/signals" />} variant="outline" size="sm">
+        <Button nativeButton={false} render={<Link href="/signals" />} variant="outline" size="sm">
           View ingestion log
         </Button>
         <Button type="button" size="sm" onClick={onRestart}>

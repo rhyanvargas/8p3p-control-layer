@@ -60,7 +60,7 @@ npm run seed:literacy-demo -- --org-id <id>  # Four CEO literacy scenarios (afte
 
 ## Planning Entry Point
 
-- **Roadmap (living anchor):** `internal-docs/foundation/roadmap.md`
+- **Roadmap (living anchor):** `docs/foundation/roadmap.md`
 - **Execution plans:** `.cursor/plans/`
 - **Rule of thumb:** specs define *what*, plans define *how*, reports define *why/when*.
 
@@ -151,7 +151,7 @@ Use the spec-driven workflow (detailed workflow instructions live in `.cursor/sk
 6. `/commit` - Batch local changes into conventional commits (after review)
 
 For exploring existing code, use `/extract-spec`.
-Canonical reference: `internal-docs/foundation/definitive-workflow.md`.
+Canonical reference: `docs/foundation/definitive-workflow.md`.
 
 ## Instruction Ownership (No Redundancy)
 
@@ -168,9 +168,10 @@ Do not duplicate detailed workflow instructions in rules or commands.
 |------|---------|
 | `docs/foundation/architecture.md` | System architecture overview |
 | `docs/foundation/setup.md` | Environment setup guide |
-| `internal-docs/foundation/roadmap.md` | Planning entry point (latest roadmap snapshot + execution plans) |
-| `internal-docs/foundation/poc-playbooks/Component Interface Contracts.md` | JSON schemas for all interfaces |
-| `internal-docs/foundation/poc-playbooks/Contract Test Matrix.md` | Required contract tests |
-| `internal-docs/foundation/poc-playbooks/Interface Validation Ruleset.md` | Validation rules and forbidden keys |
-| `internal-docs/archive/playbooks/solo-dev-execution-playbook.md` | Development workflow guide (archived) |
+| `docs/foundation/roadmap.md` | Planning entry point (living anchor + execution plans) |
+| `docs/foundation/definitive-workflow.md` | Spec-driven delivery workflow |
+| `docs/foundation/api-naming-conventions.md` | API surface naming durability rule |
+| `src/contracts/schemas/` | JSON schemas for all interfaces (schema SSoT) |
+| `tests/contracts/` | Required contract tests |
+| `docs/api/openapi.yaml` | REST API alignment |
 | `docs/specs/` | Generated specification files |

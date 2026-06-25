@@ -15,7 +15,7 @@ import {
   formatRelativeActivity,
   type LearnerRosterRow,
 } from '@/lib/learners';
-import { ingestionLogEntryKey } from '@/lib/ingestion-log';
+import { ingestionLogRowIds } from '@/lib/ingestion-log';
 import { formatDecisionTime } from '@/lib/overview-metrics';
 import { skillDisplayLine } from '@/lib/panel-helpers';
 import { scoreToLevel } from '@/lib/score-levels';
@@ -58,6 +58,8 @@ export function LearnerDetailSheet({
     mastery != null ? scoreToLevel(mastery) : (learner?.level ?? 'novice');
   const trend = learner?.trend ?? 'stable';
   const skillLine = fields ? skillDisplayLine(fields.skill) : null;
+  const ingestionEntries = ingestionQuery.data ?? [];
+  const ingestionRowIds = ingestionLogRowIds(ingestionEntries);
 
   return (
     <DetailSheet
@@ -118,11 +120,11 @@ export function LearnerDetailSheet({
           />
 
           <SheetSection title={`Recent signals (max ${SHEET_SIGNALS_LIMIT})`}>
-            {ingestionQuery.data && ingestionQuery.data.length > 0 ? (
+            {ingestionEntries.length > 0 ? (
               <ul className="flex flex-col gap-2">
-                {ingestionQuery.data.map((entry) => (
+                {ingestionEntries.map((entry, index) => (
                   <li
-                    key={ingestionLogEntryKey(entry)}
+                    key={ingestionRowIds[index]}
                     className="flex flex-wrap items-center justify-between gap-2 text-sm"
                   >
                     <div className="flex min-w-0 flex-col gap-0.5">

@@ -15,6 +15,9 @@ export const queryKeys = {
   ingestionLog: (orgId: string, outcome: string, cursor: string) =>
     ['ingestion-log', orgId, outcome, cursor] as const,
   policies: (orgId: string) => ['policies', orgId] as const,
+  policyDetail: (orgId: string, policyKey: string) =>
+    ['policy-detail', orgId, policyKey] as const,
   programMetrics: (orgId: string, from: string, to: string) =>
     ['program-metrics', orgId, from, to] as const,
+  decisionFeedback: (decisionId: string) => ['decision-feedback', decisionId] as const,
 };

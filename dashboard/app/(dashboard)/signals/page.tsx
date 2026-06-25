@@ -19,7 +19,7 @@ export default function SignalsPage() {
         title="Signals"
         description="Is ingestion healthy? Review acceptance outcomes and expand rejected rows for validation details."
       >
-        <Button render={<Link href="/signals/upload" />} size="sm">
+        <Button nativeButton={false} render={<Link href="/signals/upload" />} size="sm">
           <Upload className="size-4" aria-hidden="true" />
           Upload signals
         </Button>

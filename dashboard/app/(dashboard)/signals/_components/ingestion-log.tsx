@@ -26,7 +26,7 @@ import {
 } from '@/components/ui/table';
 import { useIngestionLog } from '@/hooks/use-ingestion-log';
 import type { IngestionLogEntry, IngestionOutcome } from '@/lib/api/types';
-import { ingestionLogEntryKey } from '@/lib/ingestion-log';
+import { ingestionLogEntryKey, ingestionLogRowIds } from '@/lib/ingestion-log';
 import { formatDecisionTime } from '@/lib/overview-metrics';
 import { cn } from '@/lib/utils';
 
@@ -99,6 +99,7 @@ export function IngestionLog({ orgId }: IngestionLogProps) {
   }
 
   const entries = data?.entries ?? [];
+  const rowIds = ingestionLogRowIds(entries);
   const pageNumber = cursorStack.length + 1;
   const hasPreviousPage = cursorStack.length > 0;
   const hasNextPage = Boolean(data?.next_cursor);
@@ -153,8 +154,8 @@ export function IngestionLog({ orgId }: IngestionLogProps) {
           </TableHeader>
           <TableBody>
             {entries.length > 0 ? (
-              entries.map((entry) => {
-                const rowId = ingestionLogEntryKey(entry);
+              entries.map((entry, index) => {
+                const rowId = rowIds[index]!;
                 const isRejected = entry.outcome === 'rejected';
                 const isExpanded = expandedIds.has(rowId);
 

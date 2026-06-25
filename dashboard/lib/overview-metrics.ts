@@ -27,8 +27,18 @@ function startOfLocalDay(date: Date): Date {
   return d;
 }
 
-function toDateKey(iso: string): string {
-  return iso.slice(0, 10);
+/** Local calendar date as YYYY-MM-DD (matches educator-facing timestamps). */
+export function localDateKeyFromDate(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+export function toLocalDateKey(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso.slice(0, 10);
+  return localDateKeyFromDate(date);
 }
 
 function formatDayLabel(dateKey: string): string {
@@ -44,7 +54,7 @@ function buildDateKeys(rangeDays: TrendRangeDays, now = new Date()): string[] {
   const keys: string[] = [];
   for (let i = rangeDays - 1; i >= 0; i -= 1) {
     const d = new Date(end.getTime() - i * MS_PER_DAY);
-    keys.push(toDateKey(d.toISOString()));
+    keys.push(localDateKeyFromDate(d));
   }
   return keys;
 }
@@ -102,14 +112,15 @@ export function computeRecentDecisions(decisions: Decision[], limit = 20): Decis
 export function buildDecisionTrendSeries(
   decisions: Decision[],
   rangeDays: TrendRangeDays,
-  series: DecisionSeriesKey
+  series: DecisionSeriesKey,
+  now = new Date()
 ): TrendPoint[] {
-  const keys = buildDateKeys(rangeDays);
+  const keys = buildDateKeys(rangeDays, now);
   const counts = new Map<string, number>(keys.map((k) => [k, 0]));
 
   const rangeStart = keys[0]!;
   for (const decision of decisions) {
-    const key = toDateKey(decision.decided_at);
+    const key = toLocalDateKey(decision.decided_at);
     if (key < rangeStart || !counts.has(key)) continue;
     if (series !== 'all' && decision.decision_type !== series) continue;
     counts.set(key, (counts.get(key) ?? 0) + 1);
@@ -124,15 +135,16 @@ export function buildDecisionTrendSeries(
 
 export function buildMasteryTrendSeries(
   learnerStates: LearnerStateResponse[],
-  rangeDays: TrendRangeDays
+  rangeDays: TrendRangeDays,
+  now = new Date()
 ): TrendPoint[] {
-  const keys = buildDateKeys(rangeDays);
+  const keys = buildDateKeys(rangeDays, now);
   const sums = new Map<string, number>(keys.map((k) => [k, 0]));
   const counts = new Map<string, number>(keys.map((k) => [k, 0]));
   const rangeStart = keys[0]!;
 
   for (const body of learnerStates) {
-    const key = toDateKey(body.updated_at);
+    const key = toLocalDateKey(body.updated_at);
     if (key < rangeStart || !sums.has(key)) continue;
 
     const rows = extractSkillRows(body.state);
@@ -198,5 +210,5 @@ export function truncateRule(ruleId: string | null, max = 32): string {
 }
 
 export function isToday(iso: string, now = new Date()): boolean {
-  return toDateKey(iso) === toDateKey(now.toISOString());
+  return toLocalDateKey(iso) === localDateKeyFromDate(now);
 }

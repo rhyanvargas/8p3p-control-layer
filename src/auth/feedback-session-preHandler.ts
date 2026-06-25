@@ -12,7 +12,10 @@ export async function feedbackSessionPreHandler(
   const secret = process.env.COOKIE_SECRET ?? '';
   if (!secret || secret.length < 32) {
     request.log.error('COOKIE_SECRET missing or shorter than 32 characters');
-    void reply.status(500).send({ error: 'Invalid server configuration.' });
+    void reply.status(500).send({
+      code: ErrorCodes.INVALID_SERVER_CONFIGURATION,
+      message: 'Server session secret is not configured.',
+    });
     return;
   }
 

@@ -1,6 +1,11 @@
 import { after } from 'next/server';
 
 import { getServerEnv } from '@/lib/env';
+import {
+  FB_SESSION_COOKIE_NAME,
+  isFeedbackProxyPath,
+  readDashboardSessionCookieValue,
+} from '@/lib/session-cookie-edge';
 
 const UPSTREAM_TIMEOUT_MS = 10_000;
 
@@ -125,6 +130,13 @@ async function proxyRequest(request: Request, pathSegments: string[]): Promise<R
   const accept = request.headers.get('accept');
   if (accept) upstreamHeaders.set('accept', accept);
   if (contentType) upstreamHeaders.set('content-type', contentType);
+
+  if (request.method === 'POST' && isFeedbackProxyPath(pathSegments)) {
+    const sessionValue = readDashboardSessionCookieValue(request);
+    if (sessionValue) {
+      upstreamHeaders.set('Cookie', `${FB_SESSION_COOKIE_NAME}=${sessionValue}`);
+    }
+  }
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), UPSTREAM_TIMEOUT_MS);

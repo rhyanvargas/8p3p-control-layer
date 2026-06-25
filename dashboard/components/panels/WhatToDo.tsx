@@ -1,19 +1,29 @@
+'use client';
+
 import { useMemo, useState } from 'react';
 import { Lightbulb } from 'lucide-react';
+import {
+  RejectReasonStep,
+  buildRejectFeedbackPayload,
+} from '@/app/(dashboard)/attention/_components/reject-reason-step';
 import { PanelCard } from '@/components/layout/PanelCard';
 import { PanelEmpty, PanelError, PanelSkeleton } from '@/components/layout/panel-states';
 import { Button } from '@/components/ui/button';
 import { DecisionBadge } from '@/components/shared/DecisionBadge';
 import { useOrgLearnerSummaries } from '@/hooks/use-learner-summary';
-import { markReviewed, isReviewed } from '@/lib/decision-review';
+import type { RejectReasonCategory, SuggestedDecisionType } from '@/lib/decision-feedback';
+import { isReviewedLocally } from '@/lib/decision-review';
 import { skillDisplayLine } from '@/lib/panel-helpers';
 import { queryClient } from '@/lib/query-client';
+import { executeReviewAction } from '@/lib/review-actions';
 
 export function WhatToDo({ orgId }: { orgId: string }) {
   const { summaries, isLoading, isError, error, refetch } = useOrgLearnerSummaries(orgId);
   const [expanded, setExpanded] = useState(false);
+  const [reviewTick, setReviewTick] = useState(0);
 
   const nextAction = useMemo(() => {
+    void reviewTick;
     const candidates: Array<{
       learnerRef: string;
       dominantSkill: string | null;
@@ -25,7 +35,7 @@ export function WhatToDo({ orgId }: { orgId: string }) {
       for (const decision of summary.recent_decisions) {
         if (
           (decision.decision_type === 'intervene' || decision.decision_type === 'pause') &&
-          !isReviewed(decision.decision_id)
+          !isReviewedLocally(decision.decision_id)
         ) {
           candidates.push({
             learnerRef: summary.learner_reference,
@@ -37,7 +47,35 @@ export function WhatToDo({ orgId }: { orgId: string }) {
     }
     candidates.sort((a, b) => b.decision.decided_at.localeCompare(a.decision.decided_at));
     return candidates[0] ?? null;
-  }, [summaries]);
+  }, [summaries, reviewTick]);
+
+  const activeDecisionId = nextAction?.decision.decision_id ?? null;
+  const [rejectDecisionId, setRejectDecisionId] = useState<string | null>(null);
+  const [showRejectReason, setShowRejectReason] = useState(false);
+  const [reasonCategory, setReasonCategory] = useState<RejectReasonCategory | null>(null);
+  const [reasonText, setReasonText] = useState('');
+  const [suggestedDecisionType, setSuggestedDecisionType] =
+    useState<SuggestedDecisionType | null>(null);
+
+  if (activeDecisionId !== rejectDecisionId) {
+    setRejectDecisionId(activeDecisionId);
+    setShowRejectReason(false);
+    setReasonCategory(null);
+    setReasonText('');
+    setSuggestedDecisionType(null);
+  }
+
+  function resetRejectReason() {
+    setShowRejectReason(false);
+    setReasonCategory(null);
+    setReasonText('');
+    setSuggestedDecisionType(null);
+  }
+
+  function bumpQueueChange() {
+    setReviewTick((n) => n + 1);
+    void queryClient.invalidateQueries({ queryKey: ['learner-summary'] });
+  }
 
   if (isLoading) {
     return (
@@ -82,11 +120,46 @@ export function WhatToDo({ orgId }: { orgId: string }) {
   const rationale = decision.rationale ?? '';
   const skillLine = skillDisplayLine(dominantSkill);
 
-  const onReviewed = () => {
-    markReviewed(decision.decision_id);
+  const rejectPayload = buildRejectFeedbackPayload({
+    reasonCategory,
+    reasonText,
+    suggestedDecisionType,
+  });
+
+  function handleApprove() {
+    void executeReviewAction({
+      action: 'approve',
+      decisionId: decision.decision_id,
+      learnerReference: learnerRef,
+      decisionType: decision.decision_type as 'intervene' | 'pause',
+      educatorSummary: decision.educator_summary,
+      origin: 'what-to-do',
+      onQueueChange: bumpQueueChange,
+    });
+    resetRejectReason();
     setExpanded(false);
-    void queryClient.invalidateQueries({ queryKey: ['learner-summary'] });
-  };
+  }
+
+  function handleRejectClick() {
+    setShowRejectReason(true);
+  }
+
+  function handleRejectSubmit() {
+    if (!rejectPayload) return;
+
+    void executeReviewAction({
+      action: 'reject',
+      decisionId: decision.decision_id,
+      learnerReference: learnerRef,
+      decisionType: decision.decision_type as 'intervene' | 'pause',
+      educatorSummary: decision.educator_summary,
+      origin: 'what-to-do',
+      rejectPayload,
+      onQueueChange: bumpQueueChange,
+    });
+    resetRejectReason();
+    setExpanded(false);
+  }
 
   return (
     <PanelCard
@@ -127,13 +200,55 @@ export function WhatToDo({ orgId }: { orgId: string }) {
             </Button>
           ) : null}
         </div>
+
+        {showRejectReason ? (
+          <RejectReasonStep
+            reasonCategory={reasonCategory}
+            reasonText={reasonText}
+            suggestedDecisionType={suggestedDecisionType}
+            onReasonCategoryChange={setReasonCategory}
+            onReasonTextChange={setReasonText}
+            onSuggestedDecisionTypeChange={setSuggestedDecisionType}
+            className="border-0 pt-0"
+          />
+        ) : null}
+
         <div className="flex flex-wrap gap-2 pt-2">
-          <Button type="button" onClick={onReviewed} aria-label="Approve decision review">
-            Approve
-          </Button>
-          <Button type="button" variant="outline" onClick={onReviewed} aria-label="Reject decision review">
-            Reject
-          </Button>
+          {showRejectReason ? (
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={resetRejectReason}
+                aria-label="Cancel rejection"
+              >
+                Back
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                disabled={rejectPayload == null}
+                onClick={handleRejectSubmit}
+                aria-label="Submit rejection"
+              >
+                Submit rejection
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button type="button" onClick={handleApprove} aria-label="Approve decision review">
+                Approve
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleRejectClick}
+                aria-label="Reject decision review"
+              >
+                Reject
+              </Button>
+            </>
+          )}
         </div>
       </div>
     </PanelCard>

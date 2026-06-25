@@ -10,6 +10,16 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+vi.mock('next/server', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('next/server')>();
+  return {
+    ...actual,
+    after: (callback: () => void) => {
+      callback();
+    },
+  };
+});
+
 import { resetServerEnvForTest } from '@/lib/env';
 import {
   signSession as signDashboardSession,
@@ -147,7 +157,9 @@ describe('nextjs dashboard migration contracts', () => {
       });
 
       expect(response.status).toBe(502);
-      expect(await response.json()).toEqual({ error: 'dashboard_upstream_unavailable' });
+      const body = (await response.json()) as { error: string; request_id: string };
+      expect(body.error).toBe('dashboard_upstream_unavailable');
+      expect(body.request_id).toBeTruthy();
     });
   });
 

@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 
+import { AttentionReviewBar } from '@/app/(dashboard)/attention/_components/attention-review-bar';
 import { LearnerOverviewTab } from '@/app/(dashboard)/learners/[ref]/_components/learner-overview-tab';
 import { LearnerStateTab } from '@/app/(dashboard)/learners/[ref]/_components/learner-state-tab';
 import { LearnerStrugglesTab } from '@/app/(dashboard)/learners/[ref]/_components/learner-struggles-tab';
@@ -15,24 +16,32 @@ type LearnerDetailViewProps = {
   orgId: string;
   learnerRef: string;
   version?: number;
+  reviewDecisionId?: string;
+  fromAttention?: boolean;
 };
 
 export function LearnerDetailView({
   orgId,
   learnerRef,
   version,
+  reviewDecisionId,
+  fromAttention = false,
 }: LearnerDetailViewProps) {
+  const showReviewBar = reviewDecisionId != null && reviewDecisionId !== '';
+
   return (
-    <div className="flex flex-col gap-6">
+    <div className={showReviewBar ? 'flex flex-col gap-6 pb-36 md:pb-40' : 'flex flex-col gap-6'}>
       <PageHeader title={learnerRef} description="Learner detail — one concern per tab.">
         <Button
           variant="outline"
           size="sm"
           nativeButton={false}
-          render={<Link href="/learners" />}
+          render={
+            <Link href={fromAttention ? '/attention' : '/learners'} />
+          }
         >
           <ArrowLeft data-icon="inline-start" aria-hidden="true" />
-          Back to roster
+          {fromAttention ? 'Back to Attention' : 'Back to roster'}
         </Button>
       </PageHeader>
 
@@ -64,6 +73,14 @@ export function LearnerDetailView({
           <LearnerStrugglesTab orgId={orgId} learnerRef={learnerRef} />
         </TabsContent>
       </Tabs>
+
+      {showReviewBar ? (
+        <AttentionReviewBar
+          orgId={orgId}
+          learnerRef={learnerRef}
+          decisionId={reviewDecisionId}
+        />
+      ) : null}
     </div>
   );
 }

@@ -175,6 +175,9 @@ export const ErrorCodes = {
   /** Missing or invalid `fb_session` cookie on a write endpoint (401) */
   SESSION_REQUIRED: 'session_required',
 
+  /** Required server secret (e.g. COOKIE_SECRET) missing or too short (500) */
+  INVALID_SERVER_CONFIGURATION: 'invalid_server_configuration',
+
   /** decision_id does not exist or belongs to a different org (404) */
   DECISION_NOT_FOUND: 'decision_not_found',
 

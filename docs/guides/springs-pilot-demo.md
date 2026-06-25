@@ -1,138 +1,201 @@
 # Springs Pilot Demo — Walkthrough Script
 
-**Audience**: School principal, IT director, pilot stakeholders
-**Duration**: ~4 minutes with narration
-**Prerequisites**: Local API running, Springs seed loaded, and Next.js dashboard running — see **[Local Dev & Testing](../foundation/setup.md)** (`npm run dev`, `npm run seed:springs-demo`, then `cd dashboard && npm run dev -- -p 3001`).
+**Audience**: Superintendent, school principal, IT director, pilot stakeholders  
+**Duration**: ~5–6 minutes with narration (pick 3–4 beats for a tight 4-minute cut)  
+**Prerequisites**: Local API running, Springs seed v3 loaded, and Next.js dashboard running — see **[Local Dev & Testing](../foundation/setup.md)** (`npm run dev`, `npm run seed:springs-demo`, then `cd dashboard && npm run dev -- -p 3001`).
+
+**Seed script**: [`examples/springs/seed-springs-demo.mjs`](../../examples/springs/seed-springs-demo.mjs) (v3 — 24 signals, 6 personas, learning gaps + trajectories + gifted-interest).
+
+---
+
+## What problem this demo solves (open with this)
+
+> "Your district runs Canvas, Blackboard, i-Ready, and staff training in Absorb. No single platform shows whether a student is **actually learning** across all of them — or **where** they're falling behind relative to their own strengths in the same subject. This system ingests signals from every source, applies your policies, and surfaces **who needs attention**, **what skill is gaping**, and **whether support worked** — in under a minute per student."
+
+**Superintendent lens**: district-wide visibility without another data warehouse project.  
+**Principal lens**: actionable queue + skill-level gaps, not another grade export.  
+**IT lens**: onboarding is field mappings once per LMS; after that, signals flow via API.
 
 ---
 
 ## Setup (30 seconds)
 
-If not already seeded, run:
+Fresh data (required after seed script changes):
 
 ```bash
+rm -f data/*.db data/*.db-wal data/*.db-shm
+npm run dev
 npm run seed:springs-demo
 ```
 
-Full setup (env, first run, reset): [`docs/foundation/setup.md`](../foundation/setup.md).
+Point out Phase 1 (4 LMS field mappings registered) and Phase 2 (**24 synthesized signals** across Canvas, Blackboard, i-Ready, and Absorb).
 
-Point out Phase 1 (onboarding — 4 LMS field mappings registered) and Phase 2 (11 signals flowing from Canvas, Blackboard, i-Ready, and Absorb).
+Open the dashboard at `http://localhost:3001/` (`CONTROL_LAYER_ORG_ID=springs` in `dashboard/.env.local`).
 
-> **Talking point**: "This is the onboarding step — we told the system how to read data from each of your LMS platforms. After that, data just flows. No custom code per vendor."
-
-Open the dashboard at `http://localhost:3001/` (org: `springs`; set `CONTROL_LAYER_ORG_ID=springs` in `dashboard/.env.local`).
-
----
-
-## Panel 1 — Who Needs Attention? (45 seconds)
-
-**What you see**: Learners and staff flagged for intervention, sorted by urgency.
-
-### Maya Kim (`stu-10042`)
-
-i-Ready reading diagnostic flagged her. Canvas math is fine — advance decision.
-
-> "Her Canvas math is fine — it's the i-Ready diagnostic that caught the vocabulary decline. No single system sees both. That's the value of cross-system intelligence."
-
-### Alex Rivera (`stu-20891`)
-
-Struggling on both Canvas ELA and Blackboard Science — two intervene decisions.
-
-> "Two platforms, same conclusion — this student needs help now. Without cross-system visibility, a teacher in one class wouldn't know about the other."
-
-### Ms. Davis (`staff-0201`)
-
-Staff compliance declining in Absorb — intervene decision.
-
-> "Staff and students in the same system, different policies, both surfaced. Compliance dropped from 60% to 35%, 20 days overdue."
+| Dashboard route | Legacy panel name | Demo purpose |
+|-----------------|-------------------|--------------|
+| `/attention` | Panel 1 + 3 | Who needs help; approve/reject intervene |
+| `/learners` → row → sheet | Panel 2 + 4 | Why stuck (learning gaps); trajectory proof |
+| `/` Overview | KPI drill-down | Program-level counts |
+| `/decisions` | Audit trail | Receipts and rule rationale (L1 sheet) |
 
 ---
 
-## Panel 2 — Why Are They Stuck? (45 seconds)
+## Beat 1 — Overview (30 seconds) `/`
 
-**What you see**: Skill-level breakdowns with direction arrows (improving/declining/stable).
+**Click**: Overview → note KPI cards (learners needing attention, decisions today). Click **Learners needing attention** if linked.
 
-### Maya Kim
+> "One landing page — not four LMS tabs. Counts come from the same policy engine your pilot will run in production."
 
-Reading stability at 22%. The i-Ready MOY diagnostic showed vocabulary regression.
-
-> "Reading stability at 22%. The i-Ready MOY diagnostic showed vocabulary regression — that's the specific skill. Math is fine at 92%. The system surfaces the exact gap."
-
-### Alex Rivera
-
-ELA and Science both below 30% stability. Multiple declining skills across platforms.
-
-> "ELA and Science both below 30% stability. Multiple declining skills across platforms. The direction arrows show declining in both."
-
-### Ms. Davis
-
-Compliance dropped from 60% to 35%, 20 days overdue. Direction arrow shows declining.
-
-> "Compliance dropped from 60% to 35%. The system tracks the trajectory — not just the current score, but where it's heading."
+Optional: hit **Refresh** and the freshness chip to show data is live from the control layer.
 
 ---
 
-## Panel 3 — What To Do? (30 seconds)
+## Beat 2 — Who needs attention? (60 seconds) `/attention`
 
-**What you see**: The most recent intervene or pause decision awaiting educator review, with Approve/Reject buttons. Panel 3 only surfaces high-stakes decisions — intervene and pause — because these are the actions that should have a human in the loop before the system acts.
+**What you see**: Intervene/pause queue sorted by urgency; **Problem area** column shows skill-level gap text.
 
-### Ms. Davis (`staff-0201`)
+### Maya Kim (`stu-10042`) — **learning gap (CEO priority)**
 
-Intervene decision for Annual Compliance 2026 — pending administrator review with Approve/Reject.
+Cross-system: Canvas Math is fine; i-Ready Reading flagged. Problem area should cite **Reading** below English subject average (ELA writing at 88% vs Reading diagnostic at ~48%).
 
-> "This is the educator handoff. The system flagged Ms. Davis for intervention — compliance at 35%, 20 days overdue. The administrator approves or rejects. One click. The system decides, but humans confirm the high-stakes calls."
+> "She's strong in ELA on Canvas and strong in Math — but i-Ready caught reading decay no math teacher would see. The gap is **within English**: writing vs reading, not just a low grade."
+
+**Click**: Open row → review sheet → note problem areas and recent decisions.
+
+### Alex Rivera (`stu-20891`) — **within-subject gap**
+
+Canvas ELA-101 at 82%; ELA-201 at 28%; Blackboard Science also struggling.
+
+> "Same student, same subject, two skills — one fine, one in crisis. That's the learning gap the CEO asked for: **where**, not just **how low**."
+
+### Sam Torres (`stu-40123`) — **declining trajectory → intervene**
+
+ELA slid 55% → 48% → 32%; latest decision is **intervene**.
+
+> "This wasn't a sudden F — the system tracked decay across three signals before escalating."
+
+### Ms. Davis (`staff-0201`) — staff on same rails
+
+Absorb compliance 60% → 35%, 20 days overdue — **intervene**.
+
+> "Students and staff, one queue — different policies, same transparency."
+
+**Click** (Panel 3 beat): Approve or Reject one row from the review sheet; mention educator confirmation on high-stakes calls.
 
 ---
 
-## Panel 4 — Did It Work? (45 seconds)
+## Beat 3 — Why are they stuck? (60 seconds) `/learners`
 
-**What you see**: Trajectory tracking with mastery improvement over time.
+**Click**: Learners → **Maya Kim** → detail sheet.
 
-### Jordan Mitchell (`stu-30456`)
+In **Summary** / problem areas, confirm `mastery_breakdown.learning_gaps` surfaces **Reading** (gap ~0.20 vs English subject mean).
 
-Three math signals over time: 45% → 68% → 90% mastery. Level transition: proficient → mastery.
+> "In 60 seconds you see: Math subject strong, English subject mixed, **Reading is the gap skill** — not the overall GPA."
 
-> "Three math signals over time: 45%, 68%, 90%. The intervention worked. Level transition: proficient to mastery. This is the proof — not a guess, not a hope. Measurable improvement tracked automatically."
+**Click**: **Alex Rivera** — gap should show **ELA-201** vs stronger ELA-101 in English.
 
-Also: Blackboard History at 80% mastery, reinforcing — a balanced picture across platforms.
+**Optional superintendent line**:
 
----
-
-## The Integration Story (30 seconds)
-
-> "Everything you just saw came from 4 real LMS platforms — Canvas, Blackboard, i-Ready, Absorb. The system registered field mappings for each one in Phase 1. That's the onboarding step. After that, data just flows."
->
-> "No custom code per vendor. No manual data entry. No spreadsheet reconciliation. One system, one view, one set of decisions — across every platform your district uses."
+> "This is confidence in **learning**, framed for educators — auditable rules underneath, not a black-box grade."
 
 ---
 
-## Persona Reference
+## Beat 4 — Did support work? (45 seconds) `/learners`
 
-| Persona | Reference | Sources | Signals | Key Decisions |
-|---------|-----------|---------|---------|---------------|
-| **Maya Kim** | `stu-10042` | Canvas (Math 301), i-Ready (Reading) | 2 | Math → advance; Reading → intervene |
-| **Alex Rivera** | `stu-20891` | Canvas (ELA 201), Blackboard (Science 101) | 2 | ELA → intervene; Science → intervene |
-| **Jordan Mitchell** | `stu-30456` | Canvas (Math 301 ×3), Blackboard (History 202) | 4 | Math trajectory: reinforce → reinforce → advance; History → reinforce |
-| **Sam Torres** | `stu-40123` | Canvas (ELA 201) | 1 | ELA → reinforce (borderline — visible in inspection) |
-| **Ms. Davis** | `staff-0201` | Absorb (Annual Compliance 2026 ×2) | 2 | Compliance: reinforce → intervene (declining) |
+### Jordan Mitchell (`stu-30456`) — **improving trajectory**
 
-### Decision Distribution
+**Click**: Jordan → **Trajectory** tab.
+
+Three Canvas Math signals: 45% → 68% → 90%. History on Blackboard stable at ~80%.
+
+> "Intervention proof — not hope. Three time-stamped signals, same skill, measurable lift to advance."
+
+### Sam Torres (`stu-40123`) — **declining trajectory** (contrast)
+
+**Click**: Sam → **Trajectory** tab.
+
+> "Same chart type, opposite story — decline visible before intervene. Early identification, not end-of-term surprise."
+
+---
+
+## Beat 5 — Whole-child signal (30 seconds, optional) `/learners`
+
+### Priya Patel (`stu-50199`) — **gifted-interest flag**
+
+**Click**: Priya → Summary; note **Person of interest** (not a label — a consideration flag per policy).
+
+Three subjects, all mastery ≥ 95%, advance-only history across 9 signals.
+
+> "The system also flags students consistently excelling across skills — for enrichment conversations, not automatic tracking."
+
+---
+
+## Beat 6 — Audit / IT trust (30 seconds) `/decisions`
+
+**Click**: Decisions → open any **intervene** row → L1 sheet shows rule id + rationale (educator summary at L0 in list).
+
+> "Every decision is receipt-backed — which rule fired, which thresholds, frozen state snapshot. Defensible for parents, board, and auditors."
+
+---
+
+## The integration story (30 seconds)
+
+> "Everything you saw came from four LMS shapes — Canvas, Blackboard, i-Ready, Absorb. Phase 1 registered field mappings; Phase 2 data flowed. No custom ETL per vendor, no manual spreadsheet merge."
+
+---
+
+## Persona quick reference (v3 seed)
+
+| Persona | Reference | Demo beat | Signals | Key story |
+|---------|-----------|-----------|---------|-----------|
+| **Maya Kim** | `stu-10042` | Attention + Learners | 3 | Cross-system; **Reading learning gap** vs strong ELA/Math |
+| **Alex Rivera** | `stu-20891` | Attention + Learners | 3 | **ELA-201 gap** vs ELA-101; Science intervene |
+| **Jordan Mitchell** | `stu-30456` | Learners → Trajectory | 4 | Math **improving** 45→68→90%; advance |
+| **Sam Torres** | `stu-40123` | Attention + Trajectory | 3 | ELA **declining** 55→48→32; intervene |
+| **Priya Patel** | `stu-50199` | Learners (optional) | 9 | **Gifted-interest** flag; advance-only |
+| **Ms. Davis** | `staff-0201` | Attention review | 2 | Staff compliance decay; intervene |
+
+### Decision distribution (approximate after full seed)
 
 | Type | Count | Personas |
 |------|-------|----------|
-| **advance** | 2 | Maya (math), Jordan (math t3) |
-| **intervene** | 4 | Maya (reading), Alex (ELA + science), Ms. Davis (compliance t2) |
-| **reinforce** | 5 | Jordan (math t1 + t2, history), Sam (ELA), Ms. Davis (compliance t1) |
+| **advance** | 11+ | Maya (math), Jordan (math t3), Priya (×9) |
+| **intervene** | 5+ | Maya (reading), Alex (ELA + science), Sam (ELA t3), Ms. Davis (compliance t2) |
+| **reinforce** | 8+ | Maya (ELA), Alex (ELA-101), Jordan (math t1–2, history), Sam (ELA t1–2), Ms. Davis (compliance t1) |
 
-### Source System Distribution
+### Source system distribution
 
-| Source | Signals | Field Mapping Highlights |
-|--------|---------|--------------------------|
-| `canvas-lms` | 6 | Caliper GradeEvent → `masteryScore`, `stabilityScore` via `scoreGiven/maxScore` |
-| `blackboard-lms` | 2 | Caliper AssignableEvent → same targets, different `maxScore` path |
-| `iready-diagnostic` | 1 | CSV-to-JSON adapter → `overallScaleScore/maxScaleScore`, percentile, diagnostic gain |
-| `absorb-lms` | 2 | REST enrollment → `complianceScore`, `trainingScore`, `daysOverdue` |
+| Source | Signals | Notes |
+|--------|---------|-------|
+| `canvas-lms` | 19 | Grades → mastery/stability; multi-signal trajectories |
+| `blackboard-lms` | 2 | Alex science, Jordan history |
+| `iready-diagnostic` | 1 | Maya reading decay + riskSignal |
+| `absorb-lms` | 2 | Ms. Davis compliance (direct scores; no forbidden `score` key) |
 
 ---
 
-*Created: 2026-04-14 | Plan: .cursor/plans/springs-realistic-seed.plan.md*
+## Pick your audience (cheat sheet for demo lead)
+
+| If they're… | Lead with… | Skip if short on time |
+|-------------|------------|------------------------|
+| **Superintendent** | Maya learning gap + Jordan proof + integration story | Priya gifted |
+| **Principal** | Attention queue + Maya/Alex problem areas + Sam decline | Decisions audit |
+| **IT director** | Setup Phase 1 mappings + `/signals` ingestion log + Decisions trace | Priya gifted |
+| **Teacher coach** | Alex within-subject gap + Sam trajectory tab | Overview KPIs |
+
+---
+
+## Reset between demos
+
+```bash
+rm -f data/*.db data/*.db-wal data/*.db-shm
+npm run dev
+npm run seed:springs-demo
+```
+
+Re-seeding **without** wipe skips duplicates and leaves stale state — always wipe for a clean narrative.
+
+---
+
+*Updated: 2026-06-24 (seed v3 — learning gaps, trajectories, gifted-interest) | Plan: `.cursor/plans/springs-realistic-seed.plan.md`*

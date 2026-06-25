@@ -4,7 +4,13 @@ export const SESSION_COOKIE_NAME = 'dp_session';
 /** Production standalone-app cookie with __Host- prefix (Secure + Path=/, no Domain). */
 export const HOST_SESSION_COOKIE_NAME = '__Host-dp_session';
 
+/** Sibling cookie for educator feedback API writes (same signed value as dp_session). */
+export const FB_SESSION_COOKIE_NAME = 'fb_session';
+
 export function isSecureCookieContext(): boolean {
+  if (process.env.DASHBOARD_COOKIE_SECURE === 'false') {
+    return false;
+  }
   return process.env.NODE_ENV === 'production';
 }
 
@@ -45,6 +51,54 @@ export function readSessionCookieValue(
     return cookieStore.get(SESSION_COOKIE_NAME)?.value ?? '';
   }
   return '';
+}
+
+function parseCookieHeader(cookieHeader: string | null): Map<string, string> {
+  const cookies = new Map<string, string>();
+  if (!cookieHeader) {
+    return cookies;
+  }
+
+  for (const part of cookieHeader.split(';')) {
+    const eq = part.indexOf('=');
+    if (eq <= 0) {
+      continue;
+    }
+    const name = part.slice(0, eq).trim();
+    const value = part.slice(eq + 1).trim();
+    cookies.set(name, value);
+  }
+
+  return cookies;
+}
+
+/** Reads dp_session / __Host-dp_session from a fetch Request Cookie header. */
+export function readDashboardSessionCookieValue(
+  request: Request,
+  secure: boolean = isSecureCookieContext(),
+): string {
+  const cookies = parseCookieHeader(request.headers.get('cookie'));
+  return readSessionCookieValue(
+    {
+      get: (name) => {
+        const value = cookies.get(name);
+        return value !== undefined ? { value } : undefined;
+      },
+    },
+    secure,
+  );
+}
+
+/** Matches v1/decisions/:decisionId/feedback and v1/decisions/:decisionId/view proxy paths. */
+export function isFeedbackProxyPath(pathSegments: string[]): boolean {
+  if (pathSegments.length !== 4) {
+    return false;
+  }
+  if (pathSegments[0] !== 'v1' || pathSegments[1] !== 'decisions') {
+    return false;
+  }
+  const action = pathSegments[3];
+  return action === 'feedback' || action === 'view';
 }
 
 function splitSessionValue(value: string): { sigHex: string; payloadB64: string } | null {

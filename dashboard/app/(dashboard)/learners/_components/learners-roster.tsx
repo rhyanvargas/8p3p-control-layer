@@ -1,6 +1,7 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import type { ColumnDef } from '@tanstack/react-table';
 
 import { LearnerDetailSheet } from '@/app/(dashboard)/learners/_components/learner-detail-sheet';
@@ -25,17 +26,46 @@ import {
   filterRosterRows,
   formatLevel,
   formatRelativeActivity,
+  parseRosterTrendFilter,
+  rosterTrendFilterLabel,
+  trendRank,
   type LearnerRosterRow,
+  type RosterTrendFilter,
 } from '@/lib/learners';
+import { levelRank } from '@/lib/score-levels';
 
 type LearnersRosterProps = {
   orgId: string;
 };
 
 export function LearnersRoster({ orgId }: LearnersRosterProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [selected, setSelected] = useState<LearnerRosterRow | null>(null);
-  const [decliningOnly, setDecliningOnly] = useState(false);
-  const [skillFilter, setSkillFilter] = useState<string | null>(null);
+
+  const trendFilter = parseRosterTrendFilter(searchParams.get('trend'));
+  const skillParam = searchParams.get('skill');
+  const skillFilter = skillParam?.trim() ? skillParam : null;
+
+  const replaceLearnersQuery = useCallback(
+    (next: { trend?: RosterTrendFilter; skill?: string | null }) => {
+      const params = new URLSearchParams(searchParams.toString());
+
+      if (next.trend !== undefined) {
+        if (next.trend) params.set('trend', next.trend);
+        else params.delete('trend');
+      }
+
+      if (next.skill !== undefined) {
+        if (next.skill) params.set('skill', next.skill);
+        else params.delete('skill');
+      }
+
+      const query = params.toString();
+      router.replace(query ? `/learners?${query}` : '/learners');
+    },
+    [router, searchParams]
+  );
 
   const listQuery = useLearnerList(orgId);
   const summariesQuery = useOrgLearnerSummaries(orgId, { recentDecisionsLimit: 3 });
@@ -63,10 +93,10 @@ export function LearnersRoster({ orgId }: LearnersRosterProps) {
   const rows = useMemo(
     () =>
       filterRosterRows(allRows, {
-        decliningOnly,
+        trend: trendFilter,
         skill: skillFilter,
       }),
-    [allRows, decliningOnly, skillFilter]
+    [allRows, trendFilter, skillFilter]
   );
 
   const columns = useMemo<ColumnDef<LearnerRosterRow>[]>(
@@ -81,14 +111,22 @@ export function LearnersRoster({ orgId }: LearnersRosterProps) {
         ),
       },
       {
-        id: 'level_trend',
-        header: 'Level / trend',
-        cell: ({ row }) => (
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-sm">{formatLevel(row.original.level)}</span>
-            <ProgressBadge variant={row.original.trend} />
-          </div>
+        id: 'level',
+        accessorFn: (row) => levelRank(row.level),
+        header: ({ column }) => (
+          <DataTableColumnHeader column={column} title="Level" />
         ),
+        cell: ({ row }) => (
+          <span className="text-sm">{formatLevel(row.original.level)}</span>
+        ),
+      },
+      {
+        id: 'trend',
+        accessorFn: (row) => trendRank(row.trend),
+        header: ({ column }) => (
+          <DataTableColumnHeader column={column} title="Trend" />
+        ),
+        cell: ({ row }) => <ProgressBadge variant={row.original.trend} />,
       },
       {
         accessorKey: 'updated_at',
@@ -123,19 +161,25 @@ export function LearnersRoster({ orgId }: LearnersRosterProps) {
       <section aria-label="Learner roster" className="flex flex-col gap-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="declining-filter" className="text-xs">
+            <Label htmlFor="trend-filter" className="text-xs">
               Trend filter
             </Label>
             <Select
-              value={decliningOnly ? 'declining' : 'all'}
-              onValueChange={(value) => setDecliningOnly(value === 'declining')}
+              value={trendFilter ?? 'all'}
+              onValueChange={(value) =>
+                replaceLearnersQuery({
+                  trend: parseRosterTrendFilter(value),
+                })
+              }
             >
-              <SelectTrigger id="declining-filter" className="w-44">
-                <SelectValue />
+              <SelectTrigger id="trend-filter" className="w-44">
+                <SelectValue>{rosterTrendFilterLabel(trendFilter)}</SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All learners</SelectItem>
+                <SelectItem value="improving">Improving only</SelectItem>
                 <SelectItem value="declining">Declining only</SelectItem>
+                <SelectItem value="stable">Stable only</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -148,7 +192,9 @@ export function LearnersRoster({ orgId }: LearnersRosterProps) {
               <Select
                 value={skillFilter ?? 'all'}
                 onValueChange={(value) =>
-                  setSkillFilter(value === 'all' ? null : value)
+                  replaceLearnersQuery({
+                    skill: value === 'all' ? null : value,
+                  })
                 }
               >
                 <SelectTrigger id="skill-filter" className="w-52">

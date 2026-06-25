@@ -396,7 +396,7 @@ Each source system can have its own transform mapping, but they all feed the sam
 
 ## 14) Decision Panel — see decisions visually
 
-The **Decision Panel** is a read-only staff UI at `/dashboard` that presents control-layer output in an educator-friendly layout aligned to the [9th Grade Literacy Pilot](../../internal-docs/9th%20Grade%20Literacy%20Pilot.pdf). It uses the same API host as your integration — no additional write paths.
+The **Decision Panel** is a read-only staff UI at `/dashboard` that presents control-layer output in an educator-friendly layout aligned to an internal demo layout reference (local `internal-docs/`, not in public repo). It uses the same API host as your integration — no additional write paths.
 
 ### Four panels (literacy pilot titles)
 

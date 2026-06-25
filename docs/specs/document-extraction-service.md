@@ -224,7 +224,7 @@ N/A — DES uses `x-api-key` tenant auth (public ingestion) and `x-admin-api-key
 - **Body size limits**: JSON request body cap 1 MiB; multipart upload cap `DES_MAX_DOC_BYTES`.
 - **Rate-limit storage scope**: DynamoDB-backed token bucket keyed by `org_id`; in-process Map is **not** safe for multi-instance DES deployments.
 - **Error-code surface**: DES-prefixed codes are the only values exposed to tenants. Control-layer rejection reasons are echoed under `control_layer_response` without rewriting, so support can copy/paste them.
-- **Subprocessors**: AWS Textract and the configured LLM provider (e.g. Bedrock) are processors of tenant content. They MUST appear in the subprocessor list referenced by the BAA / DPA before any regulated data is processed. See [`internal-docs/compliance-security-posture-and-migration-path.md`](../../internal-docs/compliance-security-posture-and-migration-path.md).
+- **Subprocessors**: AWS Textract and the configured LLM provider (e.g. Bedrock) are processors of tenant content. They MUST appear in the subprocessor list referenced by the BAA / DPA before any regulated data is processed. See the internal compliance posture doc (local only).
 
 ## Notes
 
@@ -235,5 +235,5 @@ N/A — DES uses `x-api-key` tenant auth (public ingestion) and `x-admin-api-key
   - **AWS Bedrock** (Claude / Titan) or equivalent provider for LLM-assisted extraction with JSON-schema constrained output; preferred over raw OpenAI for regulated deployments because it stays inside the tenant's AWS account.
   - **`@aws-sdk/client-textract`** and **`@aws-sdk/client-bedrock-runtime`** for TypeScript integration — no custom HTTP plumbing.
   - **`@fastify/multipart`** for upload handling — consistent with the control-layer Fastify toolkit.
-- **Contract evolution**: When the control layer renames `learner_reference` → `user_id` (see [`internal-docs/compliance-security-posture-and-migration-path.md`](../../internal-docs/compliance-security-posture-and-migration-path.md) §5), DES updates the envelope it constructs. No template change required if templates refer to the subject field by its DES-template name (e.g. `primary_subject_id`) rather than by the control-layer wire name.
+- **Contract evolution**: When the control layer renames `learner_reference` → `user_id` (see internal compliance posture doc (local only) §5), DES updates the envelope it constructs. No template change required if templates refer to the subject field by its DES-template name (e.g. `primary_subject_id`) rather than by the control-layer wire name.
 - **Not yet specified:** multi-page correlation (one claim packet containing N sub-forms), fax gateway ingress, and webhook callback on emission (for customers who want push notifications after extraction completes).

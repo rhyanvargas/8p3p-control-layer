@@ -17,7 +17,7 @@ This spec does three surgical things:
 
 1. **Refactor** `forbidden-keys.ts` to split the set into `FORBIDDEN_PII_KEYS` and `FORBIDDEN_SEMANTIC_KEYS`, export both, keep `FORBIDDEN_KEYS` as a union for backward compatibility, and extend `detectForbiddenKeys` to report which category fired. **Zero behavior change in live ingestion.**
 2. **Add** `POST /v1/admin/ingestion/preflight`, a read-only dry-run endpoint that accepts a raw sample payload (plus optional `org_id` + `source_system`) and returns `{ forbidden_pii[], forbidden_semantic[], mapping_suggestions[] }` without writing, applying idempotency, or persisting anything. Auth: `ADMIN_API_KEY` (same model as `docs/specs/policy-management-api.md`).
-3. **Pilot-blocking gate (CEO direction 2026-05-15).** This endpoint is the entry gate for every new customer feed in the streaming-first ingestion strategy (`internal-docs/foundation/roadmap.md` items 29–31, Pilot Wave 4). The readiness-doc gate rows in `internal-docs/pilot-operations/pilot-readiness-definition.md` (§ Integration BLOCKING row + § Customer Readiness § Technical) are **scheduled in TASK-016** of `.cursor/plans/ingestion-preflight.plan.md` — not yet on disk. When landed, the technical row will require: "Raw sample payload preflight clean — `forbidden_pii: []` (non-negotiable) AND `forbidden_semantic_after_mapping: []` after the tenant field-mapping is registered." Without this gate passing, the live feed is not enabled — regardless of which ingestion path (template / webhook / SFTP-drop / direct-API) the customer is using.
+3. **Pilot-blocking gate (CEO direction 2026-05-15).** This endpoint is the entry gate for every new customer feed in the streaming-first ingestion strategy (`docs/foundation/roadmap.md` items 29–31, Pilot Wave 4). The readiness gate rows in [`docs/guides/pilot-readiness-gates.md`](../guides/pilot-readiness-gates.md) (§ Integration BLOCKING row + § Customer Readiness § Technical) codify the requirement: "Raw sample payload preflight clean — `forbidden_pii: []` (non-negotiable) AND `forbidden_semantic_after_mapping: []` after the tenant field-mapping is registered." Without this gate passing, the live feed is not enabled — regardless of which ingestion path (template / webhook / SFTP-drop / direct-API) the customer is using.
 
 What this is **not**: a per-tenant semantic-key allowlist, a relaxation of PII rejection, or any change to live `POST /v1/signals` behavior. The mapping layer remains the only escape hatch for legitimate raw shapes.
 
@@ -120,7 +120,7 @@ What this is **not**: a per-tenant semantic-key allowlist, a relaxation of PII r
 - LLM- or heuristic-driven mapping suggestions (v2 if pilot demand justifies it).
 - A customer-facing preflight endpoint under `/v1` (non-admin) — if a pilot customer wants self-serve preflight, revisit after Springs goes live.
 - Per-org semantic-key allowlist or soft-warn mode — see rationale above.
-- Batch preflight (multi-payload one-request) — a single sample is the documented CS workflow per `internal-docs/pilot-operations/pilot-readiness-definition.md`.
+- Batch preflight (multi-payload one-request) — a single sample is the documented CS workflow per [`docs/guides/pilot-readiness-gates.md`](../guides/pilot-readiness-gates.md).
 - A corresponding CLI wrapper (`scripts/preflight-sample.mjs`). Nice-to-have; can ship as a follow-up using the same helper module pattern as `scripts/lib/preflight-policies.mjs` (`docs/specs/seed-preflight-policy-check.md`). Not required for the readiness gate.
 
 ---
@@ -151,7 +151,7 @@ Per `.cursor/rules/prefer-existing-solutions/RULE.md`:
 
 | Capability | Used By |
 |-----------|---------|
-| `POST /v1/admin/ingestion/preflight` | `internal-docs/pilot-operations/pilot-readiness-definition.md` § Integration gate (new row); CS/Solutions during pilot intake; future `scripts/preflight-sample.mjs` CLI |
+| `POST /v1/admin/ingestion/preflight` | [`docs/guides/pilot-readiness-gates.md`](../guides/pilot-readiness-gates.md) § Integration gate; CS/Solutions during pilot intake; future `scripts/preflight-sample.mjs` CLI |
 | Exported `FORBIDDEN_PII_KEYS` / `FORBIDDEN_SEMANTIC_KEYS` | `docs/specs/pilot-research-export.md` (PII scrubber can reuse the PII set as its canonical list); future FERPA redaction layers |
 | `ForbiddenKeyResult.category` field | Structured log consumers; future `GET /v1/admin/ingestion/rejections?category=pii` (not in scope) |
 
@@ -293,7 +293,7 @@ N/A — admin API does not use cookies.
 - **Why admin-only, not a public `/v1/*` endpoint?** The pilot workflow runs this from CS during intake; there is no customer-facing self-serve story in v1. Admin auth also avoids a free enumeration surface for the forbidden-key catalog. When/if a post-pilot customer needs self-serve preflight, a `POST /v1/ingestion/preflight` variant can be added that reuses this handler's core logic with tenant-key auth.
 - **Why don't we mutate payloads during mapping simulation?** `normalizeAndValidateTenantPayload` is already non-destructive (`docs/specs/tenant-field-mappings.md` § alias normalization: "Normalization only *adds* canonical fields"). Simulation inherits that property for free. The semantic gate running on the raw `score` key is the desired behavior at ingestion time — preflight tells the operator it would fire, and the operator registers the mapping so the **canonical** payload is clean.
 - **Why static mapping-suggestions catalog instead of heuristics?** Static is reviewable, testable, and cannot drift. The rationale strings are written for operators, not for models. The catalog grows via PR as new source systems come online — exactly when a human is already writing the template.
-- **Pilot readiness gate (TASK-016).** The integration-gate row in `internal-docs/pilot-operations/pilot-readiness-definition.md` § Integration ("Preflight passes on raw sample — BLOCKING") and the customer-readiness row ("Raw sample payload preflight clean") will codify the gate when TASK-016 lands. Before merge of the endpoint implementation, verify both rows match the response shape defined here (`forbidden_pii`, `forbidden_semantic_after_mapping`, `verdict`).
+- **Pilot readiness gate.** The integration-gate row in [`docs/guides/pilot-readiness-gates.md`](../guides/pilot-readiness-gates.md) § Integration ("Preflight passes on raw sample — BLOCKING") and the customer-readiness row ("Raw sample payload preflight clean") codify the gate. Before merge of the endpoint implementation, verify both rows match the response shape defined here (`forbidden_pii`, `forbidden_semantic_after_mapping`, `verdict`).
 - **Relation to `docs/specs/seed-preflight-policy-check.md`.** That spec names a CLI-side "preflight" for policy presence. This spec names a server-side preflight for payload shape. They are complementary and share the naming convention intentionally: both run before a pilot feed is trusted. Neither depends on the other.
 
 ---

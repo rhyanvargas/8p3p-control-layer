@@ -4,7 +4,7 @@
 
 ## Overview
 
-An LIU (Learning Intelligence Unit) is one governed learning decision: signals in → state updated → policy applied → decision produced = 1 LIU. LIU is the core billing metric for usage-based pricing. For the billing model to function — and for admins to monitor consumption — the platform must count and expose LIU volume per org per month. See `internal-docs/foundation/roadmap.md` for pricing details.
+An LIU (Learning Intelligence Unit) is one governed learning decision: signals in → state updated → policy applied → decision produced = 1 LIU. LIU is the core billing metric for usage-based pricing. For the billing model to function — and for admins to monitor consumption — the platform must count and expose LIU volume per org per month. See [`docs/foundation/roadmap.md`](../foundation/roadmap.md) for pricing details.
 
 This spec adds:
 1. **LIU counter** — a lightweight per-org monthly counter incremented atomically on each successful decision
@@ -26,7 +26,7 @@ The counter is derived from the existing decision pipeline — no new computatio
 | `GET /v1/state` or any inspection endpoint | **No** | Read-only |
 | Admin operations (PUT policy, etc.) | **No** | Configuration, not learning decisions |
 
-This aligns with `internal-docs/pilot-operations/pilot-runbook.md` § Policy rule: *"If no policy rule matches, no decision is created and no LIU is counted."* The engine enforces this behavior — see `evaluateState()` in `src/decision/engine.ts`.
+This aligns with internal pilot runbook (local `internal-docs/`, not in public repo) § Policy rule: *"If no policy rule matches, no decision is created and no LIU is counted."* The engine enforces this behavior — see `evaluateState()` in `src/decision/engine.ts`.
 
 **Rule:** 1 LIU = 1 new row in the decisions store. The counter increments in the same transaction/write path as `saveDecision()`.
 

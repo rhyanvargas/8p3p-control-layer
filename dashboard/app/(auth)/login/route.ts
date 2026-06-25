@@ -13,6 +13,7 @@ import { clearFailures, recordFailure } from '@/lib/login-rate-limiter';
 import { RATE_LIMIT_HTML, renderLoginHtml } from '@/lib/login-page';
 import {
   buildSetCookieAttributes,
+  FB_SESSION_COOKIE_NAME,
   getSessionCookieName,
   isSecureCookieContext,
 } from '@/lib/session-cookie-edge';
@@ -90,16 +91,26 @@ export async function POST(request: NextRequest) {
   const cookieName = getSessionCookieName(secure);
   const attrs = buildSetCookieAttributes({ maxAgeSeconds, secure });
 
-  const response = NextResponse.redirect(new URL('/', request.url), 303);
-  response.cookies.set({
-    name: cookieName,
+  const host = request.headers.get('host');
+  const redirectTarget =
+    host != null
+      ? new URL('/', `${request.nextUrl.protocol}//${host}`)
+      : request.nextUrl.clone();
+  redirectTarget.pathname = '/';
+  redirectTarget.search = '';
+
+  const response = NextResponse.redirect(redirectTarget, 303);
+  const cookieOpts = {
     value: signed,
     httpOnly: attrs.httpOnly,
     secure: attrs.secure,
     sameSite: attrs.sameSite,
     path: attrs.path,
     maxAge: attrs.maxAge,
-  });
+  };
+
+  response.cookies.set({ name: cookieName, ...cookieOpts });
+  response.cookies.set({ name: FB_SESSION_COOKIE_NAME, ...cookieOpts });
 
   return response;
 }

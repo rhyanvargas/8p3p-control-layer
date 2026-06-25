@@ -13,7 +13,7 @@ This spec adds a **bulk export** endpoint and CLI that produces a versioned, sel
 - **De-identification:** pseudonymous `learner_reference` only; every free-text field is scrubbed against the forbidden-PII keys list (`src/ingestion/forbidden-keys.ts`) plus a name/email/phone regex sweep
 - **Self-describing:** every bundle includes a `MANIFEST.json` with schema versions, export params, policy versions referenced, MC-metric values at export time, and a SHA-256 of each file for integrity
 
-The bundle is the **single artifact** we hand a DOE reviewer. It pairs with the logic model (`internal-docs/foundation/logic-model.md`) and the metrics spec (`program-metrics.md`) to form the complete evidence package.
+The bundle is the **single artifact** we hand a DOE reviewer. It pairs with the logic model (internal only; sanitized version out of scope for v1) and the metrics spec (`program-metrics.md`) to form the complete evidence package.
 
 ---
 
@@ -117,7 +117,7 @@ Auto-generated. Includes:
 - Schema notes and field-by-field definitions
 - "How to cite" (suggested citation text for academic reviewers)
 - Known caveats: session-cookie identity vs. per-educator identity (per `educator-feedback-api.md` § Constraints); window-not-elapsed `pending` outcomes; policy evolution mid-window
-- FERPA / data handling statement lifted from `internal-docs/pilot-operations/pilot-runbook.md` § Privacy
+- FERPA / data handling statement lifted from internal pilot runbook (local `internal-docs/`, not in public repo) § Privacy
 
 ---
 
@@ -125,7 +125,7 @@ Auto-generated. Includes:
 
 Two layers, applied in order during export:
 
-1. **Structural.** The export tool rejects (fails the export) if any row contains a key in `src/ingestion/forbidden-keys.ts` at top level or at `data.*` / `state_snapshot.*` / `decision_context.*`. This is the same list that hardens `POST /v1/signals` today — if a forbidden key made it through to storage, it's a breach we want to stop at export, not continue.
+1. **Structural.** The export tool rejects (fails the export) if any row contains a key in `src/ingestion/forbidden-keys.ts` at top level or at `data.*` / `state_snapshot.*` / `decision_context.*` / `policies/*.json`. This is the same list that hardens `POST /v1/signals` today — if a forbidden key made it through to storage, it's a breach we want to stop at export, not continue. The manifest records the full scan scope in `de_identification.structural_scan_scope` (see § `MANIFEST.json`).
 2. **Textual.** Free-text fields (`decision_feedback.reason_text`, `trace.rationale`, `trace.educator_summary`, `policies/*.json` if the site put names into rule descriptions) are scanned with a small regex sweep:
    - Email: `[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}` → replaced with `[EMAIL_REDACTED]`
    - US phone: `\b\d{3}[-.\s]?\d{3}[-.\s]?\d{4}\b` → `[PHONE_REDACTED]`

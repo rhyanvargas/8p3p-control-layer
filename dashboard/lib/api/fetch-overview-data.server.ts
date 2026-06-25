@@ -14,6 +14,8 @@ import type {
 import {
   computeOverviewKpis,
   computeRecentDecisions,
+  localDateKeyFromDate,
+  toLocalDateKey,
   type OverviewKpis,
 } from '@/lib/overview-metrics';
 import type { Decision } from '@/lib/api/types';
@@ -77,8 +79,8 @@ export const getOverviewData = cache(async (orgId: string): Promise<OverviewData
   const learnerStates = await fetchLearnerStatesSample(orgId, learnerRefs);
 
   const ingestionToday = ingestionEntries.filter((entry) => {
-    const todayKey = new Date().toISOString().slice(0, 10);
-    return entry.received_at.slice(0, 10) === todayKey;
+    const todayKey = localDateKeyFromDate(new Date());
+    return toLocalDateKey(entry.received_at) === todayKey;
   });
 
   const kpis = computeOverviewKpis(decisions, ingestionToday, learnerStates);

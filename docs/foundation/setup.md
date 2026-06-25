@@ -225,7 +225,7 @@ Script: [`examples/springs/seed-springs-demo.mjs`](../../examples/springs/seed-s
 | Phase | What it does |
 |-------|----------------|
 | 1 | Registers field mappings for 4 LMS sources (needs `ADMIN_API_KEY` or `--admin-key`) |
-| 2 | Ingests 11 signals for 5 personas |
+| 2 | Ingests 24 synthesized signals for 6 personas (learning gaps, trajectories, gifted-interest) |
 | 3 | Verifies decision narrative + prints `mastery_breakdown` for Jordan Mitchell |
 
 ```bash

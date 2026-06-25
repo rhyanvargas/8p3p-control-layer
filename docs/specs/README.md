@@ -8,7 +8,9 @@ Specs are organized by **lifecycle status** so the active pilot path is obvious:
 - **Shipped** — implemented and in the codebase; kept as the interface source of truth for regression/contract safety.
 - **Deferred / forward-looking** — drafted but not scheduled.
 
-Roadmap and sequencing: [`internal-docs/foundation/roadmap.md`](../../internal-docs/foundation/roadmap.md).
+Roadmap and sequencing: [`docs/foundation/roadmap.md`](../foundation/roadmap.md).
+
+**MUST-read before adding docs or public surfaces:** [`docs/foundation/documentation-boundaries.md`](../foundation/documentation-boundaries.md) — tier model and agent reading order.
 
 ---
 
@@ -16,15 +18,16 @@ Roadmap and sequencing: [`internal-docs/foundation/roadmap.md`](../../internal-d
 
 | Spec | Role | Status |
 |------|------|--------|
-| [`ai-educator-explanations.md`](ai-educator-explanations.md) | **P0** — plain-language "why" for learning decay; confidence-not-grade; auditable (Bedrock Converse → template fallback, PII-safe) | Spec'd + plan staged (2026-06-23); impl pending |
-| [`overview-cross-filter-sync.md`](overview-cross-filter-sync.md) | Decision Panel D2 — opt-in 2-way linked filtering (default OFF); client-only | Spec'd (2026-06-23) |
-| [`dashboard-design-requirements.md`](dashboard-design-requirements.md) | **Design source of truth** for the redesigned dashboard (shadcn `dashboard-01` baseline) | Active |
+| [`ai-educator-explanations.md`](ai-educator-explanations.md) | **P0** — plain-language "why" for learning decay; confidence-not-grade; auditable (AI SDK `generateText` → null fallback, PII-safe) | Spec'd + plan staged (2026-06-25); impl pending |
+| [`overview-cross-filter-sync.md`](overview-cross-filter-sync.md) | Decision Panel D2 — opt-in 2-way linked filtering (default OFF); client-only | Impl complete on branch (2026-06-25) |
+| [`dashboard-design-requirements.md`](dashboard-design-requirements.md) | **Design source of truth** for the redesigned dashboard (shadcn `dashboard-01` baseline) | Active — D1/D2/D3 data-viz directives shipped on branch |
 | [`customer-feedback-loop.md`](customer-feedback-loop.md) | Product-level feedback: always-on "Send feedback" + CSAT microsurvey + `GET /v1/admin/feedback` | Spec'd (2026-06-23); plan pending |
-| [`program-metrics.md`](program-metrics.md) | MC-A*/B*/C* catalog + `GET /v1/admin/program-metrics` (SBIR evidence) | Spec'd; plan committed, impl pending |
-| [`educator-feedback-api.md`](educator-feedback-api.md) | `POST /v1/decisions/:id/feedback` + view log; feeds MC-B*/MC-C* | Spec'd + plan staged |
+| [`liu-usage-meter.md`](liu-usage-meter.md) | `GET /v1/admin/usage` + `GET /v1/usage`; SBIR volume denominator (pre-Month 0 per `program-metrics.md` § Overview) | Spec'd; plan committed, impl pending |
+| [`educator-feedback-api.md`](educator-feedback-api.md) | `POST /v1/decisions/:id/feedback` + view log; feeds MC-B*/MC-C* | Backend shipped (`src/feedback/`); dashboard POST wired (Track 2, 2026-06-25) |
+| [`attention-review-ux.md`](attention-review-ux.md) | Approve/Reject closure on `/attention` (toast, undo, review store, Recently reviewed); Educator Feedback API wiring | Phases 1–3 impl complete on branch (2026-06-25) |
 | [`decision-outcomes.md`](decision-outcomes.md) | Derived view joining decisions → state deltas; feeds MC-C* | Spec'd + plan staged |
+| [`program-metrics.md`](program-metrics.md) | MC-A*/B*/C* catalog + `GET /v1/admin/program-metrics` (SBIR evidence; depends on LIU + feedback + outcomes) | Spec'd; plan committed, impl pending |
 | [`pilot-research-export.md`](pilot-research-export.md) | FERPA-safe de-identified bundle for DOE/IES reviewers | Spec'd + plan staged |
-| [`liu-usage-meter.md`](liu-usage-meter.md) | `GET /v1/admin/usage` + `GET /v1/usage`; SBIR volume denominator | Spec'd; plan committed, impl pending |
 | [`tenant-config.md`](tenant-config.md) | Per-org overridable business rules + admin API; not pilot-blocking | Spec'd + plan staged |
 | [`ci-cd-pipeline.md`](ci-cd-pipeline.md) | GitHub Actions: merge-gate CI + Deploy→Pilot (Fly.io) + Deploy→Prod (AWS CDK) | Spec'd + plan staged |
 
@@ -73,11 +76,11 @@ Roadmap and sequencing: [`internal-docs/foundation/roadmap.md`](../../internal-d
 - [`tiered-data-classification.md`](tiered-data-classification.md) — per-field `allow | tokenize | encrypt | reject` policy; evaluates Presidio / AWS Comprehend
 - [`document-extraction-service.md`](document-extraction-service.md) — **parked**; PDF/image → SignalEnvelope; depends on `tiered-data-classification.md`
 
-See [`internal-docs/compliance-security-posture-and-migration-path.md`](../../internal-docs/compliance-security-posture-and-migration-path.md) for how forward-looking specs fit the phased path.
+See the internal compliance posture doc (local only) for how forward-looking specs fit the phased path.
 
 ---
 
 - **API reference:** [`docs/api/openapi.yaml`](../api/openapi.yaml)
 - **Architecture overview:** [`docs/foundation/architecture.md`](../foundation/architecture.md)
 - **Terminology:** [`docs/foundation/terminology.md`](../foundation/terminology.md)
-- **API naming conventions:** [`internal-docs/foundation/api-naming-conventions.md`](../../internal-docs/foundation/api-naming-conventions.md) — durability rule for route/module names (MUST-read before adding a new public surface)
+- **API naming conventions:** [`docs/foundation/api-naming-conventions.md`](../foundation/api-naming-conventions.md) — durability rule for route/module names (MUST-read before adding a new public surface)

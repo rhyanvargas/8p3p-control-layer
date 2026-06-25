@@ -12,7 +12,8 @@
   "scripts": {
     "precheck": "node scripts/ensure-better-sqlite3.mjs",
     "dev": "tsx watch src/server.ts",
-    "build": "tsc",
+    "build": "npm run build:explanation && tsc",
+    "build:explanation": "cd services/explanation && npm ci --quiet && npm run build",
     "start": "node dist/server.js",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -46,6 +47,7 @@
   },
   "homepage": "https://github.com/rhyanvargas/8p3p-control-layer#readme",
   "dependencies": {
+    "@8p3p/explanation": "file:services/explanation",
     "@aws-sdk/client-dynamodb": "^3.1019.0",
     "@aws-sdk/lib-dynamodb": "^3.1027.0",
     "@aws-sdk/util-dynamodb": "^3.996.2",

@@ -93,7 +93,14 @@ function effectiveOrgId(event: APIGatewayProxyEvent, query: Record<string, strin
 function feedbackSessionId(event: APIGatewayProxyEvent): { ok: true; sessionId: string } | { ok: false; status: number; body: unknown } {
   const secret = process.env.COOKIE_SECRET ?? '';
   if (!secret || secret.length < 32) {
-    return { ok: false, status: 500, body: { error: 'Invalid server configuration.' } };
+    return {
+      ok: false,
+      status: 500,
+      body: {
+        code: ErrorCodes.INVALID_SERVER_CONFIGURATION,
+        message: 'Server session secret is not configured.',
+      },
+    };
   }
   const raw = readCookie(event, FEEDBACK_SESSION_COOKIE_NAME);
   if (!raw) {
