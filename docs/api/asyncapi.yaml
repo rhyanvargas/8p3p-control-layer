@@ -212,6 +212,9 @@ components:
               type: string
               minLength: 1
               description: Teacher-facing short label for this decision type (runbook § Shortest version).
+            educator_explanation:
+              type: ['string', 'null']
+              description: AI narrative explanation (AI SDK); null when disabled/degraded — see ai-educator-explanations.md
         output_metadata:
           type: object
           description: Output metadata for downstream (priority, TTL, targets)

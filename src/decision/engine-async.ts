@@ -14,6 +14,10 @@ import { validateEvaluateRequest, validateDecisionContext } from './validator.js
 import { loadPolicyForContext, evaluatePolicy } from './policy-loader.js';
 import { extractCanonicalSnapshot, buildRationale } from './engine.js';
 import { DECISION_TYPE_TO_EDUCATOR_SUMMARY } from './educator-summaries.js';
+import {
+  selectExplanationGenerator,
+  type ExplanationGenerator,
+} from './explanation-client.js';
 
 export interface EvaluateStateAsyncPort {
   getState(orgId: string, learnerReference: string): Promise<LearnerState | null>;
@@ -22,7 +26,8 @@ export interface EvaluateStateAsyncPort {
 
 export async function evaluateStateAsync(
   request: EvaluateStateForDecisionRequest,
-  port: EvaluateStateAsyncPort
+  port: EvaluateStateAsyncPort,
+  generator: ExplanationGenerator = selectExplanationGenerator()
 ): Promise<EvaluateDecisionOutcome> {
   const validation = validateEvaluateRequest(request);
   if (!validation.valid) {
@@ -108,6 +113,14 @@ export async function evaluateStateAsync(
     return { ok: false, errors: contextValidation.errors };
   }
 
+  const educatorExplanation = await generator.generate({
+    decision_type: evalResult.decision_type,
+    skill: decisionContext['skill'] as string | undefined,
+    rationale,
+    evaluated_fields: evalResult.evaluated_fields ?? [],
+    state_snapshot: stateSnapshot,
+  });
+
   const decision: Decision = {
     org_id: request.org_id,
     decision_id: crypto.randomUUID(),
@@ -125,6 +138,7 @@ export async function evaluateStateAsync(
       matched_rule: evalResult.matched_rule ?? null,
       rationale,
       educator_summary: DECISION_TYPE_TO_EDUCATOR_SUMMARY[evalResult.decision_type],
+      educator_explanation: educatorExplanation,
     },
     output_metadata: { priority },
   };

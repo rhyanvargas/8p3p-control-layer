@@ -128,10 +128,10 @@ describe('Decision Engine', () => {
   // Happy path
   // -----------------------------------------------------------------------
   describe('happy path', () => {
-    it('should return { ok: true, matched: true, result: Decision } with valid request', () => {
+    it('should return { ok: true, matched: true, result: Decision } with valid request', async () => {
       const { state_id, state_version } = setupLearnerState();
 
-      const outcome = evaluateState({
+      const outcome = await evaluateState({
         org_id: 'org-A',
         learner_reference: 'learner-1',
         state_id,
@@ -151,10 +151,10 @@ describe('Decision Engine', () => {
       }
     });
 
-    it('should include correct trace fields', () => {
+    it('should include correct trace fields', async () => {
       const { state_id, state_version } = setupLearnerState();
 
-      const outcome = evaluateState({
+      const outcome = await evaluateState({
         org_id: 'org-A',
         learner_reference: 'learner-1',
         state_id,
@@ -177,8 +177,8 @@ describe('Decision Engine', () => {
   // Validation failures
   // -----------------------------------------------------------------------
   describe('validation failures', () => {
-    it('should reject with org_scope_required when org_id is missing', () => {
-      const outcome = evaluateState({
+    it('should reject with org_scope_required when org_id is missing', async () => {
+      const outcome = await evaluateState({
         learner_reference: 'learner-1',
         state_id: 'some-id',
         state_version: 1,
@@ -193,8 +193,8 @@ describe('Decision Engine', () => {
       }
     });
 
-    it('should reject with missing_required_field when learner_reference is missing', () => {
-      const outcome = evaluateState({
+    it('should reject with missing_required_field when learner_reference is missing', async () => {
+      const outcome = await evaluateState({
         org_id: 'org-A',
         state_id: 'some-id',
         state_version: 1,
@@ -214,8 +214,8 @@ describe('Decision Engine', () => {
   // State not found
   // -----------------------------------------------------------------------
   describe('state not found', () => {
-    it('should reject with state_not_found when no state exists for learner', () => {
-      const outcome = evaluateState({
+    it('should reject with state_not_found when no state exists for learner', async () => {
+      const outcome = await evaluateState({
         org_id: 'org-A',
         learner_reference: 'nonexistent-learner',
         state_id: 'fake-id',
@@ -235,10 +235,10 @@ describe('Decision Engine', () => {
   // State version mismatch
   // -----------------------------------------------------------------------
   describe('state version mismatch', () => {
-    it('should reject with trace_state_mismatch when state_version differs', () => {
+    it('should reject with trace_state_mismatch when state_version differs', async () => {
       const { state_id } = setupLearnerState();
 
-      const outcome = evaluateState({
+      const outcome = await evaluateState({
         org_id: 'org-A',
         learner_reference: 'learner-1',
         state_id,
@@ -253,10 +253,10 @@ describe('Decision Engine', () => {
       }
     });
 
-    it('should reject with trace_state_mismatch when state_id differs', () => {
+    it('should reject with trace_state_mismatch when state_id differs', async () => {
       const { state_version } = setupLearnerState();
 
-      const outcome = evaluateState({
+      const outcome = await evaluateState({
         org_id: 'org-A',
         learner_reference: 'learner-1',
         state_id: 'wrong-state-id',
@@ -276,10 +276,10 @@ describe('Decision Engine', () => {
   // Decision is persisted
   // -----------------------------------------------------------------------
   describe('persistence', () => {
-    it('should persist decision retrievable via getDecisionById', () => {
+    it('should persist decision retrievable via getDecisionById', async () => {
       const { state_id, state_version } = setupLearnerState();
 
-      const outcome = evaluateState({
+      const outcome = await evaluateState({
         org_id: 'org-A',
         learner_reference: 'learner-1',
         state_id,
@@ -293,7 +293,13 @@ describe('Decision Engine', () => {
         expect(retrieved).not.toBeNull();
         expect(retrieved!.decision_id).toBe(outcome.result.decision_id);
         expect(retrieved!.decision_type).toBe(outcome.result.decision_type);
-        expect(retrieved!.trace).toEqual(outcome.result.trace);
+        expect({
+          ...retrieved!.trace,
+          educator_explanation: retrieved!.trace.educator_explanation ?? null,
+        }).toEqual({
+          ...outcome.result.trace,
+          educator_explanation: outcome.result.trace.educator_explanation ?? null,
+        });
       }
     });
   });
@@ -302,7 +308,7 @@ describe('Decision Engine', () => {
   // Determinism (DEC-006 unit-level)
   // -----------------------------------------------------------------------
   describe('determinism', () => {
-    it('should produce the same decision_type for the same input state (DEC-006)', () => {
+    it('should produce the same decision_type for the same input state (DEC-006)', async () => {
       const { state_id, state_version } = setupLearnerState();
 
       const request: EvaluateStateForDecisionRequest = {
@@ -313,14 +319,14 @@ describe('Decision Engine', () => {
         requested_at: new Date().toISOString(),
       };
 
-      const outcome1 = evaluateState(request);
+      const outcome1 = await evaluateState(request);
       expect(outcome1.ok).toBe(true);
       expect(outcome1.matched).toBe(true);
 
       // Clear decisions so we can evaluate again (same state, fresh decision store)
       clearDecisionStore();
 
-      const outcome2 = evaluateState(request);
+      const outcome2 = await evaluateState(request);
       expect(outcome2.ok).toBe(true);
       expect(outcome2.matched).toBe(true);
 
@@ -446,7 +452,7 @@ describe('Decision Engine', () => {
       expect(snapshot).not.toHaveProperty('extra');
     });
 
-    it('should produce canonical-only snapshot in full engine evaluation', () => {
+    it('should produce canonical-only snapshot in full engine evaluation', async () => {
       const { state_id, state_version } = setupLearnerState('org-A', 'learner-1', {
         stabilityScore: 0.3,
         timeSinceReinforcement: 100000,
@@ -454,7 +460,7 @@ describe('Decision Engine', () => {
         age: 5,
       });
 
-      const outcome = evaluateState({
+      const outcome = await evaluateState({
         org_id: 'org-A',
         learner_reference: 'learner-1',
         state_id,
@@ -477,13 +483,13 @@ describe('Decision Engine', () => {
   // Different state payloads → different outcomes
   // -----------------------------------------------------------------------
   describe('policy evaluation outcomes', () => {
-    it('should return reinforce (rule match) when stabilityScore < 0.7 and timeSinceReinforcement > 86400', () => {
+    it('should return reinforce (rule match) when stabilityScore < 0.7 and timeSinceReinforcement > 86400', async () => {
       const { state_id, state_version } = setupLearnerState('org-A', 'learner-1', {
         stabilityScore: 0.3,
         timeSinceReinforcement: 100000,
       });
 
-      const outcome = evaluateState({
+      const outcome = await evaluateState({
         org_id: 'org-A',
         learner_reference: 'learner-1',
         state_id,
@@ -498,13 +504,13 @@ describe('Decision Engine', () => {
       }
     });
 
-    it('should return matched: false when stabilityScore >= 0.7 (no rule match)', () => {
+    it('should return matched: false when stabilityScore >= 0.7 (no rule match)', async () => {
       const { state_id, state_version } = setupLearnerState('org-A', 'learner-1', {
         stabilityScore: 0.9,
         timeSinceReinforcement: 100000,
       });
 
-      const outcome = evaluateState({
+      const outcome = await evaluateState({
         org_id: 'org-A',
         learner_reference: 'learner-1',
         state_id,
@@ -515,13 +521,13 @@ describe('Decision Engine', () => {
       expect(outcome).toEqual({ ok: true, matched: false });
     });
 
-    it('should return matched: false when timeSinceReinforcement <= 86400 (no rule match)', () => {
+    it('should return matched: false when timeSinceReinforcement <= 86400 (no rule match)', async () => {
       const { state_id, state_version } = setupLearnerState('org-A', 'learner-1', {
         stabilityScore: 0.3,
         timeSinceReinforcement: 1000,
       });
 
-      const outcome = evaluateState({
+      const outcome = await evaluateState({
         org_id: 'org-A',
         learner_reference: 'learner-1',
         state_id,
@@ -532,13 +538,13 @@ describe('Decision Engine', () => {
       expect(outcome).toEqual({ ok: true, matched: false });
     });
 
-    it('should return reinforce via springs fallback when no specific learner rule matches', () => {
+    it('should return reinforce via springs fallback when no specific learner rule matches', async () => {
       const { state_id, state_version } = setupLearnerState('springs', 'learner-borderline', {
         stabilityScore: 0.7,
         timeSinceReinforcement: 50000,
       });
 
-      const outcome = evaluateState({
+      const outcome = await evaluateState({
         org_id: 'springs',
         learner_reference: 'learner-borderline',
         state_id,
@@ -610,10 +616,10 @@ describe('Decision Engine', () => {
 
     it.each(cases)(
       'maps $decision_type to runbook shortest label on trace.educator_summary',
-      ({ decision_type, expectedSummary, payload }) => {
+      async ({ decision_type, expectedSummary, payload }) => {
         const { state_id, state_version } = setupLearnerState('org-A', `learner-${decision_type}`, payload);
 
-        const outcome = evaluateState({
+        const outcome = await evaluateState({
           org_id: 'org-A',
           learner_reference: `learner-${decision_type}`,
           state_id,

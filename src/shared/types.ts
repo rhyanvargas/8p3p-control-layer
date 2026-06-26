@@ -455,6 +455,8 @@ export interface Decision {
     rationale: string;
     /** Teacher-facing short label for this decision type (runbook § Shortest version). */
     educator_summary: string;
+    /** AI narrative explanation (AI SDK); null when disabled/degraded — see ai-educator-explanations.md */
+    educator_explanation?: string | null;
   };
   /** Output metadata for downstream (priority = 1-based rule index) */
   output_metadata?: OutputMetadata;

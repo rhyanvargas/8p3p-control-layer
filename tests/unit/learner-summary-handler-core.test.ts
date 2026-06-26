@@ -370,10 +370,12 @@ describe('summary-handler-core', () => {
           'decided_at',
           'decision_id',
           'decision_type',
+          'educator_explanation',
           'educator_summary',
           'matched_rule_id',
           'policy_version',
           'rationale',
+          'skill',
         ].toSorted()
       );
       expect(body.recent_decisions[0]!.educator_summary).toBe('summary');

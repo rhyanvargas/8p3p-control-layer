@@ -111,7 +111,7 @@ describe('Decision Engine Contract Tests', () => {
   // ---------------------------------------------------------------------------
 
   describe('DEC-001: Evaluate Decision Happy Path', () => {
-    it('should return valid Decision with trace for valid request', () => {
+    it('should return valid Decision with trace for valid request', async () => {
       const { state_id, state_version, org_id, learner_reference } = createStateViaSignal({
         stabilityScore: 0.5,
         masteryScore: 0.5,
@@ -120,7 +120,7 @@ describe('Decision Engine Contract Tests', () => {
         riskSignal: 0.2,
       });
 
-      const outcome = evaluateState({
+      const outcome = await evaluateState({
         org_id,
         learner_reference,
         state_id,
@@ -155,7 +155,7 @@ describe('Decision Engine Contract Tests', () => {
       ).toBe(true);
     });
 
-    it('should persist decision (retrievable via getDecisionById)', () => {
+    it('should persist decision (retrievable via getDecisionById)', async () => {
       const { state_id, state_version, org_id, learner_reference } = createStateViaSignal({
         stabilityScore: 0.5,
         masteryScore: 0.5,
@@ -164,7 +164,7 @@ describe('Decision Engine Contract Tests', () => {
         riskSignal: 0.2,
       });
 
-      const outcome = evaluateState({
+      const outcome = await evaluateState({
         org_id,
         learner_reference,
         state_id,
@@ -183,7 +183,7 @@ describe('Decision Engine Contract Tests', () => {
       expect(persisted!.trace.state_version).toBe(state_version);
     });
 
-    it('should pass Ajv schema validation on the produced Decision', () => {
+    it('should pass Ajv schema validation on the produced Decision', async () => {
       const { state_id, state_version, org_id, learner_reference } = createStateViaSignal({
         stabilityScore: 0.5,
         masteryScore: 0.5,
@@ -192,7 +192,7 @@ describe('Decision Engine Contract Tests', () => {
         riskSignal: 0.2,
       });
 
-      const outcome = evaluateState({
+      const outcome = await evaluateState({
         org_id,
         learner_reference,
         state_id,
@@ -326,7 +326,7 @@ describe('Decision Engine Contract Tests', () => {
   // ---------------------------------------------------------------------------
 
   describe('DEC-006: Deterministic Decision Output', () => {
-    it('should produce identical decision_type and matched_rule_id for same state evaluated twice', () => {
+    it('should produce identical decision_type and matched_rule_id for same state evaluated twice', async () => {
       const { state_id, state_version, org_id, learner_reference } = createStateViaSignal({
         stabilityScore: 0.5,
         masteryScore: 0.5,
@@ -335,7 +335,7 @@ describe('Decision Engine Contract Tests', () => {
         riskSignal: 0.2,
       });
 
-      const outcome1 = evaluateState({
+      const outcome1 = await evaluateState({
         org_id,
         learner_reference,
         state_id,
@@ -343,7 +343,7 @@ describe('Decision Engine Contract Tests', () => {
         requested_at: new Date().toISOString(),
       });
 
-      const outcome2 = evaluateState({
+      const outcome2 = await evaluateState({
         org_id,
         learner_reference,
         state_id,
@@ -369,7 +369,7 @@ describe('Decision Engine Contract Tests', () => {
       expect(outcome1.result.decision_id).not.toBe(outcome2.result.decision_id);
     });
 
-    it('should produce deterministic matched:false on no-rule-match path', () => {
+    it('should produce deterministic matched:false on no-rule-match path', async () => {
       const { state_id, state_version, org_id, learner_reference } = createStateViaSignal({
         stabilityScore: 0.9,
         masteryScore: 0.6,
@@ -378,7 +378,7 @@ describe('Decision Engine Contract Tests', () => {
         riskSignal: 0.1,
       });
 
-      const outcome1 = evaluateState({
+      const outcome1 = await evaluateState({
         org_id,
         learner_reference,
         state_id,
@@ -386,7 +386,7 @@ describe('Decision Engine Contract Tests', () => {
         requested_at: new Date().toISOString(),
       });
 
-      const outcome2 = evaluateState({
+      const outcome2 = await evaluateState({
         org_id,
         learner_reference,
         state_id,
@@ -404,13 +404,13 @@ describe('Decision Engine Contract Tests', () => {
   // ---------------------------------------------------------------------------
 
   describe('DEC-007: Trace-State Mismatch', () => {
-    it('should reject with trace_state_mismatch when state_version does not match', () => {
+    it('should reject with trace_state_mismatch when state_version does not match', async () => {
       const { state_id, state_version, org_id, learner_reference } = createStateViaSignal({
         stabilityScore: 0.5,
         timeSinceReinforcement: 100000,
       });
 
-      const outcome = evaluateState({
+      const outcome = await evaluateState({
         org_id,
         learner_reference,
         state_id,
@@ -424,13 +424,13 @@ describe('Decision Engine Contract Tests', () => {
       expect(outcome.errors[0].code).toBe(ErrorCodes.TRACE_STATE_MISMATCH);
     });
 
-    it('should reject with trace_state_mismatch when state_id does not match', () => {
+    it('should reject with trace_state_mismatch when state_id does not match', async () => {
       const { state_version, org_id, learner_reference } = createStateViaSignal({
         stabilityScore: 0.5,
         timeSinceReinforcement: 100000,
       });
 
-      const outcome = evaluateState({
+      const outcome = await evaluateState({
         org_id,
         learner_reference,
         state_id: 'completely-wrong-state-id',
@@ -525,12 +525,12 @@ describe('Decision Engine Contract Tests', () => {
     ] as const;
 
     for (const vector of testVectors) {
-      it(`Case ${vector.case_id}: ${vector.description}`, () => {
+      it(`Case ${vector.case_id}: ${vector.description}`, async () => {
         const { state_id, state_version, org_id, learner_reference } = createStateViaSignal(
           { ...vector.state }
         );
 
-        const outcome = evaluateState({
+        const outcome = await evaluateState({
           org_id,
           learner_reference,
           state_id,
@@ -570,7 +570,7 @@ describe('Decision Engine Contract Tests', () => {
   // ---------------------------------------------------------------------------
 
   describe('DEC-009: no rule match emits no decision, no saveDecision call', () => {
-    it('sync: evaluateState returns matched false and no rows are persisted', () => {
+    it('sync: evaluateState returns matched false and no rows are persisted', async () => {
       // Note: we do NOT spy on decisionStoreModule.saveDecision here. ESM named
       // imports are live read-only bindings, so vi.spyOn against the namespace
       // object does not rewire engine.ts's internal reference and can record
@@ -582,7 +582,7 @@ describe('Decision Engine Contract Tests', () => {
         timeSinceReinforcement: 1000,
       });
 
-      const outcome = evaluateState({
+      const outcome = await evaluateState({
         org_id,
         learner_reference,
         state_id,

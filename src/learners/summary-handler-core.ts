@@ -78,8 +78,10 @@ export interface RecentDecisionItem {
   decided_at: string;
   matched_rule_id: string | null;
   educator_summary: string;
+  educator_explanation?: string | null;
   rationale: string;
   policy_version: string;
+  skill?: string | null;
 }
 
 export interface LearnerSummaryResponse {
@@ -355,15 +357,22 @@ export async function handleLearnerSummaryCore(
 
   const decisions = getRecentDecisionsByLearner(orgId, learnerRef, recentDecisionsLimit);
   const decisionTypeSummary = getDecisionTypeSummaryForLearner(orgId, learnerRef);
-  const projectedDecisions: RecentDecisionItem[] = decisions.map((d) => ({
-    decision_id: d.decision_id,
-    decision_type: d.decision_type,
-    decided_at: d.decided_at,
-    matched_rule_id: d.trace.matched_rule_id,
-    educator_summary: d.trace.educator_summary,
-    rationale: d.trace.rationale,
-    policy_version: d.trace.policy_version,
-  }));
+  const projectedDecisions: RecentDecisionItem[] = decisions.map((d) => {
+    const rawSkill = d.decision_context?.skill;
+    const skill =
+      typeof rawSkill === 'string' && rawSkill.trim() ? rawSkill.trim() : null;
+    return {
+      decision_id: d.decision_id,
+      decision_type: d.decision_type,
+      decided_at: d.decided_at,
+      matched_rule_id: d.trace.matched_rule_id,
+      educator_summary: d.trace.educator_summary,
+      educator_explanation: d.trace.educator_explanation ?? null,
+      rationale: d.trace.rationale,
+      policy_version: d.trace.policy_version,
+      skill,
+    };
+  });
 
   const signalsSummary = getSignalSummary(orgId, learnerRef);
 

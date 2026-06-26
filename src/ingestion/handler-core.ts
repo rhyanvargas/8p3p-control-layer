@@ -200,7 +200,7 @@ export async function handleSignalIngestionCore(
           school_id: typeof signal.metadata?.school_id === 'string' ? signal.metadata.school_id : undefined,
         },
       };
-      const decisionOutcome = evaluateState(evalRequest);
+      const decisionOutcome = await evaluateState(evalRequest);
       if (!decisionOutcome.ok) {
         log.warn?.(
           { err: decisionOutcome.errors, org_id: signal.org_id, signal_id: signal.signal_id },

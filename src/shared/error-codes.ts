@@ -137,6 +137,25 @@ export const ErrorCodes = {
   POLICY_SKIPPED_DISABLED: 'policy_skipped_disabled',
 
   // ==========================================================================
+  // AI Educator Explanations (log-only)
+  // @see docs/specs/ai-educator-explanations.md § Error Codes
+  // ==========================================================================
+
+  /**
+   * generateText failed, was rate-limited (429), retries exhausted (RetryError),
+   * or exceeded AI_TIMEOUT_MS; engine fell back to null (panel uses educator_summary).
+   * Logged as a structured warning — never returned to the caller.
+   */
+  EXPLANATION_GENERATION_DEGRADED: 'explanation_generation_degraded',
+
+  /**
+   * Post-processing detected a PII value or empty/invalid output and discarded
+   * the model result in favor of null fallback.
+   * Logged as a structured warning — never returned to the caller.
+   */
+  EXPLANATION_GUARDRAIL_TRIPPED: 'explanation_guardrail_tripped',
+
+  // ==========================================================================
   // Policy Management Admin API (v1.1)
   // ==========================================================================
 

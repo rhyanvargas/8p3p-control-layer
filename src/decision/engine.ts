@@ -23,6 +23,10 @@ import { loadPolicyForContext, evaluatePolicy } from './policy-loader.js';
 import { getState } from '../state/store.js';
 import { saveDecision } from './store.js';
 import { DECISION_TYPE_TO_EDUCATOR_SUMMARY } from './educator-summaries.js';
+import {
+  selectExplanationGenerator,
+  type ExplanationGenerator,
+} from './explanation-client.js';
 
 /**
  * Build rationale string for trace when a policy rule matched.
@@ -96,7 +100,10 @@ export function extractCanonicalSnapshot(
  * @param request - EvaluateStateForDecisionRequest
  * @returns EvaluateDecisionOutcome — success with decision, no-match, or validation errors
  */
-export function evaluateState(request: EvaluateStateForDecisionRequest): EvaluateDecisionOutcome {
+export async function evaluateState(
+  request: EvaluateStateForDecisionRequest,
+  generator: ExplanationGenerator = selectExplanationGenerator()
+): Promise<EvaluateDecisionOutcome> {
   // Step 1: Validate request structure
   const validation = validateEvaluateRequest(request);
   if (!validation.valid) {
@@ -190,6 +197,14 @@ export function evaluateState(request: EvaluateStateForDecisionRequest): Evaluat
     return { ok: false, errors: contextValidation.errors };
   }
 
+  const educatorExplanation = await generator.generate({
+    decision_type: evalResult.decision_type,
+    skill: decisionContext['skill'] as string | undefined,
+    rationale,
+    evaluated_fields: evalResult.evaluated_fields ?? [],
+    state_snapshot: stateSnapshot,
+  });
+
   // Step 11: Construct Decision
   const decision: Decision = {
     org_id: request.org_id,
@@ -208,6 +223,7 @@ export function evaluateState(request: EvaluateStateForDecisionRequest): Evaluat
       matched_rule: evalResult.matched_rule ?? null,
       rationale,
       educator_summary: DECISION_TYPE_TO_EDUCATOR_SUMMARY[evalResult.decision_type],
+      educator_explanation: educatorExplanation,
     },
     output_metadata: { priority },
   };

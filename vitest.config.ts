@@ -9,6 +9,8 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname, 'dashboard'),
       'next/server': path.resolve(__dirname, 'dashboard/node_modules/next/server.js'),
+      // Single ai module so vi.mock('ai') applies to @8p3p/explanation imports too
+      ai: path.resolve(__dirname, 'services/explanation/node_modules/ai/dist/index.js'),
     },
   },
   test: {

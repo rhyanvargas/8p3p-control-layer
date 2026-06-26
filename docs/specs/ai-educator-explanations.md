@@ -32,15 +32,15 @@ Swapping models or providers is an env/factory change behind the `ExplanationGen
 
 ### Functional
 
-- [ ] Add optional `trace.educator_explanation: string | null` to the `Decision` type (`src/shared/types.ts`) and the decision JSON schema. Backward-compatible (optional).
-- [ ] Define an `ExplanationGenerator` port (interface) consumed by both decision paths (`src/decision/engine.ts` sync, `src/decision/engine-async.ts` Lambda).
-- [ ] Implement `AiSdkExplanationGenerator` using AI SDK Core **`generateText`** with a provider selected by `AI_PROVIDER` (default `amazon-bedrock`).
-- [ ] Implement `TemplateExplanationGenerator` (fallback) that returns `null` so behavior with the feature disabled is identical to today (panel falls back to `educator_summary`).
-- [ ] Master toggle `AI_EXPLANATIONS_ENABLED` (default `false`). When `false`, the engine uses the template generator and never imports/initializes an LLM provider.
-- [ ] Build the prompt from **PII-safe inputs only**: `decision_type`, `decision_context.skill`, `trace.rationale`, `trace.matched_rule.evaluated_fields`, and the canonical `trace.state_snapshot` (already PII-stripped per DEF-DEC-007). The learner reference must **not** be included in the prompt.
-- [ ] Apply guardrails (system `instructions` + post-processing): bounded length, no PII, no fabrication beyond provided signals, confidence-not-grade framing, neutral/supportive tone, plain reading level. Post-process truncates to `EDUCATOR_EXPLANATION_MAX_CHARS`.
-- [ ] Generation is **fail-safe**: any LLM error, rate limit, retry exhaustion, or timeout (`AI_TIMEOUT_MS`) results in fallback to `null` (panel uses template label), a single decision write, and a log-only `explanation_generation_degraded` warning. The decision response is never delayed beyond the timeout and never fails because of explanation generation.
-- [ ] Decision evaluation produces exactly one persisted decision record whether or not the explanation succeeds (no second write).
+- [x] Add optional `trace.educator_explanation: string | null` to the `Decision` type (`src/shared/types.ts`) and the decision JSON schema. Backward-compatible (optional).
+- [x] Define an `ExplanationGenerator` port (interface) consumed by both decision paths (`src/decision/engine.ts` sync, `src/decision/engine-async.ts` Lambda).
+- [x] Implement `AiSdkExplanationGenerator` using AI SDK Core **`generateText`** with a provider selected by `AI_PROVIDER` (default `amazon-bedrock`).
+- [x] Implement `TemplateExplanationGenerator` (fallback) that returns `null` so behavior with the feature disabled is identical to today (panel falls back to `educator_summary`).
+- [x] Master toggle `AI_EXPLANATIONS_ENABLED` (default `false`). When `false`, the engine uses the template generator and never imports/initializes an LLM provider.
+- [x] Build the prompt from **PII-safe inputs only**: `decision_type`, `decision_context.skill`, `trace.rationale`, `trace.matched_rule.evaluated_fields`, and the canonical `trace.state_snapshot` (already PII-stripped per DEF-DEC-007). The learner reference must **not** be included in the prompt.
+- [x] Apply guardrails (system `instructions` + post-processing): bounded length, no PII, no fabrication beyond provided signals, confidence-not-grade framing, neutral/supportive tone, plain reading level. Post-process truncates to `EDUCATOR_EXPLANATION_MAX_CHARS`.
+- [x] Generation is **fail-safe**: any LLM error, rate limit, retry exhaustion, or timeout (`AI_TIMEOUT_MS`) results in fallback to `null` (panel uses template label), a single decision write, and a log-only `explanation_generation_degraded` warning. The decision response is never delayed beyond the timeout and never fails because of explanation generation.
+- [x] Decision evaluation produces exactly one persisted decision record whether or not the explanation succeeds (no second write).
 
 ### Acceptance Criteria
 
@@ -124,7 +124,7 @@ These are **log-only** warnings (never returned to the API caller), mirroring th
 |------|--------|
 | `policy_dynamo_degraded` (precedent for log-only degraded warning) | `src/shared/error-codes.ts` |
 
-### New (add during implementation)
+### Implemented (`src/shared/error-codes.ts`)
 
 | Code | Surface | Description |
 |------|---------|-------------|
@@ -267,24 +267,38 @@ services/explanation/                     # @8p3p/explanation — AI layer (sibl
 ├── tsconfig.json
 ├── Dockerfile                            # optional; not used in P0 deploy — future standalone image
 └── src/
-    ├── index.ts                          # public exports (factory, port, types)
+    ├── index.ts                          # public exports (factory, port, types, env helpers)
+    ├── env-config.ts                     # parseExplanationEnv(env) + isExplanationsEnabled(env) — spec defaults
     ├── generator.ts                      # ExplanationGenerator port + ExplanationInput type
     ├── ai-sdk-generator.ts               # AiSdkExplanationGenerator (generateText + provider + timeout + error handling)
     ├── template-generator.ts             # TemplateExplanationGenerator (returns null — panel uses educator_summary)
     ├── prompt.ts                         # SYSTEM_PROMPT (guardrails/policies) + buildUserPrompt(input)
     ├── guardrails.ts                     # post-process: truncate, PII echo check, empty/invalid check
     ├── providers/
-    │   ├── amazon-bedrock.ts             # createAmazonBedrock factory (IAM credential chain)
-    │   └── gateway.ts                    # resolveGatewayModel() for AI_PROVIDER=gateway
-    └── factory.ts                        # selectExplanationGenerator(env) → AiSdk when enabled, else Template
+    │   ├── amazon-bedrock.ts             # createBedrockModel(env) — IAM credential chain
+    │   └── gateway.ts                    # resolveGatewayModel(env) for AI_PROVIDER=gateway
+    └── factory.ts                        # selectExplanationGenerator(env) → lazy AiSdk when enabled, else Template
 
 src/decision/
 ├── explanation-client.ts                 # thin re-export from @8p3p/explanation (engine import surface)
-├── engine.ts                             # inject generator before building trace (sync path)
-└── engine-async.ts                       # inject generator before building trace (Lambda path)
+├── engine.ts                             # async evaluateState(..., generator?) — inject before trace build
+└── engine-async.ts                       # evaluateStateAsync(..., generator?) — Lambda parity
 ```
 
 **Package boundary (2026-06-25):** All AI SDK code lives in `@8p3p/explanation` under `services/explanation/`. The control layer consumes it **in-process** via the `ExplanationGenerator` port through `explanation-client.ts`. P0 does **not** deploy a separate HTTP service — inline single-write and fail-safe null fallback are unchanged. An optional `services/explanation/Dockerfile` prepares for a future standalone deploy (`HttpExplanationGenerator` + env toggle) without rewriting the engine.
+
+---
+
+## Implementation Notes
+
+> Post-implementation parity (2026-06-25). Literal behavior matches this spec; these notes capture TypeScript/module choices not spelled out above.
+
+- **`env-config.ts`:** `parseExplanationEnv(env)` centralizes the env-var table defaults (`AI_MAX_OUTPUT_TOKENS` 256, `AI_TEMPERATURE` 0.2, `AI_TIMEOUT_MS` 4000, `AI_MAX_RETRIES` 2, `EDUCATOR_EXPLANATION_MAX_CHARS` 480, provider-specific default models). `isExplanationsEnabled(env)` treats `true` / `1` (case-insensitive) as enabled.
+- **`evaluateState` is async:** Both `evaluateState` and `evaluateStateAsync` accept an optional `generator?: ExplanationGenerator` (defaults to `selectExplanationGenerator()`) for contract-test DI. The sole sync ingestion call site (`handler-core.ts`) `await`s evaluation.
+- **Lazy AI SDK load:** `factory.ts` returns `TemplateExplanationGenerator` when disabled. When enabled, a `LazyAiSdkExplanationGenerator` wrapper dynamic-imports `./ai-sdk-generator.js` on first `generate()` so cold starts with `AI_EXPLANATIONS_ENABLED=false` never load `ai` or provider modules.
+- **PII-echo guard:** `guardrails.ts` uses a minimum substring length of 4 characters when scanning `state_snapshot` string leaves (avoids numeric noise); empty output and PII echo both map to `explanation_guardrail_tripped` + `null`.
+- **Package boundary:** `@8p3p/explanation` logs warning codes as string literals matching `src/shared/error-codes.ts`; it does not import core. `AiSdkExplanationGenerator` is not re-exported from `index.ts` (tests import compiled `dist/ai-sdk-generator.js` directly).
+- **Dashboard consumption:** Backend persists `trace.educator_explanation`; dashboard Panels 2 & 3 consume it via `dashboard/lib/panel-helpers.ts` `educatorBodyCopy()`, which falls back to `educator_summary` and then `rationale`. Secondary compact surfaces may still render `educator_summary` intentionally where table/header UX needs a short label.
 
 ---
 
@@ -299,4 +313,4 @@ src/decision/
 
 ---
 
-*Spec created: 2026-06-22 | Updated: 2026-06-25 (AI SDK layer; services/explanation package) | Phase: v1.1 (Pilot Wave 2 enhancement) | Depends on: `decision-engine.md`, `skill-level-tracking.md`, `decision-panel-ui.md` | Feeds: `decision-panel-ui.md` (Panels 2 & 3). Recommended next: `/plan-impl docs/specs/ai-educator-explanations.md`.*
+*Spec created: 2026-06-22 | Updated: 2026-06-26 (implemented — `@8p3p/explanation` package, engine integration, and Panels 2 & 3 body-copy consumption) | Phase: v1.1 (Pilot Wave 2 enhancement) | Depends on: `decision-engine.md`, `skill-level-tracking.md`, `decision-panel-ui.md` | Feeds: `decision-panel-ui.md` (Panels 2 & 3). Recommended next: PREREQ-001/002 for live Bedrock enablement in the hosted pilot environment.*

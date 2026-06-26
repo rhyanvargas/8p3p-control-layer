@@ -1,0 +1,57 @@
+{
+  "policy_id": "southwest-charter:learner",
+  "policy_version": "1.0.0",
+  "description": "Southwest Charter School — learner policy. Evaluates student progress signals (stabilityScore, masteryScore, timeSinceReinforcement) against 4 decision types. Priority-ordered; first match wins. Initial rules copied from springs reference; tune thresholds during onboarding.",
+  "rules": [
+    {
+      "rule_id": "rule-intervene",
+      "condition": {
+        "all": [
+          { "field": "stabilityScore", "operator": "lt", "value": 0.3 },
+          { "field": "timeSinceReinforcement", "operator": "gt", "value": 172800 }
+        ]
+      },
+      "decision_type": "intervene"
+    },
+    {
+      "rule_id": "rule-pause",
+      "condition": {
+        "all": [
+          { "field": "stabilityScore", "operator": "lt", "value": 0.3 },
+          { "field": "timeSinceReinforcement", "operator": "lte", "value": 172800 },
+          { "field": "riskSignal", "operator": "gt", "value": 0.75 }
+        ]
+      },
+      "decision_type": "pause"
+    },
+    {
+      "rule_id": "rule-advance",
+      "condition": {
+        "all": [
+          { "field": "stabilityScore", "operator": "gte", "value": 0.8 },
+          { "field": "masteryScore", "operator": "gte", "value": 0.8 }
+        ]
+      },
+      "decision_type": "advance"
+    },
+    {
+      "rule_id": "rule-reinforce",
+      "condition": {
+        "all": [
+          { "field": "stabilityScore", "operator": "lt", "value": 0.65 },
+          { "field": "timeSinceReinforcement", "operator": "gt", "value": 86400 }
+        ]
+      },
+      "decision_type": "reinforce"
+    },
+    {
+      "rule_id": "rule-reinforce-fallback",
+      "condition": {
+        "field": "stabilityScore",
+        "operator": "gte",
+        "value": 0
+      },
+      "decision_type": "reinforce"
+    }
+  ]
+}
