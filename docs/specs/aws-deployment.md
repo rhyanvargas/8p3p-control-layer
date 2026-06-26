@@ -292,6 +292,44 @@ src/ingestion/
 
 This is a refactoring step — no behavior change, just separating HTTP framework concerns from business logic.
 
+### AI Educator Explanations (optional)
+
+Inline LLM explanations run inside the ingest Lambda decision path when enabled (`docs/specs/ai-educator-explanations.md`). **Default is disabled** — pilot and local SQLite hosts behave identically to pre-feature builds with no extra credentials.
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `AI_EXPLANATIONS_ENABLED` | no | `false` | Master toggle. `false` → template generator only; LLM provider never initialized. |
+| `AI_PROVIDER` | no | `amazon-bedrock` | `amazon-bedrock` (Lambda/production) or `gateway` (local dev). |
+| `AI_MODEL` | when enabled | `us.anthropic.claude-3-5-haiku-20241022-v1:0` (bedrock) / `anthropic/claude-haiku-4.5` (gateway) | Model ID passed to the provider. |
+| `AI_REGION` | no | `AWS_REGION` then `us-east-1` | AWS region for `@ai-sdk/amazon-bedrock` (ignored when `AI_PROVIDER=gateway`). |
+| `AI_MAX_OUTPUT_TOKENS` | no | `256` | `generateText` `maxOutputTokens` cap. |
+| `AI_TEMPERATURE` | no | `0.2` | `generateText` temperature. |
+| `AI_TIMEOUT_MS` | no | `4000` | `generateText` timeout; on exceed → `null` fallback. |
+| `AI_MAX_RETRIES` | no | `2` | `generateText` `maxRetries`; exhausted retries → `null` fallback. |
+| `AI_GATEWAY_API_KEY` | when `AI_PROVIDER=gateway` | — | Vercel AI Gateway API key. Not used in Lambda production path. |
+| `EDUCATOR_EXPLANATION_MAX_CHARS` | no | `480` | Post-process truncation limit (word boundary). |
+
+Set these on **IngestFunction** (and WebhookFunction if webhooks trigger decisions) only when enabling explanations in a deployed stage. When `AI_EXPLANATIONS_ENABLED=false`, omit them — no Bedrock or Gateway access is required.
+
+#### IAM least-privilege (amazon-bedrock path)
+
+When `AI_EXPLANATIONS_ENABLED=true` and `AI_PROVIDER=amazon-bedrock`, grant the Lambda execution role **`bedrock:InvokeModel`** scoped to the configured model or inference-profile ARN — not `bedrock:*` or account-wide model access. Example (adjust model ID and region to match `AI_MODEL` / `AI_REGION`):
+
+```json
+{
+  "Effect": "Allow",
+  "Action": ["bedrock:InvokeModel"],
+  "Resource": [
+    "arn:aws:bedrock:us-east-1::foundation-model/us.anthropic.claude-3-5-haiku-20241022-v1:0",
+    "arn:aws:bedrock:us-east-1:*:inference-profile/us.anthropic.claude-3-5-haiku-20241022-v1:0"
+  ]
+}
+```
+
+Confirm the exact ARN shape for your account’s enabled models before synth (`PREREQ-001` in the AI explanations plan). **Local dev** may use developer AWS credentials via the default credential chain, or set `AI_PROVIDER=gateway` with `AI_GATEWAY_API_KEY` and skip Bedrock IAM on the workstation. **Pilot/SQLite** runs with explanations disabled and needs no Bedrock or Gateway setup.
+
+> CDK wiring: add the policy statement to `IngestFunction` / `WebhookFunction` in `infra/lib/control-layer-stack.ts` when enabling explanations in production — not required while the toggle remains `false`.
+
 ---
 
 ## DynamoDB Repository Adapters

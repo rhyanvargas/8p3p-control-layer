@@ -1,9 +1,13 @@
+# Decision Panel — Amplify Hosting build (Next.js 15 SSR, WEB_COMPUTE platform).
+# App root: dashboard/ (monorepo). Runtime env: dashboard/amplify.env.example
+# Runbook: docs/guides/aws-pilot-runbook.md § 3
 version: 1
 frontend:
   phases:
     preBuild:
       commands:
         - nvm install 22 && nvm use 22
+        - node --version
         - npm ci
     build:
       commands:

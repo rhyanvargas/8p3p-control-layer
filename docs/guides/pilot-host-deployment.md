@@ -1,5 +1,7 @@
 # Pilot host deployment (Docker / Fly.io / Render)
 
+> **Primary pilot path (2026-06):** [`aws-pilot-runbook.md`](aws-pilot-runbook.md) — CDK API + Amplify dashboard in one AWS account. Use **this doc** only when an AWS account is unavailable or you need the Docker/Fly shortcut.
+
 **Audience:** Engineering (pilot API deploy + separate dashboard hosting)  
 **Purpose:** Go from zero to a TLS URL with `/health`, runtime secrets, and the CEO readiness **single curl gate**. The **Decision Panel** is a standalone Next.js app (`dashboard/`) — it does **not** ship inside the API Docker image. For local two-process setup see [`docs/foundation/setup.md`](../foundation/setup.md). For onboarding workflow see Internal onboarding runbook (local `internal-docs/`, not in public repo) and [`Pilot Readiness Gates`](pilot-readiness-gates.md).
 

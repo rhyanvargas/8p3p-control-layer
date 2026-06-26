@@ -7,8 +7,8 @@ internal-docs/
 # Archived completed plans/specs (kept locally for history, out of the active repo)
 archive/
 
-# Data
-data/
+# CDK Lambda staging bundle (npm run build:lambda-deploy)
+.lambda-deploy/
 *.db
 *.db-wal
 *.db-shm
@@ -92,6 +92,7 @@ web_modules/
 .env.test.local
 .env.production.local
 .env.local
+dashboard/amplify.env.local
 
 # parcel-bundler cache (https://parceljs.org/)
 .cache

@@ -13,8 +13,10 @@
     "precheck": "node scripts/ensure-better-sqlite3.mjs",
     "dev": "tsx watch src/server.ts",
     "build": "npm run build:explanation && tsc",
+    "build:lambda-deploy": "node scripts/bundle-lambda-deploy.mjs",
     "build:explanation": "cd services/explanation && npm ci --quiet && npm run build",
     "start": "node dist/server.js",
+    "pretest": "npm run precheck",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
@@ -31,8 +33,11 @@
     "typecheck": "tsc --noEmit",
     "check": "npm run build && npm run validate:schemas && npm run validate:contracts && npm run validate:api && npm run lint && npm test",
     "cdk:synth": "cd infra && npm ci --quiet && npx cdk synth",
-    "cdk:deploy": "cd infra && npm ci --quiet && npx cdk deploy --require-approval never",
-    "cdk:diff": "cd infra && npx cdk diff"
+    "cdk:deploy": "npm run build:lambda-deploy && cd infra && npm ci --quiet && npx cdk deploy --require-approval never",
+    "cdk:diff": "cd infra && npx cdk diff",
+    "amplify:sync-env": "node scripts/amplify-sync-env.mjs",
+    "amplify:verify-dashboard": "node scripts/verify-amplify-dashboard.mjs",
+    "amplify:bootstrap": "node scripts/amplify-bootstrap.mjs"
   },
   "repository": {
     "type": "git",

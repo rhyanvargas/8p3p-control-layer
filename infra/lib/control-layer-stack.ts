@@ -163,6 +163,8 @@ export class ControlLayerStack extends cdk.Stack {
     // Common Lambda config
     // -------------------------------------------------------------------------
 
+    const apiKeyOrgId = process.env.API_KEY_ORG_ID?.trim() ?? '';
+
     const commonEnv: Record<string, string> = {
       NODE_ENV: 'production',
       LOG_LEVEL: 'info',
@@ -177,14 +179,18 @@ export class ControlLayerStack extends cdk.Stack {
       TENANTS_TABLE: this.tenantsTable.tableName,
       FEEDBACK_TABLE: this.feedbackTable.tableName,
       STAGE: stage,
+      ...(apiKeyOrgId ? { API_KEY_ORG_ID: apiKeyOrgId } : {}),
     };
+
+    // Staged by `npm run build:lambda-deploy` (dist + prod node_modules + file: deps).
+    const lambdaCode = lambda.Code.fromAsset('../.lambda-deploy');
 
     const commonProps = {
       runtime: lambda.Runtime.NODEJS_22_X,
       architecture: lambda.Architecture.ARM_64,
       timeout: cdk.Duration.seconds(30),
       memorySize: 512,
-      code: lambda.Code.fromAsset('../dist/lambda'),
+      code: lambdaCode,
     } as const;
 
     // -------------------------------------------------------------------------
@@ -194,7 +200,7 @@ export class ControlLayerStack extends cdk.Stack {
     this.ingestFunction = new lambda.Function(this, 'IngestFunction', {
       ...commonProps,
       functionName: `control-layer-ingest-${stage}`,
-      handler: 'ingest.handler',
+      handler: 'dist/lambda/ingest.handler',
       description: 'Signal ingestion — POST /v1/signals',
       environment: { ...commonEnv },
     });
@@ -206,7 +212,7 @@ export class ControlLayerStack extends cdk.Stack {
     this.webhookFunction = new lambda.Function(this, 'WebhookFunction', {
       ...commonProps,
       functionName: `control-layer-webhook-${stage}`,
-      handler: 'webhook.handler',
+      handler: 'dist/lambda/webhook.handler',
       description: 'Webhook adapter — POST /v1/webhooks/{source_system}',
       environment: { ...commonEnv },
     });
@@ -218,7 +224,7 @@ export class ControlLayerStack extends cdk.Stack {
     this.queryFunction = new lambda.Function(this, 'QueryFunction', {
       ...commonProps,
       functionName: `control-layer-query-${stage}`,
-      handler: 'query.handler',
+      handler: 'dist/lambda/query.handler',
       description: 'Read-path queries — signals, decisions, receipts, educator feedback',
       environment: { ...commonEnv },
     });
@@ -231,7 +237,7 @@ export class ControlLayerStack extends cdk.Stack {
     this.inspectFunction = new lambda.Function(this, 'InspectFunction', {
       ...commonProps,
       functionName: `control-layer-inspect-${stage}`,
-      handler: 'inspect.handler',
+      handler: 'dist/lambda/inspect.handler',
       description:
         'Inspection API — GET /v1/state, /v1/state/list, /v1/state/trajectory, /v1/learners/{learner_reference}/summary, /v1/ingestion',
       environment: { ...commonEnv },
@@ -244,7 +250,7 @@ export class ControlLayerStack extends cdk.Stack {
     this.adminFunction = new lambda.Function(this, 'AdminFunction', {
       ...commonProps,
       functionName: `control-layer-admin-${stage}`,
-      handler: 'admin.handler',
+      handler: 'dist/lambda/admin.handler',
       description: 'Admin API — policy and field-mapping management',
       environment: {
         ...commonEnv,

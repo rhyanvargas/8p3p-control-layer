@@ -20,6 +20,8 @@ Each governed learning decision — signal ingested → state updated → policy
 - **State Delta Detection** — Automatic `_delta` / `_direction` fields for numeric state (decay detection)
 - **Multi-Tenant Architecture** — Org-level isolation with zero cross-tenant leakage
 - **Policy Management** — Admin CRUD with validation, soft enable/disable, and versioning
+- **Educator Feedback** — Approve/Reject/Ignore on decisions with append-only audit trail
+- **AI Educator Explanations** — Optional plain-language "why" at decision time (`@8p3p/explanation`; default off)
 - **Contract-First Design** — JSON Schemas, OpenAPI, AsyncAPI, Ajv validators
 
 ---
@@ -95,6 +97,7 @@ Validators live under [`src/contracts/validators/`](src/contracts/validators/).
 | **API** | TypeScript, Fastify 5, Ajv, SQLite (local) / DynamoDB (AWS) |
 | **Dashboard** | Next.js 15, React 19, TanStack Query, Tailwind CSS 4, shadcn/ui |
 | **Infra** | AWS CDK (API Gateway, Lambda, DynamoDB) |
+| **AI explanations** | Vercel AI SDK (`generateText`), Amazon Bedrock / Gateway — `@8p3p/explanation` package |
 | **Quality** | Vitest, Playwright, ESLint, Redocly CLI |
 
 > Versions and full dependency lists: [`package.json`](package.json), [`dashboard/package.json`](dashboard/package.json). **Node.js 22.x** required (`.nvmrc`).
@@ -152,6 +155,7 @@ scripts/                      # Schema validation, API key generation
 tests/                        # Vitest — contracts/, integration/, unit/
 docs/                         # Specs, guides, OpenAPI/AsyncAPI
 examples/springs/             # Springs demo seed script
+services/explanation/         # @8p3p/explanation — AI educator-explanation layer (Bedrock/Gateway)
 ```
 
 ---
@@ -166,28 +170,31 @@ examples/springs/             # Springs demo seed script
 | **API specs** | [`docs/api/README.md`](docs/api/README.md) — OpenAPI + AsyncAPI |
 | **Manual QA** | [`docs/testing/`](docs/testing/) — POC v1/v2 test cases |
 
-**Current P0:** [AI Educator Explanations](docs/specs/ai-educator-explanations.md) — plain-language "why" for learning decay; confidence-not-grade; auditable ("AI explains, never decides").
+**Current P0:** [AI Educator Explanations](docs/specs/ai-educator-explanations.md) — `@8p3p/explanation` + engine integration shipped; dashboard Panels 2 & 3 prefer `trace.educator_explanation` (`AI_EXPLANATIONS_ENABLED` default off). Next: [Customer Feedback Loop](docs/specs/customer-feedback-loop.md) — product-level "Send feedback" + CSAT (spec'd; impl pending).
 
 ---
 
 ## Project Status
 
-**950+ Vitest tests** across 60 test files, plus **Playwright e2e** for the dashboard (CI `check` + `dashboard` jobs). Full pipeline proven: signal → validate → store → state → delta → policy → decision with trace.
+**~970 Vitest tests** across 62 test files, plus **Playwright e2e** for the dashboard (CI `check` + `dashboard` jobs). Full pipeline proven: signal → validate → store → state → delta → policy → decision with trace.
 
 | Milestone | Status |
 |-----------|--------|
 | POC v1 / v2 — single- and multi-rule pipeline, all decision types | **Complete** |
 | v1 pilot-ready — enriched trace, inspection, demo data, PII hardening | **Complete** |
 | v1.1 core — multi-tenant AWS, LMS integrations, trajectory/summary/URS | **Complete** |
+| Educator feedback API + Attention review UX (Approve/Reject persistence) | **Complete** |
 | v1.1 SBIR evidence — LIU metering, program metrics, research export | **Spec'd; impl pending** |
-| **P0** — AI educator-explanation layer + dashboard UX (D1 inversion) | **In progress** |
+| **P0** — AI educator-explanation layer + dashboard UX (D1 inversion) | **Backend + panel wiring complete** (`AI_EXPLANATIONS_ENABLED` default off) |
+| **P0** — Customer feedback loop (product-level "Send feedback" + CSAT) | **Spec'd; impl pending** |
 
 Shipped capabilities (API, policy CRUD, DynamoDB adapters, CDK, Decision Panel, webhooks, field mappings, etc.) are indexed under **Shipped** in [`docs/specs/README.md`](docs/specs/README.md).
 
 **Near-term focus:**
 
-- [AI educator-explanation layer](docs/specs/ai-educator-explanations.md) — Bedrock Converse → template fallback, PII-safe
-- Decision Panel D1 — educator summary first; rule id + rationale in detail view
+- [Customer feedback loop](docs/specs/customer-feedback-loop.md) — always-on "Send feedback" + `GET /v1/admin/feedback`; backs roadmap "gives feedback at any time"
+- Live Bedrock enablement for AI explanations (PREREQ in spec; feature flag off by default)
+- LIU metering + program metrics (SBIR evidence)
 - P1 — per-skill trajectory scope; controlled-evaluation runbook
 
 **Backlog (deferred):** [`docs/backlog/user-stories-v1.2.md`](docs/backlog/user-stories-v1.2.md). Forward-looking specs (tiered data classification, etc.): [`docs/specs/README.md`](docs/specs/README.md) § Deferred.

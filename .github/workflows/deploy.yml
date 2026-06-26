@@ -139,6 +139,7 @@ jobs:
         env:
           STAGE: ${{ github.event.inputs.stage || 'prod' }}
           ADMIN_API_KEY: ${{ secrets.ADMIN_API_KEY }}
+          API_KEY_ORG_ID: ${{ secrets.API_KEY_ORG_ID }}
           CUSTOM_DOMAIN: ${{ secrets.CUSTOM_DOMAIN }}
           HOSTED_ZONE_ID: ${{ secrets.HOSTED_ZONE_ID }}
           HOSTED_ZONE_NAME: ${{ secrets.HOSTED_ZONE_NAME }}
