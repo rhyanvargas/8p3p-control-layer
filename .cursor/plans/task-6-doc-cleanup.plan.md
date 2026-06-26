@@ -272,7 +272,7 @@ Cross-checked specs, plans, and `src/` after TASK-002–006 landed:
 | Track 6 order (LIU → feedback → outcomes → metrics → export) | Aligned in `dashboard_pilot_roadmap_0fa0e18a.plan.md` |
 | Program Metrics endpoints | Plan uses `/v1/admin/program-metrics` and `/v1/program-metrics`; no actionable `pilot-metrics` literals remain |
 | Pilot Research Export MANIFEST | Plan literal matches spec (`metrics_snapshot_available`, `structural_scan_scope`, `jsonl_tar_gz`, CSV adjacent to archive) |
-| Foundation roadmap P0 | AI educator explanations remain the only controlled-eval critical path |
+| Foundation roadmap P0 | Historical controlled-eval P0 preserved; superseded by 2026-06-26 status in `docs/foundation/roadmap.md` after AI explanations shipped |
 | Specs index | `docs/specs/README.md` notes LIU precedes program-metrics |
 | Implementation | No `program-metrics` or export routes in `src/` yet (plans-only); feedback API exists in `src/feedback/` |
 

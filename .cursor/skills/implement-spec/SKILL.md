@@ -45,6 +45,7 @@ When the user invokes `/implement-spec`:
    - Apply standards from `.cursor/rules/project-context/RULE.md` and `.cursor/rules/document-traceability/RULE.md` (including § **Spec ↔ Plan ↔ Implementation parity**).
    - If using a plan, update task status in the plan YAML frontmatter `todos` list (single source of truth). Do not add/maintain per-task status fields in the body because they drift from the frontmatter.
    - If the plan body already contains legacy per-task status lines (e.g. `- **Status**: pending/completed` under each `TASK-XXX`), remove them so the plan cannot contradict itself later.
+   - **Sync the ledger on threshold crossings** (per `.cursor/rules/document-traceability/RULE.md` § Program / Feature Status): when the first task completes, all tasks complete, or work is deferred, update this plan's row in `docs/foundation/roadmap.md` § Program Status Ledger — refresh the `completed/total` count, rollup status, group, and `Next action`.
 6. Run validation in this order:
    - Targeted tests for touched modules
    - `npm test`
@@ -68,5 +69,6 @@ When the user invokes `/implement-spec`:
 
 After implementation:
 - Run `/post-impl-doc-sync` on the same spec path if you touched validation constants or public exports
+- Confirm the plan's Program Status Ledger row in `docs/foundation/roadmap.md` reflects the new count/status
 - Run `/review` for quality check
 - Use `/review --spec {spec-path}` for requirement-by-requirement verification

@@ -42,7 +42,7 @@ When the user invokes `/review`:
    - If --spec provided, verify against spec requirements
 2. Evaluate each item against:
    - `.cursor/rules/project-context/RULE.md`
-   - `.cursor/rules/document-traceability/RULE.md` (including § **Spec ↔ implementation parity** — literal constants, public API shape, immutability of shared exports)
+   - `.cursor/rules/document-traceability/RULE.md` (including § **Spec ↔ implementation parity** — literal constants, public API shape, immutability of shared exports; **and** § **Program / Feature Status** — if the change completes/cancels plan tasks, adds a plan, or ships/defers a feature, verify the `docs/foundation/roadmap.md` Program Status Ledger row and the plan `todos` are current, and flag stale status as a finding)
    - `.cursor/rules/contract-enforcement/RULE.md` (when contracts are in scope)
 3. For each issue, capture:
    - Severity (`error`, `warning`, `info`)

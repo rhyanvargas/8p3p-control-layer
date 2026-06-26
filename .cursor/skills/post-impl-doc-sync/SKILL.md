@@ -26,11 +26,16 @@ Optional second path:
 2. Identify **literal** claims: numeric substitution values, max limits, error codes, public function signatures, immutability (`ReadonlySet`, `readonly`, etc.).
 3. Cross-check against `src/` (and `tests/` where tests encode the contract).
 4. Update **the owning document** when prose is wrong; update code only when the spec is the source of truth and code diverged incorrectly.
-5. Report what was synced and what was already aligned.
+5. **Reconcile status** (per `.cursor/rules/document-traceability/RULE.md` § Program / Feature Status):
+   - Update the plan's YAML frontmatter `todos` to match what actually landed in code.
+   - Update the matching row in `docs/foundation/roadmap.md` § Program Status Ledger — rollup status, `completed/total` count, group, and `Next action`.
+   - Update `docs/specs/README.md` spec status if the spec moved between `spec'd` and `shipped`.
+   - Do not assert plan-level status anywhere else (no second roadmap, no per-track plan prose).
+6. Report what was synced and what was already aligned.
 
 ## Instructions
 
-- Follow `.cursor/rules/document-traceability/RULE.md` § "Spec ↔ implementation parity".
+- Follow `.cursor/rules/document-traceability/RULE.md` § "Spec ↔ implementation parity" **and** § "Program / Feature Status" (update the roadmap Program Status Ledger row in the same pass).
 - Prefer updating **spec Implementation Notes** when TypeScript idioms (overload + impl, eslint `no-redeclare` for `.ts`) differ from informal "two functions" wording.
 - Do not expand scope to unrelated refactors.
 

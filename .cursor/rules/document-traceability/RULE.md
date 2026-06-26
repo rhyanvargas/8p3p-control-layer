@@ -32,6 +32,40 @@ Each function, type, or interface should be **defined in exactly one place**:
 | Error codes | Spec lists them; `src/shared/error-codes.ts` implements | Plans, implementation |
 | Types | Spec defines structure; `src/shared/types.ts` implements | Plans, implementation |
 | Contract tests | Spec defines test IDs and vectors; `tests/contracts/` implements | Plans (as tasks), `/review` (as checklist) |
+| Program / feature status | `docs/foundation/roadmap.md` § Program Status Ledger (plan-level rollup) + each plan's YAML `todos` (task-level) | Roadmap readers, `/plan-impl`, `/implement-spec`, `/post-impl-doc-sync`, `/review` |
+| Spec authoring status | `docs/specs/README.md` index (`spec'd` / `shipped`) | Roadmap ledger Spec column |
+
+## Program / Feature Status — Single Source of Truth
+
+Program-level status (what is **shipped / active / next / deferred**) is tracked in exactly **one** place: the **Program Status Ledger** in [`docs/foundation/roadmap.md`](../../../docs/foundation/roadmap.md). No second roadmap, per-track plan, or spec prose may assert plan-level status.
+
+## Planning Authority Order
+
+When committed planning sources conflict, resolve ownership in this order:
+
+1. **Specs win** for requirements, public interfaces, acceptance criteria, and contract-test obligations: `docs/specs/`.
+2. **Plans win** for step-by-step implementation sequencing and task state: `.cursor/plans/`.
+3. **Reports win** for dated commitments, meeting records, and audit history: `docs/reports/`.
+
+If the conflict is between capability claims and infrastructure claims, apply `.cursor/rules/analysis-consistency-checks.mdc`: split "deploy/host/live" into concrete tiers and flag missing access paths instead of smoothing over the contradiction.
+
+**Maintenance rule (keeps status DRY — do not duplicate):**
+
+- **Task-level** status (`completed` / `pending` / `in_progress`) lives **only** in the plan's YAML frontmatter `todos`. Ledger counts (`completed/total`) are derived from there.
+- **Plan-level** rollup (`shipped` / `active` / `staged` / `deferred`) **and** "Next action" live **only** in the ledger.
+- **Spec authoring** status (`spec'd` / `shipped`) lives **only** in `docs/specs/README.md`.
+- `internal-docs/foundation/roadmap.md` is a non-canonical pointer — **never** record status there.
+
+**Update triggers — when ANY of these occur, update the ledger row in the SAME change set:**
+
+| Trigger | Ledger update |
+|---------|---------------|
+| New plan added to `.cursor/plans/` | Add a row in the correct group (Active/next, Staged, Backlog) with `0/{N}` + Next action = TASK-001 |
+| A plan's `todos` cross a threshold (first task done, all done, cancelled) | Update that row's rollup status + `completed/total` count |
+| Feature ships / deploys / is deferred | Move the row to the correct group; refresh "Next action" |
+| Spec authored or marked shipped | Update `docs/specs/README.md`; reflect the Spec link in the ledger row |
+
+This trigger set is enforced by `/plan-impl` (row creation), `/implement-spec` (count update on completion), `/post-impl-doc-sync` (rollup reconcile), and `/review` (drift detection).
 
 ## Cross-Document Reference Rules
 

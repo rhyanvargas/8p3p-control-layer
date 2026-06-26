@@ -4,11 +4,11 @@
 
 ## Overview
 
-The control layer already captures **decision-level** feedback — educator Approve/Reject/Ignore on each surfaced decision (`docs/specs/educator-feedback-api.md`, implemented in `src/feedback/`). It does **not** capture **product-level** feedback: how the customer feels about the product, problems they hit, features they want, or praise — the signal a continuous-discovery loop runs on (`.agents/skills/inspired-product/SKILL.md` §6 "ship, measure, learn, adjust").
+The control layer already captures **decision-level** feedback — educator Approve/Reject/Ignore on each surfaced decision (`docs/specs/educator-feedback-api.md`, implemented in `src/feedback/`; dashboard write path wired via [`attention-review-ux.md`](attention-review-ux.md) Phases 1–3, 2026-06-25). It does **not** capture **product-level** feedback: how the customer feels about the product, problems they hit, features they want, or praise — the signal a continuous-discovery loop runs on (`.agents/skills/inspired-product/SKILL.md` §6 "ship, measure, learn, adjust").
 
 Two gaps motivate this spec:
 
-1. **The "gives feedback at any time" principle is unbacked.** [`docs/foundation/roadmap.md`](../foundation/roadmap.md) §Current Direction states the dashboard is "the customer-facing portal… where the pilot customer admin views decisions/data, **gives feedback at any time**." The only wired mechanism is per-decision Approve/Reject/Ignore. There is no always-on, non-decision-scoped affordance.
+1. **The "gives feedback at any time" principle is unbacked for product signal.** [`docs/foundation/roadmap.md`](../foundation/roadmap.md) §Current Direction states the dashboard is "the customer-facing portal… where the pilot customer admin views decisions/data, **gives feedback at any time**." Per-decision Approve/Reject/Ignore is wired (`attention-review-ux.md`), but there is no always-on, non-decision-scoped product-feedback affordance.
 2. **The closed-loop ritual is documented but not instantiated.** `roadmap.md` §"Pilot Feedback Intake" defines a CS-mediated loop that appends to `internal-docs/reports/pilot-feedback-log.md`, but that log file does not exist yet, and no in-product source feeds it.
 
 This spec adds:
@@ -75,7 +75,7 @@ A single category + lifecycle applied across in-product feedback, the CSAT comme
 
 | Value | Maps to |
 |-------|---------|
-| `decisions` | Decision Panel / explanations (`ai-educator-explanations.md`, `decision-panel-ui.md`) |
+| `decisions` | Decision Panel / explanations ([`ai-educator-explanations.md`](ai-educator-explanations.md) backend + panel body copy shipped 2026-06-25; [`decision-panel-ui.md`](decision-panel-ui.md)) |
 | `data_ingestion` | Upload / connectors / mappings |
 | `dashboard_ux` | Navigation, layout, performance, a11y |
 | `trust_privacy` | Data-leakage posture, auditability, FERPA |
@@ -181,6 +181,8 @@ A single category + lifecycle applied across in-product feedback, the CSAT comme
 
 Built per `.agents/skills/frontend-design/SKILL.md` and `vercel-react-best-practices`. All client state versioned + SSR-safe (§6.5); non-urgent updates via `startTransition` (§5.13).
 
+**Reuse shipped patterns.** Decision-level feedback already persists via the Next.js control proxy with sibling-cookie injection (`fb_session` on `POST /v1/decisions/:id/feedback`; see [`attention-review-ux.md`](attention-review-ux.md) § Proxy / session and `dashboard/app/api/control/`). Product feedback should follow the same BFF shape: dashboard route handler injects `pf_session` server-side; the browser never sees the API key.
+
 **1. Always-on "Send feedback" affordance.**
 - A persistent, low-emphasis trigger in the app shell (e.g. a footer/sidebar "Send feedback" button — *not* a floating widget that occludes content). Available on **every** authenticated page.
 - Opens a `Sheet`/`Dialog` (shadcn) with: `feedback_type` segmented control, a single `Textarea` (`message`), and an auto-filled, read-only `page_context`. One submit button. No more than the minimum fields.
@@ -280,8 +282,9 @@ Per `docs/specs/dashboard-passphrase-gate.md` § "Sibling cookie: `fb_session`" 
 
 | Dependency | Source | Status |
 |------------|--------|--------|
-| `FeedbackRepository` interface + SQLite/DynamoDB impls + `FeedbackTable` kind-prefix pattern | `src/feedback/*`, `docs/specs/educator-feedback-api.md` | **Complete (extend)** |
-| Session cookie model + sibling-cookie pattern (`pf_session`) | `docs/specs/dashboard-passphrase-gate.md` § "Sibling cookie: `fb_session`" | **Complete (additive `pf_session`)** |
+| `FeedbackRepository` interface + SQLite/DynamoDB impls + `FeedbackTable` kind-prefix pattern (`feedback#…` / `view#…`; extend with `product#…`) | `src/feedback/*`, [`educator-feedback-api.md`](educator-feedback-api.md) | **Complete (extend)** |
+| Decision-level feedback BFF proxy + sibling-cookie injection pattern | [`attention-review-ux.md`](attention-review-ux.md), `dashboard/app/api/control/` | **Complete (mirror for `pf_session`)** |
+| Session cookie model + sibling-cookie pattern (`pf_session`) | [`dashboard-passphrase-gate.md`](dashboard-passphrase-gate.md) § "Sibling cookie: `fb_session`" | **Spec'd here; not yet in passphrase-gate doc (additive)** |
 | API key + org scoping; `ADMIN_API_KEY` for admin read | `docs/specs/api-key-middleware.md`, `docs/specs/policy-management-api.md` | **Complete** |
 | App-shell layout + shadcn `Sheet`/`Dialog`/`RadioGroup` | `docs/specs/dashboard-design-requirements.md`, `dashboard/` | **Complete (compose)** |
 
@@ -402,4 +405,4 @@ internal-docs/reports/pilot-feedback-log.md       # NEW — instantiated closed-
 
 ---
 
-*Spec created: 2026-06-23 | Phase: v1.1 / pilot portal — customer feedback loop | Depends on: `educator-feedback-api.md`, `dashboard-passphrase-gate.md`, `api-key-middleware.md`, `dashboard-design-requirements.md` | Feeds: `internal-docs/reports/pilot-feedback-log.md` | Grounding: `.agents/skills/designing-surveys`, `.agents/skills/inspired-product`, `.agents/skills/frontend-design`. Recommended next: `/plan-impl docs/specs/customer-feedback-loop.md`.*
+*Spec created: 2026-06-23 | Updated: 2026-06-25 (synced with educator-feedback dashboard wiring + attention-review-ux BFF pattern + ai-educator-explanations panel body copy) | Phase: v1.1 / pilot portal — customer feedback loop | Depends on: `educator-feedback-api.md`, `attention-review-ux.md`, `dashboard-passphrase-gate.md`, `api-key-middleware.md`, `dashboard-design-requirements.md` | Feeds: `internal-docs/reports/pilot-feedback-log.md` | Grounding: `.agents/skills/designing-surveys`, `.agents/skills/inspired-product`, `.agents/skills/frontend-design`. Recommended next: `/plan-impl docs/specs/customer-feedback-loop.md`.*

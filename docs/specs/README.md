@@ -18,13 +18,15 @@ Roadmap and sequencing: [`docs/foundation/roadmap.md`](../foundation/roadmap.md)
 
 | Spec | Role | Status |
 |------|------|--------|
-| [`ai-educator-explanations.md`](ai-educator-explanations.md) | **P0** — plain-language "why" for learning decay; confidence-not-grade; auditable (AI SDK `generateText` → null fallback, PII-safe) | Spec'd + plan staged (2026-06-25); impl pending |
+| [`ai-educator-explanations.md`](ai-educator-explanations.md) | **P0** — plain-language "why" for learning decay; confidence-not-grade; auditable (AI SDK `generateText` → null fallback, PII-safe) | Backend + Panels 2/3 body-copy consumption shipped on branch (2026-06-26); live Bedrock enablement pending for hosted pilot |
 | [`overview-cross-filter-sync.md`](overview-cross-filter-sync.md) | Decision Panel D2 — opt-in 2-way linked filtering (default OFF); client-only | Impl complete on branch (2026-06-25) |
-| [`dashboard-design-requirements.md`](dashboard-design-requirements.md) | **Design source of truth** for the redesigned dashboard (shadcn `dashboard-01` baseline) | Active — D1/D2/D3 data-viz directives shipped on branch |
-| [`customer-feedback-loop.md`](customer-feedback-loop.md) | Product-level feedback: always-on "Send feedback" + CSAT microsurvey + `GET /v1/admin/feedback` | Spec'd (2026-06-23); plan pending |
+| [`overview-educator-activity-layout.md`](overview-educator-activity-layout.md) | Decision Panel D4 — page-level period bar, grouped KPIs, stacked cumulative activity chart + Activity panel | Spec'd; `/plan-impl` pending |
+| [`dashboard-design-requirements.md`](dashboard-design-requirements.md) | **Design source of truth** for the redesigned dashboard (shadcn `dashboard-01` baseline) | Active — D1/D2/D3 data-viz directives shipped on branch; §8 chart bullets amend on D4 ship |
+| [`customer-feedback-loop.md`](customer-feedback-loop.md) | Product-level feedback: always-on "Send feedback" + CSAT microsurvey + `GET /v1/admin/feedback` | Spec'd; implementation planned in `pilot-charter-onboarding.plan.md` TASK-006..016 |
 | [`liu-usage-meter.md`](liu-usage-meter.md) | `GET /v1/admin/usage` + `GET /v1/usage`; SBIR volume denominator (pre-Month 0 per `program-metrics.md` § Overview) | Spec'd; plan committed, impl pending |
 | [`educator-feedback-api.md`](educator-feedback-api.md) | `POST /v1/decisions/:id/feedback` + view log; feeds MC-B*/MC-C* | Backend shipped (`src/feedback/`); dashboard POST wired (Track 2, 2026-06-25) |
 | [`attention-review-ux.md`](attention-review-ux.md) | Approve/Reject closure on `/attention` (toast, undo, review store, Recently reviewed); Educator Feedback API wiring | Phases 1–3 impl complete on branch (2026-06-25) |
+| [`learner-pending-review-bar.md`](learner-pending-review-bar.md) | Data-driven **Action required** bar on `/learners/[ref]` for roster/direct entry (reuse pending queue rules) | Spec'd; impl pending |
 | [`decision-outcomes.md`](decision-outcomes.md) | Derived view joining decisions → state deltas; feeds MC-C* | Spec'd + plan staged |
 | [`program-metrics.md`](program-metrics.md) | MC-A*/B*/C* catalog + `GET /v1/admin/program-metrics` (SBIR evidence; depends on LIU + feedback + outcomes) | Spec'd; plan committed, impl pending |
 | [`pilot-research-export.md`](pilot-research-export.md) | FERPA-safe de-identified bundle for DOE/IES reviewers | Spec'd + plan staged |

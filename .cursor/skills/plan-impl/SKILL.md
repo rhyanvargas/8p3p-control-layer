@@ -64,6 +64,7 @@ When the user invokes `/plan-impl`:
 9. Save plan to `.cursor/plans/{feature-name}.plan.md`.
 10. Initialize `todos` for every task as `pending`.
 11. Ensure every spec test ID maps to a task in the Test Plan table **and** every spec functional requirement / acceptance criterion maps to a task in the Requirements Traceability table.
+12. **Register in the Program Status Ledger** (per `.cursor/rules/document-traceability/RULE.md` § Program / Feature Status — the ledger is the only place plan-level status lives): add one row for this plan to `docs/foundation/roadmap.md` § Program Status Ledger in the correct group (Active/next, Staged, or Backlog) with the spec link, `0/{N}` count, and `Next action` = TASK-001. Do not record plan status anywhere else.
 
 > **Test task rule of thumb**: If the spec has a Contract Tests section, every test ID in that section must appear in the Test Plan table linked to a task. If a plan has no test tasks, it is incomplete.
 
@@ -200,4 +201,5 @@ Before starting implementation:
 
 After generating the plan:
 - Review and adjust task ordering/dependencies
+- Confirm the new Program Status Ledger row exists in `docs/foundation/roadmap.md`
 - Run `/implement-spec .cursor/plans/{feature-name}.plan.md`

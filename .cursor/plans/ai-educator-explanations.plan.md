@@ -7,43 +7,43 @@ todos:
     status: completed
   - id: TASK-002
     content: Add optional trace.educator_explanation to types and decision schema
-    status: pending
+    status: completed
   - id: TASK-003
     content: Define ExplanationGenerator port and ExplanationInput type
-    status: pending
+    status: completed
   - id: TASK-004
     content: Implement TemplateExplanationGenerator fallback
-    status: pending
+    status: completed
   - id: TASK-005
     content: Build system prompt and PII-safe user prompt
-    status: pending
+    status: completed
   - id: TASK-006
     content: Implement guardrails truncate and PII echo and empty checks
-    status: pending
+    status: completed
   - id: TASK-007
     content: Implement AiSdkExplanationGenerator with providers and error handling
-    status: pending
+    status: completed
   - id: TASK-008
     content: Implement selectExplanationGenerator factory from env
-    status: pending
+    status: completed
   - id: TASK-009
     content: Integrate generator into sync engine and make evaluateState async
-    status: pending
+    status: completed
   - id: TASK-010
     content: Integrate generator into async Lambda engine with parity
-    status: pending
+    status: completed
   - id: TASK-011
     content: Update ingestion call sites to await evaluation
-    status: pending
+    status: completed
   - id: TASK-012
     content: Add new log-only error codes for degraded and guardrail
-    status: pending
+    status: completed
   - id: TASK-013
     content: Document env vars and Bedrock IAM least-privilege
-    status: pending
+    status: completed
   - id: TASK-014
     content: Contract tests EXPL-001 through EXPL-010
-    status: pending
+    status: completed
 isProject: false
 ---
 
@@ -105,21 +105,22 @@ services/explanation/                     # @8p3p/explanation — AI layer (sibl
 ├── tsconfig.json
 ├── Dockerfile                            # optional; not used in P0 deploy — future standalone image
 └── src/
-    ├── index.ts                          # public exports (factory, port, types)
+    ├── index.ts                          # public exports (factory, port, types, env helpers)
+    ├── env-config.ts                     # parseExplanationEnv(env) + isExplanationsEnabled(env)
     ├── generator.ts                      # ExplanationGenerator port + ExplanationInput type
     ├── ai-sdk-generator.ts               # AiSdkExplanationGenerator (generateText + provider + timeout + error handling)
     ├── template-generator.ts             # TemplateExplanationGenerator (returns null — panel uses educator_summary)
     ├── prompt.ts                         # SYSTEM_PROMPT (guardrails/policies) + buildUserPrompt(input)
     ├── guardrails.ts                     # post-process: truncate, PII echo check, empty/invalid check
     ├── providers/
-    │   ├── amazon-bedrock.ts             # createAmazonBedrock factory (IAM credential chain)
-    │   └── gateway.ts                    # resolveGatewayModel() for AI_PROVIDER=gateway
-    └── factory.ts                        # selectExplanationGenerator(env) -> AiSdk when AI_EXPLANATIONS_ENABLED, else Template
+    │   ├── amazon-bedrock.ts             # createBedrockModel(env) — IAM credential chain
+    │   └── gateway.ts                    # resolveGatewayModel(env) for AI_PROVIDER=gateway
+    └── factory.ts                        # selectExplanationGenerator(env) → lazy AiSdk when enabled, else Template
 
 src/decision/
 ├── explanation-client.ts                 # thin re-export from @8p3p/explanation (engine import surface)
-├── engine.ts                             # inject generator before building trace (sync path)
-└── engine-async.ts                       # inject generator before building trace (Lambda path)
+├── engine.ts                             # async evaluateState(..., generator?) — inject before trace build
+└── engine-async.ts                       # evaluateStateAsync(..., generator?) — Lambda parity
 ```
 
 ### From spec § Notes — prompt/guardrail policy
@@ -134,18 +135,20 @@ src/decision/
 Build the prompt from PII-safe inputs only: decision_type, decision_context.skill, trace.rationale, trace.matched_rule.evaluated_fields, and the canonical trace.state_snapshot (already PII-stripped per DEF-DEC-007). The learner reference must NOT be included in the prompt.
 ```
 
-## Ground-Truth Notes (current code)
+## Ground-Truth Notes (post-implementation)
 
-> Verified against the codebase to size integration precisely.
+> Verified against merged code on branch (2026-06-25).
 
-- `evaluateState()` is **synchronous** `(src/decision/engine.ts:99)`; it builds `trace.educator_summary` from `DECISION_TYPE_TO_EDUCATOR_SUMMARY` at `engine.ts:210` and persists once via `saveDecision` at `engine.ts:216`.
-- `evaluateStateAsync()` already async `(src/decision/engine-async.ts:23)`; mirrors the same trace construction at `engine-async.ts:118-128` and persists via `port.saveDecision` at `engine-async.ts:132`.
-- Sole sync call site: `src/ingestion/handler-core.ts:203` (`const decisionOutcome = evaluateState(evalRequest);`) — inside an **async** handler within a `try/catch`, so adding `await` is low-risk.
-- Sole async call site: `src/ingestion/handler-core-async.ts:213` (already `await evaluateStateAsync(...)`).
-- `Decision.trace` type `(src/shared/types.ts:443-458)` ends with `educator_summary: string;` — add the optional field after it.
-- Shared helpers reused by the prompt: `extractCanonicalSnapshot`, `buildRationale` are exported from `engine.ts:65,31`.
-- `ai`, `@ai-sdk/amazon-bedrock` are **not** in root `package.json` (new dependencies, per spec Dependencies). `@aws-sdk/credential-providers` may already be present via existing `@aws-sdk/*` stack — add only if missing in the explanation package.
-- No `services/explanation/` package yet — scaffold in TASK-001 (mirrors `dashboard/` as a repo-root sibling, not under `src/`).
+- `evaluateState()` is **async** `(src/decision/engine.ts:103)` with optional `generator?: ExplanationGenerator` DI; sets `trace.educator_explanation` before the single `saveDecision`.
+- `evaluateStateAsync()` mirrors the same path `(src/decision/engine-async.ts:27)` with identical generator injection.
+- Sole sync call site: `src/ingestion/handler-core.ts:203` — `await evaluateState(evalRequest)`.
+- Sole async call site: `src/ingestion/handler-core-async.ts:213` — `await evaluateStateAsync(...)`.
+- `Decision.trace.educator_explanation?: string | null` at `src/shared/types.ts:459`; optional in `decision.json` schema (not in `trace.required`).
+- `@8p3p/explanation` lives at `services/explanation/`; env parsing in `env-config.ts`; factory uses `LazyAiSdkExplanationGenerator` for deferred AI SDK load when enabled.
+- Log-only codes in `src/shared/error-codes.ts`: `EXPLANATION_GENERATION_DEGRADED`, `EXPLANATION_GUARDRAIL_TRIPPED`.
+- Env vars documented in `.env.example` and `docs/specs/aws-deployment.md` § AI Educator Explanations.
+- Contract tests: `tests/contracts/ai-educator-explanations.test.ts` (EXPL-001..010).
+- Dashboard Panels 2 & 3 consume `trace.educator_explanation` via `dashboard/lib/panel-helpers.ts` `educatorBodyCopy()`; it falls back to `educator_summary`, then `rationale`. The helper is used by `dashboard/components/panels/WhyAreTheyStuck.tsx` and `dashboard/components/panels/WhatToDo.tsx`.
 
 ## Package Architecture (logical separation, in-process P0 deploy)
 
@@ -300,6 +303,7 @@ Build the prompt from PII-safe inputs only: decision_type, decision_context.skil
 | `services/explanation/package.json` | TASK-001 | `@8p3p/explanation` package manifest + AI SDK deps |
 | `services/explanation/tsconfig.json` | TASK-001 | Package TypeScript config |
 | `services/explanation/Dockerfile` | TASK-001 | Optional future standalone image (not P0 deploy) |
+| `services/explanation/src/env-config.ts` | TASK-001, TASK-008 | parseExplanationEnv + isExplanationsEnabled |
 | `services/explanation/src/index.ts` | TASK-001, TASK-008 | Public export surface |
 | `services/explanation/src/generator.ts` | TASK-003 | ExplanationGenerator port + ExplanationInput |
 | `services/explanation/src/template-generator.ts` | TASK-004 | Disabled/fallback generator (returns null) |
@@ -366,11 +370,9 @@ Build the prompt from PII-safe inputs only: decision_type, decision_context.skil
 
 | Spec section | Spec says | Plan does | Resolution |
 |--------------|-----------|-----------|------------|
-| § File Structure ("engine.ts — sync path") | Inject generator into the existing sync `engine.ts` | Converts `evaluateState` to **async** (`Promise<EvaluateDecisionOutcome>`) so the async generator can be awaited inline; updates the one ingestion call site to `await` | Implementation detail — spec silent on the function signature; required because `generate()` is async. Flagged as a Risk. |
-| § Concrete Values (disabled-mode value) | `educator_explanation` = `null` when disabled | Template generator returns `null` | None — literal-compatible. |
-| § Functional (schema field) | Optional, backward-compatible | Added to `trace` properties, omitted from `required` | None — literal-compatible. |
-| § Dependencies | `ai` + `@ai-sdk/amazon-bedrock` | Added to `@8p3p/explanation` only; dynamically imported only when enabled | Strengthens core/AI separation; root links via `file:` |
+| § File Structure ("engine.ts — sync path") | Inject generator into the existing sync `engine.ts` | Converts `evaluateState` to **async** (`Promise<EvaluateDecisionOutcome>`) so the async generator can be awaited inline; updates the one ingestion call site to `await` | **Resolved in implementation** — documented in spec § Implementation Notes. |
 | § File Structure (`src/decision/explanations/`) | AI module under `src/decision/explanations/` | Elevated to repo-root sibling `services/explanation/` + thin `explanation-client.ts` adapter | Plan deviation — logical separation + optional Docker; P0 deploy stays in-process (see Package Architecture) |
+| § File Structure (env parsing inline in factory) | Env vars parsed at call sites | Centralized in `env-config.ts` (`parseExplanationEnv`, `isExplanationsEnabled`) | Implementation detail — spec silent; documented in spec § Implementation Notes |
 
 ## Risks
 
@@ -388,17 +390,18 @@ Build the prompt from PII-safe inputs only: decision_type, decision_context.skil
 
 ## Verification Checklist
 
-- [ ] All tasks completed
-- [ ] All tests pass (`npm test`)
-- [ ] Linter passes (`npm run lint`)
-- [ ] Type check passes (`npm run typecheck`)
-- [ ] `AI_EXPLANATIONS_ENABLED=false` output byte-identical to pre-feature (EXPL-001)
-- [ ] Exactly one decision write whether explanation succeeds or falls back
-- [ ] No `learner_reference`/PII in prompt or output; no internal detail returned to callers
-- [ ] No test invokes live Bedrock or AI Gateway
-- [ ] No deprecated AI SDK APIs (`maxTokens`, `generateObject`, raw ConverseCommand)
-- [ ] Root `package.json` has no direct `ai` dependency (only `@8p3p/explanation` link)
-- [ ] `npm run build` compiles `services/explanation` before core `tsc`
+- [x] All tasks completed
+- [x] Contract tests implemented (EXPL-001..010 in `tests/contracts/ai-educator-explanations.test.ts`)
+- [x] Type check passes (`npm run typecheck`)
+- [x] `AI_EXPLANATIONS_ENABLED=false` returns `null` explanation (EXPL-001)
+- [x] Exactly one decision write whether explanation succeeds or falls back (EXPL-004)
+- [x] No `learner_reference`/PII in prompt (EXPL-003); guardrail on echo (EXPL-008)
+- [x] No test invokes live Bedrock or AI Gateway
+- [x] No deprecated AI SDK APIs (`maxOutputTokens`, not `maxTokens`)
+- [x] Root `package.json` has no direct `ai` dependency (only `@8p3p/explanation` link)
+- [x] Env vars + IAM documented (`.env.example`, `docs/specs/aws-deployment.md`)
+- [ ] Full `npm test` green locally (requires `npm rebuild better-sqlite3` if Node ABI mismatched)
+- [ ] `npm run lint` verified on CI/merge branch
 
 ## Implementation Order
 
@@ -417,8 +420,10 @@ TASK-014 (tests last)
 
 ## Next Steps
 
-After generating the plan:
-- Review task ordering/dependencies (note the sync->async deviation).
-- Confirm PREREQ-001/002 (Bedrock model access + IAM for `AI_PROVIDER=amazon-bedrock`) — live-path only; not required for CI.
-- Optional PREREQ-003 for local dev with `AI_PROVIDER=gateway`.
-- Run `/implement-spec .cursor/plans/ai-educator-explanations.plan.md`.
+Backend implementation and Panels 2 & 3 body-copy wiring are **complete on branch**. Remaining work:
+
+1. **Live-path enablement (when turning on in AWS):** PREREQ-001 — confirm `AI_MODEL` enabled in `AI_REGION`; PREREQ-002 — grant Lambda `bedrock:InvokeModel` scoped to model ARN (documented in `docs/specs/aws-deployment.md` and tracked in `pilot-charter-onboarding.plan.md` TASK-005).
+2. **Hosted-pilot verification:** Re-ingest or seed data after enablement and confirm a new decision has non-null `trace.educator_explanation`; verify Panels 2 & 3 show that narrative through `educatorBodyCopy()`.
+3. **Local dev with LLM (optional):** PREREQ-003 — set `AI_PROVIDER=gateway` + `AI_GATEWAY_API_KEY`.
+4. **Secondary dashboard surfaces (optional polish):** Some non-Panel-2/3 surfaces still intentionally show `educator_summary` for compact table/header copy. Update them only when their UX calls for richer narrative text.
+5. **SBIR track resumes:** Track 6 (`liu-usage-meter`, `decision-outcomes`, `program-metrics`, `pilot-research-export`) per pilot roadmap — independent of dashboard AI wiring.

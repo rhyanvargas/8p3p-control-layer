@@ -38,11 +38,11 @@ Two questions the board cares about, scored against the actual codebase:
 |----------|---------|----------|
 | Does the system **identify** learning gaps? | ✅ Built | 4 governed decision types incl. decay (`src/decision/educator-summaries.ts:12-17`); dot-path skill-level eval live (`src/decision/engine.ts` via `getAtPath`); automatic `_delta`/`_direction` decay detection |
 | Does it show **where** a learner struggles? | ✅ Built | `decision_context.skill` on every decision (`engine.ts:181-185`); Decision Panel "What Do They Need Help With" |
-| Does it **explain why** in plain language? | 🔴 Specced, not built | `ai-educator-explanations.md` (all reqs unchecked); `src/decision/explanations/**` = 0 files |
+| Does it **explain why** in plain language? | ✅ Built (post-impl 2026-06-26) | `@8p3p/explanation` package + sync/async engine integration; `trace.educator_explanation` contract field; Panels 2 & 3 consume via `educatorBodyCopy()` with `educator_summary` / `rationale` fallback |
 | Can it show risk appeared **earlier** (temporal)? | 🟡 Built (flat) / gap (per-skill) | `GET /v1/state/trajectory` registered (`src/state/routes.ts:20`), handler + contract test + dashboard tab exist; **v1.1 is flat-fields only** — per-skill nested-path trajectory is the v1.2 `US-SKILL-001` extension (`learner-trajectory-api.md:9`) |
 | Data-leakage posture (board's #1 concern) | ✅ Built | PII forbidden-key rejection (DEF-DEC-008-PII) + canonical PII-stripped receipt snapshot (DEF-DEC-007), both `completed` in `ceo_fact-check_actions` plan; `extractCanonicalSnapshot` (`engine.ts:65-81`) |
 
-**Single capability gap:** the plain-language "why" — exactly the CEO's ask. Everything else needed for the controlled evaluation is built or is a narrow extension.
+**Post-implementation update (2026-06-26):** the original single capability gap — the plain-language "why" — is now built on branch. Remaining work is live-path enablement (Bedrock model access/IAM/env vars) and hosted-pilot verification, not core product capability.
 
 > **Correction vs. earlier working analysis:** the trajectory API is **implemented** (flat fields); only *per-skill* trajectory remains. The "earlier identification" story is demonstrable today at the flat-field level — do not budget trajectory as net-new P1.
 
@@ -53,14 +53,14 @@ Two questions the board cares about, scored against the actual codebase:
 - [x] Dashboard access for the eval = **local, 8P3P-run during the review session** by default; **tier-C** lightweight hosting optional only on leadership request (runbook §2). Resolves the "hosted portal vs. local-only" tension.
 
 **Strategic decisions (TODO — confirm with meeting owner):**
-- [ ] Formally approve building the AI educator-explanation layer as the milestone P0. (TODO confirm)
+- [x] Build the AI educator-explanation layer as the milestone P0. (Implemented on branch; formal meeting-owner ratification still TODO if needed for audit wording.)
 - [ ] Confirm "lead with data-leakage posture" as the district pitch. (TODO confirm)
 
 ## 5. Action Items → Specs/Plans
 
 | # | Action | Priority | Artifact | Status |
 |---|--------|----------|----------|--------|
-| A1 | Build AI educator-explanation layer (Bedrock Converse, fail-safe to template, PII-safe, single write) | P0 | `docs/specs/ai-educator-explanations.md` → `.cursor/plans/ai-educator-explanations.plan.md` | Plan generated 2026-06-23; run `/implement-spec` |
+| A1 | Build AI educator-explanation layer (Bedrock Converse, fail-safe to template, PII-safe, single write) | P0 | `docs/specs/ai-educator-explanations.md` → `.cursor/plans/ai-educator-explanations.plan.md` | Implemented on branch 2026-06-26; live Bedrock enablement tracked in `pilot-charter-onboarding.plan.md` TASK-005 |
 | A2 | Fix Decision Panel "D1" inversion (educator summary at L0, rule id + rationale in L1 Sheet) + freshness/refresh | P0 | `.cursor/plans/dashboard-uiux-improvements.plan.md` (TASK-026) | Planned |
 | A3 | Verify + scope **per-skill** trajectory (v1.2 `US-SKILL-001`); flat trajectory already shippable | P1 | `docs/specs/learner-trajectory-api.md` §v1.2 | **Scoped** 2026-06-23 |
 | A4 | Package a controlled-evaluation runbook (SQLite + seed → ingest pseudonymous export → decisions + receipts + explanations) **+ pin the dashboard access decision (tier C)** | P1 | `internal-docs/pilot-operations/controlled-evaluation-runbook.md` | Drafted 2026-06-23 (tier-C decision resolved; engagement fields TODO) |
@@ -71,7 +71,7 @@ Two questions the board cares about, scored against the actual codebase:
 
 - Confirm the district/prospect name and the evaluation's success criteria.
 - ~~Attach the controlled-evaluation proposal~~ — **Done:** attached at `internal-docs/Proposal for Controlled Data Evaluation.pdf` (scope-of-record).
-- Confirm Bedrock enablement timeline for the explanation layer's live demo (eval can run with `BEDROCK_ENABLED=false` using the template fallback if needed).
+- Confirm Bedrock enablement timeline for the explanation layer's live demo (eval can run with `AI_EXPLANATIONS_ENABLED=false` using the null/template fallback if needed).
 - Confirm whether leadership wants the **optional tier-C host** for async review, or **local-presented only** (runbook §2).
 
 ---

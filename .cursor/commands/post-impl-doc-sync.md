@@ -1,6 +1,6 @@
 # /post-impl-doc-sync
 
-Reconcile **spec** and **plan** prose with **implementation** so literals and API shapes stay aligned (validation constants, `ReadonlySet` vs `Set`, overload style, limits).
+Reconcile **spec** and **plan** prose with **implementation** so literals and API shapes stay aligned (validation constants, `ReadonlySet` vs `Set`, overload style, limits), **and** refresh the feature's row in the roadmap Program Status Ledger.
 
 **Source of truth:** `.cursor/skills/post-impl-doc-sync/SKILL.md`
 

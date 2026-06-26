@@ -22,6 +22,11 @@ This is a backend API service that processes learning signals through a determin
 | Linter | ESLint + @typescript-eslint | ^9.39.2 |
 | Module System | ES Modules | "type": "module" |
 
+## Runtime Policy
+
+- Use Node **22** for repo commands. The runtime is pinned by `.nvmrc`, enforced by `package.json` `engines` (`>=22 <23`) and `.npmrc` (`engine-strict=true`), and matches the Lambda deploy target plus Dockerfile builder.
+- Do not weaken the Node 22 pin to work around native-addon failures. `better-sqlite3` native-ABI drift is the reason the pin exists; durable removal of the native addon is tracked post-pilot as INFRA-SQLITE-001 in `archive/snapshots/roadmap-2026-06-23.md`.
+
 ## Key Commands
 
 ```bash
@@ -148,7 +153,9 @@ Use the spec-driven workflow (detailed workflow instructions live in `.cursor/sk
 3. `/implement-spec` - Implement plan/spec
 4. `/sync-contracts` - Detect and resolve contract drift
 5. `/review` - Post-implementation quality check
-6. `/commit` - Batch local changes into conventional commits (after review)
+6. `/pilot-readiness` - Evaluate hosted pilot gates and blockers
+7. `/pilot-feedback-intake` - Process weekly pilot feedback into triage items
+8. `/commit` - Batch local changes into conventional commits (after review)
 
 For exploring existing code, use `/extract-spec`.
 Canonical reference: `docs/foundation/definitive-workflow.md`.

@@ -1,6 +1,6 @@
 ---
 name: Dashboard Pilot Roadmap
-overview: "Master tracking plan for post-review dashboard work. Tracks 0–4 and Track 6b feedback path shipped on branch (2026-06-25). Remaining: Track 5 AI explanations (controlled-eval P0) and Track 6 SBIR evidence layer (LIU → outcomes → metrics → export)."
+overview: "Master tracking plan for post-review dashboard work. Tracks 0–5 and Track 6b feedback path shipped on branch (2026-06-26). Remaining: live-pilot ops enablement under pilot-charter-onboarding TASK-005/TASK-018 and Track 6 SBIR evidence layer (LIU → outcomes → metrics → export)."
 todos:
   - id: hk-doc-sync
     content: "Track 0: Run /post-impl-doc-sync on dashboard-design-requirements.md (upload wizard [x], checklist alignment)"
@@ -45,8 +45,11 @@ todos:
     content: "Track 4: Consolidate Overview RSC fetch → OverviewExplorer client wrapper + Sync filters toggle"
     status: completed
   - id: ai-explanations
-    content: "Track 5: Execute ai-educator-explanations.plan.md (parallel, backend Bedrock port)"
-    status: pending
+    content: "Track 5: Backend AI explanations shipped (@8p3p/explanation + engine integration)"
+    status: completed
+  - id: ai-explanations-dashboard
+    content: "Track 5b: Wire trace.educator_explanation into decision-panel UI (Panels 2 & 3 body copy)"
+    status: completed
   - id: sbir-liu-usage-meter
     content: "Track 6: Execute liu-usage-meter.plan.md (SBIR denominator — pre-Month 0 per program-metrics spec)"
     status: pending
@@ -67,11 +70,13 @@ isProject: false
 
 # Dashboard Pilot Roadmap
 
+> **Status source of truth:** program-level status (shipped / active / next) lives in the **Program Status Ledger** at [`docs/foundation/roadmap.md`](../../docs/foundation/roadmap.md). This file is retained only for **per-track detail** of the dashboard work (Tracks 0–6) and defers to that ledger. Do not duplicate plan-level status here.
+
 Tracks the execution sequence from the `/review` of uncommitted dashboard work. **Do not re-run** [`.cursor/plans/dashboard-uiux-improvements.plan.md`](.cursor/plans/dashboard-uiux-improvements.plan.md) — it is complete (D1/D3/freshness/upload). Remaining design-spec gaps are scoped slices below.
 
-## Current state (2026-06-25)
+## Current state (2026-06-26)
 
-Tracks **0–4** are **shipped on branch**. Remaining pilot dashboard work is **Track 5** (AI educator explanations, controlled-eval P0) and **Track 6** (SBIR evidence layer, staged).
+Tracks **0–5** are **shipped on branch** for the dashboard/control-layer code path: backend AI explanations persist `trace.educator_explanation`, and Panels 2 & 3 consume it through `educatorBodyCopy()` with `educator_summary` / `rationale` fallbacks. Remaining live-pilot work is **ops enablement** in [`.cursor/plans/pilot-charter-onboarding.plan.md`](.cursor/plans/pilot-charter-onboarding.plan.md) (TASK-005 Bedrock/IAM, TASK-018 hosted dry run, TASK-020 demo capture) plus **Track 6** (SBIR evidence layer, staged).
 
 ```mermaid
 flowchart LR
@@ -83,9 +88,10 @@ flowchart LR
     Upload[Signal upload wizard]
     URLState[page-url-state.ts]
     FeedbackBridge[Educator feedback API dashboard bridge]
+    AIUI[Track 5 AI explanation body copy]
   end
   subgraph next [Next up]
-    AI[Track 5 AI explanations P0]
+    LIVEOPS[Live-pilot ops enablement]
     SBIR[Track 6 SBIR evidence layer]
   end
   shipped --> next
@@ -95,6 +101,7 @@ flowchart LR
 - Review store: `8p3p-review-log:v1` in [`decision-review.ts`](dashboard/lib/decision-review.ts); shared actions in [`review-actions.ts`](dashboard/lib/review-actions.ts)
 - Overview D2: single RSC fetch via [`overview-surfaces.tsx`](dashboard/app/(dashboard)/_components/overview-surfaces.tsx) + [`OverviewSyncProvider`](dashboard/app/(dashboard)/_components/overview-sync-provider.tsx) (design spec §2.1 names `OverviewExplorer`; implementation uses this composition per [`overview-cross-filter-sync.md`](docs/specs/overview-cross-filter-sync.md) § Architecture)
 - Educator feedback: proxy cookie bridge in [`route.ts`](dashboard/app/api/control/[...path]/route.ts); login/logout mint/clear `fb_session`
+- AI explanation body copy: [`educatorBodyCopy()`](dashboard/lib/panel-helpers.ts) prefers `educator_explanation`, then `educator_summary`, then `rationale`; used by Panels 2 & 3 (`WhyAreTheyStuck.tsx`, `WhatToDo.tsx`)
 
 ---
 
@@ -187,11 +194,11 @@ Implemented: single RSC fetch via [`OverviewSurfaces`](dashboard/app/(dashboard)
 
 ---
 
-## Track 5 — Backend P0 (parallel)
+## Track 5 — AI Educator Explanations — **shipped**
 
-**Plan:** [`.cursor/plans/ai-educator-explanations.plan.md`](.cursor/plans/ai-educator-explanations.plan.md) (all tasks pending)
+**Plan:** [`.cursor/plans/ai-educator-explanations.plan.md`](.cursor/plans/ai-educator-explanations.plan.md) (all implementation tasks complete)
 
-Improves `educator_summary` quality across Overview, Attention, Learner detail. Independent of Tracks 1–3 UI work; can run in parallel once pilot bandwidth allows.
+Implemented: `@8p3p/explanation` package + sync/async engine integration, optional `trace.educator_explanation` contract field, contract tests EXPL-001..010, and Panels 2 & 3 body-copy consumption through `educatorBodyCopy()`. Live AWS enablement is an ops task, not dashboard implementation: see `pilot-charter-onboarding.plan.md` TASK-005 (Bedrock model access, IAM, env vars, re-ingest/seed verification).
 
 ---
 
@@ -215,14 +222,14 @@ Ordered by dependency — LIU is promoted to pre-Month 0 and supplies volume den
 
 ## Track 7 — Deferred (post-pilot)
 
-- [`customer-feedback-loop.md`](docs/specs/customer-feedback-loop.md) — plan pending
+- [`customer-feedback-loop.md`](docs/specs/customer-feedback-loop.md) — planned in `pilot-charter-onboarding.plan.md` TASK-006..016; implementation pending
 - [`tenant-config.md`](docs/specs/tenant-config.md)
 - Design spec Phase C polish: command palette, multi-org switcher, responsive/a11y pass
 - Settings policies CRUD (currently read-only table aligns with design spec §6)
 
 ---
 
-## Execution order (historical — Tracks 0–4 complete)
+## Execution order (historical — Tracks 0–5 complete)
 
 ```mermaid
 flowchart TD
@@ -231,7 +238,8 @@ flowchart TD
   P2[Track 2 Attention Phase 2 ✓]
   P3[Track 3 Attention Phase 3 ✓]
   D2[Track 4 Overview D2 ✓]
-  AI[Track 5 AI explanations]
+  AI[Track 5 AI explanations ✓]
+  LIVEOPS[Live-pilot ops enablement]
   LIU[Track 6a LIU usage meter]
   FB[Track 6b Feedback data path ✓]
   OUT[Track 6c Decision outcomes]
@@ -248,9 +256,10 @@ flowchart TD
   MET --> EXP
   HK --> D2
   P1 -. parallel .-> AI
+  AI --> LIVEOPS
 ```
 
-**Remaining work:** Track **5** (controlled-eval P0 — AI educator explanations) and Track **6** (staged SBIR evidence: LIU → outcomes → program-metrics → research-export). Tracks 0–4 and the Track 6b feedback data path are complete on branch.
+**Remaining work:** live-pilot ops enablement (`pilot-charter-onboarding.plan.md` TASK-005/TASK-018/TASK-020) and Track **6** (staged SBIR evidence: LIU → outcomes → program-metrics → research-export). Tracks 0–5 and the Track 6b feedback data path are complete on branch.
 
 **Answer to "re-implement design spec?":** No. D1/D2/D3 and Attention Review UX are shipped; do not re-run [`dashboard-uiux-improvements.plan.md`](.cursor/plans/dashboard-uiux-improvements.plan.md) or attention-review plans except for post-impl doc sync.
 
@@ -260,7 +269,7 @@ flowchart TD
 |------|---------|
 | Tracks 1–3 (shipped) | `cd dashboard && npm test -- --run` + `dashboard/e2e/decision-panel.spec.ts` |
 | Track 4 (shipped) | `dashboard/e2e/overview-cross-filter.spec.ts` + unit tests in `dashboard/lib/overview/__tests__/` |
-| Track 5 (pending) | Backend explanation tests + dashboard copy surfaces |
+| Track 5 (shipped) | `npm test -- --run tests/contracts/ai-educator-explanations.test.ts tests/unit/panel-helpers.test.ts` |
 | Track 6 (pending) | Contract tests per staged SBIR specs |
 | After any track | `/review` on changed files |
 
@@ -278,4 +287,14 @@ Reconciled this roadmap and referenced specs after Tracks 1–4 landed and [`.cu
 | `dashboard-design-requirements.md` §14 D2 | Marked `[x]`; implementation note points to `OverviewSurfaces` composition |
 | `docs/specs/README.md` Active table | Attention review + cross-filter status updated to impl complete on branch |
 | Track 6 SBIR sequence | Unchanged — LIU → feedback → outcomes → metrics → export (per task-6 cleanup) |
-| Foundation roadmap P0 | AI educator explanations remain sole controlled-eval critical path |
+| Foundation roadmap P0 | Historical controlled-eval P0 preserved; living roadmap now points active execution to hosted charter-pilot readiness after AI explanations shipped |
+
+## Post-impl doc sync (2026-06-26)
+
+Reconciled stale Track 5 status after `@8p3p/explanation` and dashboard Panels 2 & 3 body-copy wiring landed:
+
+| Check | Result |
+|-------|--------|
+| Roadmap "Current state" vs branch | Updated — Tracks 0–5 marked shipped; remaining work moved to live-pilot ops enablement + staged SBIR Track 6 |
+| AI explanation dashboard consumption | Updated — `educatorBodyCopy()` prefers `educator_explanation` and is used by `WhyAreTheyStuck.tsx` / `WhatToDo.tsx` |
+| Customer feedback loop status | Updated — no longer "plan pending"; now owned by `pilot-charter-onboarding.plan.md` TASK-006..016 |
