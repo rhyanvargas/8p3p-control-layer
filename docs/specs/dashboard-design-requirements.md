@@ -31,9 +31,11 @@ The educator experience is the product default: a teacher should reach **full co
 | Is anything wrong? | `/` Overview | 4 KPIs max; Needs attention links to `/attention` when >0 | KPI deltas + trend text summary | Recent decision row → L1 Sheet → trace |
 | Who needs help now? | `/attention` | Ranked `LearnerCard` list (no KPI cards) | `DecisionBadge` + `educator_summary` (or type narration) + dominant skill line + `UrgencyBadge` | Card → L1 `LearnerDetailSheet` → `/learners/[ref]` |
 | What should I do? | `/attention` | Decision review cards (≤5 pending) | Expandable rationale; Approve/Reject (localStorage pilot) | — |
-| Why are they stuck? | `/learners/[ref]` → **Struggles & progress** tab | Per-skill struggle cards | Skill name, direction, evidence quote via `/v1/state` `skills.*` | — |
-| Did support work? | `/learners/[ref]` → **Struggles & progress** tab | Progress cards | Stability rationale from `buildStabilityRationale()` | — |
-| Full learner picture | `/learners/[ref]` tabs | One concern per tab | Overview (summary API), State (version selector), Trajectory | L3 `JsonViewer` collapsed only on State tab |
+| Which skill is the gap? | `/learners/[ref]` → **Overview** tab | **Skills breakdown** callout (top 1 gap skill) | Label + detail from `extractProblemAreas()` / `mastery_breakdown` | "View all skills" → **Skills** tab |
+| Why are they stuck? | `/learners/[ref]` → **Struggles & progress** tab | Per-skill struggle cards (skill-first — no learner header) | Skill name, direction, evidence quote via `/v1/state` `skills.*` | — |
+| Did support work? | `/learners/[ref]` → **Struggles & progress** tab | Progress cards (skill-first — no learner header) | Stability rationale from `buildStabilityRationale()` | — |
+| Full skill inventory | `/learners/[ref]` → **Skills** tab | `DataTable` of all skills | Mastery, stability, trend from `mastery_breakdown.skills` | — |
+| Full learner picture | `/learners/[ref]` tabs | One concern per tab | Overview, Skills, State (version selector), Trajectory | L3 `JsonViewer` collapsed only on State tab |
 
 **Legacy panel mapping:** "Who Needs Help Now" + "What Should Happen Next" → **Attention**; "What Do They Need Help With" + "Did the Support Work" → **Learner detail / Struggles & progress**; aggregates → **Overview** (no queue duplication per §2.1).
 
@@ -132,7 +134,7 @@ Data surfaces on a page (chart ↔ table ↔ decision-derived KPI values) may be
 - **Enforcement:** `.cursor/rules/dashboard-url-linked-state/RULE.md` (agent guidance); `dashboard/lib/__tests__/page-url-state.test.ts` (CI contract); e2e chip/control assertions for KPI drill-downs.
 
 **Educator vs inspection density (same drill-down ladder)**
-- Educators: L0/L1 use plain language labels ("Needs help", "Improving"); L2 tabs named for jobs ("Overview", "Struggles & progress").
+- Educators: L0/L1 use plain language labels ("Needs help", "Improving"); L2 tabs named for jobs ("Overview", "Skills", "Struggles & progress").
 - Inspection: L0/L1 may show monospace IDs in peek headers; L2 exposes thresholds tables and `JsonViewer` — still collapsed by default.
 
 ---
@@ -224,7 +226,7 @@ Org context (org name + environment badge), theme toggle, and session control: *
 | `/` | Overview | KPIs + trend chart + recent decisions table | `/v1/state/list`, `/v1/decisions` (recent), `/v1/ingestion` (counts) |
 | `/attention` | Attention queue | Triage: high-urgency learners + actionable decisions (Approve/Reject) | `/v1/learners/:ref/summary` |
 | `/learners` | Learner roster | Searchable/sortable learner table | `/v1/state/list` |
-| `/learners/[ref]` | Learner detail | State viewer (**version drill-down**), trajectory, struggles, progress | `/v1/state`, `/v1/state?version=n`, `/v1/learners/:ref/summary` |
+| `/learners/[ref]` | Learner detail | Overview skills breakdown, full **Skills** tab, state (**version drill-down**), trajectory, struggles/progress | `/v1/state`, `/v1/state?version=n`, `/v1/learners/:ref/summary` |
 | `/decisions` | Decision stream | Filterable audit feed of receipts | `/v1/receipts` |
 | `/decisions/[id]` | Decision trace | Full provenance: rationale, thresholds, state snapshot, rule condition, JSON export | `/v1/decisions` |
 | `/signals` | Signal intake | Ingestion log w/ outcome filter + rejection drill-down; **Upload signals** entry → `/signals/upload` | `/v1/ingestion` |
@@ -289,13 +291,63 @@ Clicking a learner row opens the right-side `DetailSheet` (read-only, ~480px des
 - **Recent decisions:** last **3** receipts with `DecisionBadge`.
 - **Primary CTA (footer, sole emphasized action):** "Open full view" → `/learners/[ref]`.
 
-Everything heavier (state **version drill-down**, full **signal history**, trajectory, struggles/progress) lives on **L2** route tabs below — never crammed into the peek.
+Everything heavier (state **version drill-down**, full **signal history**, full skill inventory, trajectory, struggles/progress) lives on **L2** route tabs below — never crammed into the peek.
 
 **Learner detail `/learners/[ref]` (L2)** — tabs (one concern per tab; no all-in-one scroll):
-- **Overview** — summary + recent decisions (decision-driven via `/v1/learners/:ref/summary`).
+- **Overview** — summary + **Skills breakdown** (§8.2) + recent decisions (decision-driven via `/v1/learners/:ref/summary`).
+- **Skills** — full per-skill inventory table (§8.2); defers roster L0 "skill breakdown" column per §2.1.
 - **State** — canonical fields + **version selector** for historical drill-down; raw JSON in collapsed **L3** `JsonViewer`.
-- **Trajectory** — per-skill trend (reads `/v1/state`).
-- **Struggles & progress** — "What Do They Need Help With" + "Did the Support Work" merged.
+- **Trajectory** — per-field trend from summary projection (reads `/v1/learners/:ref/summary` `field_trajectories`; per-skill trajectory grouped by skill is future scope per `learner-trajectory-api.md` §v1.2).
+- **Struggles & progress** — "What Do They Need Help With" + "Did the Support Work" merged (§8.2); narrative struggle/progress cards only — not the full skill roster.
+
+### 8.2 Learner skills breakdown (L2, dashboard-only)
+
+> Closes the gap between the **60-second student profile** (`docs/specs/urs-aggregation.md`) and the roster rule that hides skill breakdown at L0 (§2.1 table defaults). No new API endpoints — consumes existing summary and state contracts.
+
+**Primary questions**
+
+| Tab / section | Educator question | Data source |
+|---------------|-------------------|-------------|
+| Overview → **Skills breakdown** | "Which skill needs attention *right now*?" | `GET /v1/learners/:ref/summary` → `current_state.mastery_breakdown`; derive via `extractProblemAreas()` in `dashboard/lib/learner-problem-areas.ts` |
+| **Skills** tab | "How is this learner doing on every skill?" | Same summary payload → `mastery_breakdown.skills` (+ `learning_gaps` when present) |
+| **Struggles & progress** tab | "Why are they stuck?" / "Did support work?" | `GET /v1/state?learner_reference=:ref` → `skills.*` (pilot-required per `decision-panel-ui.md` § Panel 2/4 — summary MUST NOT substitute here) |
+
+**Overview — Skills breakdown section**
+
+- Place **below** the Summary `SheetSection` and **above** Recent decisions.
+- Show **one** primary gap skill: first item from `extractProblemAreas(summary, 1)`.
+- Render as a compact callout (not a grid of cards): skill label, detail line (e.g. "25% mastery · declining"), optional `ProgressBadge`.
+- When more than one problem area exists, append "+ N more" and a text link **View all skills** → activates the **Skills** tab (client tab switch or `?tab=skills` entity-state param per §2.1 URL doctrine).
+- When `mastery_breakdown` is `null` and `extractProblemAreas` returns empty, show muted empty copy ("No skill gaps detected") — do not hide the section heading.
+- **Do not** duplicate the dominant **Focus skill** field in Summary unless it differs from the top gap; when they match, one line is enough (prefer the Skills breakdown callout for gap context).
+
+**Skills tab — full inventory**
+
+- **L0 layout:** one `DataTable` (compact density per §2.1 inspection/educator hybrid — comfortable spacing, no JSON).
+- **Default columns:** Skill (educator label via `formatSkillLabel`), Mastery (score + level), Stability (when present in breakdown or merged from state), Trend (`ProgressBadge` from `_direction`), Evidence count (when `evidenceCount` present).
+- **Default sort:** lowest mastery first; ties broken by skill label ascending.
+- **Optional filter bar (v1):** "Needs attention only" toggles rows where mastery &lt; 0.6 or direction is `declining` (same threshold as `skillsFromBreakdown` in `learner-problem-areas.ts`).
+- Reuse the summary query already mounted on Overview where possible (TanStack Query cache key by org + learner ref) — no redundant fetch on tab switch.
+- Empty state: "No per-skill data yet" when `mastery_breakdown` is `null`.
+
+**Struggles & progress — card component rule**
+
+- On L2 learner detail, struggle and progress entries MUST NOT repeat the learner reference in each card header — the page `PageHeader` already identifies the learner.
+- Use **skill-first** cards (`SkillIssueCard` or plain `Card` with skill name as title). Reserve `LearnerCard` (learner ref in header) for **multi-learner** surfaces only: `/attention`, org-wide "What Do They Need Help With" panel (`WhyAreTheyStuck`).
+- Card body unchanged: skill + stability direction, quoted rationale from `buildStabilityRationale()`; progress cards retain level transition line + `ProgressBadge`.
+
+**Acceptance criteria**
+
+- Given learner `stu-20891` on `/learners/stu-20891` with two skills below stability threshold, when the educator opens **Overview**, then the Skills breakdown shows the highest-priority gap (first `extractProblemAreas` item) and "+ 1 more" with a link to the Skills tab — not a grid of `LearnerCard`s repeating `stu-20891`.
+- Given the same learner on **Struggles & progress**, when struggle cards render, then each card title is the **skill name** (e.g. "ELA-201"), not the learner reference.
+- Given `mastery_breakdown.skills` contains N skills, when the educator opens the **Skills** tab, then all N rows appear sorted by mastery ascending with educator labels.
+- Given a skill with `stabilityScore_direction: "declining"` in state, when **Struggles & progress** renders, then the quoted rationale still comes from `/v1/state` (not summary-only projection).
+
+**Out of scope (this amendment)**
+
+- Per-skill trajectory chart redesign (see `learner-trajectory-api.md` §v1.2 — may merge with Skills tab later).
+- Skill breakdown column on `/learners` roster L0 (remains hidden per §2.1).
+- New backend fields or aggregation logic.
 
 **Decisions `/decisions`** — *"What decisions were emitted?"*
 - **L0:** `DataTable` default columns (time, type w/ `DecisionBadge`, rule truncated, learner) + filter bar (org/learner/time). Row → **L1** Sheet peek → "Open trace" → **L2** `/decisions/[id]`.
@@ -407,7 +459,7 @@ dashboard/                                  # Next.js 15 App Router app (see mig
 │   │   ├── page.tsx                         # Overview
 │   │   ├── attention/page.tsx
 │   │   ├── learners/page.tsx
-│   │   ├── learners/[ref]/page.tsx          # tabs: overview/state/trajectory/progress
+│   │   ├── learners/[ref]/page.tsx          # tabs: overview/skills/state/trajectory/struggles
 │   │   ├── decisions/page.tsx
 │   │   ├── decisions/[id]/page.tsx
 │   │   ├── signals/page.tsx

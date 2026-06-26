@@ -4,6 +4,7 @@ import { SectionCards } from '@/components/dashboard/section-cards';
 import { TrendChart } from '@/components/dashboard/trend-chart';
 import { PageHeader } from '@/components/layout/page-header';
 import { FreshnessChip } from '@/components/shared/freshness-chip';
+import { RefreshDataButton } from '@/components/shared/refresh-data-button';
 
 import { ActiveFilterChips } from './active-filter-chips';
 import { useOverviewFilter } from './overview-sync-provider';
@@ -25,6 +26,7 @@ export function OverviewExplorer() {
         description="Is anything wrong right now? Scan KPIs, trends, and recent decisions."
       >
         <SyncFilterToggle />
+        <RefreshDataButton successMessage="Overview data refreshed" />
         {fetchedAt ? <FreshnessChip fetchedAt={fetchedAt} /> : null}
       </PageHeader>
       <ActiveFilterChips />

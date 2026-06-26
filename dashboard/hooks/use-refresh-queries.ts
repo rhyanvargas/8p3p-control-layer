@@ -9,8 +9,8 @@ export function useRefreshQueries() {
   const queryClient = useQueryClient();
   const router = useRouter();
 
-  return useCallback(() => {
-    void queryClient.invalidateQueries();
+  return useCallback(async () => {
+    await queryClient.invalidateQueries();
     router.refresh();
   }, [queryClient, router]);
 }

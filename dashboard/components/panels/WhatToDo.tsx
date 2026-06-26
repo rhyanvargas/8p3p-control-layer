@@ -13,7 +13,7 @@ import { DecisionBadge } from '@/components/shared/DecisionBadge';
 import { useOrgLearnerSummaries } from '@/hooks/use-learner-summary';
 import type { RejectReasonCategory, SuggestedDecisionType } from '@/lib/decision-feedback';
 import { isReviewedLocally } from '@/lib/decision-review';
-import { skillDisplayLine } from '@/lib/panel-helpers';
+import { educatorBodyCopy, skillDisplayLine } from '@/lib/panel-helpers';
 import { queryClient } from '@/lib/query-client';
 import { executeReviewAction } from '@/lib/review-actions';
 
@@ -117,7 +117,7 @@ export function WhatToDo({ orgId }: { orgId: string }) {
   }
 
   const { decision, learnerRef, dominantSkill } = nextAction;
-  const rationale = decision.rationale ?? '';
+  const bodyCopy = educatorBodyCopy(decision);
   const skillLine = skillDisplayLine(dominantSkill);
 
   const rejectPayload = buildRejectFeedbackPayload({
@@ -173,22 +173,17 @@ export function WhatToDo({ orgId }: { orgId: string }) {
           <div className="flex flex-wrap items-start gap-2">
             <DecisionBadge type={decision.decision_type} />
           </div>
-          {decision.educator_summary ? (
-            <p className="text-sm text-foreground" aria-label="Educator-facing decision summary">
-              {decision.educator_summary}
-            </p>
-          ) : null}
         </div>
         <p className="text-base font-semibold text-foreground">{learnerRef}</p>
         {skillLine ? <p className="text-sm text-muted-foreground">{skillLine}</p> : null}
         <div>
           <p
             className={`text-sm text-foreground ${expanded ? '' : 'line-clamp-3'}`}
-            aria-label="Decision rationale"
+            aria-label="Decision explanation"
           >
-            {rationale || 'No rationale text was provided for this decision.'}
+            {bodyCopy}
           </p>
-          {rationale.length > 160 ? (
+          {bodyCopy.length > 160 ? (
             <Button
               type="button"
               variant="link"

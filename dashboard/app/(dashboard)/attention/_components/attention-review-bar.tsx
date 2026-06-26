@@ -115,21 +115,25 @@ export function AttentionReviewBar({
   return (
     <div
       className={cn(
-        'border-border bg-card text-card-foreground fixed z-40 border shadow-lg ring-1 ring-[var(--urgency-medium)]/30',
-        'border-t-2 border-t-[var(--urgency-medium)] backdrop-blur supports-[backdrop-filter]:bg-card/95',
+        'pointer-events-none fixed inset-x-0 z-40',
         isMobile
-          ? 'inset-x-0 bottom-0 px-4 py-4'
+          ? 'bottom-4 px-4'
           : cn(
-              'bottom-2 right-2 px-5 py-4 md:rounded-xl',
+              'right-0 bottom-6 px-6',
               state === 'collapsed'
-                ? 'left-[calc(var(--sidebar-width-icon)+(--spacing(4)))]'
-                : 'left-(--sidebar-width)'
+                ? 'md:left-[calc(var(--sidebar-width-icon)+(--spacing(4)))]'
+                : 'md:left-(--sidebar-width)'
             )
       )}
-      role="region"
-      aria-label="Attention review actions"
     >
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-4">
+      <div
+        className={cn(
+          'border-border bg-card text-card-foreground pointer-events-auto mx-auto flex w-full max-w-(--content-max-width) flex-col gap-4 rounded-xl border px-5 py-4 shadow-lg ring-1 ring-[var(--urgency-medium)]/30',
+          'border-t-2 border-t-[var(--urgency-medium)] backdrop-blur supports-[backdrop-filter]:bg-card/95'
+        )}
+        role="region"
+        aria-label="Attention review actions"
+      >
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0 flex-1">
             <div className="flex items-start gap-3">

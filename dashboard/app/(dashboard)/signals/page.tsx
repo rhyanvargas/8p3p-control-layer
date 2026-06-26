@@ -5,6 +5,7 @@ import { Suspense } from 'react';
 
 import { IngestionLog } from '@/app/(dashboard)/signals/_components/ingestion-log';
 import { PageHeader } from '@/components/layout/page-header';
+import { RefreshDataButton } from '@/components/shared/refresh-data-button';
 import { LoadingState } from '@/components/states/loading-state';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -19,6 +20,7 @@ export default function SignalsPage() {
         title="Signals"
         description="Is ingestion healthy? Review acceptance outcomes and expand rejected rows for validation details."
       >
+        <RefreshDataButton successMessage="Ingestion log refreshed" />
         <Button nativeButton={false} render={<Link href="/signals/upload" />} size="sm">
           <Upload className="size-4" aria-hidden="true" />
           Upload signals

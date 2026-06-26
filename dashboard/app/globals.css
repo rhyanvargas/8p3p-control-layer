@@ -51,6 +51,9 @@
   --shadow-2xl: 0 1px 3px 0px hsl(0 0% 0% / 0.25);
   --spacing: 0.25rem;
 
+  /* ── 8P3P extension — main content column (wide-screen readability) ─ */
+  --content-max-width: 72rem;
+
   /* ── 8P3P extension — warm brand accents ─────────────────── */
   --brand-accent-green: oklch(0.8450 0.0350 145);  /* ≈ #c9d5c4 */
   --brand-accent-warm:  oklch(0.8870 0.0300  75);  /* ≈ #e4dbc9 */

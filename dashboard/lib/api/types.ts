@@ -134,8 +134,10 @@ export interface RecentDecisionItem {
   decided_at: string;
   matched_rule_id: string | null;
   educator_summary: string;
+  educator_explanation?: string | null;
   rationale: string;
   policy_version: string;
+  skill?: string | null;
 }
 
 export interface ActivePolicySummary {

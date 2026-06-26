@@ -11,6 +11,7 @@ import {
 } from '@/app/(dashboard)/attention/_components/attention-review-sheet';
 import { RecentlyReviewed } from '@/app/(dashboard)/attention/_components/recently-reviewed';
 import { PageHeader } from '@/components/layout/page-header';
+import { RefreshDataButton } from '@/components/shared/refresh-data-button';
 import { EmptyState } from '@/components/states/empty-state';
 import { ErrorState } from '@/components/states/error-state';
 import { LoadingState } from '@/components/states/loading-state';
@@ -207,6 +208,7 @@ export function AttentionQueue({ orgId }: AttentionQueueProps) {
             {queue.length} awaiting · {reviewedToday} reviewed today
           </Badge>
         ) : null}
+        <RefreshDataButton successMessage="Attention queue refreshed" />
       </PageHeader>
 
       {fromPending ? (

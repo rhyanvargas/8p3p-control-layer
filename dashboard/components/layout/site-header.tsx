@@ -2,9 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { RefreshCw } from 'lucide-react';
 
-import { ThemeToggle } from '@/components/shared/theme-toggle';
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -13,20 +11,17 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb';
-import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { SidebarTrigger } from '@/components/ui/sidebar';
-import { useRefreshQueries } from '@/hooks/use-refresh-queries';
 import { getBreadcrumbs } from '@/lib/navigation';
 
 export function SiteHeader() {
   const pathname = usePathname();
-  const refresh = useRefreshQueries();
   const breadcrumbs = getBreadcrumbs(pathname);
 
   return (
-    <header className="flex h-(--header-height) shrink-0 items-center gap-2 border-b px-4 transition-[width,height] ease-linear group-has-data-[variant=inset]/sidebar-wrapper:h-(--header-height)">
-      <SidebarTrigger className="-ml-1" />
+    <header className="flex h-(--header-height) shrink-0 items-center gap-2 px-4 transition-[width,height] ease-linear group-has-data-[variant=inset]/sidebar-wrapper:h-(--header-height)">
+      <SidebarTrigger className="-ml-1 shrink-0" />
       <Separator
         orientation="vertical"
         className="mx-2 h-4 data-vertical:self-auto"
@@ -52,17 +47,6 @@ export function SiteHeader() {
           })}
         </BreadcrumbList>
       </Breadcrumb>
-      <div className="ml-auto flex items-center gap-2">
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          onClick={refresh}
-          aria-label="Refresh data"
-        >
-          <RefreshCw />
-        </Button>
-        <ThemeToggle />
-      </div>
     </header>
   );
 }

@@ -3,6 +3,7 @@ import { Suspense } from 'react';
 
 import { DecisionsStream } from '@/app/(dashboard)/decisions/_components/decisions-stream';
 import { PageHeader } from '@/components/layout/page-header';
+import { RefreshDataButton } from '@/components/shared/refresh-data-button';
 import { LoadingState } from '@/components/states/loading-state';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { getServerOrgId } from '@/lib/org-id';
@@ -24,7 +25,9 @@ export default async function DecisionsPage({ searchParams }: DecisionsPageProps
       <PageHeader
         title="Decisions"
         description="What decisions were emitted? Filter the audit stream and open a trace for full provenance."
-      />
+      >
+        <RefreshDataButton successMessage="Decision stream refreshed" />
+      </PageHeader>
 
       {!orgId ? (
         <Alert>

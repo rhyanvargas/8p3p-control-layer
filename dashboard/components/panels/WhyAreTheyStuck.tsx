@@ -6,6 +6,10 @@ import { LearnerCard } from '@/components/shared/LearnerCard';
 import { useOrgLearnerSummaries } from '@/hooks/use-learner-summary';
 import { useLearnerStates } from '@/hooks/use-learner-states';
 import { summaryAttentionLearnerRefs } from '@/lib/attention-decisions';
+import {
+  educatorBodyCopy,
+  findRecentDecisionForSkill,
+} from '@/lib/panel-helpers';
 import { buildStabilityRationale } from '@/lib/rationale-builder';
 import { extractSkillRows } from '@/lib/state-skills';
 
@@ -19,6 +23,14 @@ export function WhyAreTheyStuck({ orgId }: { orgId: string }) {
   );
 
   const stateQuery = useLearnerStates(orgId, learnerRefs);
+
+  const decisionsByLearner = useMemo(() => {
+    const map = new Map<string, (typeof summariesQuery.summaries)[number]['recent_decisions']>();
+    for (const summary of summariesQuery.summaries) {
+      map.set(summary.learner_reference, summary.recent_decisions);
+    }
+    return map;
+  }, [summariesQuery.summaries]);
 
   const isLoading = summariesQuery.isLoading || stateQuery.isLoading;
   const isError = summariesQuery.isError || stateQuery.isError;
@@ -71,8 +83,13 @@ export function WhyAreTheyStuck({ orgId }: { orgId: string }) {
       const declining = dir === 'declining';
       const low = typeof score === 'number' && score < 0.5;
       if (!declining && !low) continue;
-      const quote =
-        typeof score === 'number'
+      const matchedDecision = findRecentDecisionForSkill(
+        decisionsByLearner.get(learnerRef) ?? [],
+        row.skillName
+      );
+      const quote = matchedDecision
+        ? educatorBodyCopy(matchedDecision)
+        : typeof score === 'number'
           ? buildStabilityRationale(score, row.skillName)
           : `Stability trend for ${row.skillName} needs attention.`;
       const directionLabel = declining ? 'declining' : 'below threshold';

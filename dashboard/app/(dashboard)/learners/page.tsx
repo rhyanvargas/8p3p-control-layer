@@ -2,6 +2,7 @@ import { Suspense } from 'react';
 
 import { LearnersRoster } from '@/app/(dashboard)/learners/_components/learners-roster';
 import { PageHeader } from '@/components/layout/page-header';
+import { RefreshDataButton } from '@/components/shared/refresh-data-button';
 import { LoadingState } from '@/components/states/loading-state';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { getServerOrgId } from '@/lib/org-id';
@@ -14,7 +15,9 @@ export default function LearnersPage() {
       <PageHeader
         title="Learners"
         description="Who is in the program and how are they trending?"
-      />
+      >
+        <RefreshDataButton successMessage="Learner roster refreshed" />
+      </PageHeader>
 
       {!orgId ? (
         <Alert>

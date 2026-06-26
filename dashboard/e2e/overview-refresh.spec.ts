@@ -9,7 +9,7 @@ test.describe('FRSH-003: refresh updates Overview freshness', () => {
     await expect(page.getByText(/^Updated /)).toBeVisible({ timeout: 15_000 });
 
     await page.getByRole('button', { name: 'Refresh data' }).click();
-    await expect(page.getByText(/^Updated /)).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText('Overview data refreshed')).toBeVisible({ timeout: 15_000 });
     await expect(page.getByRole('link', { name: /Needs attention:/ })).toBeVisible();
   });
 });
