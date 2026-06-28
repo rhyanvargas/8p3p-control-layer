@@ -26,6 +26,8 @@ Reference: `docs/specs/api-key-middleware.md` (Deployment Requirements).
 - [ ] `npm run lint`
 - [ ] `npm run typecheck`
 
+> **AWS charter pilot:** When [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) is green on the release commit, these gates are satisfied for API deploy via [`.github/workflows/deploy.yml`](../../.github/workflows/deploy.yml) (see [`aws-pilot-runbook.md`](aws-pilot-runbook.md) § 2.0). Amplify dashboard builds are gated by the `dashboard` CI job.
+
 ---
 
 ## QA Gates (Manual)

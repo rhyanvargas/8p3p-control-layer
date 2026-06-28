@@ -18,14 +18,14 @@ todos:
     content: Relocate panel-helpers tests under tests/ for vitest CI inclusion
     status: completed
   - id: TASK-003
-    content: AWS CDK API deploy per aws-pilot-runbook section 2
+    content: "AWS API deploy via GitHub Actions (deploy.yml): OIDC + secrets per runbook §1.2–§2.0; fallback manual CDK §2.1"
     status: completed
   - id: TASK-004
     content: Amplify dashboard deploy with passphrase gate and proxy env
     status: completed
   - id: TASK-005
     content: Enable AI explanations and Bedrock IAM in pilot Lambda env
-    status: pending
+    status: completed
   - id: TASK-006
     content: ProductFeedback types, error codes, and FeedbackRepository extension
     status: pending
@@ -237,12 +237,12 @@ Before starting implementation:
 - **Depends on**: none
 - **Verification**: `npm test -- --run tests/unit/panel-helpers.test.ts` passes.
 
-### TASK-003: AWS CDK API deploy per aws-pilot-runbook section 2
-- **Files**: `infra/` (deploy only; no code change unless CDK env vars need AI explanation keys)
+### TASK-003: AWS API deploy (GitHub Actions — recommended)
+- **Files**: `.github/workflows/deploy.yml`, GitHub repo secrets, `infra/` (stack unchanged unless env/IAM updates)
 - **Action**: Deploy (ops)
-- **Details**: Follow `docs/guides/aws-pilot-runbook.md` §0–§2: `npm run build`, `cd infra && npx cdk deploy`, store `ApiUrl` and keys in vault. Set `API_KEY_ORG_ID` to pilot org. Verify `GET /health` → 200.
+- **Details**: Follow `docs/guides/aws-pilot-runbook.md` § 0 → § 1.1 bootstrap → § 1.2 OIDC secrets (`AWS_DEPLOY_ROLE_ARN`, `ADMIN_API_KEY`, `API_KEY_ORG_ID=southwest-charter`) → § 2.0 run **Deploy** workflow with **`stage=pilot`**. Capture `ApiUrl` (§ 2.2) and API Gateway key (§ 2.3) into vault. Set `AI_EXPLANATIONS_ENABLED=false` for baseline. **Fallback:** § 2.1 manual `cdk deploy` only if GitHub/OIDC unavailable.
 - **Depends on**: PREREQ-002
-- **Verification**: `curl -sS "$API_URL/health"` returns `{"status":"ok"}`; `GET /docs` reachable.
+- **Verification**: Deploy workflow green; `curl -sS "$API_URL/health"` returns `{"status":"ok"}`; optional `GET /docs` reachable.
 
 ### TASK-004: Amplify dashboard deploy with passphrase gate and proxy env
 - **Files**: `dashboard/amplify.yml`, Amplify console env vars

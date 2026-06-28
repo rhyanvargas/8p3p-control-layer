@@ -1,20 +1,20 @@
 # CI/CD Pipeline
 
-> Codify the GitHub Actions pipelines that gate merges to `main` and deliver artifacts to the pilot (Fly.io API + separate Next.js dashboard) and production (AWS CDK) environments. Source of truth for what runs, where, when, and what blocks a deploy.
+> Codify the GitHub Actions pipelines that gate merges to `main` and deliver artifacts to hosted environments. **Charter pilot (2026-06):** AWS CDK via [`deploy.yml`](../../.github/workflows/deploy.yml) + Amplify dashboard per [`aws-pilot-runbook.md`](../guides/aws-pilot-runbook.md). Fly.io remains a **fallback** path only.
 
-**Status (2026-06):** Merge gate is implemented in [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) as two jobs — `dashboard` (Next.js build, typecheck, Playwright e2e) and `check` (API build, validate, lint, test, cdk:synth), both on **Node 22**. AWS [`deploy.yml`](../../.github/workflows/deploy.yml) is unchanged. **`deploy-fly.yml` is not yet in the repo** — Fly API deploy remains manual per [`docs/guides/pilot-host-deployment.md`](../guides/pilot-host-deployment.md). Legacy `VITE_*` dashboard bake-in is **retired**; the API Docker image is API-only.
+**Status (2026-06):** Merge gate is implemented in [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) as two jobs — `dashboard` (Next.js build, typecheck, Playwright e2e) and `check` (API build, validate, lint, test, cdk:synth), both on **Node 22**. AWS [`deploy.yml`](../../.github/workflows/deploy.yml) is the **recommended** charter-pilot API deploy path (OIDC, no local `cdk deploy`). **`deploy-fly.yml` is not yet in the repo** — Fly API deploy remains manual per [`pilot-host-deployment.md`](../guides/pilot-host-deployment.md). Legacy `VITE_*` dashboard bake-in is **retired**; the API Docker image is API-only.
 
 ## Overview
 
-This spec defines two orthogonal GitHub Actions pipelines:
+This spec defines three GitHub Actions deploy tracks (CI merge gate is separate):
 
 1. **CI** (implemented): the merge gate. Runs on every push/PR — **`dashboard`** job (Next.js) + **`check`** job (API + CDK synth).
-2. **Deploy → Pilot (Fly.io)** (planned): builds the API-only Docker image from `Dockerfile`, pushes via `flyctl`, verifies `/health` over TLS. Dashboard deploys separately (Amplify when unblocked, or any Next.js host with runtime `CONTROL_LAYER_*` env).
-3. **Deploy → Prod (AWS)** (existing): `cdk deploy` via OIDC-assumed role. Preserved unchanged.
+2. **Deploy → Charter pilot (AWS)** (existing, **recommended**): `cdk deploy` via OIDC-assumed role in [`deploy.yml`](../../.github/workflows/deploy.yml). Ops runbook: [`aws-pilot-runbook.md`](../guides/aws-pilot-runbook.md) § 1.2 + § 2.0. Dashboard deploys separately on Amplify (§ 3 of same runbook).
+3. **Deploy → Pilot (Fly.io)** (planned, fallback): builds the API-only Docker image from `Dockerfile`, pushes via `flyctl`. Superseded for charter pilot by the AWS path in [`roadmap.md`](../foundation/roadmap.md) § Current Objective.
 
-The two deploy tracks are independent: Fly.io is the pilot path per `internal-docs/reports/2026-04-16-pilot-dry-run-readiness.md` § Decision 1 Option A (explicitly **not** AWS CDK for pilot); AWS CDK remains the prod target per `docs/specs/aws-deployment.md`.
+The AWS and Fly deploy tracks are independent. Do not assume Fly.io is the active pilot path — see [`pilot-charter-onboarding.plan.md`](../../.cursor/plans/pilot-charter-onboarding.plan.md) for the current P0 ops sequence.
 
-This spec does **not** change any application behavior. It codifies existing `.github/workflows/ci.yml` + `deploy.yml` so future changes are contract-driven, and it adds the missing Fly.io deploy workflow required by `.cursor/plans/pilot-host-deployment.plan.md`.
+This spec does **not** change application behavior. It codifies existing `.github/workflows/ci.yml` + `deploy.yml`. The Fly.io workflow remains planned in [`.cursor/plans/pilot-host-deployment.plan.md`](../../.cursor/plans/pilot-host-deployment.plan.md) for non-AWS fallback only.
 
 ---
 
@@ -25,8 +25,8 @@ This spec does **not** change any application behavior. It codifies existing `.g
 | # | Assumption | Evidence |
 |---|------------|----------|
 | A1 | CI platform is **GitHub Actions** | `.github/workflows/ci.yml`, `deploy.yml` already present |
-| A2 | Pilot target is **Fly.io only** for v1; Render deferred | `fly.toml` exists; `render.yaml` is `TASK-004 pending` in `pilot-host-deployment.plan.md` |
-| A3 | Two environments: **pilot** (Fly.io) and **prod** (AWS). No staging. | Readiness brief § Decision 1: "not AWS CDK" for pilot; AWS CDK is prod per `aws-deployment.md` |
+| A2 | **Charter pilot** target is **AWS CDK + Amplify** per [`roadmap.md`](../foundation/roadmap.md) and [`aws-pilot-runbook.md`](../guides/aws-pilot-runbook.md). Fly.io remains fallback (`fly.toml`, [`pilot-host-deployment.md`](../guides/pilot-host-deployment.md)) | Active plan: `.cursor/plans/pilot-charter-onboarding.plan.md` |
+| A3 | **`STAGE` naming:** charter pilot uses `stage=pilot` via `workflow_dispatch` (default push-to-`main` deploy uses `prod` until changed). No separate staging account required for first pilot. | [`deploy.yml`](../../.github/workflows/deploy.yml) `STAGE` env; runbook § 2.0 |
 | A4 | Fly.io deploy triggers: **`workflow_dispatch` only for v1** (manual) | Readiness brief § pre-Saturday schedule: "No code deploys after 12:30 PM". Manual dispatch matches human-controlled release cadence during pilot. Automatic `push:main` can be added later without breaking the contract. |
 | A5 | AWS deploy triggers: **unchanged** (`push:main` + `workflow_dispatch`) | `.github/workflows/deploy.yml:3-11` |
 | A6 | Node version for CI: **22** (both jobs) | `ci.yml` — `dashboard` and `check` use Node 22 / `.nvmrc` |
@@ -59,12 +59,12 @@ This spec does **not** change any application behavior. It codifies existing `.g
 - [ ] FR-FLY-007: Concurrency: one pilot deploy at a time per `fly_app_name`.
 - [ ] FR-FLY-008: Runtime secrets (`API_KEY`, `ADMIN_API_KEY`) are set out-of-band via `fly secrets set`. Dashboard secrets (`CONTROL_LAYER_*`, `DASHBOARD_ACCESS_CODE`, `COOKIE_SECRET`) are set on the **dashboard host**, not the API Fly app.
 
-### Functional — Deploy → Prod (AWS)
+### Functional — Deploy → AWS (CDK via `deploy.yml`)
 
-- [ ] FR-AWS-001: Preserve existing triggers: `push` to `main` and `workflow_dispatch` with `stage` input (`prod` default, `dev` optional).
+- [ ] FR-AWS-001: Preserve existing triggers: `push` to `main` and `workflow_dispatch` with `stage` input (`prod` default; use `pilot` for charter pilot per [`aws-pilot-runbook.md`](../guides/aws-pilot-runbook.md) § 2.0).
 - [ ] FR-AWS-002: Preserve existing job graph: `test → build → cdk-synth → deploy`. No functional change.
 - [ ] FR-AWS-003: Authenticate via OIDC using `aws-actions/configure-aws-credentials@v4` and `secrets.AWS_DEPLOY_ROLE_ARN`. No long-lived AWS keys in repository secrets.
-- [ ] FR-AWS-004: Pass deploy-time env vars: `ADMIN_API_KEY`, `CUSTOM_DOMAIN`, `HOSTED_ZONE_ID`, `HOSTED_ZONE_NAME` from repository secrets.
+- [ ] FR-AWS-004: Pass deploy-time env vars: `ADMIN_API_KEY`, `API_KEY_ORG_ID`, `CUSTOM_DOMAIN`, `HOSTED_ZONE_ID`, `HOSTED_ZONE_NAME` from repository secrets.
 - [ ] FR-AWS-005: Post-deploy contract tests run only when `secrets.CONTRACT_TEST_API_URL` is set (preserves existing conditional behavior).
 - [ ] FR-AWS-006: Concurrency: `group: deploy-${{ github.ref }}`, `cancel-in-progress: false`.
 
@@ -204,9 +204,10 @@ Dashboard deploy workflow (Amplify or other) is a **separate** spec/workflow wit
 | `stage` | `workflow_dispatch` input | no | `prod` | string | Passed to CDK as `STAGE` env var. |
 | `AWS_DEPLOY_ROLE_ARN` | `secrets.AWS_DEPLOY_ROLE_ARN` | yes | — | string | OIDC-assumed IAM role. |
 | `ADMIN_API_KEY` | `secrets.ADMIN_API_KEY` | yes | — | string | Injected at `cdk deploy` time. |
-| `CUSTOM_DOMAIN` | `secrets.CUSTOM_DOMAIN` | yes | — | string | API Gateway custom domain. |
-| `HOSTED_ZONE_ID` | `secrets.HOSTED_ZONE_ID` | yes | — | string | Route 53 zone. |
-| `HOSTED_ZONE_NAME` | `secrets.HOSTED_ZONE_NAME` | yes | — | string | Route 53 zone name. |
+| `API_KEY_ORG_ID` | `secrets.API_KEY_ORG_ID` | yes (single-tenant pilot) | — | string | e.g. `southwest-charter` — Lambda org override. |
+| `CUSTOM_DOMAIN` | `secrets.CUSTOM_DOMAIN` | no | — | string | API Gateway custom domain. |
+| `HOSTED_ZONE_ID` | `secrets.HOSTED_ZONE_ID` | no | — | string | Route 53 zone. |
+| `HOSTED_ZONE_NAME` | `secrets.HOSTED_ZONE_NAME` | no | — | string | Route 53 zone name. |
 | `CONTRACT_TEST_API_URL` | `secrets.CONTRACT_TEST_API_URL` | no | — | string | Optional. When set, enables post-deploy contract tests. |
 | `CONTRACT_TEST_API_KEY` | `secrets.CONTRACT_TEST_API_KEY` | no | — | string | Required when `CONTRACT_TEST_API_URL` is set. |
 

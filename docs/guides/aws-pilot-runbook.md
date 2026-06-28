@@ -26,12 +26,14 @@ flowchart LR
 
 | Surface | Source | Deploy command / trigger | Spec |
 |---------|--------|------------------------|------|
-| **Control-layer API** | `infra/` CDK stack | `cdk deploy` or [`.github/workflows/deploy.yml`](../../.github/workflows/deploy.yml) | [`aws-deployment.md`](../specs/aws-deployment.md) |
+| **Control-layer API** | `infra/` CDK stack | **[Recommended]** [`.github/workflows/deploy.yml`](../../.github/workflows/deploy.yml) (OIDC) · **[Fallback]** local `cdk deploy` (§ 2.1) | [`aws-deployment.md`](../specs/aws-deployment.md) · [`ci-cd-pipeline.md`](../specs/ci-cd-pipeline.md) |
 | **Decision Panel** | `dashboard/` Next.js app | Amplify Git build ([`dashboard/amplify.yml`](../../dashboard/amplify.yml)) | [`nextjs-amplify-dashboard-migration.md`](../specs/nextjs-amplify-dashboard-migration.md) |
 
 **Not on Amplify Hosting:** the Fastify Docker API ([`Dockerfile`](../../Dockerfile)). Amplify Hosting runs the dashboard only. The API is the existing CDK stack — do not rewrite into Amplify Gen 2 (evaluated and rejected in the migration spec).
 
 **Browser security model:** Educators never receive `x-api-key`. The dashboard proxy ([`dashboard/app/api/control/[...path]/route.ts`](../../dashboard/app/api/control/[...path]/route.ts)) attaches `CONTROL_LAYER_API_KEY` server-side.
+
+**First deploy (recommended order):** § 0 pre-flight → § 1.1 bootstrap (once) → § 1.2 GitHub OIDC + secrets → § 2.0 trigger `deploy.yml` → § 2.2–§ 2.3 capture `ApiUrl` + API key → § 3 Amplify dashboard → § 4 smoke. You do **not** need to run `cdk deploy` locally unless debugging (§ 2.1).
 
 ---
 
@@ -81,7 +83,7 @@ cd dashboard && npm run build && npm test && npm run test:e2e
 | `org_id` | `southwest-charter` | Must match all ingestion + `CONTROL_LAYER_ORG_ID`; policy at `src/decision/policies/southwest-charter/learner.json` |
 | API URL | `https://abc123.execute-api.us-east-1.amazonaws.com/pilot/` | From CDK output `ApiUrl` |
 | Dashboard URL | `https://main.d111111.amplifyapp.com` | Amplify default domain or custom |
-| API key value | *(vault)* | API Gateway key — see § 3.4 |
+| API key value | *(vault)* | API Gateway key — see § 2.3 |
 | Admin API key | *(vault)* | `ADMIN_API_KEY` at CDK deploy |
 | Dashboard passphrase | *(vault)* | `DASHBOARD_ACCESS_CODE` |
 | `COOKIE_SECRET` | *(vault)* | `openssl rand -hex 32` |
@@ -104,24 +106,28 @@ npx cdk bootstrap "aws://${AWS_ACCOUNT_ID}/${AWS_REGION}"
 
 Ref: [AWS CDK bootstrapping](https://docs.aws.amazon.com/cdk/v2/guide/bootstrapping.html)
 
-### 1.2 GitHub Actions OIDC (recommended)
+### 1.2 GitHub Actions OIDC (required for recommended API deploy path)
 
-For automated API deploys via [`.github/workflows/deploy.yml`](../../.github/workflows/deploy.yml):
+One-time setup so [`.github/workflows/deploy.yml`](../../.github/workflows/deploy.yml) can run `cdk deploy` without long-lived AWS keys on your laptop. Contract: [`ci-cd-pipeline.md`](../specs/ci-cd-pipeline.md) § FR-AWS-001…006.
 
-1. Create IAM OIDC provider for GitHub in the AWS account.  
-2. Create deploy role trusting your repo; grant CDK deploy permissions.  
-3. Set GitHub repository secrets:
+1. Complete § 1.1 bootstrap (GitHub Actions still needs a bootstrapped account).  
+2. Create IAM OIDC provider for GitHub in the AWS account.  
+3. Create deploy role trusting your repo (`repo:ORG/8p3p-control-layer:*`); grant CDK deploy permissions (pilot accounts often use a broad deploy policy; tighten for company account).  
+4. Set GitHub repository secrets (Settings → Secrets and variables → Actions):
 
-| Secret | Purpose |
-|--------|---------|
-| `AWS_DEPLOY_ROLE_ARN` | OIDC role for `deploy` job |
-| `ADMIN_API_KEY` | Passed to CDK at synth/deploy |
-| `CUSTOM_DOMAIN` | Optional — API custom domain |
-| `HOSTED_ZONE_ID` / `HOSTED_ZONE_NAME` | Optional — Route 53 |
-| `CONTRACT_TEST_API_URL` | Optional — post-deploy contract tests |
-| `CONTRACT_TEST_API_KEY` | Optional — same as pilot API key |
+| Secret | Required | Purpose |
+|--------|----------|---------|
+| `AWS_DEPLOY_ROLE_ARN` | Yes | OIDC role ARN for the `deploy` job |
+| `ADMIN_API_KEY` | Yes | Passed to CDK at deploy (`openssl rand -hex 32` → vault) |
+| `API_KEY_ORG_ID` | Yes (charter pilot) | e.g. `southwest-charter` — wired into Lambda `commonEnv` |
+| `CUSTOM_DOMAIN` | No | API custom domain |
+| `HOSTED_ZONE_ID` / `HOSTED_ZONE_NAME` | No | Route 53 (with custom domain) |
+| `CONTRACT_TEST_API_URL` | No | Enables post-deploy contract tests in workflow |
+| `CONTRACT_TEST_API_KEY` | No | Same as pilot API Gateway key when tests enabled |
 
-Manual deploy (no OIDC) is fine for the first pilot — use § 3 locally.
+5. Optional: create a GitHub **Environment** named `pilot` with protection rules if you want gated deploys.
+
+**Pilot stage note:** `deploy.yml` defaults `STAGE` to `prod` on push to `main`. For charter pilot resources (`control-layer-*-pilot`), use **Actions → Deploy → Run workflow** and set input **`stage` = `pilot`**. Before enabling AI explanations, set repo/org variable or CDK context so deploy runs with `AI_EXPLANATIONS_ENABLED=false` (see § 2.5).
 
 ### 1.3 Compliance note (personal account)
 
@@ -131,26 +137,35 @@ Learner-adjacent data on a **personal** AWS account is acceptable for **internal
 
 ## 2. Deploy the API (CDK)
 
-### 2.1 Build application artifacts
+Lambda handlers load from `dist/lambda/` (see [`control-layer-stack.ts`](../../infra/lib/control-layer-stack.ts)). The CDK stack in `infra/` remains the source of truth — GitHub Actions only **runs** deploy; it does not replace CDK.
 
-Lambda handlers load from `dist/lambda/` (see [`control-layer-stack.ts`](../../infra/lib/control-layer-stack.ts)).
+### 2.0 Recommended: GitHub Actions (`deploy.yml`)
+
+**Prerequisites:** § 0 green locally, § 1.1 bootstrap complete, § 1.2 secrets set.
+
+1. GitHub → **Actions** → **Deploy** → **Run workflow**.  
+2. Set **`stage`** to `pilot` (charter pilot) or `dev` / `prod` as appropriate.  
+3. Wait for jobs `test → build → cdk-synth → deploy` to succeed ([`deploy.yml`](../../.github/workflows/deploy.yml)).  
+4. Continue at § 2.2 to read CloudFormation outputs and § 2.3 for the API Gateway key.
+
+**Ongoing updates:** merge to `main` triggers deploy with default `STAGE=prod` unless you standardize on workflow_dispatch for pilot. Prefer explicit `stage=pilot` dispatch until a company prod account exists.
+
+**When CI deploy fails:** download the failed job log; fix infra/code on a branch; re-run workflow. Use § 2.1 manual deploy only if OIDC or GitHub is unavailable.
+
+### 2.1 Fallback: manual CDK from your laptop
+
+Use when debugging OIDC/IAM or before GitHub secrets exist. Requires AWS CLI credentials locally.
 
 ```bash
-# Repo root
+# Repo root — build Lambda artifacts
 npm ci
-npm run build
-```
+npm run build:lambda-deploy
 
-### 2.2 Deploy stack
-
-```bash
-export STAGE=pilot                    # or dev / prod
+export STAGE=pilot
+export AWS_REGION=us-east-1
 export ADMIN_API_KEY="$(openssl rand -hex 32)"   # store in vault
-export API_KEY_ORG_ID=southwest-charter            # single-tenant pilot org override
-# Optional custom domain:
-# export CUSTOM_DOMAIN=api.example.com
-# export HOSTED_ZONE_ID=Z...
-# export HOSTED_ZONE_NAME=example.com
+export API_KEY_ORG_ID=southwest-charter
+export AI_EXPLANATIONS_ENABLED=false             # baseline pilot; see § 2.5 for AI
 
 cd infra && npm ci
 npx cdk diff
@@ -163,7 +178,7 @@ Optional alarm email:
 npx cdk deploy -c pilotAlarmEmail=oncall@example.com
 ```
 
-### 2.3 Capture outputs
+### 2.2 Capture outputs
 
 After deploy, save CloudFormation outputs:
 
@@ -178,7 +193,7 @@ Required: **`ApiUrl`** → pilot environment record.
 
 DynamoDB tables use **on-demand billing** with **point-in-time recovery** enabled — pilot data persists across redeploys (unlike ephemeral Fly SQLite).
 
-### 2.4 Retrieve the API Gateway key value
+### 2.3 Retrieve the API Gateway key value
 
 CDK creates a usage-plan API key named `control-layer-pilot-key-${STAGE}`. Fetch the **secret value** once:
 
@@ -193,7 +208,7 @@ Store in vault → this becomes:
 - `<pilot_key>` in curl smoke tests  
 - Customer integration `x-api-key` (if they call the API directly)
 
-### 2.5 Org scoping
+### 2.4 Org scoping
 
 Single-tenant pilots require consistent `org_id`:
 
@@ -201,7 +216,7 @@ Single-tenant pilots require consistent `org_id`:
 - Instruct integrators to send the same `org_id` in signal bodies.  
 - Set **`API_KEY_ORG_ID`** at CDK deploy time (e.g. `export API_KEY_ORG_ID=southwest-charter`) — wired into Lambda `commonEnv` in [`control-layer-stack.ts`](../../infra/lib/control-layer-stack.ts) for server-side override parity with [`api-key-middleware.md`](../specs/api-key-middleware.md).
 
-### 2.6 Optional: AI educator explanations
+### 2.5 Optional: AI educator explanations
 
 Explanations run **inside the ingest Lambda**, not on Amplify. Default is off. To enable later:
 
@@ -235,7 +250,7 @@ Set in Amplify Console → **Environment variables** (runtime / SSR — **not** 
 | Variable | Required | Example |
 |----------|----------|---------|
 | `CONTROL_LAYER_API_BASE_URL` | Yes | CDK `ApiUrl` (no trailing path beyond stage) |
-| `CONTROL_LAYER_API_KEY` | Yes | API Gateway key from § 2.4 |
+| `CONTROL_LAYER_API_KEY` | Yes | API Gateway key from § 2.3 |
 | `CONTROL_LAYER_ORG_ID` | Yes | `southwest-charter` |
 | `DASHBOARD_ACCESS_CODE` | Yes (pilot) | Human-memorable passphrase |
 | `COOKIE_SECRET` | Yes (when gate on) | `openssl rand -hex 32` |
@@ -322,7 +337,7 @@ File smoke report: `internal-docs/reports/pilot-smoke-YYYY-MM-DD.md` (gitignored
 
 | Change | Action |
 |--------|--------|
-| API / business logic | Merge to `main` → `deploy.yml` (or manual `cdk deploy` after `npm run build`) |
+| API / business logic | Merge to `main` → [`deploy.yml`](../../.github/workflows/deploy.yml) (**recommended**); or `workflow_dispatch` with `stage=pilot`. Manual `cdk deploy` (§ 2.1) for debugging only. |
 | Dashboard UI | Merge to `main` → Amplify auto-build |
 | Env var change | Amplify console and/or CDK context; **never** commit secrets |
 
@@ -354,7 +369,7 @@ There is **no** native “transfer Amplify app to another account.” Migration 
 |------|--------|
 | 1 | Create/bootstrap company AWS account (§ 1.1) |
 | 2 | `cdk deploy` in **new** account → new `ApiUrl` |
-| 3 | Retrieve **new** API Gateway key (§ 2.4) — **rotate**, do not copy old key |
+| 3 | Retrieve **new** API Gateway key (§ 2.3) — **rotate**, do not copy old key |
 | 4 | Create **new** Amplify app → same repo, `dashboard/` root → set env vars (§ 3.2) |
 | 5 | Update GitHub `AWS_DEPLOY_ROLE_ARN` → company account OIDC role |
 | 6 | **Data migration** (choose one): |
@@ -387,7 +402,7 @@ There is **no** native “transfer Amplify app to another account.” Migration 
 | Symptom | Likely cause | Fix |
 |---------|--------------|-----|
 | Dashboard 502 on data pages | Wrong `CONTROL_LAYER_API_BASE_URL` or API down | Verify CDK `ApiUrl`; check Lambda logs |
-| Dashboard login works, no data | API key mismatch | Re-sync § 2.4 value into Amplify `CONTROL_LAYER_API_KEY` |
+| Dashboard login works, no data | API key mismatch | Re-sync § 2.3 value into Amplify `CONTROL_LAYER_API_KEY` |
 | API 403 without key | Expected — API Gateway enforcement | Proxy must send `x-api-key`; check route handler |
 | API 403 with key | Key not on usage plan | CDK usage plan association |
 | Empty Attention queue | Wrong org or no ingest | Confirm `org_id`; run seed or upload |

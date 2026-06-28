@@ -55,7 +55,7 @@ This table is the **only** place to read program-level status. To decide what to
 
 | Order | Feature / Plan | Spec | Status | Next action |
 |-------|----------------|------|--------|-------------|
-| 1 | `pilot-charter-onboarding.plan.md` | `customer-feedback-loop.md` (+ runbook refs) | **P0 active** — 7/23 (PREREQ + TASK-001..004 done) | Ops: TASK-003/004 deploy → TASK-005 enable Bedrock; then feedback loop TASK-006..016 |
+| 1 | `pilot-charter-onboarding.plan.md` | `customer-feedback-loop.md` (+ runbook refs) | **P0 active** — 7/23 (PREREQ + TASK-001..004 done) | Ops: verify API via GitHub Actions (`deploy.yml`, runbook § 2.0) + Amplify (§ 3); TASK-005 AI when baseline smoke passes; then feedback loop TASK-006..016 |
 | 2 | `overview-educator-activity-layout.plan.md` (D4) | `overview-educator-activity-layout.md` | **Staged** — 0/11 | TASK-001 chart/CSV builders; **must absorb the uncommitted `RefreshDataButton` + `--content-max-width` substrate before rewriting `overview-explorer.tsx`** |
 | 3 | `learner-pending-review-bar.plan.md` (LPR) | `learner-pending-review-bar.md` | **Staged** — 0/11 | TASK-001 `selectPendingDecisionForLearner`; build **after** the committed review-bar overlay + §8.2 learner tabs |
 

@@ -12,6 +12,93 @@ import * as sns from 'aws-cdk-lib/aws-sns';
 import * as snsSubscriptions from 'aws-cdk-lib/aws-sns-subscriptions';
 import type { Construct } from 'constructs';
 
+/** Default Bedrock model — keep in sync with services/explanation/src/env-config.ts */
+const DEFAULT_BEDROCK_MODEL = 'us.anthropic.claude-3-5-haiku-20241022-v1:0';
+
+function isTruthyDeployEnv(value: string | undefined): boolean {
+  const raw = value?.trim().toLowerCase();
+  return raw === 'true' || raw === '1';
+}
+
+function isFalsyDeployEnv(value: string | undefined): boolean {
+  const raw = value?.trim().toLowerCase();
+  return raw === 'false' || raw === '0';
+}
+
+/**
+ * Whether to wire AI explanation env + Bedrock IAM at synth time.
+ * Explicit AI_EXPLANATIONS_ENABLED wins; otherwise enabled for stage=pilot only.
+ */
+function resolveAiExplanationsEnabled(stage: string): boolean {
+  const explicit = process.env.AI_EXPLANATIONS_ENABLED;
+  if (isTruthyDeployEnv(explicit)) {
+    return true;
+  }
+  if (isFalsyDeployEnv(explicit)) {
+    return false;
+  }
+  return stage === 'pilot';
+}
+
+/** Lambda env vars for inline educator explanations (ingest + webhook decision paths). */
+function buildAiExplanationEnv(stage: string, stackRegion: string): Record<string, string> | undefined {
+  if (!resolveAiExplanationsEnabled(stage)) {
+    return undefined;
+  }
+
+  const provider = process.env.AI_PROVIDER?.trim() || 'amazon-bedrock';
+  const model = process.env.AI_MODEL?.trim() || DEFAULT_BEDROCK_MODEL;
+  const region =
+    process.env.AI_REGION?.trim() ||
+    stackRegion ||
+    process.env.CDK_DEFAULT_REGION?.trim() ||
+    process.env.AWS_REGION?.trim() ||
+    'us-east-1';
+
+  const env: Record<string, string> = {
+    AI_EXPLANATIONS_ENABLED: 'true',
+    AI_PROVIDER: provider,
+    AI_MODEL: model,
+    AI_REGION: region,
+  };
+
+  const optionalKeys = [
+    'AI_MAX_OUTPUT_TOKENS',
+    'AI_TEMPERATURE',
+    'AI_TIMEOUT_MS',
+    'AI_MAX_RETRIES',
+    'AI_GATEWAY_API_KEY',
+    'EDUCATOR_EXPLANATION_MAX_CHARS',
+  ] as const;
+
+  for (const key of optionalKeys) {
+    const value = process.env[key]?.trim();
+    if (value) {
+      env[key] = value;
+    }
+  }
+
+  return env;
+}
+
+/** Least-privilege Bedrock invoke scoped to the configured foundation model + inference profile. */
+function grantBedrockInvokeModel(
+  fn: lambda.Function,
+  modelId: string,
+  region: string
+): void {
+  fn.addToRolePolicy(
+    new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: ['bedrock:InvokeModel'],
+      resources: [
+        `arn:aws:bedrock:${region}::foundation-model/${modelId}`,
+        `arn:aws:bedrock:${region}:*:inference-profile/${modelId}`,
+      ],
+    })
+  );
+}
+
 export interface ControlLayerStackProps extends cdk.StackProps {
   stage?: string;
   /**
@@ -164,6 +251,8 @@ export class ControlLayerStack extends cdk.Stack {
     // -------------------------------------------------------------------------
 
     const apiKeyOrgId = process.env.API_KEY_ORG_ID?.trim() ?? '';
+    const aiExplanationEnv = buildAiExplanationEnv(stage, this.region);
+    const decisionPathEnv = aiExplanationEnv ?? {};
 
     const commonEnv: Record<string, string> = {
       NODE_ENV: 'production',
@@ -202,7 +291,7 @@ export class ControlLayerStack extends cdk.Stack {
       functionName: `control-layer-ingest-${stage}`,
       handler: 'dist/lambda/ingest.handler',
       description: 'Signal ingestion — POST /v1/signals',
-      environment: { ...commonEnv },
+      environment: { ...commonEnv, ...decisionPathEnv },
     });
 
     // -------------------------------------------------------------------------
@@ -214,7 +303,7 @@ export class ControlLayerStack extends cdk.Stack {
       functionName: `control-layer-webhook-${stage}`,
       handler: 'dist/lambda/webhook.handler',
       description: 'Webhook adapter — POST /v1/webhooks/{source_system}',
-      environment: { ...commonEnv },
+      environment: { ...commonEnv, ...decisionPathEnv },
     });
 
     // -------------------------------------------------------------------------
@@ -283,6 +372,14 @@ export class ControlLayerStack extends cdk.Stack {
     this.policiesTable.grantReadData(this.webhookFunction);
     this.fieldMappingsTable.grantReadData(this.webhookFunction);
     this.tenantsTable.grantReadData(this.webhookFunction);
+
+    // AI educator explanations — Bedrock invoke on ingest/webhook decision paths only
+    if (aiExplanationEnv?.AI_PROVIDER === 'amazon-bedrock') {
+      const bedrockModel = aiExplanationEnv.AI_MODEL;
+      const bedrockRegion = aiExplanationEnv.AI_REGION;
+      grantBedrockInvokeModel(this.ingestFunction, bedrockModel, bedrockRegion);
+      grantBedrockInvokeModel(this.webhookFunction, bedrockModel, bedrockRegion);
+    }
 
     // QueryFunction: read-only on data tables
     this.signalsTable.grantReadData(this.queryFunction);
@@ -564,6 +661,17 @@ export class ControlLayerStack extends cdk.Stack {
       value: this.webhookFunction.functionName,
       exportName: `ControlLayer-WebhookFunctionName-${stage}`,
     });
+    new cdk.CfnOutput(this, 'AiExplanationsEnabled', {
+      value: aiExplanationEnv ? 'true' : 'false',
+      description:
+        'Whether IngestFunction/WebhookFunction have AI_EXPLANATIONS_ENABLED and Bedrock IAM (auto-on for stage=pilot unless AI_EXPLANATIONS_ENABLED=false at synth)',
+    });
+    if (aiExplanationEnv) {
+      new cdk.CfnOutput(this, 'AiExplanationModel', {
+        value: aiExplanationEnv.AI_MODEL,
+        description: 'Bedrock model ID wired to ingest/webhook Lambdas',
+      });
+    }
 
     // -------------------------------------------------------------------------
     // Custom domain (TASK-014) — optional, requires HOSTED_ZONE_ID + HOSTED_ZONE_NAME
