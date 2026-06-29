@@ -3,7 +3,7 @@
 > **Primary pilot path (2026-06):** [`aws-pilot-runbook.md`](aws-pilot-runbook.md) — CDK API + Amplify dashboard in one AWS account. Use **this doc** only when an AWS account is unavailable or you need the Docker/Fly shortcut.
 
 **Audience:** Engineering (pilot API deploy + separate dashboard hosting)  
-**Purpose:** Go from zero to a TLS URL with `/health`, runtime secrets, and the CEO readiness **single curl gate**. The **Decision Panel** is a standalone Next.js app (`dashboard/`) — it does **not** ship inside the API Docker image. For local two-process setup see [`docs/foundation/setup.md`](../foundation/setup.md). For onboarding workflow see Internal onboarding runbook (local `internal-docs/`, not in public repo) and [`Pilot Readiness Gates`](pilot-readiness-gates.md).
+**Purpose:** Go from zero to a TLS URL with `/health`, runtime secrets, and the CEO readiness **single curl gate**. The **Decision Panel** is a standalone Next.js app (`dashboard/`) — it does **not** ship inside the API Docker image. For local two-process setup see [`docs/foundation/setup.md`](../../foundation/setup.md). For onboarding workflow see Internal onboarding runbook (local `internal-docs/`, not in public repo) and [`Pilot Readiness Gates`](pilot-readiness-gates.md).
 
 ---
 
@@ -25,7 +25,7 @@ Normative text from the pilot readiness brief (*Decision 1 — Deployment path f
 
 | CEO decision | Use |
 |--------------|-----|
-| **Fly.io** (Option A) | [`fly.toml`](../../fly.toml) at repo root — `fly launch` / `fly deploy` with `Dockerfile` |
+| **Fly.io** (Option A) | [`fly.toml`](../../../fly.toml) at repo root — `fly launch` / `fly deploy` with `Dockerfile` |
 | **Render** (Option A) | Render **Web Service** from this repo’s `Dockerfile` (and Blueprint `render.yaml` when that file exists in the repo), with the same env/build-arg wiring as below |
 | **ngrok** (Option B) | This guide assumes a **container on Fly or Render**. For a local Fastify process plus a public tunnel, follow Option B in the readiness brief and use Internal onboarding runbook (local `internal-docs/`, not in public repo) § Phase 1 for tenant secrets and URL wiring against your tunnel host |
 
@@ -50,14 +50,14 @@ fly secrets set API_KEY='...' ADMIN_API_KEY='...'
 
 ### Decision Panel (Next.js) — separate host
 
-Dashboard secrets are **runtime env** on the Next.js host (Amplify, Vercel, Fly second app, etc.) — not Docker build args. See [`dashboard/.env.example`](../../dashboard/.env.example).
+Dashboard secrets are **runtime env** on the Next.js host (Amplify, Vercel, Fly second app, etc.) — not Docker build args. See [`dashboard/.env.example`](../../../dashboard/.env.example).
 
 | Secret | Source | Notes |
 |--------|--------|-------|
 | `CONTROL_LAYER_API_BASE_URL` | Pilot API URL | e.g. `https://8p3p-pilot-springs.fly.dev` |
 | `CONTROL_LAYER_API_KEY` | Same value as API `API_KEY` | **Server-only** — proxied by `/api/control/*`; never `NEXT_PUBLIC_` |
 | `CONTROL_LAYER_ORG_ID` | Pilot org | e.g. `springs` |
-| `DASHBOARD_ACCESS_CODE` | Human-memorable passphrase | [Dashboard passphrase gate](../specs/dashboard-passphrase-gate.md) |
+| `DASHBOARD_ACCESS_CODE` | Human-memorable passphrase | [Dashboard passphrase gate](../../specs/dashboard-passphrase-gate.md) |
 | `COOKIE_SECRET` | `openssl rand -hex 32` | Required when gate is enabled |
 
 Example (Amplify console or host env):
@@ -70,11 +70,11 @@ DASHBOARD_ACCESS_CODE=<passphrase>
 COOKIE_SECRET=<32+ byte secret>
 ```
 
-Ensure the API allows the dashboard origin via `DASHBOARD_ALLOWED_ORIGINS` (see [`.env.example`](../../.env.example)).
+Ensure the API allows the dashboard origin via `DASHBOARD_ALLOWED_ORIGINS` (see [`.env.example`](../../../.env.example)).
 
 ### Public (non-secret) runtime env
 
-These are **not** vault secrets. They are fixed in [`fly.toml`](../../fly.toml) `[env]` or the Render service env to match [`.env.example`](../../.env.example) / pilot template:
+These are **not** vault secrets. They are fixed in [`fly.toml`](../../../fly.toml) `[env]` or the Render service env to match [`.env.example`](../../../.env.example) / pilot template:
 
 | Variable | Example / note |
 |----------|----------------|
@@ -84,7 +84,7 @@ These are **not** vault secrets. They are fixed in [`fly.toml`](../../fly.toml) 
 | `DECISION_POLICY_PATH` | `./src/decision/policies/default.json` |
 | `DASHBOARD_SESSION_TTL_HOURS` | `8` |
 
-Rationale: either defaults documented in `.env.example` or org identifiers that are not treated as secrets in the [API key middleware](../specs/api-key-middleware.md) deployment model.
+Rationale: either defaults documented in `.env.example` or org identifiers that are not treated as secrets in the [API key middleware](../../specs/api-key-middleware.md) deployment model.
 
 Optional overrides (paths, limits) from `.env.example` apply if you set them; otherwise the image defaults match local dev.
 
@@ -92,16 +92,16 @@ Optional overrides (paths, limits) from `.env.example` apply if you set them; ot
 
 ## 3. Two-artifact deployment (API + dashboard)
 
-As of the Next.js migration ([`docs/specs/nextjs-amplify-dashboard-migration.md`](../specs/nextjs-amplify-dashboard-migration.md)):
+As of the Next.js migration ([`docs/specs/nextjs-amplify-dashboard-migration.md`](../../specs/nextjs-amplify-dashboard-migration.md)):
 
 | Artifact | Build | Host | Image / output |
 |----------|-------|------|----------------|
-| **Control layer API** | Root [`Dockerfile`](../../Dockerfile) (`npm run build` → `dist/`) | Fly.io / Render | Fastify only — **no dashboard bundle** |
+| **Control layer API** | Root [`Dockerfile`](../../../Dockerfile) (`npm run build` → `dist/`) | Fly.io / Render | Fastify only — **no dashboard bundle** |
 | **Decision Panel** | `cd dashboard && npm run build` | AWS Amplify (planned), or any Next.js host | `.next/` standalone SSR |
 
 **Security win:** `CONTROL_LAYER_API_KEY` is a **runtime server env** on the dashboard host. It is not baked into a client JS bundle (legacy `VITE_API_KEY` pattern is retired).
 
-**Pilot minimum:** deploy the API first (this doc § 5–6). Deploy the dashboard separately with `CONTROL_LAYER_*` pointing at the API URL. Local parity: [`docs/foundation/setup.md`](../foundation/setup.md).
+**Pilot minimum:** deploy the API first (this doc § 5–6). Deploy the dashboard separately with `CONTROL_LAYER_*` pointing at the API URL. Local parity: [`docs/foundation/setup.md`](../../foundation/setup.md).
 
 **AWS Amplify** for the dashboard is spec'd but **blocked** pending startup credits — see migration spec stage gate. Until then, run the dashboard on any Node 22 host that supports Next.js 15 SSR, or develop locally with `npm run dev` in `dashboard/`.
 
@@ -125,7 +125,7 @@ From internal dry-run script (local `internal-docs/`, not in public repo) — Sa
 
 ## 7. Pilot persistence (3–6 month customer pilots)
 
-**Adopted 2026-05-15 (CEO direction).** This section is the persistence ladder for any customer pilot longer than the Springs dry run. It is **required** for evidence-grade reporting (MC-A* / MC-B* / MC-C* in [`program-metrics.md`](../specs/program-metrics.md)) because the signal-log, state-store, decision-store, and educator-feedback databases must survive the full pilot window for replay, audit, and the FERPA-safe research export.
+**Adopted 2026-05-15 (CEO direction).** This section is the persistence ladder for any customer pilot longer than the Springs dry run. It is **required** for evidence-grade reporting (MC-A* / MC-B* / MC-C* in [`program-metrics.md`](../../specs/program-metrics.md)) because the signal-log, state-store, decision-store, and educator-feedback databases must survive the full pilot window for replay, audit, and the FERPA-safe research export.
 
 ### What the server actually writes
 
@@ -194,7 +194,7 @@ A wipe of `/app/data/*.db` wipes **all** of the above, including months of educa
 
 ### Migration tripwires — when to leave Fly + SQLite
 
-Stay on Fly + SQLite + Volume **until any of the following becomes true**, then migrate to the AWS path in [`docs/specs/aws-deployment.md`](../specs/aws-deployment.md) (DynamoDB + Lambda):
+Stay on Fly + SQLite + Volume **until any of the following becomes true**, then migrate to the AWS path in [`docs/specs/aws-deployment.md`](../../specs/aws-deployment.md) (DynamoDB + Lambda):
 
 - `signal-log.db` exceeds **1 GB** OR sustained write rate exceeds **100 k signals/day**, OR
 - More than one Fly Machine needs to write (multi-region or HA), OR
@@ -204,9 +204,9 @@ At pilot scale none of these trigger; below them, SQLite-on-Fly is the right too
 
 ### Cross-references
 
-- [`docs/guides/pilot-readiness-gates.md`](pilot-readiness-gates.md) § Pilot vs production readiness — this section is the **persistence ladder** the gate references.
-- [`docs/foundation/roadmap.md`](../foundation/roadmap.md) item 31 — adopts this recipe.
-- [`fly.toml`](../../fly.toml) — `[[mounts]]` block commented in place; uncomment when running a real pilot.
+- [`docs/guides/operators/pilot-readiness-gates.md`](pilot-readiness-gates.md) § Pilot vs production readiness — this section is the **persistence ladder** the gate references.
+- [`docs/foundation/roadmap.md`](../../foundation/roadmap.md) item 31 — adopts this recipe.
+- [`fly.toml`](../../../fly.toml) — `[[mounts]]` block commented in place; uncomment when running a real pilot.
 
 ---
 
@@ -256,7 +256,7 @@ curl -sS -X POST "https://<pilot-host>/v1/signals" \
 
 > If this fails at 6:00 PM Friday and the cause is not a 10-minute fix, we pivot to ngrok (Option B) or postpone the dry run to Sunday.
 
-**Pass:** both requests return HTTP 2xx; `POST /v1/signals` returns an accepted envelope per [`docs/api/openapi.yaml`](../api/openapi.yaml). **Fail:** follow the escape clause above; CS lead + Eng decide live.
+**Pass:** both requests return HTTP 2xx; `POST /v1/signals` returns an accepted envelope per [`docs/api/openapi.yaml`](../../api/openapi.yaml). **Fail:** follow the escape clause above; CS lead + Eng decide live.
 
 ---
 
@@ -267,5 +267,5 @@ curl -sS -X POST "https://<pilot-host>/v1/signals" \
 | Internal dry-run script (local `internal-docs/`, not in public repo) | Saturday timeline and observation log |
 | [Pilot Readiness Gates](pilot-readiness-gates.md) | Pilot-ready gates |
 | [Deployment checklist](./deployment-checklist.md) | Pre-deploy technical gates |
-| [Dashboard passphrase gate](../specs/dashboard-passphrase-gate.md) | `DASHBOARD_ACCESS_CODE`, `COOKIE_SECRET` |
-| [`.env.example`](../../.env.example) | Full server env contract |
+| [Dashboard passphrase gate](../../specs/dashboard-passphrase-gate.md) | `DASHBOARD_ACCESS_CODE`, `COOKIE_SECRET` |
+| [`.env.example`](../../../.env.example) | Full server env contract |

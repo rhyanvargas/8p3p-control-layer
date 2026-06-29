@@ -142,7 +142,7 @@ Share the Decision Panel URL with your educator champion — this is the primary
 
 The read-only inspection surfaces (Signal Intake, State Viewer, Decision Stream, Decision Trace) live in the **Decision Panel** Next.js app — not on the API host.
 
-**Local:** follow [Local Dev & Testing](../foundation/setup.md), then open http://localhost:3001/ and use **Signals**, **Decisions**, and learner detail tabs.
+**Local:** follow [Local Dev & Testing](../../foundation/setup.md), then open http://localhost:3001/ and use **Signals**, **Decisions**, and learner detail tabs.
 
 **Deployed:** open the dashboard URL your operator provides (passphrase gate may apply). No client-side API key entry — the dashboard proxy holds credentials server-side.
 
@@ -165,8 +165,8 @@ To preload demo data: run `npm run seed:springs-demo` against the API with `--ap
 ## API reference
 
 - **Interactive docs:** `https://<host>/docs` (OpenAPI Swagger UI)  
-- **Full integration guide:** [Pilot Integration Guide (v1)](pilot-integration-guide.md)  
-- **All guides:** [Guides index](README.md)
+- **Full integration guide:** [Pilot Integration Guide (v3)](pilot-integration-guide.md)  
+- **All guides:** [Guides index](../README.md)
 
 ---
 

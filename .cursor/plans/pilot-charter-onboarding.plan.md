@@ -77,7 +77,7 @@ isProject: false
 # Pilot Charter Onboarding
 
 **Primary spec**: `docs/specs/customer-feedback-loop.md`  
-**Supporting refs**: `docs/guides/aws-pilot-runbook.md`, `docs/specs/ai-educator-explanations.md`, `docs/guides/pilot-readiness-gates.md`, `docs/specs/ingestion-preflight.md`, `docs/guides/pilot-integration-guide.md`
+**Supporting refs**: `docs/guides/operators/aws-pilot-runbook.md`, `docs/specs/ai-educator-explanations.md`, `docs/guides/operators/pilot-readiness-gates.md`, `docs/specs/ingestion-preflight.md`, `docs/guides/customers/pilot-integration-guide.md`
 
 **Context (2026-06-25, confirmed)**:
 
@@ -214,7 +214,7 @@ Per `docs/specs/dashboard-passphrase-gate.md` § "Sibling cookie: `fb_session`" 
 Before starting implementation:
 
 - [ ] **PREREQ-001** Local gates green on release commit: `npm run build`, `npm test`, `npm run lint`, `npm run typecheck`, `cd dashboard && npm run build && npm test`. Record baseline; fix Node 22 via `.nvmrc` if `better-sqlite3` ABI errors.
-- [ ] **PREREQ-002** Pilot environment record filled (vault, not git): AWS account ID, `STAGE=pilot`, `org_id`, API URL, dashboard URL, API key, `ADMIN_API_KEY`, `DASHBOARD_ACCESS_CODE`, `COOKIE_SECRET` — template in `docs/guides/aws-pilot-runbook.md` §0.
+- [ ] **PREREQ-002** Pilot environment record filled (vault, not git): AWS account ID, `STAGE=pilot`, `org_id`, API URL, dashboard URL, API key, `ADMIN_API_KEY`, `DASHBOARD_ACCESS_CODE`, `COOKIE_SECRET` — template in `docs/guides/operators/aws-pilot-runbook.md` §0.
 - [ ] **PREREQ-003** Choose pilot `org_id` (e.g. `southwest-charter`) and confirm policy file path `policies/<org_id>/learner.json` exists or will be created at onboarding.
 
 ---
@@ -240,7 +240,7 @@ Before starting implementation:
 ### TASK-003: AWS API deploy (GitHub Actions — recommended)
 - **Files**: `.github/workflows/deploy.yml`, GitHub repo secrets, `infra/` (stack unchanged unless env/IAM updates)
 - **Action**: Deploy (ops)
-- **Details**: Follow `docs/guides/aws-pilot-runbook.md` § 0 → § 1.1 bootstrap → § 1.2 OIDC secrets (`AWS_DEPLOY_ROLE_ARN`, `ADMIN_API_KEY`, `API_KEY_ORG_ID=southwest-charter`) → § 2.0 run **Deploy** workflow with **`stage=pilot`**. Capture `ApiUrl` (§ 2.2) and API Gateway key (§ 2.3) into vault. Set `AI_EXPLANATIONS_ENABLED=false` for baseline. **Fallback:** § 2.1 manual `cdk deploy` only if GitHub/OIDC unavailable.
+- **Details**: Follow `docs/guides/operators/aws-pilot-runbook.md` § 0 → § 1.1 bootstrap → § 1.2 OIDC secrets (`AWS_DEPLOY_ROLE_ARN`, `ADMIN_API_KEY`, `API_KEY_ORG_ID=southwest-charter`) → § 2.0 run **Deploy** workflow with **`stage=pilot`**. Capture `ApiUrl` (§ 2.2) and API Gateway key (§ 2.3) into vault. Set `AI_EXPLANATIONS_ENABLED=false` for baseline. **Fallback:** § 2.1 manual `cdk deploy` only if GitHub/OIDC unavailable.
 - **Depends on**: PREREQ-002
 - **Verification**: Deploy workflow green; `curl -sS "$API_URL/health"` returns `{"status":"ok"}`; optional `GET /docs` reachable.
 
@@ -249,7 +249,7 @@ Before starting implementation:
 - **Action**: Deploy (ops)
 - **Details**: Per runbook §3: set `CONTROL_LAYER_API_BASE_URL`, `CONTROL_LAYER_API_KEY`, `CONTROL_LAYER_ORG_ID`, `DASHBOARD_ACCESS_CODE`, `COOKIE_SECRET` (same value as API `COOKIE_SECRET`), `NEXT_PUBLIC_APP_NAME`. Confirm `/dashboard/login` redirect when unauthenticated; successful login lands on Overview.
 - **Depends on**: TASK-003
-- **Verification**: All gates in `docs/guides/pilot-readiness-gates.md` § Decision Panel pass against hosted URL.
+- **Verification**: All gates in `docs/guides/operators/pilot-readiness-gates.md` § Decision Panel pass against hosted URL.
 
 ### TASK-005: Enable AI explanations and Bedrock IAM in pilot Lambda env
 - **Files**: `infra/lib/control-layer-stack.ts` (if env/IAM not yet wired), Lambda env in CDK or console

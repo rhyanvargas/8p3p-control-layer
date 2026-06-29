@@ -26,13 +26,13 @@ The educator-facing Decision Panel dashboard is built and undergoing testing —
 ### Seed Script v2
 - Complete rewrite of `seed-springs-demo.mjs`: Phase 1 registers field mappings for 4 LMS sources (Canvas, Blackboard, i-Ready, Absorb) via admin API; Phase 2 sends 11 signals across 5 named personas; Phase 3 verifies decisions.
 - Springs routing policy updated to match new demo scenarios.
-- New pilot demo guide at `docs/guides/springs-pilot-demo.md`.
+- New pilot demo guide at `docs/guides/playbooks/springs-pilot-demo.md`.
 
 ### Pilot Documentation (v3)
 - Pilot Integration Guide promoted to v3 — connectors deferred to post-pilot roadmap; all integrations use Direct API.
 - Customer Onboarding Quick Start now references the Decision Panel and links to the integration guide.
 - Guides README adds internal ops guide links (Pilot Readiness, Onboarding Runbook, Configure LMS).
-- New field-mapping onboarding guide at `docs/guides/onboarding-field-mappings.md`.
+- New field-mapping onboarding guide at `docs/guides/customers/onboarding-field-mappings.md`.
 
 ### Dev Tooling
 - Agent skills added: Vercel React best practices, Fastify best practices, frontend design.

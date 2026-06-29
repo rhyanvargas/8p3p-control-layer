@@ -8,7 +8,7 @@ This repository uses a **six-tier documentation model**. Tiers T1–T5 are commi
 |------|------|------------|----------|-----------|
 | **T1 — Foundation** | `docs/foundation/` | Committed | Agents, engineers, integrators | Engineering rules, terminology, architecture, roadmap |
 | **T2 — Specs** | `docs/specs/` | Committed | Agents, engineers | Requirements + interface SSoT |
-| **T3 — Guides** | `docs/guides/` | Committed | Customers + operators | Integration and launch procedures |
+| **T3 — Guides** | `docs/guides/` | Committed | Customers + operators | Integration and launch procedures; [`scenarios/`](../guides/scenarios/) routers; [`customers/`](../guides/customers/) · [`operators/`](../guides/operators/) · [`playbooks/`](../guides/playbooks/) |
 | **T4 — Plans** | `.cursor/plans/` | Committed | Agents, engineers | Implementation sequencing |
 | **T5 — Contracts** | `src/contracts/schemas/`, `docs/api/` | Committed | Agents, CI | Machine-verifiable truth |
 | **T6 — Internal ops** | `internal-docs/` | **Gitignored** | CS, solutions, leadership | Named-customer runbooks, investor PDFs, demo scripts, append-only logs |
@@ -26,9 +26,21 @@ Tier T6 is a private ops vault. It is not required for implementation, CI, or fr
 - Append-only CS logs (for example pilot feedback intake ledgers)
 - Internal strategy reports with partner names, pricing, or competitive analysis
 
-Committed docs MAY mention that T6 exists and list internal doc titles in prose (see [`docs/guides/internal-operations-stub.md`](../guides/internal-operations-stub.md) when available). They MUST NOT use relative markdown hrefs into `internal-docs/`.
+Committed docs MAY mention that T6 exists and list internal doc titles in prose (see [`docs/guides/operators/internal-operations-stub.md`](../guides/operators/internal-operations-stub.md) when available). They MUST NOT use relative markdown hrefs into `internal-docs/`.
+
+## T3 — Scenarios subfolder
+
+[`docs/guides/scenarios/`](../guides/scenarios/) holds **Diátaxis how-to routers** — prerequisites, numbered links to authoritative docs, and exit criteria only. They are **not** source of truth; runbooks, checklists, and specs remain SSoT.
 
 ## Agent reading order (post-migration)
+
+**Human / onboarding tasks** (deploy pilot, launch customer, integrate LMS, run locally):
+
+```
+docs/README.md → pick scenario path → linked runbook / checklist / spec chain
+```
+
+**Feature implementation:**
 
 ```
 docs/foundation/documentation-boundaries.md
@@ -45,7 +57,7 @@ docs/foundation/documentation-boundaries.md
 |------|-------|
 | T1 — Foundation | This folder (`docs/foundation/`) — start with [`roadmap.md`](roadmap.md) |
 | T2 — Specs | [`docs/specs/README.md`](../specs/README.md) |
-| T3 — Guides | [`docs/guides/README.md`](../guides/README.md) |
+| T3 — Guides | [`docs/README.md`](../README.md) (scenarios) · [`docs/guides/README.md`](../guides/README.md) (catalog) |
 | T4 — Plans | `.cursor/plans/` |
 | T5 — Contracts | `src/contracts/schemas/`, `docs/api/openapi.yaml` |
 

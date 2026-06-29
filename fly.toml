@@ -5,7 +5,7 @@
 #   * Dry run only      → leave [[mounts]] commented; SQLite under /app/data is ephemeral,
 #                         re-seed per dry-run-script.md § Saturday 12:00–12:45 PM pre-flight.
 #   * Real pilot (≥1wk) → uncomment [[mounts]] below + set min_machines_running = 1;
-#                         see docs/guides/pilot-host-deployment.md § 7 Pilot persistence.
+#                         see docs/guides/operators/pilot-host-deployment.md § 7 Pilot persistence.
 #   * Production        → migrate to AWS deployment (DynamoDB) per docs/specs/aws-deployment.md
 #                         once tripwires in § 7 are hit.
 
@@ -55,7 +55,7 @@ primary_region = "dfw"
 
 # Persistent volume for SQLite — UNCOMMENT for any pilot longer than the Springs dry run.
 # Provision once: `fly volumes create data --region dfw --size 3`.
-# Persistence recipe + backup cron + tripwires: docs/guides/pilot-host-deployment.md § 7.
+# Persistence recipe + backup cron + tripwires: docs/guides/operators/pilot-host-deployment.md § 7.
 #
 # [[mounts]]
 #   source      = "data"

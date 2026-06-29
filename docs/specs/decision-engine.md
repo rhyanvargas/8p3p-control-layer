@@ -824,7 +824,7 @@ With this config, signals with `source_system: "canvas-lms"` or `"internal-lms"`
 - `loadRoutingConfigForOrg(orgId: string): PolicyRoutingConfig | null` — loads and caches `policies/{orgId}/routing.json`; returns `null` if the file is missing or invalid (parse errors are swallowed so a bad routing file does not break evaluation).  
 - `resolveUserTypeFromSourceSystem(orgId: string, sourceSystem: string): string` — returns the policy key for the given org and source system (routing config lookup, then `default_policy_key`, then hard fallback `"learner"`).
 
-The ingestion path passes `source_system` from the signal into the evaluation request so the engine can call `resolveUserTypeFromSourceSystem(org_id, source_system)` and then `loadPolicyForContext(org_id, userType)`. See `docs/guides/pilot-integration-guide.md` §12 for integration details.
+The ingestion path passes `source_system` from the signal into the evaluation request so the engine can call `resolveUserTypeFromSourceSystem(org_id, source_system)` and then `loadPolicyForContext(org_id, userType)`. See `docs/guides/customers/pilot-integration-guide.md` §12 for integration details.
 
 ## Contract Tests
 

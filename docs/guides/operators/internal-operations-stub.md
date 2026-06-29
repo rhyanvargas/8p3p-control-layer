@@ -30,7 +30,7 @@ Available locally in gitignored `internal-docs/` on machines that have the inter
 | IP Defensibility and Value Proposition | Technical defensibility narrative and canonical-field domain ownership |
 | Documentation Experience | Aspirational customer-facing doc-site UX (not yet implemented) |
 
-**Committed engineering rules:** API naming, roadmap, and definitive workflow are authoritative in [`docs/foundation/`](../foundation/) — internal copies are mirrors only.
+**Committed engineering rules:** API naming, roadmap, and definitive workflow are authoritative in [`docs/foundation/`](../../foundation/) — internal copies are mirrors only.
 
 ---
 
@@ -74,5 +74,5 @@ Committed specs reference evaluation engagements in prose only — no public hre
 | ---- | ----- |
 | Pilot gate criteria | [`pilot-readiness-gates.md`](pilot-readiness-gates.md) |
 | Deployment and launch checklists | [`deployment-checklist.md`](deployment-checklist.md), [`pilot-launch-checklist.md`](pilot-launch-checklist.md) |
-| Local dev and testing | [`docs/foundation/setup.md`](../foundation/setup.md) |
-| Documentation tier model | [`docs/foundation/documentation-boundaries.md`](../foundation/documentation-boundaries.md) |
+| Local dev and testing | [`docs/foundation/setup.md`](../../foundation/setup.md) |
+| Documentation tier model | [`docs/foundation/documentation-boundaries.md`](../../foundation/documentation-boundaries.md) |

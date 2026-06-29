@@ -23,7 +23,7 @@ Standard terms used across the 8P3P Control Layer codebase, specs, and external 
 
 ## Canonical State Fields
 
-All score-like fields use a **0.0–1.0 scale**. See `docs/specs/decision-engine.md` §4.7 and `docs/guides/pilot-integration-guide.md` §5.
+All score-like fields use a **0.0–1.0 scale**. See `docs/specs/decision-engine.md` §4.7 and `docs/guides/customers/pilot-integration-guide.md` §5.
 
 | Field | Type | Range | Meaning |
 |-------|------|-------|---------|

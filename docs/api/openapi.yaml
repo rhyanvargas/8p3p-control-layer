@@ -464,7 +464,7 @@ paths:
 
         **When to use:** When you need to enumerate learners (e.g. to fan out and fetch decisions per learner via GET /v1/decisions, or to build org-wide reports). Use GET /v1/state when you need the full state for a specific learner.
 
-        **How:** Supply org_id; optionally limit (1–500) and cursor for pagination. See docs/specs/inspection-api.md §2.2 and docs/guides/get-all-learner-decisions-from-org.md for the fan-out pattern.
+        **How:** Supply org_id; optionally limit (1–500) and cursor for pagination. See docs/specs/inspection-api.md §2.2 and docs/guides/customers/get-all-learner-decisions-from-org.md for the fan-out pattern.
       parameters:
         - name: org_id
           in: query

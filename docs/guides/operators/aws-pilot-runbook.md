@@ -4,6 +4,8 @@
 **Purpose:** Deploy and run a predictable charter-school pilot on **one AWS account** — **CDK API** (Lambda + API Gateway + DynamoDB) + **Amplify dashboard** (Next.js 15 SSR).  
 **Supersedes for AWS pilots:** Fly.io / Render paths in [`pilot-host-deployment.md`](pilot-host-deployment.md) (those remain valid as a fallback only).
 
+> **Ordered deploy path:** Start at [`../scenarios/deploy-aws-pilot.md`](../scenarios/deploy-aws-pilot.md) — prerequisites, link order, and exit criteria. This runbook is the authoritative reference for § 0–§ 4 commands and gates.
+
 > **Interim account OK:** You may run this runbook on a **personal AWS account** until the company account exists. Treat that as `stage=pilot` or `stage=dev`. Migration to a company account is **redeploy + data handling** (§ 10) — not a native “transfer app” button.
 
 ---
@@ -26,12 +28,12 @@ flowchart LR
 
 | Surface | Source | Deploy command / trigger | Spec |
 |---------|--------|------------------------|------|
-| **Control-layer API** | `infra/` CDK stack | **[Recommended]** [`.github/workflows/deploy.yml`](../../.github/workflows/deploy.yml) (OIDC) · **[Fallback]** local `cdk deploy` (§ 2.1) | [`aws-deployment.md`](../specs/aws-deployment.md) · [`ci-cd-pipeline.md`](../specs/ci-cd-pipeline.md) |
-| **Decision Panel** | `dashboard/` Next.js app | Amplify Git build ([`dashboard/amplify.yml`](../../dashboard/amplify.yml)) | [`nextjs-amplify-dashboard-migration.md`](../specs/nextjs-amplify-dashboard-migration.md) |
+| **Control-layer API** | `infra/` CDK stack | **[Recommended]** [`.github/workflows/deploy.yml`](../../../.github/workflows/deploy.yml) (OIDC) · **[Fallback]** local `cdk deploy` (§ 2.1) | [`aws-deployment.md`](../../specs/aws-deployment.md) · [`ci-cd-pipeline.md`](../../specs/ci-cd-pipeline.md) |
+| **Decision Panel** | `dashboard/` Next.js app | Amplify Git build ([`dashboard/amplify.yml`](../../../dashboard/amplify.yml)) | [`nextjs-amplify-dashboard-migration.md`](../../specs/nextjs-amplify-dashboard-migration.md) |
 
-**Not on Amplify Hosting:** the Fastify Docker API ([`Dockerfile`](../../Dockerfile)). Amplify Hosting runs the dashboard only. The API is the existing CDK stack — do not rewrite into Amplify Gen 2 (evaluated and rejected in the migration spec).
+**Not on Amplify Hosting:** the Fastify Docker API ([`Dockerfile`](../../../Dockerfile)). Amplify Hosting runs the dashboard only. The API is the existing CDK stack — do not rewrite into Amplify Gen 2 (evaluated and rejected in the migration spec).
 
-**Browser security model:** Educators never receive `x-api-key`. The dashboard proxy ([`dashboard/app/api/control/[...path]/route.ts`](../../dashboard/app/api/control/[...path]/route.ts)) attaches `CONTROL_LAYER_API_KEY` server-side.
+**Browser security model:** Educators never receive `x-api-key`. The dashboard proxy ([`dashboard/app/api/control/[...path]/route.ts`](../../../dashboard/app/api/control/[...path]/route.ts)) attaches `CONTROL_LAYER_API_KEY` server-side.
 
 **First deploy (recommended order):** § 0 pre-flight → § 1.1 bootstrap (once) → § 1.2 GitHub OIDC + secrets → § 2.0 trigger `deploy.yml` → § 2.2–§ 2.3 capture `ApiUrl` + API key → § 3 Amplify dashboard → § 4 smoke. You do **not** need to run `cdk deploy` locally unless debugging (§ 2.1).
 
@@ -49,10 +51,10 @@ Before inviting the customer, all items in these committed gates must pass:
 
 **Pilot UX outcomes** (what “excellent” looks like for the customer):
 
-1. Login with shared access code → Overview shows learner gaps within three clicks ([`dashboard-design-requirements.md`](../specs/dashboard-design-requirements.md)).
+1. Login with shared access code → Overview shows learner gaps within three clicks ([`dashboard-design-requirements.md`](../../specs/dashboard-design-requirements.md)).
 2. Bulk upload via `/signals/upload` → decisions appear in Attention queue.
-3. Approve/Reject on decisions with reasons persisted ([`educator-feedback-api.md`](../specs/educator-feedback-api.md)).
-4. Product feedback anytime ([`customer-feedback-loop.md`](../specs/customer-feedback-loop.md) — when implemented).
+3. Approve/Reject on decisions with reasons persisted ([`educator-feedback-api.md`](../../specs/educator-feedback-api.md)).
+4. Product feedback anytime ([`customer-feedback-loop.md`](../../specs/customer-feedback-loop.md) — when implemented).
 
 ---
 
@@ -94,7 +96,7 @@ cd dashboard && npm run build && npm test && npm run test:e2e
 
 ### 1.1 Bootstrap CDK
 
-Requires AWS CLI v2, Node 22, and credentials for the target account/region (`us-east-1` per [`aws-deployment.md`](../specs/aws-deployment.md)).
+Requires AWS CLI v2, Node 22, and credentials for the target account/region (`us-east-1` per [`aws-deployment.md`](../../specs/aws-deployment.md)).
 
 ```bash
 export AWS_REGION=us-east-1
@@ -108,7 +110,7 @@ Ref: [AWS CDK bootstrapping](https://docs.aws.amazon.com/cdk/v2/guide/bootstrapp
 
 ### 1.2 GitHub Actions OIDC (required for recommended API deploy path)
 
-One-time setup so [`.github/workflows/deploy.yml`](../../.github/workflows/deploy.yml) can run `cdk deploy` without long-lived AWS keys on your laptop. Contract: [`ci-cd-pipeline.md`](../specs/ci-cd-pipeline.md) § FR-AWS-001…006.
+One-time setup so [`.github/workflows/deploy.yml`](../../../.github/workflows/deploy.yml) can run `cdk deploy` without long-lived AWS keys on your laptop. Contract: [`ci-cd-pipeline.md`](../../specs/ci-cd-pipeline.md) § FR-AWS-001…006.
 
 1. Complete § 1.1 bootstrap (GitHub Actions still needs a bootstrapped account).  
 2. Create IAM OIDC provider for GitHub in the AWS account.  
@@ -137,7 +139,7 @@ Learner-adjacent data on a **personal** AWS account is acceptable for **internal
 
 ## 2. Deploy the API (CDK)
 
-Lambda handlers load from `dist/lambda/` (see [`control-layer-stack.ts`](../../infra/lib/control-layer-stack.ts)). The CDK stack in `infra/` remains the source of truth — GitHub Actions only **runs** deploy; it does not replace CDK.
+Lambda handlers load from `dist/lambda/` (see [`control-layer-stack.ts`](../../../infra/lib/control-layer-stack.ts)). The CDK stack in `infra/` remains the source of truth — GitHub Actions only **runs** deploy; it does not replace CDK.
 
 ### 2.0 Recommended: GitHub Actions (`deploy.yml`)
 
@@ -145,7 +147,7 @@ Lambda handlers load from `dist/lambda/` (see [`control-layer-stack.ts`](../../i
 
 1. GitHub → **Actions** → **Deploy** → **Run workflow**.  
 2. Set **`stage`** to `pilot` (charter pilot) or `dev` / `prod` as appropriate.  
-3. Wait for jobs `test → build → cdk-synth → deploy` to succeed ([`deploy.yml`](../../.github/workflows/deploy.yml)).  
+3. Wait for jobs `test → build → cdk-synth → deploy` to succeed ([`deploy.yml`](../../../.github/workflows/deploy.yml)).  
 4. Continue at § 2.2 to read CloudFormation outputs and § 2.3 for the API Gateway key.
 
 **Ongoing updates:** merge to `main` triggers deploy with default `STAGE=prod` unless you standardize on workflow_dispatch for pilot. Prefer explicit `stage=pilot` dispatch until a company prod account exists.
@@ -214,7 +216,7 @@ Single-tenant pilots require consistent `org_id`:
 
 - Set **`CONTROL_LAYER_ORG_ID`** on Amplify to your pilot org.  
 - Instruct integrators to send the same `org_id` in signal bodies.  
-- Set **`API_KEY_ORG_ID`** at CDK deploy time (e.g. `export API_KEY_ORG_ID=southwest-charter`) — wired into Lambda `commonEnv` in [`control-layer-stack.ts`](../../infra/lib/control-layer-stack.ts) for server-side override parity with [`api-key-middleware.md`](../specs/api-key-middleware.md).
+- Set **`API_KEY_ORG_ID`** at CDK deploy time (e.g. `export API_KEY_ORG_ID=southwest-charter`) — wired into Lambda `commonEnv` in [`control-layer-stack.ts`](../../../infra/lib/control-layer-stack.ts) for server-side override parity with [`api-key-middleware.md`](../../specs/api-key-middleware.md).
 
 ### 2.5 Optional: AI educator explanations
 
@@ -227,7 +229,7 @@ AI_PROVIDER=amazon-bedrock   # or gateway for multi-model dev
 AI_MODEL=<fetch current model ID — do not hard-code from memory>
 ```
 
-See [`ai-educator-explanations.md`](../specs/ai-educator-explanations.md) and [`.env.example`](../../.env.example).
+See [`ai-educator-explanations.md`](../../specs/ai-educator-explanations.md) and [`.env.example`](../../../.env.example).
 
 ---
 
@@ -240,7 +242,7 @@ Ref: [Deploy a Next.js SSR app to Amplify](https://docs.aws.amazon.com/amplify/l
 1. AWS Console → **Amplify** → **Create new app** → connect GitHub repo.  
 2. **Branch:** `main` (or pilot branch).  
 3. **Monorepo:** set **App root directory** to `dashboard` ([monorepo guide](https://docs.aws.amazon.com/amplify/latest/userguide/deploy-nextjs-monorepo.html)).  
-4. Amplify detects Next.js SSR; build spec comes from [`dashboard/amplify.yml`](../../dashboard/amplify.yml) (Node 22, `baseDirectory: .next`).  
+4. Amplify detects Next.js SSR; build spec comes from [`dashboard/amplify.yml`](../../../dashboard/amplify.yml) (Node 22, `baseDirectory: .next`).  
 5. Create/use IAM service role for Amplify compute.
 
 ### 3.2 Runtime environment variables
@@ -264,7 +266,7 @@ Ref: [Amplify SSR environment variables](https://docs.aws.amazon.com/amplify/lat
 
 ### 3.3 CORS / proxy note
 
-Production dashboard traffic goes **Amplify → `/api/control/*` → API Gateway**. The browser does not call API Gateway directly, so **CORS is not required** for the happy path. `@fastify/cors` ([`dashboard-cors.ts`](../../src/config/dashboard-cors.ts)) applies to local Fastify dev only.
+Production dashboard traffic goes **Amplify → `/api/control/*` → API Gateway**. The browser does not call API Gateway directly, so **CORS is not required** for the happy path. `@fastify/cors` ([`dashboard-cors.ts`](../../../src/config/dashboard-cors.ts)) applies to local Fastify dev only.
 
 ### 3.4 Deploy and capture URL
 
@@ -297,7 +299,7 @@ curl -sS -X POST "${API_URL}/v1/signals" \
 
 - [ ] Open `https://<amplify-host>/login` → enter passphrase → land on Overview  
 - [ ] Overview, Attention, Learners render with live data  
-- [ ] `/signals/upload` — upload wizard completes (e2e: [`signal-upload.spec.ts`](../../dashboard/e2e/signal-upload.spec.ts))  
+- [ ] `/signals/upload` — upload wizard completes (e2e: [`signal-upload.spec.ts`](../../../dashboard/e2e/signal-upload.spec.ts))  
 - [ ] Attention → Approve or Reject → toast + persistence  
 - [ ] `GET /v1/learners/{ref}/summary` via API returns five sections ([`pilot-launch-checklist.md`](pilot-launch-checklist.md))
 
@@ -320,11 +322,11 @@ File smoke report: `internal-docs/reports/pilot-smoke-YYYY-MM-DD.md` (gitignored
 | Week | Owner | Actions |
 |------|-------|---------|
 | **−1** | Engineering | Complete § 0–4; sign [`pilot-launch-checklist.md`](pilot-launch-checklist.md) |
-| **0** | CS + Engineering | Onboarding call; share dashboard URL + access code securely; walk through [`customer-onboarding-quickstart.md`](customer-onboarding-quickstart.md) |
-| **0** | Customer IT | Run ingestion preflight on raw sample ([`ingestion-preflight.md`](../specs/ingestion-preflight.md)) |
+| **0** | CS + Engineering | Onboarding call; share dashboard URL + access code securely; walk through [`customer-onboarding-quickstart.md`](../customers/customer-onboarding-quickstart.md) |
+| **0** | Customer IT | Run ingestion preflight on raw sample ([`ingestion-preflight.md`](../../specs/ingestion-preflight.md)) |
 | **1** | Customer | Upload first file via `/signals/upload` or enable webhook path ([`pilot-readiness-gates.md`](pilot-readiness-gates.md) integration table) |
 | **1** | Customer | Validate summaries on `/attention`; submit Approve/Reject feedback |
-| **1–4** | CS | Weekly triage: decision feedback themes + product feedback ([`customer-feedback-loop.md`](../specs/customer-feedback-loop.md)) |
+| **1–4** | CS | Weekly triage: decision feedback themes + product feedback ([`customer-feedback-loop.md`](../../specs/customer-feedback-loop.md)) |
 | **4+** | Engineering | Review pilot metrics needs; defer SBIR evidence layer (LIU / program-metrics) unless contracted |
 
 **Escalation:** Define on-call contact in pilot environment record ([`pilot-launch-checklist.md`](pilot-launch-checklist.md) § Operations).
@@ -337,7 +339,7 @@ File smoke report: `internal-docs/reports/pilot-smoke-YYYY-MM-DD.md` (gitignored
 
 | Change | Action |
 |--------|--------|
-| API / business logic | Merge to `main` → [`deploy.yml`](../../.github/workflows/deploy.yml) (**recommended**); or `workflow_dispatch` with `stage=pilot`. Manual `cdk deploy` (§ 2.1) for debugging only. |
+| API / business logic | Merge to `main` → [`deploy.yml`](../../../.github/workflows/deploy.yml) (**recommended**); or `workflow_dispatch` with `stage=pilot`. Manual `cdk deploy` (§ 2.1) for debugging only. |
 | Dashboard UI | Merge to `main` → Amplify auto-build |
 | Env var change | Amplify console and/or CDK context; **never** commit secrets |
 
@@ -354,7 +356,7 @@ File smoke report: `internal-docs/reports/pilot-smoke-YYYY-MM-DD.md` (gitignored
 | Component | Typical pilot month |
 |-----------|---------------------|
 | Amplify (dashboard) | ~$0 within free tier ([Amplify pricing](https://aws.amazon.com/amplify/pricing/)) |
-| API Gateway + Lambda + DynamoDB | ~$2–15 ([`aws-deployment.md`](../specs/aws-deployment.md) cost table) |
+| API Gateway + Lambda + DynamoDB | ~$2–15 ([`aws-deployment.md`](../../specs/aws-deployment.md) cost table) |
 | Bedrock (if AI explanations on) | Usage-based, separate |
 
 ---
@@ -415,16 +417,16 @@ There is **no** native “transfer Amplify app to another account.” Migration 
 
 | Document | Purpose |
 |----------|---------|
-| [`aws-deployment.md`](../specs/aws-deployment.md) | CDK architecture, cost, constraints |
-| [`nextjs-amplify-dashboard-migration.md`](../specs/nextjs-amplify-dashboard-migration.md) | Dashboard hosting spec |
-| [`dashboard-passphrase-gate.md`](../specs/dashboard-passphrase-gate.md) | Login cookies (`dp_session`, `fb_session`) |
+| [`aws-deployment.md`](../../specs/aws-deployment.md) | CDK architecture, cost, constraints |
+| [`nextjs-amplify-dashboard-migration.md`](../../specs/nextjs-amplify-dashboard-migration.md) | Dashboard hosting spec |
+| [`dashboard-passphrase-gate.md`](../../specs/dashboard-passphrase-gate.md) | Login cookies (`dp_session`, `fb_session`) |
 | [`pilot-host-deployment.md`](pilot-host-deployment.md) | **Fallback:** Fly.io / Docker API path |
 | [`deployment-checklist.md`](deployment-checklist.md) | Pre-deploy gates |
 | [`pilot-readiness-gates.md`](pilot-readiness-gates.md) | Customer + 8P3P readiness |
 | [`pilot-launch-checklist.md`](pilot-launch-checklist.md) | Launch sign-off |
-| [`customer-onboarding-quickstart.md`](customer-onboarding-quickstart.md) | Customer-facing first 15 minutes |
-| [`.github/workflows/deploy.yml`](../../.github/workflows/deploy.yml) | CI/CD API deploy |
-| [`dashboard/.env.example`](../../dashboard/.env.example) | Dashboard env contract |
+| [`customer-onboarding-quickstart.md`](../customers/customer-onboarding-quickstart.md) | Customer-facing first 15 minutes |
+| [`.github/workflows/deploy.yml`](../../../.github/workflows/deploy.yml) | CI/CD API deploy |
+| [`dashboard/.env.example`](../../../dashboard/.env.example) | Dashboard env contract |
 
 ---
 

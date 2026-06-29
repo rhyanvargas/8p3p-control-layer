@@ -11,7 +11,7 @@
  *   DASHBOARD_ACCESS_CODE, COOKIE_SECRET, DASHBOARD_SESSION_TTL_HOURS,
  *   CONTROL_LAYER_ADMIN_API_KEY, NEXT_PUBLIC_APP_NAME
  *
- * @see docs/guides/aws-pilot-runbook.md § 3.2
+ * @see docs/guides/operators/aws-pilot-runbook.md § 3.2
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';

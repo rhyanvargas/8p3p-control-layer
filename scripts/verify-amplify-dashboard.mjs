@@ -7,8 +7,8 @@
  *   DASHBOARD_ACCESS_CODE=your-passphrase \
  *   npm run amplify:verify-dashboard
  *
- * @see docs/guides/aws-pilot-runbook.md § 4.2
- * @see docs/guides/pilot-readiness-gates.md § Decision Panel
+ * @see docs/guides/operators/aws-pilot-runbook.md § 4.2
+ * @see docs/guides/operators/pilot-readiness-gates.md § Decision Panel
  */
 const dashboardUrl = process.env.DASHBOARD_URL?.trim().replace(/\/$/, '');
 const accessCode = process.env.DASHBOARD_ACCESS_CODE?.trim();

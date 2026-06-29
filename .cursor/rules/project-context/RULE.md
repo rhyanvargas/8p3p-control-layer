@@ -169,10 +169,18 @@ Canonical reference: `docs/foundation/definitive-workflow.md`.
 
 Do not duplicate detailed workflow instructions in rules or commands.
 
-## Documentation
+## Documentation navigation
+
+- **Human / onboarding tasks** (deploy pilot, launch customer, integrate LMS, run locally): start at `docs/README.md` and follow the matching scenario path in `docs/guides/scenarios/` — do not grep the AWS runbook unless the scenario points there.
+- **Feature implementation:** `docs/foundation/roadmap.md` → Active spec in `docs/specs/` → `.cursor/plans/{feature}.plan.md` → `src/` + tests/ (see `docs/foundation/definitive-workflow.md`).
 
 | Path | Purpose |
 |------|---------|
+| `docs/README.md` | Scenario hub — primary entry for task-oriented doc navigation |
+| `docs/guides/scenarios/` | Thin how-to routers (links only; authority in runbooks/specs) |
+| `docs/guides/customers/` | Customer integrator guides (API, LMS, FAQ) |
+| `docs/guides/operators/` | Deploy, launch, and ops runbooks/checklists |
+| `docs/guides/playbooks/` | Demo and sales walkthrough scripts |
 | `docs/foundation/architecture.md` | System architecture overview |
 | `docs/foundation/setup.md` | Environment setup guide |
 | `docs/foundation/roadmap.md` | Planning entry point (living anchor + execution plans) |

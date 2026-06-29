@@ -164,7 +164,8 @@ services/explanation/         # @8p3p/explanation — AI educator-explanation la
 
 | Area | Index |
 |------|-------|
-| **Integration guides** | [`docs/guides/README.md`](docs/guides/README.md) — onboarding, pilot integration, deployment |
+| **Start here** | [`docs/README.md`](docs/README.md) — pick a scenario path (run locally, deploy pilot, integrate LMS, …) |
+| **Guides catalog** | [`docs/guides/README.md`](docs/guides/README.md) — customer + operator guides |
 | **Foundation** | [`architecture`](docs/foundation/architecture.md) · [`terminology`](docs/foundation/terminology.md) · [`setup`](docs/foundation/setup.md) |
 | **Specifications** | [`docs/specs/README.md`](docs/specs/README.md) — Active / Shipped / Deferred (requirements source of truth) |
 | **API specs** | [`docs/api/README.md`](docs/api/README.md) — OpenAPI + AsyncAPI |
@@ -201,7 +202,7 @@ Shipped capabilities (API, policy CRUD, DynamoDB adapters, CDK, Decision Panel, 
 
 **Deploy:** AWS via CDK — [`docs/specs/aws-deployment.md`](docs/specs/aws-deployment.md) and [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) (OIDC; GitHub environment secrets for `prod`).
 
-**Enterprise posture:** phased compliance path in the internal compliance posture doc (local only; not legal attestation). See [`docs/guides/internal-operations-stub.md`](docs/guides/internal-operations-stub.md) for internal doc index.
+**Enterprise posture:** phased compliance path in the internal compliance posture doc (local only; not legal attestation). See [`docs/guides/operators/internal-operations-stub.md`](docs/guides/operators/internal-operations-stub.md) for internal doc index.
 
 ---
 

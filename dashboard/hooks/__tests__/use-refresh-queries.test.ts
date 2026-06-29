@@ -15,11 +15,13 @@ vi.mock('next/navigation', () => ({
 import { useRefreshQueries } from '@/hooks/use-refresh-queries';
 
 describe('FRSH-003: useRefreshQueries router.refresh', () => {
-  it('invalidates TanStack queries and calls router.refresh', () => {
+  it('invalidates TanStack queries and calls router.refresh', async () => {
+    invalidateQueries.mockResolvedValue(undefined);
+
     const { result } = renderHook(() => useRefreshQueries());
 
-    act(() => {
-      result.current();
+    await act(async () => {
+      await result.current();
     });
 
     expect(invalidateQueries).toHaveBeenCalledTimes(1);

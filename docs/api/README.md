@@ -35,7 +35,7 @@ New endpoints and enriched trace fields are defined in:
 If you're integrating the API for a business workflow (export, analytics, onboarding), start here:
 
 - [`docs/guides/README.md`](../guides/README.md) — Guides index
-- [`docs/guides/pilot-integration-guide.md`](../guides/pilot-integration-guide.md) — “Send signals → consume decisions”
-- [`docs/guides/get-all-learner-decisions-from-org.md`](../guides/get-all-learner-decisions-from-org.md) — org-wide decision export (fan-out pattern)
-- [`docs/guides/deployment-checklist.md`](../guides/deployment-checklist.md) — pilot deployment gates (includes required `API_KEY_ORG_ID`)
+- [`docs/guides/customers/pilot-integration-guide.md`](../guides/customers/pilot-integration-guide.md) — “Send signals → consume decisions”
+- [`docs/guides/customers/get-all-learner-decisions-from-org.md`](../guides/customers/get-all-learner-decisions-from-org.md) — org-wide decision export (fan-out pattern)
+- [`docs/guides/operators/deployment-checklist.md`](../guides/operators/deployment-checklist.md) — pilot deployment gates (includes required `API_KEY_ORG_ID`)
 

@@ -23,7 +23,7 @@ Everything below must be true before we invite a customer into the environment.
 |------|---------------|-------|
 | Pilot environment deployed and accessible | `GET /health` returns `200` from the customer-facing URL | Engineering |
 | API key provisioned for the customer's org | `provision-tenant.ts` run; key recorded in secure vault | Engineering |
-| `API_KEY` and `API_KEY_ORG_ID` set in deployment env | Deployment checklist passed (`docs/guides/deployment-checklist.md`) | Engineering |
+| `API_KEY` and `API_KEY_ORG_ID` set in deployment env | Deployment checklist passed (`docs/guides/operators/deployment-checklist.md`) | Engineering |
 | Swagger UI accessible at `/docs` | Browse `https://<host>/docs` | Engineering |
 
 ### Policy & Configuration
@@ -41,8 +41,8 @@ Everything below must be true before we invite a customer into the environment.
 
 | Path | When to pick | Customer effort | Pilot status |
 |------|--------------|-----------------|--------------|
-| **A. Integration template (preferred)** | LMS is one of our pre-built templates (Canvas, I-Ready, Branching Minds) | Configure webhook in their LMS admin UI; paste our URL + API key header | Pre-Month 0 — see [integration-templates.md](../specs/integration-templates.md) |
-| **B. Generic webhook + tenant mapping** | Vendor supports webhooks but no template exists yet | Send raw payload to `POST /v1/webhooks/:source_system`; we register a tenant field mapping | Pre-Month 0 — see [webhook-adapters.md](../specs/webhook-adapters.md) + [tenant-field-mappings.md](../specs/tenant-field-mappings.md) |
+| **A. Integration template (preferred)** | LMS is one of our pre-built templates (Canvas, I-Ready, Branching Minds) | Configure webhook in their LMS admin UI; paste our URL + API key header | Pre-Month 0 — see [integration-templates.md](../../specs/integration-templates.md) |
+| **B. Generic webhook + tenant mapping** | Vendor supports webhooks but no template exists yet | Send raw payload to `POST /v1/webhooks/:source_system`; we register a tenant field mapping | Pre-Month 0 — see [webhook-adapters.md](../../specs/webhook-adapters.md) + [tenant-field-mappings.md](../../specs/tenant-field-mappings.md) |
 | **C. SFTP/S3 drop + signal-streamer** | Vendor cannot push; customer can only drop files | Customer drops files on their cadence; we run a watcher that converts rows → `POST /v1/signals` | Pre-Month 0; streamer is a thin script — same idempotency + preflight gate |
 | **D. Direct API (custom integration)** | Customer has engineering capacity and wants full control | Their integration code constructs and sends `SignalEnvelope` per event | Always supported; not the default |
 
@@ -52,11 +52,11 @@ Everything below must be true before we invite a customer into the environment.
 | Integration path selected (A / B / C / D above) | Choice recorded in onboarding ticket | CS / Solutions |
 | Field mappings registered for their source system (paths A–C if mapping required) | `PUT /v1/admin/mappings/<org_id>/<source_system>` uploaded; rerun preflight → `verdict: "clean"` | Engineering / Solutions |
 | End-to-end test passes | Send sample signal via the chosen path → verify state update → verify decision output → verify it appears in `/dashboard` | Engineering |
-| **Reporting cadence is independent of ingestion cadence** | Confirm with CS: weekly evidence rollup (`GET /v1/admin/program-metrics`) is decoupled from how often the customer sends data; MC-A04 and MC-B05 latency budgets assume continuous ingestion (see [program-metrics.md](../specs/program-metrics.md) § Measurement Windows) | CS / Solutions |
+| **Reporting cadence is independent of ingestion cadence** | Confirm with CS: weekly evidence rollup (`GET /v1/admin/program-metrics`) is decoupled from how often the customer sends data; MC-A04 and MC-B05 latency budgets assume continuous ingestion (see [program-metrics.md](../../specs/program-metrics.md) § Measurement Windows) | CS / Solutions |
 
 > **Note:** Weekly flat-file batch (treating "the file" as the unit of ingestion) is **demoted to a fallback** for customers with no other option. Even in that case, the file-streamer converts rows to per-event signals so MC-A04 / MC-B05 latency, idempotency, and replay all work correctly. The customer's drop cadence is independent of 8P3P's processing cadence.
 
-- [ ] Raw sample payload preflight passes (no unresolved `forbidden_semantic` hits after mapping). (See [`docs/specs/ingestion-preflight.md`](../specs/ingestion-preflight.md), `POST /v1/admin/ingestion/preflight`.)
+- [ ] Raw sample payload preflight passes (no unresolved `forbidden_semantic` hits after mapping). (See [`docs/specs/ingestion-preflight.md`](../../specs/ingestion-preflight.md), `POST /v1/admin/ingestion/preflight`.)
 
 ### Decision Panel (Proof Surface)
 
@@ -76,7 +76,7 @@ Everything below must be true before we invite a customer into the environment.
 | Pilot Integration Guide accurate (connector or direct path) | Section references match deployed endpoints | CS / Solutions |
 | FAQ covers their likely questions | Review against what you know about their LMS and use case | CS / Solutions |
 
-> **Pilot vs production readiness.** Every gate above is scoped to a **pilot** deployment. **Primary path (2026-06):** AWS CDK API + Amplify dashboard per [`docs/guides/aws-pilot-runbook.md`](aws-pilot-runbook.md). **Fallback:** hosted Fastify on Fly.io or Render per [`docs/guides/pilot-host-deployment.md`](pilot-host-deployment.md). DynamoDB (AWS path) persists by default; Fly SQLite requires the persistence recipe in [`pilot-host-deployment.md`](pilot-host-deployment.md) § Pilot persistence for pilots > 1 week. **Production readiness** beyond pilot is tracked in [`docs/specs/aws-deployment.md`](../specs/aws-deployment.md) and [`docs/specs/ci-cd-pipeline.md`](../specs/ci-cd-pipeline.md). Do not collapse pilot and prod checklists.
+> **Pilot vs production readiness.** Every gate above is scoped to a **pilot** deployment. **Primary path (2026-06):** AWS CDK API + Amplify dashboard per [`docs/guides/operators/aws-pilot-runbook.md`](aws-pilot-runbook.md). **Fallback:** hosted Fastify on Fly.io or Render per [`docs/guides/operators/pilot-host-deployment.md`](pilot-host-deployment.md). DynamoDB (AWS path) persists by default; Fly SQLite requires the persistence recipe in [`pilot-host-deployment.md`](pilot-host-deployment.md) § Pilot persistence for pilots > 1 week. **Production readiness** beyond pilot is tracked in [`docs/specs/aws-deployment.md`](../../specs/aws-deployment.md) and [`docs/specs/ci-cd-pipeline.md`](../../specs/ci-cd-pipeline.md). Do not collapse pilot and prod checklists.
 
 ---
 
@@ -93,9 +93,9 @@ These are the prerequisites the customer must meet. Communicate them during the 
 | OR: Have engineering capacity to build direct integration | Integration engineer | For custom LMS / direct API path |
 | Decided on `learner_reference` strategy | IT admin + data team | SIS student ID is recommended; must be stable across systems |
 | Can trigger test events in their LMS | IT admin / teacher | Needed to verify signals flow end-to-end |
-| **Export retrospective depth ≥ 3 months** (required if MC-C01..C03 efficacy metrics are in scope) | Data team | 21-day outcome windows (per [`decision-outcomes.md`](../specs/decision-outcomes.md) default `window_days=21`) must fit inside the dataset; shorter exports mean Group C returns descriptive-only / `pending`. |
-| **Primary policy field identified and present in export** | Solutions + their data team | Derived per [`decision-outcomes.md`](../specs/decision-outcomes.md) § "Primary policy field" from the matched rule's first scalar condition. Without it, MC-A03 (policy-rule coverage) trends toward zero and decisions won't fire. |
-| **Raw sample payload preflight clean** (no unresolved `forbidden_semantic` hits after mapping registration) | Engineering | Run `POST /v1/admin/ingestion/preflight` per [`ingestion-preflight.md`](../specs/ingestion-preflight.md). `forbidden_pii` hits MUST be zero (non-negotiable); `forbidden_semantic_after_mapping` MUST be zero after the tenant field-mapping is registered (see [`tenant-field-mappings.md`](../specs/tenant-field-mappings.md)). |
+| **Export retrospective depth ≥ 3 months** (required if MC-C01..C03 efficacy metrics are in scope) | Data team | 21-day outcome windows (per [`decision-outcomes.md`](../../specs/decision-outcomes.md) default `window_days=21`) must fit inside the dataset; shorter exports mean Group C returns descriptive-only / `pending`. |
+| **Primary policy field identified and present in export** | Solutions + their data team | Derived per [`decision-outcomes.md`](../../specs/decision-outcomes.md) § "Primary policy field" from the matched rule's first scalar condition. Without it, MC-A03 (policy-rule coverage) trends toward zero and decisions won't fire. |
+| **Raw sample payload preflight clean** (no unresolved `forbidden_semantic` hits after mapping registration) | Engineering | Run `POST /v1/admin/ingestion/preflight` per [`ingestion-preflight.md`](../../specs/ingestion-preflight.md). `forbidden_pii` hits MUST be zero (non-negotiable); `forbidden_semantic_after_mapping` MUST be zero after the tenant field-mapping is registered (see [`tenant-field-mappings.md`](../../specs/tenant-field-mappings.md)). |
 
 ### Organizational
 

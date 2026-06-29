@@ -77,7 +77,7 @@ The domain rule already exists in `dashboard/lib/attention-decisions.ts` (`build
 | Capability | Used by |
 |------------|---------|
 | Consistent pending-review affordance on learner L2 | Educator journey in `dashboard-design-requirements.md` |
-| Shareable learner URLs with optional `reviewDecision` | Pilot runbooks, `docs/guides/aws-pilot-runbook.md` educator flows |
+| Shareable learner URLs with optional `reviewDecision` | Pilot runbooks, `docs/guides/operators/aws-pilot-runbook.md` educator flows |
 
 ### Existing libraries (prefer over custom)
 

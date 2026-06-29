@@ -130,7 +130,7 @@ This spec migrates that SPA to a **standalone Next.js (App Router) app on AWS Am
 | Capability | Used By |
 |------------|---------|
 | Server-held API key (browser never sees `x-api-key`) | Pilot/production security posture; internal compliance posture doc (local only) |
-| Independent dashboard hosting + PR previews | Pilot onboarding / demos (`docs/guides/springs-pilot-demo.md`) |
+| Independent dashboard hosting + PR previews | Pilot onboarding / demos (`docs/guides/playbooks/springs-pilot-demo.md`) |
 | Cognito-ready Next.js app shell | Phase 2 admin platform auth |
 
 ### Prefer-existing-solutions notes (per `.cursor/rules/prefer-existing-solutions`)

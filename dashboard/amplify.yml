@@ -1,6 +1,6 @@
 # Decision Panel — Amplify Hosting build (Next.js 15 SSR, WEB_COMPUTE platform).
 # App root: dashboard/ (monorepo). Runtime env: dashboard/amplify.env.example
-# Runbook: docs/guides/aws-pilot-runbook.md § 3
+# Runbook: docs/guides/operators/aws-pilot-runbook.md § 3
 version: 1
 frontend:
   phases:

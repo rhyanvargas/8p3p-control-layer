@@ -60,7 +60,7 @@ async function fetchDecisionsForLearner(
   return out;
 }
 
-/** Org-wide decisions via GET /v1/state/list fan-out + per-learner GET /v1/decisions (see docs/guides/get-all-learner-decisions-from-org.md). */
+/** Org-wide decisions via GET /v1/state/list fan-out + per-learner GET /v1/decisions (see docs/guides/customers/get-all-learner-decisions-from-org.md). */
 export async function fetchOrgDecisionsWith(
   fetcher: ApiFetcher,
   orgId: string

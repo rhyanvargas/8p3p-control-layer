@@ -24,7 +24,7 @@ todos:
     content: Update gate cross-refs in specs and launch checklists
     status: completed
   - id: TASK-008
-    content: Create docs/guides/internal-operations-stub.md
+    content: Create docs/guides/operators/internal-operations-stub.md
     status: completed
   - id: TASK-009
     content: Apply Link Replacement Matrix across docs and README
@@ -72,14 +72,14 @@ isProject: false
 | `internal-docs/foundation/api-naming-conventions.md` | `docs/foundation/api-naming-conventions.md` | None — already domain-neutral |
 | `internal-docs/foundation/roadmap.md` | `docs/foundation/roadmap.md` | Remove/replace: named customer strings, `$` budget figures not in public reports, links to gitignored reports |
 | `internal-docs/foundation/definitive-workflow.md` | `docs/foundation/definitive-workflow.md` | Fix planning anchor path only |
-| `internal-docs/pilot-operations/pilot-readiness-definition.md` (gate tables only) | `docs/guides/pilot-readiness-gates.md` | Remove customer names; keep gate text verbatim |
+| `internal-docs/pilot-operations/pilot-readiness-definition.md` (gate tables only) | `docs/guides/operators/pilot-readiness-gates.md` | Remove customer names; keep gate text verbatim |
 
 ### From spec § Concrete Values Checklist — New files to create
 
 | Path | Purpose |
 |------|---------|
 | `docs/foundation/documentation-boundaries.md` | Tier model + agent reading order |
-| `docs/guides/internal-operations-stub.md` | Lists internal-only doc titles; no `internal-docs/` hrefs |
+| `docs/guides/operators/internal-operations-stub.md` | Lists internal-only doc titles; no `internal-docs/` hrefs |
 | `tests/contracts/documentation-boundary.test.ts` | DOC-001..DOC-004 |
 
 ### From spec § Concrete Values Checklist — Link Replacement Matrix
@@ -89,7 +89,7 @@ isProject: false
 | `internal-docs/foundation/api-naming-conventions.md` | `docs/foundation/api-naming-conventions.md` |
 | `internal-docs/foundation/roadmap.md` | `docs/foundation/roadmap.md` |
 | `internal-docs/foundation/definitive-workflow.md` | `docs/foundation/definitive-workflow.md` |
-| `internal-docs/pilot-operations/pilot-readiness-definition.md` (gate rows) | `docs/guides/pilot-readiness-gates.md` |
+| `internal-docs/pilot-operations/pilot-readiness-definition.md` (gate rows) | `docs/guides/operators/pilot-readiness-gates.md` |
 | `internal-docs/pilot-operations/onboarding-runbook.md` | Prose: "Internal onboarding runbook (local `internal-docs/`, not in public repo)" — **no href** |
 | `internal-docs/pilot-operations/pilot-runbook.md` | Same stub pattern |
 | `internal-docs/compliance-security-posture-and-migration-path.md` | Prose: "Internal compliance posture doc (local only)" — **no href** |
@@ -104,7 +104,7 @@ These committed files MAY mention the string `internal-docs/` without a resolvab
 | File | Allowed mention |
 |------|-----------------|
 | `docs/foundation/documentation-boundaries.md` | Defines T6 tier by name |
-| `docs/guides/internal-operations-stub.md` | Lists internal doc titles |
+| `docs/guides/operators/internal-operations-stub.md` | Lists internal doc titles |
 | `docs/specs/documentation-boundary-migration.md` | This spec (migration instructions) |
 | Checklist items describing ops artifact save paths | Literal path pattern only, e.g. `` `internal-docs/reports/pilot-smoke-*.md` `` — not a link |
 
@@ -197,21 +197,21 @@ Before starting implementation:
 - **Verification**: Every `docs/foundation/*.md` link in `docs/specs/README.md` resolves; project-context cites committed foundation paths only; M-001 PR gate: DOC-002 and DOC-004 pass once TASK-012 lands (or run manual file-exists check before test task).
 
 ### TASK-006: Extract pilot-readiness-gates.md from internal gate tables
-- **Files**: `docs/guides/pilot-readiness-gates.md`
+- **Files**: `docs/guides/operators/pilot-readiness-gates.md`
 - **Action**: Create
 - **Details**: Extract gate tables from `internal-docs/pilot-operations/pilot-readiness-definition.md` sections **8P3P Readiness** and **Customer Readiness** only. Redaction required: Remove customer names; keep gate text verbatim. Do NOT copy narrative runbook prose or customer-specific procedures (those stay in internal-docs per spec Constraints). Add header explaining this is the committed normative gate reference; full onboarding narrative is internal-only.
 - **Depends on**: PREREQ-001
 - **Verification**: Gate rows present for Integration BLOCKING and Customer Readiness Technical rows referenced by ingestion-preflight; no named customer strings; file non-empty.
 
 ### TASK-007: Update gate cross-refs in specs and launch checklists
-- **Files**: `docs/specs/ingestion-preflight.md`, `docs/specs/decision-panel-ui.md`, `docs/guides/pilot-launch-checklist.md`, `docs/guides/deployment-checklist.md`
+- **Files**: `docs/specs/ingestion-preflight.md`, `docs/specs/decision-panel-ui.md`, `docs/guides/operators/pilot-launch-checklist.md`, `docs/guides/operators/deployment-checklist.md`
 - **Action**: Modify
-- **Details**: **Phase M-002 PR gate.** Replace references to `internal-docs/pilot-operations/pilot-readiness-definition.md` (gate rows) with `docs/guides/pilot-readiness-gates.md` per Link Replacement Matrix. In `ingestion-preflight.md`: update pilot-blocking gate prose and TASK-016 notes to cite committed gates doc. In `decision-panel-ui.md`: replace readiness gate link; replace onboarding runbook hrefs with prose stub "Internal onboarding runbook (local `internal-docs/`, not in public repo)" — **no href**. In checklists: gate criteria cite `docs/guides/pilot-readiness-gates.md`; retain literal path pattern `` `internal-docs/reports/pilot-smoke-*.md` `` for ops artifact save paths (not a link).
+- **Details**: **Phase M-002 PR gate.** Replace references to `internal-docs/pilot-operations/pilot-readiness-definition.md` (gate rows) with `docs/guides/operators/pilot-readiness-gates.md` per Link Replacement Matrix. In `ingestion-preflight.md`: update pilot-blocking gate prose and TASK-016 notes to cite committed gates doc. In `decision-panel-ui.md`: replace readiness gate link; replace onboarding runbook hrefs with prose stub "Internal onboarding runbook (local `internal-docs/`, not in public repo)" — **no href**. In checklists: gate criteria cite `docs/guides/operators/pilot-readiness-gates.md`; retain literal path pattern `` `internal-docs/reports/pilot-smoke-*.md` `` for ops artifact save paths (not a link).
 - **Depends on**: TASK-006
 - **Verification**: Zero markdown hrefs to `internal-docs/pilot-operations/pilot-readiness-definition.md` in these four files; gate row semantics unchanged; M-002 PR gate: spec gate cross-refs resolve.
 
-### TASK-008: Create docs/guides/internal-operations-stub.md
-- **Files**: `docs/guides/internal-operations-stub.md`
+### TASK-008: Create docs/guides/operators/internal-operations-stub.md
+- **Files**: `docs/guides/operators/internal-operations-stub.md`
 - **Action**: Create
 - **Details**: List internal-only doc titles (onboarding runbook, pilot runbook, configure LMS, controlled-evaluation runbook, dry-run script, compliance posture, logic model, pilot feedback log, etc.) with one-line descriptions. **No `internal-docs/` hrefs** — prose only, e.g. "Available locally in gitignored internal-docs/". This file is on the Allowed Exceptions list for bare `internal-docs/` string mentions.
 - **Depends on**: none
@@ -220,14 +220,14 @@ Before starting implementation:
 ### TASK-009: Apply Link Replacement Matrix across docs and README
 - **Files**: All `*.md` under `docs/` with `internal-docs/` hrefs, `README.md`, `.cursor/rules/project-context/RULE.md` (remaining refs)
 - **Action**: Modify
-- **Details**: **Phase M-003 core deliverable.** Grep `\]\(\.{0,2}/internal-docs/` across `docs/` and `README.md`. Apply Link Replacement Matrix replacements file-by-file. Known touch points from codebase scan: `docs/foundation/architecture.md`, `docs/specs/program-metrics.md`, `docs/specs/aws-deployment.md`, `docs/specs/customer-feedback-loop.md`, `docs/specs/ci-cd-pipeline.md`, `docs/specs/pilot-research-export.md`, `docs/specs/document-extraction-service.md`, `docs/specs/tenant-field-mappings.md`, `docs/specs/tenant-provisioning.md`, `docs/specs/liu-usage-meter.md`, `docs/specs/nextjs-amplify-dashboard-migration.md`, `docs/specs/tiered-data-classification.md`, `docs/guides/pilot-host-deployment.md`, `docs/guides/pilot-integration-guide.md`, `docs/reports/*.md` (within DOC-001 scan roots). Compliance doc links become prose: "Internal compliance posture doc (local only)" — **no href**. Logic model references become prose stub. Pilot-smoke paths stay as literal backtick patterns, not links. Do NOT modify `archive/` or `.cursor/plans/` (out of scope).
+- **Details**: **Phase M-003 core deliverable.** Grep `\]\(\.{0,2}/internal-docs/` across `docs/` and `README.md`. Apply Link Replacement Matrix replacements file-by-file. Known touch points from codebase scan: `docs/foundation/architecture.md`, `docs/specs/program-metrics.md`, `docs/specs/aws-deployment.md`, `docs/specs/customer-feedback-loop.md`, `docs/specs/ci-cd-pipeline.md`, `docs/specs/pilot-research-export.md`, `docs/specs/document-extraction-service.md`, `docs/specs/tenant-field-mappings.md`, `docs/specs/tenant-provisioning.md`, `docs/specs/liu-usage-meter.md`, `docs/specs/nextjs-amplify-dashboard-migration.md`, `docs/specs/tiered-data-classification.md`, `docs/guides/operators/pilot-host-deployment.md`, `docs/guides/customers/pilot-integration-guide.md`, `docs/reports/*.md` (within DOC-001 scan roots). Compliance doc links become prose: "Internal compliance posture doc (local only)" — **no href**. Logic model references become prose stub. Pilot-smoke paths stay as literal backtick patterns, not links. Do NOT modify `archive/` or `.cursor/plans/` (out of scope).
 - **Depends on**: TASK-002, TASK-003, TASK-004, TASK-006, TASK-007, TASK-008
 - **Verification**: `rg '\]\(\.{0,2}/internal-docs/' docs/ README.md` returns zero hits outside Allowed Exceptions; README compliance link is prose-only.
 
 ### TASK-010: Restructure docs/guides/README.md navigation tables
 - **Files**: `docs/guides/README.md`
 - **Action**: Modify
-- **Details**: Remove internal-docs href rows from navigation tables. Point committed guide readers at `docs/guides/pilot-readiness-gates.md` for gate criteria. Add row linking to `docs/guides/internal-operations-stub.md` for CS/solutions internal-only docs. Ensure all table links resolve to committed paths only.
+- **Details**: Remove internal-docs href rows from navigation tables. Point committed guide readers at `docs/guides/operators/pilot-readiness-gates.md` for gate criteria. Add row linking to `docs/guides/operators/internal-operations-stub.md` for CS/solutions internal-only docs. Ensure all table links resolve to committed paths only.
 - **Depends on**: TASK-006, TASK-008
 - **Verification**: Zero `internal-docs/` hrefs in guides README; navigation tables use committed anchors only.
 
@@ -248,7 +248,7 @@ Before starting implementation:
 ### TASK-013: Update internal-docs/README.md local mirror pointers
 - **Files**: `internal-docs/README.md`
 - **Action**: Modify
-- **Details**: **Phase M-005 — local only, not in CI.** Update internal README to point engineering rules at committed anchors: `docs/foundation/documentation-boundaries.md`, `docs/foundation/roadmap.md`, `docs/foundation/api-naming-conventions.md`, `docs/foundation/definitive-workflow.md`. Note that gate criteria live at `docs/guides/pilot-readiness-gates.md`. Add banner on `internal-docs/foundation/definitive-workflow.md` if not already present: "Canonical copy: `docs/foundation/definitive-workflow.md`."
+- **Details**: **Phase M-005 — local only, not in CI.** Update internal README to point engineering rules at committed anchors: `docs/foundation/documentation-boundaries.md`, `docs/foundation/roadmap.md`, `docs/foundation/api-naming-conventions.md`, `docs/foundation/definitive-workflow.md`. Note that gate criteria live at `docs/guides/operators/pilot-readiness-gates.md`. Add banner on `internal-docs/foundation/definitive-workflow.md` if not already present: "Canonical copy: `docs/foundation/definitive-workflow.md`."
 - **Depends on**: TASK-012
 - **Verification**: Local internal README lists committed anchors; file is gitignored so not in CI.
 
@@ -261,8 +261,8 @@ Before starting implementation:
 | `docs/foundation/api-naming-conventions.md` | TASK-002 | Committed API naming durability rules |
 | `docs/foundation/roadmap.md` | TASK-003 | Sanitized living planning anchor |
 | `docs/foundation/definitive-workflow.md` | TASK-004 | Spec-driven delivery workflow |
-| `docs/guides/pilot-readiness-gates.md` | TASK-006 | Committed normative pilot gate tables |
-| `docs/guides/internal-operations-stub.md` | TASK-008 | CS pointer to internal-only docs without hrefs |
+| `docs/guides/operators/pilot-readiness-gates.md` | TASK-006 | Committed normative pilot gate tables |
+| `docs/guides/operators/internal-operations-stub.md` | TASK-008 | CS pointer to internal-only docs without hrefs |
 | `tests/contracts/documentation-boundary.test.ts` | TASK-012 | DOC-001..DOC-004 enforcement |
 
 ### To Modify
@@ -272,8 +272,8 @@ Before starting implementation:
 | `.cursor/rules/project-context/RULE.md` | TASK-005, TASK-009 | Committed foundation and schema paths |
 | `docs/specs/ingestion-preflight.md` | TASK-007, TASK-009 | Gate cross-ref to pilot-readiness-gates |
 | `docs/specs/decision-panel-ui.md` | TASK-007, TASK-009 | Gate + onboarding stub prose |
-| `docs/guides/pilot-launch-checklist.md` | TASK-007 | Gate cross-ref; literal smoke path pattern |
-| `docs/guides/deployment-checklist.md` | TASK-007, TASK-009 | Gate cross-ref; literal smoke path pattern |
+| `docs/guides/operators/pilot-launch-checklist.md` | TASK-007 | Gate cross-ref; literal smoke path pattern |
+| `docs/guides/operators/deployment-checklist.md` | TASK-007, TASK-009 | Gate cross-ref; literal smoke path pattern |
 | `docs/guides/README.md` | TASK-010 | Committed-only navigation |
 | `README.md` | TASK-009 | Compliance prose stub, no href |
 | `.cursor/rules/control-layer-constraints/RULE.md` | TASK-011 | Schema SSoT at src/contracts/schemas/ |

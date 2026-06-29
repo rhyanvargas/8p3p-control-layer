@@ -40,7 +40,7 @@ This design preserves tenant isolation and keeps each response bounded and predi
 | Requirement | Details |
 |-------------|---------|
 | API key | Included on every request as `x-api-key: <your_key>` |
-| Org ID | Your organization identifier (`org_id`). In single-tenant pilots with `API_KEY_ORG_ID` configured server-side, the server overrides this automatically — you can still pass a value as a placeholder. **Pilot deployments should not run without `API_KEY_ORG_ID` set** (see `docs/specs/api-key-middleware.md` and `docs/guides/deployment-checklist.md`). |
+| Org ID | Your organization identifier (`org_id`). In single-tenant pilots with `API_KEY_ORG_ID` configured server-side, the server overrides this automatically — you can still pass a value as a placeholder. **Pilot deployments should not run without `API_KEY_ORG_ID` set** (see `docs/specs/api-key-middleware.md` and `docs/guides/operators/deployment-checklist.md`). |
 | Time window | A `from_time` and `to_time` in [RFC 3339](https://www.rfc-editor.org/rfc/rfc3339) format with timezone (e.g. `2026-03-01T00:00:00Z`). |
 
 ---
@@ -256,5 +256,5 @@ A single endpoint returning all decisions for all learners in one request does n
 ## Related
 
 - [Pilot Integration Guide](pilot-integration-guide.md) — send signals and consume decisions for a single learner
-- [OpenAPI Reference](../api/openapi.yaml) — served interactively at `/docs`
-- [Decision Engine spec](../specs/decision-engine.md) — how decisions are generated and what each type means
+- [OpenAPI Reference](../../api/openapi.yaml) — served interactively at `/docs`
+- [Decision Engine spec](../../specs/decision-engine.md) — how decisions are generated and what each type means

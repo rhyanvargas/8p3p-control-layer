@@ -26,7 +26,7 @@ Reference: `docs/specs/api-key-middleware.md` (Deployment Requirements).
 - [ ] `npm run lint`
 - [ ] `npm run typecheck`
 
-> **AWS charter pilot:** When [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) is green on the release commit, these gates are satisfied for API deploy via [`.github/workflows/deploy.yml`](../../.github/workflows/deploy.yml) (see [`aws-pilot-runbook.md`](aws-pilot-runbook.md) § 2.0). Amplify dashboard builds are gated by the `dashboard` CI job.
+> **AWS charter pilot:** When [`.github/workflows/ci.yml`](../../../.github/workflows/ci.yml) is green on the release commit, these gates are satisfied for API deploy via [`.github/workflows/deploy.yml`](../../../.github/workflows/deploy.yml) (see [`aws-pilot-runbook.md`](aws-pilot-runbook.md) § 2.0). Amplify dashboard builds are gated by the `dashboard` CI job.
 
 ---
 
@@ -56,7 +56,7 @@ Execute per [`.cursor/plans/pilot-mvp-launch.plan.md`](../../.cursor/plans/pilot
 - [ ] **W3-001** — `.cursor/plans/learner-summary-api-hygiene-mvp.plan.md` complete (`npm run check` green)
 - [ ] **W3-002** — `.cursor/plans/dashboard-summary-migration.plan.md` complete (dashboard e2e passes)
 - [ ] **W3-003** — Deployed smoke report filed under `internal-docs/reports/pilot-smoke-*.md` (curl + dashboard screenshot)
-- [ ] **W3-004** — `docs/guides/pilot-integration-guide.md` and onboarding runbook reference `/dashboard` + summary workflow
+- [ ] **W3-004** — `docs/guides/customers/pilot-integration-guide.md` and onboarding runbook reference `/dashboard` + summary workflow
 - [ ] **W3-005** — CloudWatch dashboard + alarms for InspectFunction (summary path)
 - [ ] **W3-006** — [Pilot launch checklist](pilot-launch-checklist.md) signed before first customer login
 

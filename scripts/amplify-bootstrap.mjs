@@ -15,7 +15,7 @@
  *   3. AMPLIFY_APP_ID=<id> npm run amplify:sync-env
  *   4. DASHBOARD_URL=... DASHBOARD_ACCESS_CODE=... npm run amplify:verify-dashboard
  *
- * @see docs/guides/aws-pilot-runbook.md § 3
+ * @see docs/guides/operators/aws-pilot-runbook.md § 3
  */
 import { spawnSync } from 'node:child_process';
 

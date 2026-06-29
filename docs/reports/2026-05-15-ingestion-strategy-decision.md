@@ -18,7 +18,7 @@ The next customer pilot will not ingest weekly flat-file batches. It will stream
 - **`docs/specs/ingestion-preflight.md`** — Pilot-readiness gate language rewritten; obsolete "follow-up doc edit needed" note removed. Readiness-doc gate row lands with TASK-016 (see above).
 
 ### Persistence + deployment alignment (Tier 2)
-- **`docs/guides/pilot-host-deployment.md`** — New **§ 7 Pilot persistence (3–6 month)**: six SQLite paths listed, Fly Volume + nightly backup recipe (`fly volumes create data --size 3`, `[[mounts]]` mounted at `/app/data`, `min_machines_running = 1`), restore drill, data-loss tripwire, migration tripwires to AWS (DynamoDB) explicitly defined.
+- **`docs/guides/operators/pilot-host-deployment.md`** — New **§ 7 Pilot persistence (3–6 month)**: six SQLite paths listed, Fly Volume + nightly backup recipe (`fly volumes create data --size 3`, `[[mounts]]` mounted at `/app/data`, `min_machines_running = 1`), restore drill, data-loss tripwire, migration tripwires to AWS (DynamoDB) explicitly defined.
 - **`fly.toml`** — Header rewritten with the three-mode persistence ladder (dry-run / real pilot / production). Commented `[[mounts]]` block + `min_machines_running` guidance added inline.
 - **`.env.example`** — `FEEDBACK_DB_PATH=./data/feedback.db` added for parity with the other five DB paths.
 - **`docs/specs/program-metrics.md`** — § Measurement Windows now has an explicit **"reporting cadence ≠ ingestion cadence"** note. Defines `degraded_by_ingestion_cadence` for the fallback weekly-batch case so MC-A04 / MC-B05 latency budgets stay coherent.
@@ -44,5 +44,5 @@ The next customer pilot will not ingest weekly flat-file batches. It will stream
 2. On approval, open Tier 3 plans:
    - `.cursor/plans/pilot-persistence.plan.md` (Fly Volume + backup automation + restore drill)
    - `.cursor/plans/signal-streamer.plan.md` (SFTP/S3 file-watcher → row-level webhook posts)
-   - Rewrite of `docs/guides/pilot-integration-guide.md` (customer-facing; currently still says "Direct API as the sole pilot integration path")
+   - Rewrite of `docs/guides/customers/pilot-integration-guide.md` (customer-facing; currently still says "Direct API as the sole pilot integration path")
 3. Run `/post-impl-doc-sync` against `educator-feedback-api.md` once that branch lands so it consistently references the new ingestion gate.

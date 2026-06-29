@@ -20,7 +20,7 @@ Three distinct tiers hide under one word. "No deployment" for the controlled eva
 | **B** | Live LMS integration / classroom-workflow deployment | **Deferred** | **Not required for first demo** — upload / 8P3P ingest path can prove value before live connector |
 | **C** | Dashboard access (the Decision Panel review surface) | **Used** — local, 8P3P-run by default; lightweight host optional | **Required** — Amplify-hosted dashboard for customer self-serve touch/demo |
 
-"Local/SQLite" describes the data + engine tier (A/B), **not** tier C. Tier-C access mode for the controlled evaluation is pinned in the internal controlled-evaluation runbook (local only, not in public repo) §2; see also [`docs/guides/pilot-host-deployment.md`](../guides/pilot-host-deployment.md) §3.
+"Local/SQLite" describes the data + engine tier (A/B), **not** tier C. Tier-C access mode for the controlled evaluation is pinned in the internal controlled-evaluation runbook (local only, not in public repo) §2; see also [`docs/guides/operators/pilot-host-deployment.md`](../guides/operators/pilot-host-deployment.md) §3.
 
 ## Current Direction — Active Sequencing
 
@@ -114,7 +114,7 @@ This roadmap is a planning anchor, not the place where agent behavior is enforce
 
 ## Pilot Operations
 
-- Pilot readiness gate criteria (committed): [`docs/guides/pilot-readiness-gates.md`](../guides/pilot-readiness-gates.md)
+- Pilot readiness gate criteria (committed): [`docs/guides/operators/pilot-readiness-gates.md`](../guides/operators/pilot-readiness-gates.md)
 - Agent workflow: `/pilot-readiness` (source of truth: `.cursor/skills/pilot-readiness/SKILL.md`)
 - Internal onboarding runbook (local only, not in public repo)
 - Internal controlled-evaluation runbook (local only, not in public repo)

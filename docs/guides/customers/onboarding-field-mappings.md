@@ -1,10 +1,12 @@
 # Onboarding Field Mappings — LMS Integration Guide
 
+**Start here:** [Pilot Integration Guide §5](pilot-integration-guide.md#5-how-field-mappings-work-you-may-not-need-to-normalize) unless you need step-by-step mapping configuration.
+
 This guide walks through configuring field mappings for new LMS integrations. Field mappings tell the system how to transform vendor-native payloads into canonical fields that the decision engine evaluates.
 
 **Full specification**: `docs/specs/tenant-field-mappings.md`
 **Multi-source transforms**: `docs/specs/multi-source-transforms.md`
-**Existing integration guidance**: `docs/guides/pilot-integration-guide.md` §5 and §13
+**Existing integration guidance**: `docs/guides/customers/pilot-integration-guide.md` §5 and §13
 
 ---
 

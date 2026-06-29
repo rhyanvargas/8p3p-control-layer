@@ -1,0 +1,40 @@
+---
+description: Apply Diátaxis documentation standards when editing, consolidating, or organizing docs/
+globs: docs/**/*.md
+alwaysApply: false
+---
+
+# Diátaxis documentation standards
+
+When editing, consolidating, reorganizing, or creating content under `docs/`, follow [Diátaxis](https://diataxis.fr/) and this repo's tier model. Read `.cursor/skills/diataxis-docs/SKILL.md` for the full workflow.
+
+## Four modes — do not mix
+
+| Mode | User need | Repo home | Write as |
+| ---- | --------- | --------- | -------- |
+| **Tutorial** | Learn by doing (first time) | `docs/foundation/setup.md` | Safe, linear lesson; minimal theory |
+| **How-to** | Accomplish a task | `docs/guides/scenarios/`, `docs/guides/` | Prerequisites → numbered steps/links → exit criteria |
+| **Reference** | Look up facts | `docs/specs/`, `docs/api/`, `src/contracts/schemas/` | Complete, neutral, structured (tables, fields, codes) |
+| **Explanation** | Understand why | `docs/foundation/`, `docs/reports/` | Discussion, context, trade-offs — not step lists |
+
+**Classify before writing.** If a page mixes modes (e.g. architecture essay inside a deploy checklist), split or link out.
+
+## Repo-specific rules
+
+- **Tiers T1–T5 are normative** — see `docs/foundation/documentation-boundaries.md`. Do not add a Diátaxis tier.
+- **Scenario paths are thin how-to routers** — prerequisites, ordered links, exit criteria only. **Never duplicate** commands or long procedures from runbooks/checklists.
+- **Single source of truth** — consolidate by linking to the owning doc (`.cursor/rules/document-traceability/RULE.md`), not by copying prose.
+- **Indexes route; authorities teach** — `docs/README.md` and `docs/guides/README.md` are navigation hubs, not new SSoT.
+- **Infrastructure language** — disambiguate deploy/host/integrate into Tier A/B/C (see `.cursor/rules/analysis-consistency-checks.mdc`).
+
+## Quick anti-patterns
+
+- ❌ Reference material in a tutorial (API field tables in setup)
+- ❌ Conceptual explanation in a how-to (design rationale in a deploy checklist)
+- ❌ Step-by-step procedures in specs or OpenAPI descriptions
+- ❌ Duplicating runbook § commands in `guides/scenarios/`
+- ❌ Relative links into gitignored `internal-docs/` (T6)
+
+## After structural changes
+
+Update hub indexes (`docs/README.md`, `docs/guides/README.md`), respect traceability rules, and verify links resolve.

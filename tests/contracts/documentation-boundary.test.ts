@@ -1,5 +1,5 @@
 /**
- * Documentation boundary (DOC-001..DOC-004)
+ * Documentation boundary (DOC-001..DOC-005)
  *
  * Enforces committed-doc tier boundaries per docs/specs/documentation-boundary-migration.md:
  * no forbidden internal-docs hrefs, promoted foundation files present, cursor rules cite
@@ -18,7 +18,7 @@ const FORBIDDEN_INTERNAL_DOCS_HREF = /\]\(\.{0,2}\/internal-docs\//;
 /** Files allowed to contain internal-docs href patterns (DOC-001 exception list). */
 const DOC_001_HREF_EXCEPTIONS = new Set([
   'docs/foundation/documentation-boundaries.md',
-  'docs/guides/internal-operations-stub.md',
+  'docs/guides/operators/internal-operations-stub.md',
   'docs/specs/documentation-boundary-migration.md',
 ]);
 
@@ -27,7 +27,7 @@ const PROMOTED_FOUNDATION_FILES = [
   'docs/foundation/api-naming-conventions.md',
   'docs/foundation/roadmap.md',
   'docs/foundation/definitive-workflow.md',
-  'docs/guides/pilot-readiness-gates.md',
+  'docs/guides/operators/pilot-readiness-gates.md',
 ];
 
 const DOC_003_RULE_FILES = [
@@ -165,6 +165,33 @@ describe('Documentation boundary (DOC-003)', () => {
     }
 
     expect(hits).toEqual([]);
+  });
+});
+
+describe('Documentation boundary (DOC-005)', () => {
+  it('all markdown hrefs in docs/guides/scenarios/*.md resolve to committed files', () => {
+    const scenariosDir = join(REPO_ROOT, 'docs/guides/scenarios');
+    const scenarioFiles = readdirSync(scenariosDir)
+      .filter((name) => name.endsWith('.md'))
+      .map((name) => join(scenariosDir, name));
+
+    expect(scenarioFiles.length).toBeGreaterThan(0);
+
+    const missing: { file: string; href: string; resolved: string }[] = [];
+
+    for (const file of scenarioFiles) {
+      const content = readFileSync(file, 'utf-8');
+      for (const href of extractMarkdownLinks(content)) {
+        const resolved = resolveMarkdownHref(file, href);
+        if (resolved === null) continue;
+        const abs = join(REPO_ROOT, resolved);
+        if (!statSync(abs, { throwIfNoEntry: false })) {
+          missing.push({ file: relPath(file), href, resolved });
+        }
+      }
+    }
+
+    expect(missing).toEqual([]);
   });
 });
 

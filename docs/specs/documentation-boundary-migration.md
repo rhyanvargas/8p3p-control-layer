@@ -21,11 +21,11 @@ The migration is documentation-only. No runtime API, schema, or dashboard behavi
 - [ ] **DOC-PROMOTE-001.** `internal-docs/foundation/api-naming-conventions.md` is copied verbatim to `docs/foundation/api-naming-conventions.md`; all committed references updated; internal copy retained as a mirror until manually deleted.
 - [ ] **DOC-PROMOTE-002.** A sanitized `docs/foundation/roadmap.md` is committed as the planning anchor. It MUST NOT contain named customer strings, dollar amounts, or investor-deck URLs that are not already public in committed `docs/reports/`.
 - [ ] **DOC-PROMOTE-003.** `docs/foundation/definitive-workflow.md` is created (content from `internal-docs/foundation/definitive-workflow.md`) with the planning anchor pointer fixed to `docs/foundation/roadmap.md`.
-- [ ] **DOC-INLINE-001.** Normative pilot gate tables currently referenced from specs are committed in `docs/guides/pilot-readiness-gates.md` (extracted from `internal-docs/pilot-operations/pilot-readiness-definition.md` §8P3P Readiness + §Customer Readiness, redacted).
-- [ ] **DOC-INLINE-002.** `docs/specs/ingestion-preflight.md`, `docs/specs/decision-panel-ui.md`, and `docs/guides/pilot-launch-checklist.md` cite `docs/guides/pilot-readiness-gates.md` for gate rows — not `internal-docs/pilot-operations/pilot-readiness-definition.md`.
+- [ ] **DOC-INLINE-001.** Normative pilot gate tables currently referenced from specs are committed in `docs/guides/operators/pilot-readiness-gates.md` (extracted from `internal-docs/pilot-operations/pilot-readiness-definition.md` §8P3P Readiness + §Customer Readiness, redacted).
+- [ ] **DOC-INLINE-002.** `docs/specs/ingestion-preflight.md`, `docs/specs/decision-panel-ui.md`, and `docs/guides/operators/pilot-launch-checklist.md` cite `docs/guides/operators/pilot-readiness-gates.md` for gate rows — not `internal-docs/pilot-operations/pilot-readiness-definition.md`.
 - [ ] **DOC-DELINK-001.** Every `internal-docs/` href under `docs/`, `README.md`, and `.cursor/rules/` is removed or replaced per the Link Replacement Matrix (Concrete Values Checklist).
 - [ ] **DOC-RULES-001.** `.cursor/rules/project-context/RULE.md` and `.cursor/rules/control-layer-constraints/RULE.md` cite committed paths only (`src/contracts/schemas/`, `docs/foundation/`, `tests/contracts/`) — not archived POC playbooks under `internal-docs/`.
-- [ ] **DOC-INDEX-001.** `docs/specs/README.md` and `docs/guides/README.md` navigation tables point at committed anchors only; internal ops docs are listed in a single stub (`docs/guides/internal-operations-stub.md`) with no relative links into `internal-docs/`.
+- [ ] **DOC-INDEX-001.** `docs/specs/README.md` and `docs/guides/README.md` navigation tables point at committed anchors only; internal ops docs are listed in a single stub (`docs/guides/operators/internal-operations-stub.md`) with no relative links into `internal-docs/`.
 - [ ] **DOC-TEST-001.** Contract test `DOC-001`..`DOC-004` (see Contract Tests) pass in CI via `npm run test:contracts`.
 
 ### Acceptance Criteria
@@ -60,7 +60,7 @@ The migration is documentation-only. No runtime API, schema, or dashboard behavi
 | Document hierarchy (spec → plan → code) | `.cursor/rules/document-traceability/RULE.md` | Defined ✓ |
 | Spec index and lifecycle tiers | `docs/specs/README.md` | Defined ✓ — **requires update in this migration** |
 | Integration guide index | `docs/guides/README.md` | Defined ✓ — **requires update in this migration** |
-| Pilot launch gates | `docs/guides/pilot-launch-checklist.md` | Defined ✓ — **requires gate cross-ref update** |
+| Pilot launch gates | `docs/guides/operators/pilot-launch-checklist.md` | Defined ✓ — **requires gate cross-ref update** |
 | Ingestion preflight gate semantics | `docs/specs/ingestion-preflight.md` | Defined ✓ — **requires gate cross-ref update** |
 | Decision Panel deployment gates | `docs/specs/decision-panel-ui.md` | Defined ✓ — **requires gate cross-ref update** |
 | Program metrics naming rule | `docs/specs/program-metrics.md` | Defined ✓ — **requires path update** |
@@ -74,8 +74,8 @@ The migration is documentation-only. No runtime API, schema, or dashboard behavi
 | `docs/foundation/documentation-boundaries.md` | All future specs, `/draft-spec`, `/plan-impl`, `/review` |
 | `docs/foundation/api-naming-conventions.md` | All specs adding routes/modules (replaces internal path) |
 | `docs/foundation/roadmap.md` | Spec index, project-context rule, planning workflows |
-| `docs/guides/pilot-readiness-gates.md` | Ingestion preflight, decision panel, launch checklist, program metrics |
-| `docs/guides/internal-operations-stub.md` | CS/solutions pointer without broken links |
+| `docs/guides/operators/pilot-readiness-gates.md` | Ingestion preflight, decision panel, launch checklist, program metrics |
+| `docs/guides/operators/internal-operations-stub.md` | CS/solutions pointer without broken links |
 
 ## Error Codes
 
@@ -124,14 +124,14 @@ The migration is documentation-only. No runtime API, schema, or dashboard behavi
 | `internal-docs/foundation/api-naming-conventions.md` | `docs/foundation/api-naming-conventions.md` | None — already domain-neutral |
 | `internal-docs/foundation/roadmap.md` | `docs/foundation/roadmap.md` | Remove/replace: named customer strings, `$` budget figures not in public reports, links to gitignored reports |
 | `internal-docs/foundation/definitive-workflow.md` | `docs/foundation/definitive-workflow.md` | Fix planning anchor path only |
-| `internal-docs/pilot-operations/pilot-readiness-definition.md` (gate tables only) | `docs/guides/pilot-readiness-gates.md` | Remove customer names; keep gate text verbatim |
+| `internal-docs/pilot-operations/pilot-readiness-definition.md` (gate tables only) | `docs/guides/operators/pilot-readiness-gates.md` | Remove customer names; keep gate text verbatim |
 
 ### New files to create
 
 | Path | Purpose |
 |------|---------|
 | `docs/foundation/documentation-boundaries.md` | Tier model + agent reading order |
-| `docs/guides/internal-operations-stub.md` | Lists internal-only doc titles; no `internal-docs/` hrefs |
+| `docs/guides/operators/internal-operations-stub.md` | Lists internal-only doc titles; no `internal-docs/` hrefs |
 | `tests/contracts/documentation-boundary.test.ts` | DOC-001..DOC-004 |
 
 ### Link Replacement Matrix
@@ -141,7 +141,7 @@ The migration is documentation-only. No runtime API, schema, or dashboard behavi
 | `internal-docs/foundation/api-naming-conventions.md` | `docs/foundation/api-naming-conventions.md` |
 | `internal-docs/foundation/roadmap.md` | `docs/foundation/roadmap.md` |
 | `internal-docs/foundation/definitive-workflow.md` | `docs/foundation/definitive-workflow.md` |
-| `internal-docs/pilot-operations/pilot-readiness-definition.md` (gate rows) | `docs/guides/pilot-readiness-gates.md` |
+| `internal-docs/pilot-operations/pilot-readiness-definition.md` (gate rows) | `docs/guides/operators/pilot-readiness-gates.md` |
 | `internal-docs/pilot-operations/onboarding-runbook.md` | Prose: "Internal onboarding runbook (local `internal-docs/`, not in public repo)" — **no href** |
 | `internal-docs/pilot-operations/pilot-runbook.md` | Same stub pattern |
 | `internal-docs/compliance-security-posture-and-migration-path.md` | Prose: "Internal compliance posture doc (local only)" — **no href** |
@@ -156,7 +156,7 @@ These committed files MAY mention the string `internal-docs/` without a resolvab
 | File | Allowed mention |
 |------|-----------------|
 | `docs/foundation/documentation-boundaries.md` | Defines T6 tier by name |
-| `docs/guides/internal-operations-stub.md` | Lists internal doc titles |
+| `docs/guides/operators/internal-operations-stub.md` | Lists internal doc titles |
 | `docs/specs/documentation-boundary-migration.md` | This spec (migration instructions) |
 | Checklist items describing ops artifact save paths | Literal path pattern only, e.g. `` `internal-docs/reports/pilot-smoke-*.md` `` — not a link |
 

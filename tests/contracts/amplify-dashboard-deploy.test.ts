@@ -1,6 +1,6 @@
 /**
  * Amplify dashboard deploy contract — build spec + env template parity with pilot runbook.
- * @see docs/guides/aws-pilot-runbook.md § 3
+ * @see docs/guides/operators/aws-pilot-runbook.md § 3
  * @see docs/specs/nextjs-amplify-dashboard-migration.md § amplify.yml
  */
 import { readFileSync } from 'node:fs';

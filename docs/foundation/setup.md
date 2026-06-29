@@ -3,8 +3,8 @@
 Run, seed, and verify the 8P3P Control Layer on your machine with SQLite — no AWS required.
 
 **Audience:** 8P3P engineers and solutions team.  
-**Customer integrators:** use [`docs/guides/customer-onboarding-quickstart.md`](../guides/customer-onboarding-quickstart.md) instead.  
-**Deploy to AWS/Fly:** [`docs/guides/deployment-checklist.md`](../guides/deployment-checklist.md).
+**Customer integrators:** use [`docs/guides/customers/customer-onboarding-quickstart.md`](../guides/customers/customer-onboarding-quickstart.md) instead.  
+**Deploy to AWS/Fly:** [`docs/guides/operators/deployment-checklist.md`](../guides/operators/deployment-checklist.md).
 
 **Related:** [`architecture.md`](architecture.md) | [`terminology.md`](terminology.md) | [`.env.example`](../../.env.example) | [`dashboard/.env.example`](../../dashboard/.env.example)
 
@@ -241,7 +241,7 @@ npm run seed:springs-demo -- \
 
 Set `CONTROL_LAYER_ORG_ID=springs` in `dashboard/.env.local` so the panel shows seeded learners.
 
-**Demo talk track (stakeholders):** [`docs/guides/springs-pilot-demo.md`](../guides/springs-pilot-demo.md).
+**Demo talk track (stakeholders):** [`docs/guides/playbooks/springs-pilot-demo.md`](../guides/playbooks/springs-pilot-demo.md).
 
 ---
 
@@ -253,7 +253,7 @@ Set `CONTROL_LAYER_ORG_ID=springs` in `dashboard/.env.local` so the panel shows 
 | 2 | Create `src/decision/policies/<org_id>/` — copy from `springs/`: `learner.json`, `routing.json`, `subjects.json` |
 | 3 | Set `API_KEY_ORG_ID=<org_id>` in root `.env.local` (or pass `org_id` in API calls if auth off) |
 | 4 | Set `CONTROL_LAYER_ORG_ID=<org_id>` in `dashboard/.env.local` |
-| 5 | Register field mappings — [`docs/guides/onboarding-field-mappings.md`](../guides/onboarding-field-mappings.md), or copy Springs seed Phase 1 pattern |
+| 5 | Register field mappings — [`docs/guides/customers/onboarding-field-mappings.md`](../guides/customers/onboarding-field-mappings.md), or copy Springs seed Phase 1 pattern |
 | 6 | Optional connector template: `ADMIN_API_KEY=... npx tsx scripts/apply-template.ts canvas-lms --org-id <org_id>` |
 | 7 | Seed or send signals — fork `seed-springs-demo.mjs` or use `/docs` + `POST /v1/signals` |
 
@@ -400,9 +400,9 @@ Harmless when `NPM_CONFIG_DEVDIR` is set (e.g. Cursor sandbox). `unset NPM_CONFI
 
 | I want to… | Doc |
 |------------|-----|
-| Demo narrative for stakeholders | [`springs-pilot-demo.md`](../guides/springs-pilot-demo.md) |
-| Configure LMS field mappings (deep dive) | [`onboarding-field-mappings.md`](../guides/onboarding-field-mappings.md) |
-| Customer API integration | [`pilot-integration-guide.md`](../guides/pilot-integration-guide.md) |
-| Deploy to AWS | [`deployment-checklist.md`](../guides/deployment-checklist.md) |
-| Launch gate before customer access | [`pilot-launch-checklist.md`](../guides/pilot-launch-checklist.md) |
+| Demo narrative for stakeholders | [`springs-pilot-demo.md`](../guides/playbooks/springs-pilot-demo.md) |
+| Configure LMS field mappings (deep dive) | [`onboarding-field-mappings.md`](../guides/customers/onboarding-field-mappings.md) |
+| Customer API integration | [`pilot-integration-guide.md`](../guides/customers/pilot-integration-guide.md) |
+| Deploy to AWS | [`deployment-checklist.md`](../guides/operators/deployment-checklist.md) |
+| Launch gate before customer access | [`pilot-launch-checklist.md`](../guides/operators/pilot-launch-checklist.md) |
 | Dashboard design & migration | [`dashboard-design-requirements.md`](../specs/dashboard-design-requirements.md), [`nextjs-amplify-dashboard-migration.md`](../specs/nextjs-amplify-dashboard-migration.md) |

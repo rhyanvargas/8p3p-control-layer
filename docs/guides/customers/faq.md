@@ -93,5 +93,5 @@ Interactive docs: **`GET /docs`** on your host (Swagger UI). OpenAPI source: `do
 ## Related
 
 - [Customer Onboarding Quick Start](customer-onboarding-quickstart.md) — first 15 minutes
-- [Pilot Integration Guide (v1)](pilot-integration-guide.md) — full integration flow
+- [Pilot Integration Guide (v3)](pilot-integration-guide.md) — full integration flow
 - [Get all learner decisions from org](get-all-learner-decisions-from-org.md) — org-wide export pattern

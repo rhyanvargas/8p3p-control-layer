@@ -31,7 +31,7 @@ All metrics derive from artifacts the control layer *already* emits (`Decision`,
 
 | Concern | Existing artifact | What this spec adds |
 |---------|-------------------|---------------------|
-| Operational readiness (go/no-go, legibility) | [`docs/guides/pilot-readiness-gates.md`](../guides/pilot-readiness-gates.md); internal dry-run script (local only) | Quantified success criteria (MC-* metrics) — gates live on; this spec defines the numbers they unlock |
+| Operational readiness (go/no-go, legibility) | [`docs/guides/operators/pilot-readiness-gates.md`](../guides/operators/pilot-readiness-gates.md); internal dry-run script (local only) | Quantified success criteria (MC-* metrics) — gates live on; this spec defines the numbers they unlock |
 | Technical defensibility | Internal IP defensibility doc (local only) | DOE-shaped logic model (internal only; sanitized version out of scope for v1) maps each IP capability to a success metric in this spec |
 | LIU (billing usage) | `docs/specs/liu-usage-meter.md` | This spec re-purposes LIU as the **volume denominator** for all rate-based metrics (agreement rate, override rate, action latency) |
 | Audit receipts | `docs/specs/receipts-api.md` | Receipts are the per-decision evidence unit; this spec aggregates them |
@@ -97,7 +97,7 @@ These metrics rely on **`docs/specs/decision-outcomes.md`** (derived view joinin
 | Phase 0 (Springs) | 8 weeks from first onboarded educator | Weekly pull; final report at week 8 | `internal-docs/reports/YYYY-MM-DD-springs-pilot-evidence.md` |
 | Phase I (SBIR) | 6 months from site activation | Bi-weekly pull; interim report at month 3; final report at month 6 | `internal-docs/reports/YYYY-MM-DD-sbir-phase-i-evidence.md`; plus a de-identified export per `pilot-research-export.md` for external review |
 
-> **Reporting cadence ≠ ingestion cadence (2026-05-15 CEO direction).** The weekly/bi-weekly cadence above is the **reporting** rhythm (the pull frequency for `GET /v1/admin/program-metrics` and the evidence report). It is **independent** of the **ingestion** cadence — how often the customer sends data. Pilot ingestion is continuous-by-default per [`docs/foundation/roadmap.md`](../foundation/roadmap.md) item 29 (streaming + preflight + mappings); customers may push hourly via webhooks, daily via SFTP, or any other cadence, with an 8P3P-side watcher converting their cadence to per-event signals. MC-A04 (signal → decision latency, P95 ≤ 300 s) and MC-B05 (decision-to-action latency, ≤ 48 h) **assume continuous ingestion**; weekly batch ingestion would break both budgets by construction. If a pilot is forced into weekly-only ingestion (fallback path only — see [`docs/guides/pilot-readiness-gates.md`](../guides/pilot-readiness-gates.md) § Integration), MC-A04 and MC-B05 must be reported as `degraded_by_ingestion_cadence` in that pilot's evidence report rather than computed normally.
+> **Reporting cadence ≠ ingestion cadence (2026-05-15 CEO direction).** The weekly/bi-weekly cadence above is the **reporting** rhythm (the pull frequency for `GET /v1/admin/program-metrics` and the evidence report). It is **independent** of the **ingestion** cadence — how often the customer sends data. Pilot ingestion is continuous-by-default per [`docs/foundation/roadmap.md`](../foundation/roadmap.md) item 29 (streaming + preflight + mappings); customers may push hourly via webhooks, daily via SFTP, or any other cadence, with an 8P3P-side watcher converting their cadence to per-event signals. MC-A04 (signal → decision latency, P95 ≤ 300 s) and MC-B05 (decision-to-action latency, ≤ 48 h) **assume continuous ingestion**; weekly batch ingestion would break both budgets by construction. If a pilot is forced into weekly-only ingestion (fallback path only — see [`docs/guides/operators/pilot-readiness-gates.md`](../guides/operators/pilot-readiness-gates.md) § Integration), MC-A04 and MC-B05 must be reported as `degraded_by_ingestion_cadence` in that pilot's evidence report rather than computed normally.
 
 ---
 
@@ -165,7 +165,7 @@ These metrics rely on **`docs/specs/decision-outcomes.md`** (derived view joinin
 
 | Capability | Used by |
 |------------|---------|
-| MC-* catalog | Logic model (internal only; § Outcomes column), [`docs/guides/pilot-readiness-gates.md`](../guides/pilot-readiness-gates.md) (§ Pilot Success Criteria), SBIR proposal narrative |
+| MC-* catalog | Logic model (internal only; § Outcomes column), [`docs/guides/operators/pilot-readiness-gates.md`](../guides/operators/pilot-readiness-gates.md) (§ Pilot Success Criteria), SBIR proposal narrative |
 | `/v1/admin/program-metrics` endpoint | Pilot reports; future admin dashboard (Phase 2, `8p3p-admin` repo) |
 
 ---

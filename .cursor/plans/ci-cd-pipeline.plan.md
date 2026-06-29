@@ -22,7 +22,7 @@ todos:
     content: Verify .github/workflows/deploy.yml is unchanged and document the shape obligations it must preserve
     status: "pending"
   - id: "TASK-007"
-    content: Document CICD-010 manual bring-up procedure (non-2xx smoke failure assertion) in docs/guides/pilot-host-deployment.md
+    content: Document CICD-010 manual bring-up procedure (non-2xx smoke failure assertion) in docs/guides/operators/pilot-host-deployment.md
     status: "pending"
 isProject: false
 ---
@@ -127,7 +127,7 @@ target).
 ## Prerequisites
 
 Before starting implementation:
-- [ ] PREREQ-001 `FLY_API_TOKEN` created via `fly tokens create deploy` and stored as a GitHub repository secret (documented in `docs/guides/pilot-host-deployment.md` per `pilot-host-deployment.plan.md` TASK-005 — already `completed`).
+- [ ] PREREQ-001 `FLY_API_TOKEN` created via `fly tokens create deploy` and stored as a GitHub repository secret (documented in `docs/guides/operators/pilot-host-deployment.md` per `pilot-host-deployment.plan.md` TASK-005 — already `completed`).
 - [ ] PREREQ-002 `PILOT_API_KEY` stored as a GitHub repository secret, matching the runtime `API_KEY` set via `fly secrets set` on the target app.
 - [ ] PREREQ-003 `yaml@^2.8.2` is available in `devDependencies` (already present per `package.json:75`) so the shape tests can parse workflow files without a new dependency.
 
@@ -215,7 +215,7 @@ Before starting implementation:
          - Use `-sS` on both curl calls; use `&&` between them so a non-zero exit from the first fails the step (FR-FLY-006, CICD-010).
          - Pipe the POST response to `grep -q '"signal_id":"dry-run-smoke"'` to assert body content (spec § Concrete Values Checklist — HTTP behavior — smoke test success criteria).
          - Do not wrap the step in `continue-on-error:` — "no retries" per § Spec Literals — Constants / limits.
-  - Runtime secrets (`API_KEY`, `ADMIN_API_KEY`, `DASHBOARD_ACCESS_CODE`, `COOKIE_SECRET`) are **not** read by this workflow — FR-FLY-008. Add a YAML comment at the top of the file stating this rule and linking to `docs/guides/pilot-host-deployment.md § Secrets`.
+  - Runtime secrets (`API_KEY`, `ADMIN_API_KEY`, `DASHBOARD_ACCESS_CODE`, `COOKIE_SECRET`) are **not** read by this workflow — FR-FLY-008. Add a YAML comment at the top of the file stating this rule and linking to `docs/guides/operators/pilot-host-deployment.md § Secrets`.
 - **Depends on**: TASK-001
 - **Verification**:
   - `npm run test:workflows` passes (CICD-003…007 green).
@@ -235,7 +235,7 @@ Before starting implementation:
   - `npm run test:workflows` passes for CICD-008 and CICD-009.
 
 ### TASK-007: Document CICD-010 manual bring-up procedure
-- **Files**: `docs/guides/pilot-host-deployment.md`
+- **Files**: `docs/guides/operators/pilot-host-deployment.md`
 - **Action**: Modify
 - **Details**:
   - Append a short section titled `## CICD-010 — manual smoke-failure assertion (Friday bring-up only)`.
@@ -243,7 +243,7 @@ Before starting implementation:
   - State explicitly that CICD-010 is **not** wired into the merge gate (quotes spec § Contract Tests test-strategy note: "do not add it to the merge gate (would require a durable test target)").
 - **Depends on**: TASK-005
 - **Verification**:
-  - `rg "CICD-010" docs/guides/pilot-host-deployment.md` returns a match.
+  - `rg "CICD-010" docs/guides/operators/pilot-host-deployment.md` returns a match.
   - Section appears in the rendered markdown TOC.
 
 ## Files Summary
@@ -259,7 +259,7 @@ Before starting implementation:
 |------|------|---------|
 | `.github/workflows/ci.yml` | TASK-001, TASK-002 | Add `workflow_call:` trigger, Node 20/22 matrix, new `workflow-shape` job |
 | `package.json` | TASK-003 | Add `scripts.test:workflows` |
-| `docs/guides/pilot-host-deployment.md` | TASK-007 | Append CICD-010 manual bring-up section |
+| `docs/guides/operators/pilot-host-deployment.md` | TASK-007 | Append CICD-010 manual bring-up section |
 
 ## Requirements Traceability
 
@@ -335,7 +335,7 @@ All literals used in tasks (`[20, 22]` matrix, `fly-deploy-${{ inputs.fly_app_na
 - [ ] `workflow-shape` job appears in Actions UI alongside `check`
 - [ ] Manual `workflow_dispatch` of `deploy-fly.yml` against `8p3p-pilot-springs` succeeds end-to-end (CI gate → flyctl remote build → smoke-test returns 200)
 - [ ] `deploy.yml` diff is empty vs. `origin/main`
-- [ ] `docs/guides/pilot-host-deployment.md` contains the CICD-010 manual bring-up section
+- [ ] `docs/guides/operators/pilot-host-deployment.md` contains the CICD-010 manual bring-up section
 - [ ] Branch protection on `main` requires the `check` matrix checks and the `workflow-shape` check (configured out-of-repo in GitHub Settings)
 
 ## Implementation Order
