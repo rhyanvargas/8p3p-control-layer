@@ -9,6 +9,7 @@ Apply [Diátaxis](https://diataxis.fr/) when updating, consolidating, or organiz
 
 ## When to use
 
+- User invokes **`/doc-housekeeping`** or **`/doc-reorganize`**
 - User asks to **update / consolidate / organize / restructure / clean up** docs
 - Adding or reshaping **scenario paths**, guide indexes, or `docs/README.md`
 - Splitting an overloaded doc that mixes procedures with architecture or API tables
@@ -106,7 +107,7 @@ Indexes are **navigation only** — no new procedures or requirements in hub pag
 
 ### Step 6 — Doc IA housekeeping pass
 
-Run after a guides reorg, scenario-path addition, or when plan todos drift from reality. **No dedicated `/command`** — use this skill's workflow plus the checks below.
+Run after a guides reorg, scenario-path addition, or when plan todos drift from reality. Invoke **`/doc-housekeeping`** (or follow the checklist below after **`/doc-reorganize`**).
 
 ```
 Housekeeping checklist:
@@ -137,8 +138,10 @@ Summarize for the user:
 | Reference | Complete, structured, neutral tone | Narrative walkthrough; opinions |
 | Explanation | Context, history, trade-offs, links to reference | Step-by-step deploy commands |
 
-## Related skills
+## Related commands and skills
 
+- **`/doc-housekeeping`** — light IA pass: stale guide paths, hub sync, plan todos, DOC-001..005
+- **`/doc-reorganize`** — full Diátaxis reorg (classify, split, scenario paths, hub updates)
 - **`/post-impl-doc-sync`** — literal spec/plan/code parity after features ship (not IA)
 - **`/update-readme`** — root README evidence sync (not Diátaxis structure)
 

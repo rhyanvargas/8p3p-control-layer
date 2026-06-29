@@ -64,4 +64,5 @@ This repo applies [Diátaxis](https://diataxis.fr/) without adding a new tier. S
 - **Roadmap:** [foundation/roadmap.md](foundation/roadmap.md)
 - **Architecture:** [foundation/architecture.md](foundation/architecture.md)
 - **Agent workflow:** [foundation/definitive-workflow.md](foundation/definitive-workflow.md)
+- **Doc maintenance (Cursor):** `/doc-housekeeping` (link/plan sync) · `/doc-reorganize` (full IA) · `/post-impl-doc-sync` (spec↔code)
 - **Root README:** [../README.md](../README.md)

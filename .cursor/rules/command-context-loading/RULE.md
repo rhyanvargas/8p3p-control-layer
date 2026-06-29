@@ -24,6 +24,7 @@ Read every rule whose scope overlaps the command's task:
 | Specs, plans, or implementation (`/draft-spec`, `/plan-impl`, `/implement-spec`, `/extract-spec`) | @document-traceability, @control-layer-constraints, @prefer-existing-solutions |
 | Contracts or schemas (`/sync-contracts`, `/implement-spec`) | @contract-enforcement |
 | Reviews (`/review`, `/post-impl-doc-sync`) | @document-traceability (§ Spec ↔ implementation parity) |
+| Doc IA cleanup or Diátaxis reorg (`/doc-housekeeping`, `/doc-reorganize`) | @document-traceability (if plan todos), @analysis-consistency-checks (if deploy/host claims) — load `.cursor/skills/diataxis-docs/SKILL.md` |
 | Roadmap / next-action analysis (`/whats-next`) | @document-traceability (§ Program / Feature Status), @project-context, @source-grounded-execution |
 | Pilot readiness or feedback (`/pilot-readiness`, `/pilot-feedback-intake`) | @document-traceability, @project-context |
 | Git commits (`/commit`) | @no-cursor-git-coauthor |
@@ -40,6 +41,7 @@ Select skills that match the **domain** of the work, not just the command name:
 | Frontend / React / Next.js components or pages | `.agents/skills/vercel-react-best-practices/SKILL.md` |
 | UI design, styling, layout, CSS | `.agents/skills/frontend-design/SKILL.md` |
 | Swagger / OpenAPI docs appearance | `.cursor/skills/swagger-design/SKILL.md` |
+| Doc IA cleanup or Diátaxis reorg (`/doc-housekeeping`, `/doc-reorganize`) | `.cursor/skills/diataxis-docs/SKILL.md` |
 | Hosted pilot readiness / deployment gates | `.cursor/skills/pilot-readiness/SKILL.md` |
 | Pilot feedback triage / weekly intake | `.cursor/skills/pilot-feedback-intake/SKILL.md` |
 | Writing new code, bug fixes, or contract tests (`/implement-spec`, `/plan-impl`) | `~/.agents/skills/test-driven-development/SKILL.md` |

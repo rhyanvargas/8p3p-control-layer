@@ -91,11 +91,8 @@ jobs:
       - name: Install root dependencies
         run: npm ci
 
-      - name: Install infra dependencies
-        run: cd infra && npm ci
-
       - name: CDK synth (validate template)
-        run: cd infra && npx cdk synth
+        run: npm run cdk:synth
         env:
           STAGE: ${{ github.event.inputs.stage || 'prod' }}
 
@@ -131,11 +128,8 @@ jobs:
       - name: Install root dependencies
         run: npm ci
 
-      - name: Install infra dependencies
-        run: cd infra && npm ci
-
       - name: CDK deploy
-        run: cd infra && npx cdk deploy --require-approval never
+        run: npm run cdk:deploy
         env:
           STAGE: ${{ github.event.inputs.stage || 'prod' }}
           ADMIN_API_KEY: ${{ secrets.ADMIN_API_KEY }}

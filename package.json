@@ -32,7 +32,7 @@
     "lint": "eslint src tests",
     "typecheck": "tsc --noEmit",
     "check": "npm run build && npm run validate:schemas && npm run validate:contracts && npm run validate:api && npm run lint && npm test",
-    "cdk:synth": "cd infra && npm ci --quiet && npx cdk synth",
+    "cdk:synth": "npm run build:lambda-deploy && cd infra && npm ci --quiet && npx cdk synth",
     "cdk:deploy": "npm run build:lambda-deploy && cd infra && npm ci --quiet && npx cdk deploy --require-approval never",
     "cdk:diff": "cd infra && npx cdk diff",
     "amplify:sync-env": "node scripts/amplify-sync-env.mjs",

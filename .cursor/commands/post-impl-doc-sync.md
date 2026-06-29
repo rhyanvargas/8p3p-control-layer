@@ -19,3 +19,5 @@ With plan:
 ## Instructions
 
 When the user invokes `/post-impl-doc-sync`, follow `.cursor/skills/post-impl-doc-sync/SKILL.md` and `.cursor/rules/document-traceability/RULE.md` (§ Spec ↔ implementation parity).
+
+**Not this command:** `/doc-housekeeping` (navigation IA, stale guide paths) · `/doc-reorganize` (full Diátaxis restructure).

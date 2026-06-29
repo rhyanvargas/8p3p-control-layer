@@ -37,4 +37,4 @@ When editing, consolidating, reorganizing, or creating content under `docs/`, fo
 
 ## After structural changes
 
-Update hub indexes (`docs/README.md`, `docs/guides/README.md`), respect traceability rules, and verify links resolve.
+Update hub indexes (`docs/README.md`, `docs/guides/README.md`), respect traceability rules, verify links resolve, then run **`/doc-housekeeping`**. For larger IA work, use **`/doc-reorganize`** first.
