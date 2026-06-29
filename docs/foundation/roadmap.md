@@ -26,10 +26,14 @@ Three distinct tiers hide under one word. "No deployment" for the controlled eva
 
 **CEO ask (verifiable):** Educators need more than a grade-like label — a plain-language explanation of **where** and **why** a learner shows learning decay, framed as *confidence in learning* (not a student grade), remaining **auditable and defensible**. Sources: [`docs/specs/ai-educator-explanations.md`](../specs/ai-educator-explanations.md), [`docs/reports/2026-06-23-ceo-meeting-directives.md`](../reports/2026-06-23-ceo-meeting-directives.md).
 
+**Educator-wave signal (2026-06-29):** Teachers get classroom-relevant gaps + plain-language *why* only; admin/compliance get audit drill-down, receipts, and export. Interim pilot auth = **dual passphrases** (educator vs compliance codes). Source: [`docs/reports/2026-06-29-ceo-educator-wave-directives.md`](../reports/2026-06-29-ceo-educator-wave-directives.md) · doc plan [`.cursor/plans/ceo_educator_wave_docs_5f6ef773.plan.md`](../../.cursor/plans/ceo_educator_wave_docs_5f6ef773.plan.md).
+
 | Priority | Work | Ref |
 |----------|------|-----|
 | **P0 shipped** | AI educator-explanation layer (A1): backend + Panels 2/3 body-copy consumption | `docs/specs/ai-educator-explanations.md` · `.cursor/plans/ai-educator-explanations.plan.md` |
 | **P0 active** | Hosted charter pilot readiness: AWS API, Amplify dashboard, AI explanations ON, feedback loop P0, data onboarding, demo capture | `.cursor/plans/pilot-charter-onboarding.plan.md` |
+| **P0 active (doc)** | Organic educator wave: §D5 persona IA, dual-passphrase spec, Zoom/two-path runbooks, policy-builder scaffold | `.cursor/plans/ceo_educator_wave_docs_5f6ef773.plan.md` |
+| **P0 active (code, staged)** | Dashboard persona enforcement — nav/route/tab gating per §D5 | `.cursor/plans/dashboard-persona-enforcement.plan.md` (created by doc plan TASK-021) |
 | **P0** | Decision Panel D1 inversion — educator summary at L0, rule id + rationale in L1 Sheet (A2) | `.cursor/plans/dashboard-uiux-improvements.plan.md` |
 | **P1** | Per-skill trajectory scope — v1.2 `US-SKILL-001` extension (A3); flat trajectory already ships; **§v1.2 scoped 2026-06-23, impl pending** | `docs/specs/learner-trajectory-api.md` §v1.2 |
 | **P1** | Controlled-evaluation runbook — SQLite + seed → pseudonymous export → decisions/receipts/explanations, plus the tier-C dashboard-access decision (A4) | Internal controlled-evaluation runbook (local only, not in public repo) |
@@ -38,6 +42,22 @@ Three distinct tiers hide under one word. "No deployment" for the controlled eva
 **Pilot portal principle (live-pilot vision vs. controlled-eval reality):** The visual dashboard (`dashboard/`, standalone Next.js) is the **customer-facing portal**. In the **live-pilot track** the pilot customer admin interacts with it "at any time," so it **must be hosted** (tier C). **For the controlled evaluation specifically, the "at any time" hosted portal is out of scope** — review is an 8P3P-facilitated working session, so tier C defaults to **local, 8P3P-run** and hosting is optional on leadership request.
 
 The prior connector-heavy framing (Pre-Month 0 checklist, Connector Layer, webhook adapters) remains valid for future Phase 1 charter deployments, but the current charter-pilot critical path is narrower: hosted dashboard + upload/8P3P-ingest path + AI explanations ON + feedback capture. See the [historical inventory snapshot](../../archive/snapshots/roadmap-2026-06-23.md) for the older ledger.
+
+### Persona surfaces (D5)
+
+**Normative spec (in progress):** [`docs/specs/dashboard-design-requirements.md`](../specs/dashboard-design-requirements.md) §D5 — *who sees which routes and drill-downs* on the hosted dashboard (tier **C**). Auth interim: dual passphrases in [`docs/specs/dashboard-passphrase-gate.md`](../specs/dashboard-passphrase-gate.md) (educator vs compliance session persona). Implementation: [`.cursor/plans/dashboard-persona-enforcement.plan.md`](../../.cursor/plans/dashboard-persona-enforcement.plan.md) (PE-001–PE-008). **Not** a new backend tier — route/nav allowlists only.
+
+| Surface | Educator access code | Compliance access code |
+|---------|:--------------------:|:----------------------:|
+| Overview, Attention, Learners | Yes | Yes |
+| Learner Struggles & progress | Yes | Yes |
+| Learner State / Trajectory / JSON | No | Yes |
+| Decisions + trace export | No | Yes |
+| Signals + upload wizard | No | Yes |
+| Reports + export | No | Yes |
+| Approve/Reject, product feedback | Yes | Yes |
+
+Full role × feature × infra-tier table: [`2026-06-29-ceo-educator-wave-directives.md`](../reports/2026-06-29-ceo-educator-wave-directives.md) §4. Until PE-001–PE-006 ship, GTM may use **two passphrases + two-path demo script** (doc plan TASK-006/010) as interim mitigation.
 
 ## Program Status Ledger (single source of truth)
 
@@ -49,14 +69,16 @@ This table is the **only** place to read program-level status. To decide what to
 - **Plan-level** rollup + "Next action" lives **only** in this ledger.
 - Specs keep authoring status in [`docs/specs/README.md`](../specs/README.md); contracts/CI remain machine-verifiable truth (T5). Nothing else tracks feature status.
 
-> Counts reflect each plan's frontmatter on 2026-06-26. "Shipped on branch" = implemented + tests, pending commit/merge; live AWS enablement is a separate ops step inside `pilot-charter-onboarding.plan.md`.
+> Counts reflect each plan's frontmatter on 2026-06-29. "Shipped on branch" = implemented + tests, pending commit/merge; live AWS enablement is a separate ops step inside `pilot-charter-onboarding.plan.md`.
 
 ### Active / next (execute in this order)
 
 | Order | Feature / Plan | Spec | Status | Next action |
 |-------|----------------|------|--------|-------------|
-| 1 | `pilot-charter-onboarding.plan.md` | `customer-feedback-loop.md` (+ runbook refs) | **P0 active** — 7/23 (PREREQ + TASK-001..004 done) | Ops: verify API via GitHub Actions (`deploy.yml`, runbook § 2.0) + Amplify (§ 3); TASK-005 AI when baseline smoke passes; then feedback loop TASK-006..016 |
-| 2 | `overview-educator-activity-layout.plan.md` (D4) | `overview-educator-activity-layout.md` | **Staged** — 0/11 | TASK-001 chart/CSV builders; **must absorb the uncommitted `RefreshDataButton` + `--content-max-width` substrate before rewriting `overview-explorer.tsx`** |
+| 1 | `pilot-charter-onboarding.plan.md` | `customer-feedback-loop.md` (+ runbook refs) | **P0 active** — 8/23 (PREREQ + TASK-001..005 done) | TASK-006 ProductFeedback types, error codes, and FeedbackRepository extension |
+| 1b | `ceo_educator_wave_docs_5f6ef773.plan.md` | `dashboard-design-requirements.md` §D5 · `dashboard-passphrase-gate.md` | **P0 active (doc)** — 3/22 (PREREQ-001 + TASK-001..002 done) | TASK-003 organic educator wave scenario path |
+| 1c | `dashboard-persona-enforcement.plan.md` | `dashboard-design-requirements.md` §D5 · `dashboard-passphrase-gate.md` | **Staged** — plan file pending TASK-021 | PE-001 dual-code login + persona cookie (after doc plan TASK-021 creates plan) |
+| 2 | `overview-educator-activity-layout.plan.md` (D4) | `overview-educator-activity-layout.md` | **Staged** — 0/11 | TASK-001 chart/CSV builders; **committed `RefreshDataButton` + `--content-max-width` substrate already in `overview-explorer.tsx`** — absorb when wiring TASK-006 |
 | 3 | `learner-pending-review-bar.plan.md` (LPR) | `learner-pending-review-bar.md` | **Staged** — 0/11 | TASK-001 `selectPendingDecisionForLearner`; build **after** the committed review-bar overlay + §8.2 learner tabs |
 
 ### Shipped on branch (verify + commit; do not re-run)
