@@ -16,7 +16,7 @@ Three distinct tiers hide under one word. "No deployment" for the controlled eva
 
 | Tier | What | Controlled-eval status | Hosted charter-pilot status |
 |------|------|------------------------|-----------------------------|
-| **A** | AWS control-layer backend (Lambda/API Gateway/DynamoDB) | **Deferred** | **Required** — CDK deploy per `aws-pilot-runbook.md` |
+| **A** | AWS control-layer backend (Lambda/API Gateway/DynamoDB) | **Deferred** | **Required** — CDK deploy per [`docs/guides/operators/aws-pilot-runbook.md`](../guides/operators/aws-pilot-runbook.md) |
 | **B** | Live LMS integration / classroom-workflow deployment | **Deferred** | **Not required for first demo** — upload / 8P3P ingest path can prove value before live connector |
 | **C** | Dashboard access (the Decision Panel review surface) | **Used** — local, 8P3P-run by default; lightweight host optional | **Required** — Amplify-hosted dashboard for customer self-serve touch/demo |
 

@@ -42,7 +42,8 @@ Diátaxis doc task:
 - [ ] 5. Execute — one mode per page; link to authority; no runbook duplication
 - [ ] 6. Update hubs — docs/README.md, guides/README.md, documentation-boundaries if IA changed
 - [ ] 7. Traceability — document-traceability rules if specs/plans touched
-- [ ] 8. Verify — links resolve; exit criteria stated for how-to paths
+- [ ] 8. Verify — links resolve; `npm run test:contracts -- tests/contracts/documentation-boundary.test.ts` (DOC-001..005)
+- [ ] 9. Housekeeping (after reorg) — plan todos, stale `docs/guides/*.md` paths, hub sync (see Step 6 below)
 ```
 
 ### Step 1 — Scope
@@ -103,7 +104,22 @@ Indexes are **navigation only** — no new procedures or requirements in hub pag
 - **Document traceability** (`.cursor/rules/document-traceability/RULE.md`): specs own requirements; guides link to specs; no orphaned definitions
 - **T6 boundary**: no relative hrefs to gitignored `internal-docs/`
 
-### Step 6 — Report
+### Step 6 — Doc IA housekeeping pass
+
+Run after a guides reorg, scenario-path addition, or when plan todos drift from reality. **No dedicated `/command`** — use this skill's workflow plus the checks below.
+
+```
+Housekeeping checklist:
+- [ ] docs/README.md and docs/guides/README.md list current scenario paths
+- [ ] No committed hrefs to retired flat paths (docs/guides/{runbook}.md at guides root)
+- [ ] Cross-repo refs use operators/ · customers/ · playbooks/ subfolders where files live
+- [ ] Plan YAML todos match landed work (document-traceability § Program / Feature Status)
+- [ ] npm run test:contracts -- tests/contracts/documentation-boundary.test.ts (DOC-001..005)
+```
+
+**Not this pass:** `/post-impl-doc-sync` reconciles spec literals with code — not navigation IA.
+
+### Step 7 — Report
 
 Summarize for the user:
 

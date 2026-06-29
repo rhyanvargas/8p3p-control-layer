@@ -13,20 +13,22 @@ todos:
     status: completed
   - id: update-doc-boundaries
     content: Update docs/foundation/documentation-boundaries.md — T3 scenarios + agent reading order
-    status: pending
+    status: completed
   - id: update-root-readme
     content: Update root README.md Documentation section to point at docs/README.md
-    status: pending
+    status: completed
   - id: update-project-context
     content: Add Documentation navigation bullet to .cursor/rules/project-context/RULE.md
-    status: pending
+    status: completed
   - id: verify-links
     content: Verify all new links resolve; run documentation-boundary contract tests
-    status: pending
+    status: completed
 isProject: false
 ---
 
 # Documentation scenario routing (Phase 1)
+
+**Status: Complete (2026-06-29).** Phase 2 subfolder moves (`customers/`, `operators/`, `playbooks/`) and DOC-005 scenario link tests also landed. Optional follow-up: slim runbook §0–§4 prose now that scenario paths exist.
 
 ## Problem
 

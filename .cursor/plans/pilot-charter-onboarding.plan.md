@@ -83,7 +83,7 @@ isProject: false
 
 | Decision | Answer |
 |----------|--------|
-| Deploy path | **AWS** (CDK API + Amplify dashboard per `aws-pilot-runbook.md`) |
+| Deploy path | **AWS** (CDK API + Amplify dashboard per [`docs/guides/operators/aws-pilot-runbook.md`](docs/guides/operators/aws-pilot-runbook.md)) |
 | Customer sample data | **Not yet**; may never arrive — prepare IT questionnaire + 8P3P-ingest path |
 | Timeline | **Board-gated, uncertain** — deploy anyway; be ready before board decides |
 | Demo video | **Yes** — record against live hosted env (TASK-020) |
