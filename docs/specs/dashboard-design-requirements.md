@@ -137,6 +137,53 @@ Data surfaces on a page (chart ↔ table ↔ decision-derived KPI values) may be
 - Educators: L0/L1 use plain language labels ("Needs help", "Improving"); L2 tabs named for jobs ("Overview", "Skills", "Struggles & progress").
 - Inspection: L0/L1 may show monospace IDs in peek headers; L2 exposes thresholds tables and `JsonViewer` — still collapsed by default.
 
+### 2.2 Persona surfaces (D5 — normative)
+
+§2.1 defines **what depth each tier exposes** (L0/L1/L2/L3). **D5 defines who sees which routes and drill-downs** on the hosted dashboard (tier **C** only — no new backend tier). Auth interim: dual passphrases in [`dashboard-passphrase-gate.md`](dashboard-passphrase-gate.md) (educator vs compliance session persona). Implementation: [`.cursor/plans/dashboard-persona-enforcement.plan.md`](../../.cursor/plans/dashboard-persona-enforcement.plan.md) (PE-001–PE-008). Phase 2 Cognito replaces access codes, **not** these IA rules.
+
+Until PE-001–PE-006 ship, GTM may use **two passphrases + two-path demo script** ([`springs-pilot-demo.md`](../guides/playbooks/springs-pilot-demo.md)) as interim mitigation — see [`organic-educator-wave-zoom.md`](../guides/playbooks/organic-educator-wave-zoom.md).
+
+#### Educator surface (educator access code)
+
+**Primary job:** Triage who needs help, understand **why** in plain language, confirm progress — not audit ingestion, policy internals, or raw JSON.
+
+| Area | Educator surface |
+|------|------------------|
+| **Sidebar (`nav-main`)** | Overview, Attention, Learners **only** — no Decisions, Signals, or Reports |
+| **Learner L2 tabs** (`/learners/[ref]`) | **Overview**, **Struggles & progress** only — no State, Trajectory, or Skills tabs |
+| **L0 table columns** | Summary-first; **no** `matched_rule_id`, state version, or policy id at L0 (§2.1 educator-first columns apply) |
+| **Overview KPIs** | Hide or relocate **Rejected signals today** to the compliance surface — ingestion health is not an educator primary question. D4 "Program health" groupings **defer to D5** in educator mode (compliance-only KPIs) |
+| **Learner Overview tab** | No rule/policy leak — scrub `matched_rule_id`, policy version, and raw rule paths from educator-visible fields (PE-005) |
+| **Write surfaces** | Approve/Reject on `/attention`; product feedback POST — **not** signal upload, policy admin, or trace export |
+
+#### Compliance / admin surface (compliance access code)
+
+**Primary job:** Audit provenance, verify ingestion, export receipts — full inspection density.
+
+| Area | Compliance surface |
+|------|-------------------|
+| **Sidebar (`nav-main`)** | Full nav: Overview, Attention, Learners, Decisions, Signals, Reports |
+| **Learner L2 tabs** | All tabs: Overview, Skills, State (version selector + collapsed L3 JSON), Trajectory, Struggles & progress |
+| **Audit routes** | `/decisions`, `/decisions/[id]` (trace + Export JSON), `/signals`, `/signals/upload`, `/reports` |
+| **L0/L1 density** | May show truncated rule ids, outcome chips, monospace IDs in peek headers per §2.1 inspection-first rules |
+| **Write surfaces** | Signal upload wizard, policy admin API (server-side admin key), program/research export when available |
+
+#### Role × feature × infrastructure map (SSoT)
+
+| Feature / route | Educator code | Compliance code | Infra tier |
+|-----------------|:-------------:|:---------------:|------------|
+| Overview, Attention, Learners | Yes | Yes | C |
+| Learner Struggles & progress | Yes | Yes | C reads A (`/v1/learners`, `/v1/state`) |
+| Learner State / Trajectory / JSON | No | Yes | C |
+| Decisions stream + trace export | No | Yes | C reads A |
+| Signals log + upload wizard | No | Yes | C proxy + A admin preflight |
+| Reports + export | No | Yes | C (+ staged program-metrics on A) |
+| Policy admin API | No | Yes (API key server-side) | A `/v1/admin/policies/*` |
+| Product feedback POST | Yes | Yes | A (pilot-charter TASK-006+) |
+| Per-decision Approve/Reject | Yes | Yes | A + C |
+
+**Note:** §1 educator journey tables describe the **full product** capability; in educator persona mode, D5 **narrows** nav and tabs to the rows marked "Educator code = Yes" above.
+
 ---
 
 ## 3. Baseline: shadcn `dashboard-01` (adapt, don't copy)
@@ -191,14 +238,17 @@ Wire into tokens: `--font-sans: var(--font-geist-sans)`, `--font-mono: var(--fon
 ## 5. Information Architecture & Navigation Model
 
 ### 5.1 Sidebar — `nav-main` (primary)
-| Item | Icon (Lucide) | Route | Replaces legacy |
-|------|---------------|-------|-----------------|
-| Overview | `LayoutDashboard` | `/` | — (new home) |
-| Attention | `AlertCircle` | `/attention` | Decision Panel: "Who Needs Help Now" + "What Should Happen Next" |
-| Learners | `Users` | `/learners` | State Viewer + "What Do They Need Help With" + "Did the Support Work" |
-| Decisions | `GitBranch` | `/decisions` | Decision Stream + Decision Trace |
-| Signals | `Radio` | `/signals` | Signal Intake (ingestion log) |
-| Reports | `BarChart3` | `/reports` | program-metrics / research export surfaces |
+
+**Persona gating (D5):** Educator sessions see Overview, Attention, and Learners only. Compliance sessions see the full table below. Middleware + nav allowlists enforce this ([`dashboard-passphrase-gate.md`](dashboard-passphrase-gate.md) § Dual access codes).
+
+| Item | Icon (Lucide) | Route | Persona | Replaces legacy |
+|------|---------------|-------|---------|-----------------|
+| Overview | `LayoutDashboard` | `/` | Educator + Compliance | — (new home) |
+| Attention | `AlertCircle` | `/attention` | Educator + Compliance | Decision Panel: "Who Needs Help Now" + "What Should Happen Next" |
+| Learners | `Users` | `/learners` | Educator + Compliance | State Viewer + "What Do They Need Help With" + "Did the Support Work" |
+| Decisions | `GitBranch` | `/decisions` | Compliance only | Decision Stream + Decision Trace |
+| Signals | `Radio` | `/signals` | Compliance only | Signal Intake (ingestion log) |
+| Reports | `BarChart3` | `/reports` | Compliance only | program-metrics / research export surfaces |
 
 ### 5.2 Sidebar — `nav-secondary` (utility, bottom)
 | Item | Icon | Target |
@@ -513,6 +563,7 @@ dashboard/                                  # Next.js 15 App Router app (see mig
 - [x] **D3** — Declutter KPI cards (one value + delta + status, no prose) and make all 4 cards clickable to a drill target (`section-cards.tsx`, `stat-card.tsx`; Pending drills to `/attention?from=pending`).
 - [x] **D2** — Cross-filter "Sync filters" toggle (default OFF) per §2.1 cross-filter doctrine (consolidate RSC sections → `OverviewSurfaces` server fetch + `OverviewSyncProvider` client wrapper; see [`overview-cross-filter-sync.md`](overview-cross-filter-sync.md) § Architecture).
 - [x] Signal upload wizard (`/signals/upload`) — dropzone, field mapping, client validation, optional preflight dry-run, bounded-concurrency commit to `POST /v1/signals` (see §8 implementation notes).
+- [ ] **D5** — Persona surfaces: dual-code login, nav/route/tab allowlists, educator Overview scrub, compliance-only KPI filter (spec §2.2; impl [`.cursor/plans/dashboard-persona-enforcement.plan.md`](../../.cursor/plans/dashboard-persona-enforcement.plan.md) PE-001–PE-008).
 - [ ] Command palette (`⌘K`), org switcher multi-org behavior, Help external docs link, breadcrumbs polish.
 - [ ] Responsive passes (mobile sidebar `Sheet`, table degradation, L1 full-width Sheet), a11y audit (WCAG AA), reduced-motion.
 - [ ] **UX gate:** Playwright drill-down paths green in CI; formal educator walkthrough sign-off.
@@ -532,9 +583,10 @@ dashboard/                                  # Next.js 15 App Router app (see mig
 - Tokens & product panels: `docs/specs/decision-panel-ui.md`
 - Inspection surfaces: `docs/specs/inspection-panels.md`, `docs/specs/inspection-api.md`, `docs/specs/receipts-api.md`
 - Hosting/execution: `docs/specs/nextjs-amplify-dashboard-migration.md`
+- Persona auth (dual codes): `docs/specs/dashboard-passphrase-gate.md` § Dual access codes
 - Perf patterns: `.agents/skills/vercel-react-best-practices/`
 - UX/UI quality bar (data-driven dashboards, drill-down, anti-clutter): `.agents/skills/frontend-design/SKILL.md` — apply **refined minimalism** (restraint, hierarchy, whitespace) not decorative maximalism.
 
 ---
 
-*Created: 2026-06-12 | Updated: 2026-06-25 (§14: D2 cross-filter [x]; implementation uses `OverviewSurfaces` + `OverviewSyncProvider` per `overview-cross-filter-sync.md`) | Prior: 2026-06-24 (§14: signal upload wizard [x]; §8 upload implementation notes; D3 Pending drill target + Rejected signals today label); 2026-06-23 (D2 implementation notes §2.1; chart local-date bucketing; §14 checklist: D1/D3/freshness done); 2026-06-23 (signal upload in scope); 2026-06-22 (D1/D2/D3 data-viz directives; §2.1 cross-filter + educator-first columns). Design-only. Execution & hosting: nextjs-amplify-dashboard-migration.md. Tokens: decision-panel-ui.md.*
+*Created: 2026-06-12 | Updated: 2026-06-29 (§2.2 D5 Persona surfaces — normative role × route map; §5.1 persona column; §14 D5 checklist item) | Prior: 2026-06-25 (§14: D2 cross-filter [x]; `OverviewSurfaces` + `OverviewSyncProvider`); 2026-06-24 (signal upload wizard [x]); 2026-06-22 (D1/D2/D3). Design-only. Execution & hosting: nextjs-amplify-dashboard-migration.md. Tokens: decision-panel-ui.md.*

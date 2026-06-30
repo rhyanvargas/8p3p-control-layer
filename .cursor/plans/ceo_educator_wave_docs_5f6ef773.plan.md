@@ -4,70 +4,70 @@ overview: "CEO educator-wave signal + persona/role IA documentation; Zoom-ready 
 todos:
   - id: PREREQ-001
     content: "Confirm hosted pilot tier A+C green per aws-pilot-runbook §4 before packaging organic wave docs"
-    status: pending
+    status: completed
   - id: TASK-001
     content: "Create docs/reports/2026-06-29-ceo-educator-wave-directives.md — fourth directive, Check 2 persona rows, dual-passphrase decision"
-    status: pending
+    status: completed
   - id: TASK-002
     content: "Amend docs/foundation/roadmap.md — Persona surfaces (D5) subsection + ledger rows for this plan and dashboard-persona-enforcement"
-    status: pending
+    status: completed
   - id: TASK-003
     content: "Create docs/guides/scenarios/organic-educator-wave.md — thin scenario router for Zoom 50–100 organic wave"
-    status: pending
+    status: completed
   - id: TASK-004
     content: "Amend pilot-charter-onboarding.plan.md — organic wave context, TASK-020 persona gate, Zoom blocking deps"
-    status: pending
+    status: completed
   - id: TASK-005
     content: "Amend customer-feedback-loop.md — add roles_access category; grep/update contract enums if closed-set tested"
-    status: pending
+    status: completed
   - id: TASK-006
     content: "Amend springs-pilot-demo.md — two-path demo (educator vs compliance), compliance-only route table marks"
-    status: pending
+    status: completed
   - id: TASK-007
     content: "Create docs/specs/educator-policy-builder.md — MVP-1 requires compliance persona for policy writes"
-    status: pending
+    status: completed
   - id: TASK-008
     content: "Create docs/specs/policy-generation-service.md — external LLM policy generation service spec"
-    status: pending
+    status: completed
   - id: TASK-009
     content: "Create educator-policy-builder.plan.md — P1 scaffold plan (YAML todos pending)"
-    status: pending
+    status: completed
   - id: TASK-010
     content: "Create docs/guides/playbooks/organic-educator-wave-zoom.md — Zoom 50–100 runbook with two-path demo script"
-    status: pending
+    status: completed
   - id: TASK-011
     content: "Update docs/guides/README.md and docs/README.md scenario tables — link organic wave + zoom paths"
-    status: pending
+    status: completed
   - id: TASK-012
     content: "Amend organic wave onboarding docs — exit criteria split by persona (educator vs compliance/admin codes)"
-    status: pending
+    status: completed
   - id: TASK-013
     content: "Amend zoom runbook known limitations — interim dual-code + two-path script until persona plan ships"
-    status: pending
+    status: completed
   - id: TASK-014
     content: "Update pilot-readiness-gates.md and pilot-launch-checklist.md — organic wave gates reference persona or interim mitigations"
-    status: pending
+    status: completed
   - id: TASK-015
     content: "Final roadmap ledger close-out — 22/22 doc tasks; activate dashboard-persona-enforcement plan row"
-    status: pending
+    status: completed
   - id: TASK-016
     content: "Add §D5 Persona surfaces (normative) to dashboard-design-requirements.md — role × route × feature map"
-    status: pending
+    status: completed
   - id: TASK-017
     content: "Update dashboard-passphrase-gate.md — dual codes, persona cookie, route allowlists (spec prose only)"
-    status: pending
+    status: completed
   - id: TASK-018
     content: "Reconcile docs/specs/README.md drift — Amplify done, Bedrock status; run post-impl-doc-sync on affected specs"
-    status: pending
+    status: completed
   - id: TASK-019
     content: "Update docs/guides/customers/faq.md + educator-policy-builder.md cross-links for dual-code FAQ"
-    status: pending
+    status: completed
   - id: TASK-020
     content: "Link educator-policy-builder MVP-1/2 to D5 role model in spec prose; flag Cognito/per-teacher overlay open questions"
-    status: pending
+    status: completed
   - id: TASK-021
     content: "Create dashboard-persona-enforcement.plan.md — PE-001..PE-008 YAML todos (all pending)"
-    status: pending
+    status: completed
 isProject: false
 ---
 
@@ -408,15 +408,15 @@ Remove `ceo_educator_wave_docs` from Active / next group.
 
 ## Success criteria
 
-- [ ] Persona IA has normative home (§D5 + dual-passphrase gate spec).
-- [ ] CEO report cites Check 2 persona gap with file:line evidence on both sides of capability vs infrastructure tension.
-- [ ] Dual-passphrase decision documented as resolved interim pilot approach (educator vs compliance codes).
-- [ ] Roadmap shows **three parallel tracks**: charter pilot code, organic wave GTM docs, persona enforcement code.
-- [ ] Two-path demo script normative in springs-pilot-demo + zoom runbook.
-- [ ] pilot-charter TASK-020 demo video criteria reference two-path demo or persona plan complete.
-- [ ] All 22 doc tasks (`PREREQ-001` + `TASK-001`–`TASK-021`) marked complete in YAML frontmatter.
-- [ ] Companion [`dashboard-persona-enforcement.plan.md`](.cursor/plans/dashboard-persona-enforcement.plan.md) exists with PE-001–PE-008 pending.
-- [ ] No `src/` or `dashboard/` code changes in this plan's PRs.
+- [x] Persona IA has normative home (§D5 + dual-passphrase gate spec).
+- [x] CEO report cites Check 2 persona gap with file:line evidence on both sides of capability vs infrastructure tension.
+- [x] Dual-passphrase decision documented as resolved interim pilot approach (educator vs compliance codes).
+- [x] Roadmap shows **three parallel tracks**: charter pilot code, organic wave GTM docs, persona enforcement code.
+- [x] Two-path demo script normative in springs-pilot-demo + zoom runbook.
+- [x] pilot-charter TASK-020 demo video criteria reference two-path demo or persona plan complete.
+- [x] All 22 doc tasks (`PREREQ-001` + `TASK-001`–`TASK-021`) marked complete in YAML frontmatter.
+- [x] Companion [`dashboard-persona-enforcement.plan.md`](.cursor/plans/dashboard-persona-enforcement.plan.md) exists with PE-001–PE-008 pending.
+- [x] No `src/` or `dashboard/` code changes in this plan's PRs.
 
 ---
 

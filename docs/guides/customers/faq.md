@@ -90,6 +90,40 @@ Interactive docs: **`GET /docs`** on your host (Swagger UI). OpenAPI source: `do
 
 ---
 
+## Dashboard access (pilot)
+
+### Why do teachers and admins get different login codes?
+
+The hosted Decision Panel serves **two audiences** with different jobs ([`dashboard-design-requirements.md`](../../specs/dashboard-design-requirements.md) §2.2 D5):
+
+- **Educators** need classroom triage: who needs help, plain-language *why*, and Approve/Reject — not ingestion logs, policy IDs, or audit export.
+- **Compliance / admin staff** need audit drill-down, signal upload, decision trace export, and program reports.
+
+During the interim pilot, 8P3P issues **two shared access codes** (educator vs compliance) instead of per-user accounts. Each code sets a session persona at login ([`dashboard-passphrase-gate.md`](../../specs/dashboard-passphrase-gate.md) § Dual access codes). Phase 2 SSO will replace codes; the same surface rules apply.
+
+Your school's IT admin distributes codes according to role — **never share the compliance code in educator-only training sessions**.
+
+### What can teachers see?
+
+With the **educator access code**, staff can use:
+
+| Surface | Available |
+|---------|-----------|
+| Overview, Attention, Learners roster | Yes |
+| Learner **Overview** and **Struggles & progress** tabs | Yes |
+| Approve/Reject on pending decisions | Yes |
+| Send product feedback | Yes |
+| Decisions audit stream, trace JSON export | **No** |
+| Signals log, signal upload wizard | **No** |
+| Reports / program export | **No** |
+| Learner State, Trajectory, Skills tabs, raw JSON | **No** |
+
+Until persona middleware ships in the dashboard, **using only the legacy single code still shows the full sidebar** — distribute the two codes and follow the [two-path demo script](../playbooks/springs-pilot-demo.md) as interim mitigation ([`organic-educator-wave-zoom.md`](../playbooks/organic-educator-wave-zoom.md)).
+
+Policy authoring (natural-language → policy JSON) requires the **compliance code** in MVP-1 ([`educator-policy-builder.md`](../../specs/educator-policy-builder.md)).
+
+---
+
 ## Related
 
 - [Customer Onboarding Quick Start](customer-onboarding-quickstart.md) — first 15 minutes

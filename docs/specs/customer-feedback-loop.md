@@ -79,6 +79,9 @@ A single category + lifecycle applied across in-product feedback, the CSAT comme
 | `data_ingestion` | Upload / connectors / mappings |
 | `dashboard_ux` | Navigation, layout, performance, a11y |
 | `trust_privacy` | Data-leakage posture, auditability, FERPA |
+| `policy_config` | Policy thresholds, rule tuning, educator-policy-builder asks |
+| `learning_gaps` | Gap surfacing, skill-level “where” narrative, mastery breakdown UX |
+| `roles_access` | Persona/role confusion, “too much data for teachers”, access boundaries |
 | `other` | Uncategorized at capture time; CS lead refines at triage |
 
 **`status` lifecycle (closed-loop):** `new` → `triaged` → (`planned` | `declined`) → `shipped` → `closed`. `declined` and `closed` require a one-line rationale in the log (mirrors the roadmap ritual's `status` column).
@@ -405,4 +408,4 @@ internal-docs/reports/pilot-feedback-log.md       # NEW — instantiated closed-
 
 ---
 
-*Spec created: 2026-06-23 | Updated: 2026-06-25 (synced with educator-feedback dashboard wiring + attention-review-ux BFF pattern + ai-educator-explanations panel body copy) | Phase: v1.1 / pilot portal — customer feedback loop | Depends on: `educator-feedback-api.md`, `attention-review-ux.md`, `dashboard-passphrase-gate.md`, `api-key-middleware.md`, `dashboard-design-requirements.md` | Feeds: `internal-docs/reports/pilot-feedback-log.md` | Grounding: `.agents/skills/designing-surveys`, `.agents/skills/inspired-product`, `.agents/skills/frontend-design`. Recommended next: `/plan-impl docs/specs/customer-feedback-loop.md`.*
+*Spec created: 2026-06-23 | Updated: 2026-06-29 (+ `policy_config`, `learning_gaps`, `roles_access` categories for educator-wave triage) | Phase: v1.1 / pilot portal — customer feedback loop | Depends on: `educator-feedback-api.md`, `attention-review-ux.md`, `dashboard-passphrase-gate.md`, `api-key-middleware.md`, `dashboard-design-requirements.md` | Feeds: `internal-docs/reports/pilot-feedback-log.md` | Grounding: `.agents/skills/designing-surveys`, `.agents/skills/inspired-product`, `.agents/skills/frontend-design`. Recommended next: `/plan-impl docs/specs/customer-feedback-loop.md`.*

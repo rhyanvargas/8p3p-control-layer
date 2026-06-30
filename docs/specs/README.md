@@ -18,10 +18,13 @@ Roadmap and sequencing: [`docs/foundation/roadmap.md`](../foundation/roadmap.md)
 
 | Spec | Role | Status |
 |------|------|--------|
-| [`ai-educator-explanations.md`](ai-educator-explanations.md) | **P0** — plain-language "why" for learning decay; confidence-not-grade; auditable (AI SDK `generateText` → null fallback, PII-safe) | Backend + Panels 2/3 body-copy consumption shipped on branch (2026-06-26); live Bedrock enablement pending for hosted pilot |
+| [`ai-educator-explanations.md`](ai-educator-explanations.md) | **P0** — plain-language "why" for learning decay; confidence-not-grade; auditable (AI SDK `generateText` → null fallback, PII-safe) | Backend + Panels 2/3 body-copy consumption shipped (2026-06-26); **Bedrock enabled in pilot Lambda** (pilot-charter TASK-005) |
+| [`dashboard-design-requirements.md`](dashboard-design-requirements.md) | **Design source of truth** for the redesigned dashboard (shadcn `dashboard-01` baseline) | Active — D1/D2/D3 data-viz directives shipped; **§2.2 D5 Persona surfaces** normative (2026-06-29) |
+| [`dashboard-passphrase-gate.md`](dashboard-passphrase-gate.md) | FERPA-safe session access; **dual educator/compliance codes** (interim pilot) | Gate shipped; dual-code + persona cookie **spec'd** — impl PE-001 ([`dashboard-persona-enforcement.plan.md`](../../.cursor/plans/dashboard-persona-enforcement.plan.md)) |
+| [`educator-policy-builder.md`](educator-policy-builder.md) | Compliance-gated NL → policy draft workflow (MVP-1); depends on D5 + dual passphrase | Spec'd (P1 scaffold); impl pending [`educator-policy-builder.plan.md`](../../.cursor/plans/educator-policy-builder.plan.md) |
+| [`policy-generation-service.md`](policy-generation-service.md) | External LLM policy generation HTTP service (decoupled from control-layer engine) | Spec'd (P1); impl pending educator-policy-builder plan |
 | [`overview-cross-filter-sync.md`](overview-cross-filter-sync.md) | Decision Panel D2 — opt-in 2-way linked filtering (default OFF); client-only | Impl complete on branch (2026-06-25) |
 | [`overview-educator-activity-layout.md`](overview-educator-activity-layout.md) | Decision Panel D4 — page-level period bar, grouped KPIs, stacked cumulative activity chart + Activity panel | Spec'd; `/plan-impl` pending |
-| [`dashboard-design-requirements.md`](dashboard-design-requirements.md) | **Design source of truth** for the redesigned dashboard (shadcn `dashboard-01` baseline) | Active — D1/D2/D3 data-viz directives shipped on branch; §8 chart bullets amend on D4 ship |
 | [`customer-feedback-loop.md`](customer-feedback-loop.md) | Product-level feedback: always-on "Send feedback" + CSAT microsurvey + `GET /v1/admin/feedback` | Spec'd; implementation planned in `pilot-charter-onboarding.plan.md` TASK-006..016 |
 | [`liu-usage-meter.md`](liu-usage-meter.md) | `GET /v1/admin/usage` + `GET /v1/usage`; SBIR volume denominator (pre-Month 0 per `program-metrics.md` § Overview) | Spec'd; plan committed, impl pending |
 | [`educator-feedback-api.md`](educator-feedback-api.md) | `POST /v1/decisions/:id/feedback` + view log; feeds MC-B*/MC-C* | Backend shipped (`src/feedback/`); dashboard POST wired (Track 2, 2026-06-25) |
@@ -67,8 +70,8 @@ Roadmap and sequencing: [`docs/foundation/roadmap.md`](../foundation/roadmap.md)
 
 **Dashboard & infrastructure:**
 - [`decision-panel-ui.md`](decision-panel-ui.md) — 4-panel proof surface (React 19+, shadcn/ui, Tailwind)
-- [`dashboard-passphrase-gate.md`](dashboard-passphrase-gate.md) — FERPA-safe session access control
-- [`nextjs-amplify-dashboard-migration.md`](nextjs-amplify-dashboard-migration.md) — dashboard → Next.js (local complete; **Amplify deploy deferred pending startup credits**)
+- [`dashboard-passphrase-gate.md`](dashboard-passphrase-gate.md) — FERPA-safe session access control; dual-code interim pilot (§ Dual access codes)
+- [`nextjs-amplify-dashboard-migration.md`](nextjs-amplify-dashboard-migration.md) — dashboard → Next.js; **Amplify pilot deploy complete** (pilot-charter TASK-004); Cognito Phase 5 still deferred
 - [`tenant-provisioning.md`](tenant-provisioning.md) — API keys, usage plans, org enforcement
 - [`aws-deployment.md`](aws-deployment.md) — API Gateway + Lambda + DynamoDB via AWS CDK
 

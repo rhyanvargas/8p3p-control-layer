@@ -4,22 +4,19 @@
 
 ---
 
-## ⛔ Stage Gate — AWS account is BLOCKED (do not provision yet)
+## ⛔ Stage Gate — Cognito Phase 5 still deferred
 
-> **Status (2026-06-20): AWS startup credits not yet applied for.** No AWS account exists for this workstream. **Local Phases 1–4 are implemented** (Next.js app, proxy, educator/inspection surfaces, auth, CORS, CI build — no deploy). Until this status is updated by the repo owner:
+> **Status (2026-06-29): Pilot tier A + C deployed** per [`docs/guides/operators/aws-pilot-runbook.md`](../guides/operators/aws-pilot-runbook.md) and `pilot-charter-onboarding.plan.md` TASK-003–004. **Amplify dashboard hosting is live** for the charter pilot. **Cognito (Phase 5) remains blocked** until product chooses SSO over dual-passphrase interim auth.
 >
-> - **DO NOT** create an Amplify app, AWS account, IAM roles, Cognito user pool, or any billable AWS resource.
-> - **DO NOT** pull AWS cost estimates (deferred until the credits/account decision is made).
-> - Work is limited to **local, non-AWS** phases: Next.js scaffolding, route handlers, middleware auth, local build/test, CI build job (no deploy step).
-> - Phases tagged **`[AWS-BLOCKED]`** below are parked until the account exists.
->
-> When credits are approved and an account exists, the owner will update this banner to `Status: AWS account available` and the `[AWS-BLOCKED]` phases unblock.
+> - **DO NOT** provision Cognito user pools or Amplify Auth until Phase 5 is explicitly scheduled.
+> - Local Phases 1–4 and **pilot Amplify deploy (Phase 4 AWS)** are complete.
+> - Phases tagged **`[AWS-BLOCKED]`** below refer to **Cognito / multi-env previews** unless the banner is updated again.
 
 ---
 
 ## Overview
 
-The Decision Panel (`dashboard/`) was previously a **Vite + React 19 SPA** with a build-time `VITE_API_KEY` in the browser bundle, served by Fastify at `/dashboard/`. **That architecture is retired.** The panel is now a **standalone Next.js (App Router) app** (local Phases 1–4 complete; AWS Amplify deploy blocked).
+The Decision Panel (`dashboard/`) was previously a **Vite + React 19 SPA** with a build-time `VITE_API_KEY` in the browser bundle, served by Fastify at `/dashboard/`. **That architecture is retired.** The panel is now a **standalone Next.js (App Router) app** hosted on **AWS Amplify** for the charter pilot (local Phases 1–4 + pilot deploy complete per TASK-004).
 
 This spec migrates that SPA to a **standalone Next.js (App Router) app on AWS Amplify Hosting**, for two concrete wins backed by evidence:
 
@@ -68,7 +65,8 @@ This spec migrates that SPA to a **standalone Next.js (App Router) app on AWS Am
 #### Phase 4 — Build/CI (local build NOT blocked; deploy `[AWS-BLOCKED]`)
 - [x] `amplify.yml` exists at the dashboard app root with Node 22 pinned (build is locally reproducible via `next build`; **deploy not started**).
 - [x] `.github/workflows/ci.yml` gains a `dashboard` job: `next build` + `typecheck` + Playwright e2e. Existing server/CDK jobs unchanged.
-- [ ] **`[AWS-BLOCKED]`** Amplify app creation, branch deploys, and PR previews are deferred until the AWS account exists.
+- [x] **Amplify app creation + branch deploy** for charter pilot (`pilot-charter-onboarding.plan.md` TASK-004; runbook §3).
+- [ ] PR preview branches (optional; not required for pilot)
 
 #### Phase 5 — Production auth (Cognito) `[AWS-BLOCKED]`
 - [ ] **`[AWS-BLOCKED]`** Adopt Amplify Auth (Cognito) for the dashboard via `@aws-amplify/adapter-nextjs`; Next middleware gates pages; route handlers exchange the Cognito session for the server-held API key.
@@ -317,17 +315,17 @@ src/auth/dashboard-*.ts            # retire from server once Next owns the gate 
 4. [local] Port passphrase gate to middleware + login/logout routes (Phase 2)
 5. [local] Add @fastify/cors; after parity, remove Fastify dashboard + /inspect serving (Phase 3)
 6. [local] amplify.yml + CI dashboard job (build/test only) (Phase 4)
-7. [AWS-BLOCKED] Create Amplify app, branch deploys, PR previews (Phase 4)
+7. [done] Create Amplify app + branch deploy for charter pilot (Phase 4 — TASK-004)
 8. [AWS-BLOCKED] Cognito via @aws-amplify/adapter-nextjs (Phase 5)
 ```
 
-Steps 1–6 proceed **now**. Steps 7–8 wait for the stage gate.
+Steps 1–7 are **complete** for the charter pilot. Step 8 (Cognito) waits for Phase 5 scheduling.
 
 ---
 
 ## Implementation Notes (2026-06-20)
 
-Local Phases 1–4 are **merged in `dashboard/`**. AWS provisioning (Amplify app, branch deploys, Cognito) remains **`[AWS-BLOCKED]`** — do not deploy until the stage-gate banner is lifted.
+Local Phases 1–4 and **pilot Amplify deploy** are **complete** (`dashboard/` on Amplify Hosting per runbook §3). **Cognito (Phase 5)** remains **`[AWS-BLOCKED]`** until SSO replaces dual-passphrase interim auth.
 
 | Literal / behavior | Spec prose | Implementation |
 |--------------------|------------|----------------|

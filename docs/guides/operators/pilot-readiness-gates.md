@@ -66,6 +66,7 @@ Everything below must be true before we invite a customer into the environment.
 | Panel configured with customer's API key | `VITE_API_KEY` set at build time or first-visit prompt works | Engineering |
 | Passphrase gate enabled (`DASHBOARD_ACCESS_CODE` + `COOKIE_SECRET` set) | Navigate to `/dashboard` without cookie → redirects to `/dashboard/login` | Engineering |
 | Access code generated and stored in vault | Human-memorable passphrase (e.g. `springfield-math-2026`) ready to share with IT admin | Engineering |
+| **Organic wave only:** persona enforcement **or** interim mitigation documented | [`dashboard-persona-enforcement.plan.md`](../../../.cursor/plans/dashboard-persona-enforcement.plan.md) PE-001–PE-006 deployed **or** dual educator/compliance codes + [two-path demo script](../playbooks/springs-pilot-demo.md#two-path-demo-normative-for-hosted-pilot) rehearsed per [Zoom runbook](../playbooks/organic-educator-wave-zoom.md) | CS / Engineering |
 | Seed data produces visible decisions (for demo/training) | Run `npm run seed:springs-demo`; panels populate | Engineering |
 
 ### Documentation Ready
@@ -77,6 +78,22 @@ Everything below must be true before we invite a customer into the environment.
 | FAQ covers their likely questions | Review against what you know about their LMS and use case | CS / Solutions |
 
 > **Pilot vs production readiness.** Every gate above is scoped to a **pilot** deployment. **Primary path (2026-06):** AWS CDK API + Amplify dashboard per [`docs/guides/operators/aws-pilot-runbook.md`](aws-pilot-runbook.md). **Fallback:** hosted Fastify on Fly.io or Render per [`docs/guides/operators/pilot-host-deployment.md`](pilot-host-deployment.md). DynamoDB (AWS path) persists by default; Fly SQLite requires the persistence recipe in [`pilot-host-deployment.md`](pilot-host-deployment.md) § Pilot persistence for pilots > 1 week. **Production readiness** beyond pilot is tracked in [`docs/specs/aws-deployment.md`](../../specs/aws-deployment.md) and [`docs/specs/ci-cd-pipeline.md`](../../specs/ci-cd-pipeline.md). Do not collapse pilot and prod checklists.
+
+---
+
+## Organic educator wave (Zoom 50–100)
+
+When widening access to **50–100 educators** (organic outreach), use the dedicated scenario path — do not reuse single-customer launch gates alone.
+
+| Gate | How to verify | Owner |
+|------|---------------|-------|
+| Tier **A + C** hosted and smoke green | [AWS Pilot Runbook § 4](aws-pilot-runbook.md#4-post-deploy-smoke-go--no-go) | Engineering |
+| Persona enforcement **or** documented interim mitigation | PE-001–PE-006 shipped **or** [Known limitations](../playbooks/organic-educator-wave-zoom.md#known-limitations) mitigations in place (dual codes + two-path script) | CS / Engineering |
+| Educator and compliance codes distinct | `DASHBOARD_ACCESS_CODE_EDUCATOR` + `DASHBOARD_ACCESS_CODE_COMPLIANCE` when persona plan ships; legacy single code acceptable only with host two-path discipline | Engineering |
+| Host runbook reviewed | [Organic educator wave scenario](../scenarios/organic-educator-wave.md) + [Zoom runbook](../playbooks/organic-educator-wave-zoom.md) pre-session checklist complete | CS |
+| Exit criteria defined per persona | Educator vs compliance sign-off in [Zoom runbook § Exit criteria by persona](../playbooks/organic-educator-wave-zoom.md#exit-criteria-by-persona) | CS |
+
+**Cross-refs:** [`dashboard-design-requirements.md` §D5](../../specs/dashboard-design-requirements.md) (persona IA) · [`dashboard-passphrase-gate.md`](../../specs/dashboard-passphrase-gate.md) (dual codes) · [CEO educator wave directives (2026-06-29)](../../reports/2026-06-29-ceo-educator-wave-directives.md)
 
 ---
 

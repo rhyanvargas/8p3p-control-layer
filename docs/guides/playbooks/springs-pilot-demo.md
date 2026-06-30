@@ -32,12 +32,38 @@ Point out Phase 1 (4 LMS field mappings registered) and Phase 2 (**24 synthesize
 
 Open the dashboard at `http://localhost:3001/` (`CONTROL_LAYER_ORG_ID=springs` in `dashboard/.env.local`).
 
-| Dashboard route | Legacy panel name | Demo purpose |
-|-----------------|-------------------|--------------|
-| `/attention` | Panel 1 + 3 | Who needs help; approve/reject intervene |
-| `/learners` → row → sheet | Panel 2 + 4 | Why stuck (learning gaps); trajectory proof |
-| `/` Overview | KPI drill-down | Program-level counts |
-| `/decisions` | Audit trail | Receipts and rule rationale (L1 sheet) |
+| Dashboard route | Legacy panel name | Demo purpose | Persona |
+|-----------------|-------------------|--------------|---------|
+| `/attention` | Panel 1 + 3 | Who needs help; approve/reject intervene | Educator + compliance |
+| `/learners` → row → sheet | Panel 2 + 4 | Why stuck (learning gaps); trajectory proof | Educator + compliance (educator: Overview + Struggles tabs only) |
+| `/` Overview | KPI drill-down | Program-level counts | Educator + compliance |
+| `/decisions` | Audit trail | Receipts and rule rationale (L1 sheet) | **Compliance only** |
+| `/signals` | Ingestion log + upload | Signal upload wizard | **Compliance only** |
+| `/reports` | Program / research export | Export hooks when enabled | **Compliance only** |
+| `/learners/[ref]` → State / Trajectory tabs | Panel 4 drill-down | JSON state, time-series proof | **Compliance only** |
+
+---
+
+## Two-path demo (normative for hosted pilot)
+
+**Normative for** [`pilot-charter-onboarding.plan.md`](../../../.cursor/plans/pilot-charter-onboarding.plan.md) TASK-020 (demo video) and the [organic educator wave](../../../docs/guides/scenarios/organic-educator-wave.md). Use **separate logins** (educator code vs compliance code) when dual-passphrase is configured; until persona middleware ships, the host **must** enforce these paths manually.
+
+### Educator path (~5 min)
+
+1. **`/`** — Overview KPIs (learners needing attention).
+2. **`/attention`** — Queue; open Maya Kim or Alex Rivera; Approve or Reject one row from the review sheet.
+3. **`/learners/[ref]`** → **Struggles & progress** tab — plain-language gap (“where”, not rule ids).
+4. Optional: **Send feedback** from the app shell.
+
+**Never on educator path:** `/decisions`, `/signals`, `/reports`, or Learner **State** / **Trajectory** tabs.
+
+### Compliance path (separate login / second tab)
+
+1. **`/decisions`** — Open an **intervene** row → L1 trace sheet → **Export JSON**.
+2. Optional: **`/signals`** — upload wizard + ingestion log (IT trust beat).
+3. Optional: **`/reports`** — program/research export when enabled.
+
+Full narrative beats below remain valid for **compliance** demos and local Springs seed walkthroughs. For live educator Zoom sessions, prefer the educator path only.
 
 ---
 
@@ -131,11 +157,13 @@ Three subjects, all mastery ≥ 95%, advance-only history across 9 signals.
 
 ---
 
-## Beat 6 — Audit / IT trust (30 seconds) `/decisions`
+## Beat 6 — Audit / IT trust (30 seconds) `/decisions` *(compliance path only)*
 
-**Click**: Decisions → open any **intervene** row → L1 sheet shows rule id + rationale (educator summary at L0 in list).
+**Click**: Decisions → open any **intervene** row → L1 sheet shows rule id + rationale (educator summary at L0 in list). **Export JSON** for audit receipt.
 
 > "Every decision is receipt-backed — which rule fired, which thresholds, frozen state snapshot. Defensible for parents, board, and auditors."
+
+> **Educator Zoom sessions:** skip this beat; use Beat 2–3 only (Attention + Struggles & progress). See [§ Two-path demo](#two-path-demo-normative-for-hosted-pilot).
 
 ---
 
@@ -180,8 +208,8 @@ Three subjects, all mastery ≥ 95%, advance-only history across 9 signals.
 | If they're… | Lead with… | Skip if short on time |
 |-------------|------------|------------------------|
 | **Superintendent** | Maya learning gap + Jordan proof + integration story | Priya gifted |
-| **Principal** | Attention queue + Maya/Alex problem areas + Sam decline | Decisions audit |
-| **IT director** | Setup Phase 1 mappings + `/signals` ingestion log + Decisions trace | Priya gifted |
+| **Principal** | Educator path: Attention + Struggles & progress (Maya/Alex/Sam) | Decisions audit |
+| **IT director** | Compliance path: Phase 1 mappings + `/signals` + Decisions trace + Export JSON | Priya gifted |
 | **Teacher coach** | Alex within-subject gap + Sam trajectory tab | Overview KPIs |
 
 ---
@@ -198,4 +226,4 @@ Re-seeding **without** wipe skips duplicates and leaves stale state — always w
 
 ---
 
-*Updated: 2026-06-24 (seed v3 — learning gaps, trajectories, gifted-interest) | Plan: `.cursor/plans/springs-realistic-seed.plan.md`*
+*Updated: 2026-06-29 (two-path demo — educator vs compliance; route persona column) | Seed v3: `.cursor/plans/springs-realistic-seed.plan.md` | Organic wave: `.cursor/plans/ceo_educator_wave_docs_5f6ef773.plan.md` TASK-006*

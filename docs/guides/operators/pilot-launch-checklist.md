@@ -47,6 +47,19 @@ Use this checklist immediately before granting a pilot customer access to the De
 
 ---
 
+## Organic educator wave (Zoom 50–100)
+
+Complete this section **in addition to** the gates above when launching a wide educator outreach session. Scenario: [organic-educator-wave.md](../scenarios/organic-educator-wave.md) · Runbook: [organic-educator-wave-zoom.md](../playbooks/organic-educator-wave-zoom.md).
+
+- [ ] Tier A + C smoke green per [AWS Pilot Runbook § 4](aws-pilot-runbook.md#4-post-deploy-smoke-go--no-go)
+- [ ] Persona enforcement shipped (PE-001–PE-006) **or** interim mitigation documented: dual educator/compliance codes + [two-path demo script](../playbooks/springs-pilot-demo.md#two-path-demo-normative-for-hosted-pilot) rehearsed
+- [ ] Educator and compliance passphrases generated, stored in vault, distributed out-of-band (not Zoom chat/recording)
+- [ ] Host completed [Zoom runbook pre-session checklist](../playbooks/organic-educator-wave-zoom.md#pre-session-checklist-host)
+- [ ] [Known limitations](../playbooks/organic-educator-wave-zoom.md#known-limitations) reviewed — host will not imply educators can upload signals unless using compliance code
+- [ ] [Exit criteria by persona](../playbooks/organic-educator-wave-zoom.md#exit-criteria-by-persona) understood for host sign-off
+
+---
+
 ## Sign-off
 
 | Role | Name | Date |

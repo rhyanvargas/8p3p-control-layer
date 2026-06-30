@@ -32,8 +32,8 @@ Three distinct tiers hide under one word. "No deployment" for the controlled eva
 |----------|------|-----|
 | **P0 shipped** | AI educator-explanation layer (A1): backend + Panels 2/3 body-copy consumption | `docs/specs/ai-educator-explanations.md` · `.cursor/plans/ai-educator-explanations.plan.md` |
 | **P0 active** | Hosted charter pilot readiness: AWS API, Amplify dashboard, AI explanations ON, feedback loop P0, data onboarding, demo capture | `.cursor/plans/pilot-charter-onboarding.plan.md` |
-| **P0 active (doc)** | Organic educator wave: §D5 persona IA, dual-passphrase spec, Zoom/two-path runbooks, policy-builder scaffold | `.cursor/plans/ceo_educator_wave_docs_5f6ef773.plan.md` |
-| **P0 active (code, staged)** | Dashboard persona enforcement — nav/route/tab gating per §D5 | `.cursor/plans/dashboard-persona-enforcement.plan.md` (created by doc plan TASK-021) |
+| **P0 shipped (doc)** | Organic educator wave: §D5 persona IA, dual-passphrase spec, Zoom/two-path runbooks, policy-builder scaffold | `.cursor/plans/ceo_educator_wave_docs_5f6ef773.plan.md` |
+| **P0 active (code)** | Dashboard persona enforcement — nav/route/tab gating per §D5 | `.cursor/plans/dashboard-persona-enforcement.plan.md` |
 | **P0** | Decision Panel D1 inversion — educator summary at L0, rule id + rationale in L1 Sheet (A2) | `.cursor/plans/dashboard-uiux-improvements.plan.md` |
 | **P1** | Per-skill trajectory scope — v1.2 `US-SKILL-001` extension (A3); flat trajectory already ships; **§v1.2 scoped 2026-06-23, impl pending** | `docs/specs/learner-trajectory-api.md` §v1.2 |
 | **P1** | Controlled-evaluation runbook — SQLite + seed → pseudonymous export → decisions/receipts/explanations, plus the tier-C dashboard-access decision (A4) | Internal controlled-evaluation runbook (local only, not in public repo) |
@@ -45,7 +45,7 @@ The prior connector-heavy framing (Pre-Month 0 checklist, Connector Layer, webho
 
 ### Persona surfaces (D5)
 
-**Normative spec (in progress):** [`docs/specs/dashboard-design-requirements.md`](../specs/dashboard-design-requirements.md) §D5 — *who sees which routes and drill-downs* on the hosted dashboard (tier **C**). Auth interim: dual passphrases in [`docs/specs/dashboard-passphrase-gate.md`](../specs/dashboard-passphrase-gate.md) (educator vs compliance session persona). Implementation: [`.cursor/plans/dashboard-persona-enforcement.plan.md`](../../.cursor/plans/dashboard-persona-enforcement.plan.md) (PE-001–PE-008). **Not** a new backend tier — route/nav allowlists only.
+**Normative spec:** [`docs/specs/dashboard-design-requirements.md`](../specs/dashboard-design-requirements.md) §2.2 D5 — *who sees which routes and drill-downs* on the hosted dashboard (tier **C**). Auth interim: dual passphrases in [`docs/specs/dashboard-passphrase-gate.md`](../specs/dashboard-passphrase-gate.md) (educator vs compliance session persona). Implementation: [`.cursor/plans/dashboard-persona-enforcement.plan.md`](../../.cursor/plans/dashboard-persona-enforcement.plan.md) (PE-001–PE-008). **Not** a new backend tier — route/nav allowlists only.
 
 | Surface | Educator access code | Compliance access code |
 |---------|:--------------------:|:----------------------:|
@@ -76,8 +76,7 @@ This table is the **only** place to read program-level status. To decide what to
 | Order | Feature / Plan | Spec | Status | Next action |
 |-------|----------------|------|--------|-------------|
 | 1 | `pilot-charter-onboarding.plan.md` | `customer-feedback-loop.md` (+ runbook refs) | **P0 active** — 8/23 (PREREQ + TASK-001..005 done) | TASK-006 ProductFeedback types, error codes, and FeedbackRepository extension |
-| 1b | `ceo_educator_wave_docs_5f6ef773.plan.md` | `dashboard-design-requirements.md` §D5 · `dashboard-passphrase-gate.md` | **P0 active (doc)** — 3/22 (PREREQ-001 + TASK-001..002 done) | TASK-003 organic educator wave scenario path |
-| 1c | `dashboard-persona-enforcement.plan.md` | `dashboard-design-requirements.md` §D5 · `dashboard-passphrase-gate.md` | **Staged** — plan file pending TASK-021 | PE-001 dual-code login + persona cookie (after doc plan TASK-021 creates plan) |
+| 1b | `dashboard-persona-enforcement.plan.md` | `dashboard-design-requirements.md` §D5 · `dashboard-passphrase-gate.md` | **P0 active** — 0/8 | PE-001 dual-code login + persona cookie |
 | 2 | `overview-educator-activity-layout.plan.md` (D4) | `overview-educator-activity-layout.md` | **Staged** — 0/11 | TASK-001 chart/CSV builders; **committed `RefreshDataButton` + `--content-max-width` substrate already in `overview-explorer.tsx`** — absorb when wiring TASK-006 |
 | 3 | `learner-pending-review-bar.plan.md` (LPR) | `learner-pending-review-bar.md` | **Staged** — 0/11 | TASK-001 `selectPendingDecisionForLearner`; build **after** the committed review-bar overlay + §8.2 learner tabs |
 
@@ -85,7 +84,8 @@ This table is the **only** place to read program-level status. To decide what to
 
 | Feature / Plan | Spec | Status |
 |----------------|------|--------|
-| `ai-educator-explanations.plan.md` | `ai-educator-explanations.md` | **Shipped** 14/14 — backend + Panels 2/3 body copy; live Bedrock enablement = pilot-charter TASK-005 |
+| `ceo_educator_wave_docs_5f6ef773.plan.md` | `dashboard-design-requirements.md` §D5 · `dashboard-passphrase-gate.md` · organic wave runbooks | **Shipped** 22/22 — CEO report, §D5 + dual-passphrase specs, Zoom/two-path ops, policy-builder scaffold, persona impl plan created |
+| `ai-educator-explanations.plan.md` | `ai-educator-explanations.md` | **Shipped** 14/14 — backend + Panels 2/3 body copy; Bedrock enabled in pilot Lambda (TASK-005) |
 | `dashboard-uiux-improvements.plan.md` | `dashboard-design-requirements.md` (D1/D3) | **Shipped** 27/27 |
 | `overview-cross-filter-sync.plan.md` (D2) | `overview-cross-filter-sync.md` | **Shipped** 14/14 |
 | `attention-review-ux.plan.md` (Phase 1) | `attention-review-ux.md` | **Shipped** 11/11 |
@@ -107,6 +107,7 @@ This table is the **only** place to read program-level status. To decide what to
 
 | Feature / Plan | Spec | Status |
 |----------------|------|--------|
+| `educator-policy-builder.plan.md` | `educator-policy-builder.md` · `policy-generation-service.md` | **Staged** 0/8 — EPB-001 after PGS deploy; MVP-1 compliance persona only |
 | `learner-trajectory-api-v1.2.plan.md` | `learner-trajectory-api.md` §v1.2 | **Staged** 0/7 (P1) |
 | `tenant-config.plan.md` | `tenant-config.md` | **Staged** 0/11 |
 | `ci-cd-pipeline.plan.md` | `ci-cd-pipeline.md` | **Staged** — Fly.io/Node matrix, not merged |

@@ -90,6 +90,14 @@ isProject: false
 | TEKS/STAAR | **Nice-to-have now**; if deal closes may need **fast follow** (config layer, not engine — TASK-017 hedge only, no build until gated) |
 | SBIR Track 6 | **Deferred** (LIU, outcomes, program-metrics, research-export) |
 
+**Context (2026-06-29, organic educator wave — [`ceo_educator_wave_docs_5f6ef773.plan.md`](ceo_educator_wave_docs_5f6ef773.plan.md))**:
+
+| Decision | Answer |
+|----------|--------|
+| Organic educator wave | Valid GTM shape for TASK-018 (hosted dry-run) and TASK-020 (demo video) — tier **A + C** required; tier **B** LMS connectors deferred |
+| Persona before demo video | **TASK-020 blocked on** [`dashboard-persona-enforcement.plan.md`](dashboard-persona-enforcement.plan.md) PE-001–006 **or** scripted educator-only path in [`springs-pilot-demo.md`](../docs/guides/playbooks/springs-pilot-demo.md) § Two-path demo (interim: dual codes + host script) |
+| Zoom 50–100 | Blocked on TASK-006–018 (feedback loop + dry-run) **and** persona enforcement **or** documented interim mitigations only — see [`organic-educator-wave.md`](../docs/guides/scenarios/organic-educator-wave.md) |
+
 Engineering must be **deployed and ready** for self-serve login, upload (customer or 8P3P), gap insight, decision validation (Approve/Reject + AI explanations ON), and **async in-product feedback** (customer-feedback-loop P0).
 
 ---
@@ -197,6 +205,9 @@ Per `docs/specs/dashboard-passphrase-gate.md` § "Sibling cookie: `fb_session`" 
 | `data_ingestion` | Upload / connectors / mappings |
 | `dashboard_ux` | Navigation, layout, performance, a11y |
 | `trust_privacy` | Data-leakage posture, auditability, FERPA |
+| `policy_config` | Policy thresholds, rule tuning, educator-policy-builder asks |
+| `learning_gaps` | Gap surfacing, skill-level “where” narrative, mastery breakdown UX |
+| `roles_access` | Persona/role confusion, “too much data for teachers”, access boundaries |
 | `other` | Uncategorized at capture time; CS lead refines at triage |
 
 ### From ai-educator-explanations.md § Env vars (pilot enablement)

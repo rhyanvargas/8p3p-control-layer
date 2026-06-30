@@ -299,6 +299,7 @@ src/decision/
 - **PII-echo guard:** `guardrails.ts` uses a minimum substring length of 4 characters when scanning `state_snapshot` string leaves (avoids numeric noise); empty output and PII echo both map to `explanation_guardrail_tripped` + `null`.
 - **Package boundary:** `@8p3p/explanation` logs warning codes as string literals matching `src/shared/error-codes.ts`; it does not import core. `AiSdkExplanationGenerator` is not re-exported from `index.ts` (tests import compiled `dist/ai-sdk-generator.js` directly).
 - **Dashboard consumption:** Backend persists `trace.educator_explanation`; dashboard Panels 2 & 3 consume it via `dashboard/lib/panel-helpers.ts` `educatorBodyCopy()`, which falls back to `educator_summary` and then `rationale`. Secondary compact surfaces may still render `educator_summary` intentionally where table/header UX needs a short label.
+- **Hosted pilot enablement:** `AI_EXPLANATIONS_ENABLED=true`, `AI_PROVIDER=amazon-bedrock`, and Lambda `bedrock:InvokeModel` IAM are configured in the pilot stack (`pilot-charter-onboarding.plan.md` TASK-005). New decisions after enablement persist non-null `trace.educator_explanation` when the model responds; null fallback still applies on throttling/guardrail/region mismatch.
 
 ---
 
@@ -313,4 +314,4 @@ src/decision/
 
 ---
 
-*Spec created: 2026-06-22 | Updated: 2026-06-26 (implemented — `@8p3p/explanation` package, engine integration, and Panels 2 & 3 body-copy consumption) | Phase: v1.1 (Pilot Wave 2 enhancement) | Depends on: `decision-engine.md`, `skill-level-tracking.md`, `decision-panel-ui.md` | Feeds: `decision-panel-ui.md` (Panels 2 & 3). Recommended next: PREREQ-001/002 for live Bedrock enablement in the hosted pilot environment.*
+*Spec created: 2026-06-22 | Updated: 2026-06-29 (hosted pilot Bedrock enablement — pilot-charter TASK-005) | Prior: 2026-06-26 (implemented — `@8p3p/explanation` package, engine integration, Panels 2 & 3 body-copy consumption) | Phase: v1.1 (Pilot Wave 2 enhancement) | Depends on: `decision-engine.md`, `skill-level-tracking.md`, `decision-panel-ui.md` | Feeds: `decision-panel-ui.md` (Panels 2 & 3).*

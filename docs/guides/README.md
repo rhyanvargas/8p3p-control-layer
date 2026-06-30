@@ -17,6 +17,7 @@ Thin how-to routers — prerequisites, numbered links, exit criteria. No duplica
 | Launch a pilot customer | [scenarios/launch-pilot-customer.md](scenarios/launch-pilot-customer.md) |
 | Integrate a customer LMS | [scenarios/integrate-customer-lms.md](scenarios/integrate-customer-lms.md) |
 | Operate / ship pilot updates | [scenarios/operate-pilot-updates.md](scenarios/operate-pilot-updates.md) |
+| Run organic educator wave (Zoom 50–100) | [scenarios/organic-educator-wave.md](scenarios/organic-educator-wave.md) |
 | Build a feature (spec-driven) | [scenarios/build-a-feature.md](scenarios/build-a-feature.md) |
 | Fly fallback deploy (optional) | [scenarios/deploy-fly-fallback.md](scenarios/deploy-fly-fallback.md) |
 
@@ -55,6 +56,7 @@ Thin how-to routers — prerequisites, numbered links, exit criteria. No duplica
 | Guide | Audience | Use-case |
 | ----- | -------- | -------- |
 | [Springs Pilot Demo](playbooks/springs-pilot-demo.md) | Sales / solutions / demos | Local stakeholder walkthrough (Springs seed + dashboard routes) |
+| [Organic Educator Wave — Zoom runbook](playbooks/organic-educator-wave-zoom.md) | CS / solutions / host | Hosted Zoom 50–100 session — dual codes, two-path demo, host checklist |
 
 ---
 
@@ -69,6 +71,7 @@ Scenario paths cover most tasks — use this table only when the scenario table 
 | Understand state merge, empty decisions, or policy customization | [FAQ](customers/faq.md) |
 | Export decisions for every learner in my org | [Get all learner decisions from org](customers/get-all-learner-decisions-from-org.md) |
 | Run a local stakeholder demo (Springs) | [Springs Pilot Demo](playbooks/springs-pilot-demo.md) |
+| Host organic educator wave on Zoom | [Organic educator wave scenario](scenarios/organic-educator-wave.md) → [Zoom runbook](playbooks/organic-educator-wave-zoom.md) |
 | Work on the Decision Panel (Next.js) | [Local Dev & Testing § Making changes](../foundation/setup.md#making-changes) |
 | Find internal-only runbooks | [Internal Operations Index](operators/internal-operations-stub.md) |
 

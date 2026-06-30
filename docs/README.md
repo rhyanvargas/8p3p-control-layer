@@ -13,6 +13,7 @@
 | Launch a pilot customer | [guides/scenarios/launch-pilot-customer.md](guides/scenarios/launch-pilot-customer.md) | Launch checklist signed |
 | Integrate a customer LMS | [guides/scenarios/integrate-customer-lms.md](guides/scenarios/integrate-customer-lms.md) | First signal → decision |
 | Operate / ship pilot updates | [guides/scenarios/operate-pilot-updates.md](guides/scenarios/operate-pilot-updates.md) | CI + deploy / Amplify green |
+| Run organic educator wave (Zoom 50–100) | [guides/scenarios/organic-educator-wave.md](guides/scenarios/organic-educator-wave.md) | Persona exit criteria met per [Zoom runbook](guides/playbooks/organic-educator-wave-zoom.md#exit-criteria-by-persona) |
 | Build a feature (spec-driven) | [guides/scenarios/build-a-feature.md](guides/scenarios/build-a-feature.md) | Spec → plan → impl synced |
 | Fly fallback deploy (optional) | [guides/scenarios/deploy-fly-fallback.md](guides/scenarios/deploy-fly-fallback.md) | TLS `/health` on Fly/Render |
 | Look up API / requirements | [specs/README.md](specs/README.md) · [api/openapi.yaml](api/openapi.yaml) | — |

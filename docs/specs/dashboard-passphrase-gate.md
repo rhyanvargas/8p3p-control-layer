@@ -8,11 +8,13 @@
 
 The Decision Panel displays `learner_reference` values that may resolve to real student names, skills where students are struggling, and educator-facing decision rationale. In a FERPA-regulated school environment, an open URL where anyone could view student data without authentication is not defensible.
 
-This spec defines a **passphrase-based session gate** for the Decision Panel: a single shared access code, server-validated, that issues an `HttpOnly` session cookie. It is the minimum viable auth layer that makes the panel defensible under FERPA scrutiny while adding zero user management overhead.
+This spec defines a **passphrase-based session gate** for the Decision Panel: shared access code(s), server-validated, that issue an `HttpOnly` session cookie. It is the minimum viable auth layer that makes the panel defensible under FERPA scrutiny while adding zero user management overhead.
+
+**Interim pilot (2026-06-29):** Organic educator wave uses **dual access codes** — educator passphrase vs compliance/admin passphrase — resolved at login into a session **persona** (`educator` | `compliance`). Middleware enforces route/nav allowlists per persona ([`dashboard-design-requirements.md`](dashboard-design-requirements.md) §2.2 D5). Phase 2 Cognito replaces codes, **not** D5 IA rules.
 
 **What this is:** Next.js **middleware** (plus login/logout route handlers) that requires a valid session cookie for dashboard pages and `/api/control/*`, with a single-field login form for first access.
 
-**What this is not:** User accounts, RBAC, SSO/OAuth, or per-user audit trails. Those are Phase 2 (`8p3p-admin` platform) / Phase 5 Cognito ([`nextjs-amplify-dashboard-migration.md`](nextjs-amplify-dashboard-migration.md)).
+**What this is not:** User accounts, SSO/OAuth, or per-user audit trails. Those are Phase 2 (`8p3p-admin` platform) / Phase 5 Cognito ([`nextjs-amplify-dashboard-migration.md`](nextjs-amplify-dashboard-migration.md)). **Per-persona route allowlists (D5)** are specified here and in [`dashboard-design-requirements.md`](dashboard-design-requirements.md) §2.2 — not backend RBAC.
 
 ### Why Not SSO/OAuth?
 
@@ -23,6 +25,84 @@ This spec defines a **passphrase-based session gate** for the Decision Panel: a 
 | Dependencies | None | IdP-specific libraries, callback URLs, CORS config |
 | Sufficient for pilot | Yes — same trust model as sharing a WiFi password | Over-engineered for single-school pilot |
 | Phase 2 upgrade path | Replace hook with SSO middleware | Correct long-term answer |
+
+---
+
+## Dual access codes (interim pilot — normative)
+
+Organic educator wave (Zoom 50–100) requires **two shared secrets** so educators never land on compliance-only surfaces by default. Implementation: [`.cursor/plans/dashboard-persona-enforcement.plan.md`](../../.cursor/plans/dashboard-persona-enforcement.plan.md) PE-001–PE-003.
+
+### Environment variables (dual-code mode)
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `DASHBOARD_ACCESS_CODE_EDUCATOR` | When dual-code mode active | Passphrase for educator persona — classroom triage surfaces only (D5) |
+| `DASHBOARD_ACCESS_CODE_COMPLIANCE` | When dual-code mode active | Passphrase for compliance/admin persona — full nav and audit routes |
+| `DASHBOARD_ACCESS_CODE` | Legacy / single-code fallback | When **only** this var is set (dual vars unset), login grants **compliance-equivalent** session (full nav). Preserves pre-D5 deploys until PE-001 ships |
+
+**Dual-code mode is active** when both `DASHBOARD_ACCESS_CODE_EDUCATOR` and `DASHBOARD_ACCESS_CODE_COMPLIANCE` are non-empty. When dual-code mode is active, `DASHBOARD_ACCESS_CODE` is ignored for login validation.
+
+**Alias pattern (optional):** Operators may document the same values under runbook aliases (e.g. `DASHBOARD_ACCESS_CODE_TEACHER` → educator) as long as the dashboard runtime maps them to the two canonical vars above before middleware reads them.
+
+### Login validation
+
+```
+POST /login { passphrase: "..." }
+  │
+  ├── Match DASHBOARD_ACCESS_CODE_EDUCATOR? → persona = educator
+  ├── Match DASHBOARD_ACCESS_CODE_COMPLIANCE? → persona = compliance
+  ├── Match DASHBOARD_ACCESS_CODE (legacy only)? → persona = compliance
+  │
+  └── No match → error (constant-time compare per code tried)
+```
+
+Each code is compared with **constant-time** equality. Failed attempts count toward the existing IP rate limit (5 / 15 min).
+
+### Session cookie payload (persona)
+
+Extend the signed payload (§ Cookie Value Structure) with an optional persona field:
+
+```json
+{ "exp": 1713100800, "persona": "educator" }
+```
+
+| `persona` value | Set when |
+|-----------------|----------|
+| `educator` | Educator access code matched |
+| `compliance` | Compliance access code or legacy single code matched |
+
+When persona is absent (older cookies minted before PE-001), middleware treats the session as **compliance** (full nav) for backward compatibility.
+
+Verification order unchanged: HMAC → `exp` → read `persona` for allowlist enforcement.
+
+### Route allowlists (middleware — spec prose)
+
+Educator persona **allowed page routes** (prefix match unless noted):
+
+| Allowed | Blocked (302 → `/` or `/attention`) |
+|---------|-------------------------------------|
+| `/`, `/attention`, `/learners`, `/learners/*` | `/decisions`, `/decisions/*` |
+| `/settings` | `/signals`, `/signals/*` |
+| `/login`, `/logout` | `/reports` |
+
+**Learner detail tabs:** Educator sessions may only render **Overview** and **Struggles & progress** tabs on `/learners/[ref]`; direct URL to `?tab=state`, `?tab=trajectory`, or `?tab=skills` redirects to Overview (PE-004).
+
+Compliance persona: **no route allowlist** — full sidebar per [`dashboard-design-requirements.md`](dashboard-design-requirements.md) §5.1.
+
+**API proxy (`/api/control/*`):** Page middleware is the primary gate. Compliance-only API paths (e.g. admin preflight, program-metrics export) must not be callable from educator sessions when persona-aware proxy filtering ships (PE-003 scope — document here; impl in persona plan).
+
+### Distribution
+
+| Audience | Code | Share via |
+|----------|------|-----------|
+| Teachers, instructional coaches | Educator code | School IT — **never** in same channel as compliance demo for Zoom educators track |
+| Admin, compliance, 8P3P operator | Compliance code | Secure channel; required for signal upload, audit, export |
+
+See [`organic-educator-wave-zoom.md`](../guides/playbooks/organic-educator-wave-zoom.md) and [`faq.md`](../guides/customers/faq.md) § Dashboard access.
+
+### Phase 2 upgrade
+
+Cognito/SSO replaces passphrase entry and binds sessions to user identity. **D5 route/nav/tab allowlists remain** — mapped from IdP groups or app roles (`educator`, `compliance_admin`) instead of login code choice.
 
 ---
 
@@ -46,7 +126,9 @@ The passphrase gate sits **in front of** the Next.js app. API calls from the bro
 
 | Credential | Purpose | Who holds it | Storage |
 |-----------|---------|-------------|---------|
-| `DASHBOARD_ACCESS_CODE` | Human access to the web UI | School staff (shared by IT admin) | Dashboard runtime env |
+| `DASHBOARD_ACCESS_CODE_EDUCATOR` | Educator UI access (D5 subset) | Teachers / coaches (via IT) | Dashboard runtime env |
+| `DASHBOARD_ACCESS_CODE_COMPLIANCE` | Compliance UI access (full nav) | Admin / compliance / operator | Dashboard runtime env |
+| `DASHBOARD_ACCESS_CODE` | Legacy single-code full access | School staff (shared) | Dashboard runtime env — **fallback when dual vars unset** |
 | `CONTROL_LAYER_API_KEY` / `API_KEY` | Machine access to control-layer `/v1/*` | Dashboard server (proxy only) | Dashboard runtime env — **never** in browser bundle |
 
 *(Legacy: Fastify served a Vite SPA at `/dashboard` with `VITE_API_KEY` in the client bundle — retired.)*
@@ -83,7 +165,9 @@ The passphrase gate sits **in front of** the Next.js app. API calls from the bro
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `DASHBOARD_ACCESS_CODE` | No | — | Passphrase; when set, gate is active. Set on **dashboard** host (`dashboard/.env.local`). |
+| `DASHBOARD_ACCESS_CODE_EDUCATOR` | Dual-code mode | — | Educator passphrase; sets session persona `educator` |
+| `DASHBOARD_ACCESS_CODE_COMPLIANCE` | Dual-code mode | — | Compliance passphrase; sets session persona `compliance` |
+| `DASHBOARD_ACCESS_CODE` | No | — | Legacy single passphrase; full nav when dual vars unset. Ignored when dual-code mode active |
 | `DASHBOARD_SESSION_TTL_HOURS` | No | `8` | Session cookie lifetime in hours. |
 | `COOKIE_SECRET` | Yes (when gate active) | — | HMAC signing secret. Min 32 chars. Same on dashboard (and API if minting `fb_session` for feedback). |
 | `CONTROL_LAYER_API_KEY` | When API auth on | — | Server-only; used by proxy — not part of the gate but required for live data. |
@@ -201,17 +285,17 @@ After the window expires, the counter resets. Failed attempts are counted; succe
 - Given `DASHBOARD_ACCESS_CODE` unset, then dashboard loads without redirect
 - Given 6 failed login attempts within 15 min, then 429
 - Given `/logout`, then cookies cleared and redirect to `/login`
-- Given a valid session, when navigating to `/dashboard/logout`, then the session cookie is cleared and the browser is redirected to `/dashboard/login`
-
----
+- Given dual-code mode and educator passphrase POST, then session cookie payload includes `"persona":"educator"` and educator nav only (after PE-002)
+- Given dual-code mode and compliance passphrase POST, then session cookie payload includes `"persona":"compliance"` and full nav
+- Given educator persona and `GET /decisions`, then redirect away from compliance-only route (after PE-003)
 
 ## Constraints
 
-- **No user accounts** — the passphrase is a shared secret. The school's IT admin decides who gets it.
+- **No user accounts** — passphrases are shared secrets. The school's IT admin decides who gets which code.
 - **No per-user audit trail** — all sessions are anonymous. Phase 2 SSO enables per-user logging.
-- **No password storage** — the passphrase lives in an env var only. It is compared at runtime, never stored in a database.
+- **No password storage** — passphrases live in env vars only. Compared at runtime, never stored in a database.
 - **Stateless sessions** — no server-side session store. The signed cookie is self-contained. Server restart does not invalidate sessions (only `COOKIE_SECRET` rotation does).
-- **Single passphrase per deployment** — same as the API key model (one per org). Multi-passphrase is Phase 2.
+- **Dual passphrases per deployment (interim pilot)** — educator + compliance codes replace the single-code model when both dual vars are set. Legacy single `DASHBOARD_ACCESS_CODE` remains for backward compatibility until persona middleware ships.
 
 ---
 
@@ -356,4 +440,4 @@ To preserve API isolation, **`/login`** mints a **sibling cookie** `fb_session` 
 
 ---
 
-*Spec created: 2026-04-14 | Updated: 2026-06 (Next.js middleware implementation; Fastify gate removed) | Sibling cookie: 2026-04-23 | Depends on: decision-panel-ui.md, nextjs-amplify-dashboard-migration.md*
+*Spec created: 2026-04-14 | Updated: 2026-06-29 (§ Dual access codes — educator/compliance passphrases, persona cookie, route allowlists; legacy single-code fallback) | Prior: 2026-06 (Next.js middleware; Fastify gate removed) | Sibling cookie: 2026-04-23 | Depends on: decision-panel-ui.md, dashboard-design-requirements.md §D5, nextjs-amplify-dashboard-migration.md*
