@@ -144,6 +144,7 @@ Summarize for the user:
 - **`/doc-reorganize`** — full Diátaxis reorg (classify, split, scenario paths, hub updates)
 - **`/post-impl-doc-sync`** — literal spec/plan/code parity after features ship (not IA)
 - **`/update-readme`** — root README evidence sync (not Diátaxis structure)
+- **`.cursor/skills/mermaid-diagrams/SKILL.md`** — architecture/flow/layout diagrams; sync copies to SSoT
 
 ## Additional resources
 

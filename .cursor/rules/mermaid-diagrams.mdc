@@ -1,0 +1,17 @@
+---
+description: Mermaid diagram standards when editing architecture, flow, and layout diagrams in docs and plans
+globs: docs/**/*.md,README.md,.cursor/plans/**/*.md
+alwaysApply: false
+---
+
+# Mermaid diagram standards
+
+When adding or editing **architecture, data-flow, deployment, sequence, or page-layout** diagrams in `docs/`, `README.md`, or `.cursor/plans/`:
+
+1. Use **Mermaid** fenced blocks — not ASCII box art (`┌─┐`, `▼` pipelines).
+2. Follow `.cursor/skills/mermaid-diagrams/SKILL.md` for SSoT locations and sync rules.
+3. **System pipeline diagram** must match `docs/foundation/architecture.md` § System Architecture Diagram wherever duplicated (including root `README.md`).
+4. **Connector Layer stack** canonical copy lives in `docs/foundation/architecture.md` § Connector Layer; specs highlight their layer with `← THIS SPEC` in the node label only.
+5. Keep ASCII for directory trees and detailed UI copy mockups (literal card text), not for flows or topology.
+
+After changing a canonical diagram, update all copies listed in the skill's SSoT table in the same change set.
