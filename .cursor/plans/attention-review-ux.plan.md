@@ -128,20 +128,22 @@ Reference implementation pattern: `dashboard/app/(dashboard)/signals/upload/_com
 
 ### From spec § UX & Visual Specification — `/attention` layout (Phase 1+)
 
+```mermaid
+flowchart TB
+  subgraph header [PageHeader]
+    H["Attention · awaiting / reviewed today badges"]
+  end
+  subgraph primary [Primary — pending queue]
+    F["Action type filter · queue count"]
+    Q["PENDING QUEUE DataTable"]
+  end
+  subgraph secondary [Secondary — recently reviewed]
+    R["Recently reviewed band"]
+  end
+  header --> primary --> secondary
 ```
-┌─ PageHeader ─────────────────────────────────────────────┐
-│  Attention          [3 awaiting · 2 reviewed today]      │
-├──────────────────────────────────────────────────────────┤
-│  Action type filter          Showing 3 of 3 in queue       │
-│  ┌ PENDING QUEUE (primary, full width) ────────────────┐ │
-│  │ DataTable — learner · type · summary · actions      │ │
-│  └─────────────────────────────────────────────────────┘ │
-├──────────────────────────────────────────────────────────┤
-│  ▼ Recently reviewed (2)          muted section label    │
-│  · Malosi · Intervene · Approved · 3m ago    [View →]    │
-│  · Leilani · Pause · Rejected · 12m ago      [View →]    │
-└──────────────────────────────────────────────────────────┘
-```
+
+> Canonical copy: [`docs/specs/attention-review-ux.md`](../../docs/specs/attention-review-ux.md) § `/attention` layout.
 
 - **Primary vs secondary:** Pending queue uses default foreground density; Recently reviewed uses `text-muted-foreground` section label, `border-t`, and `gap-4` — never competes with pending rows.
 - **Motion:** Row exit uses CSS `opacity` + `height` transition ≤ 200 ms OR Sonner-only feedback without row animation — pick one, not both.

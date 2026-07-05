@@ -18,21 +18,16 @@ The panels consume the Inspection API (`docs/specs/inspection-api.md`) and exist
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────────┐
-│                  Inspection Panels                    │
-│   (Static SPA — HTML/CSS/JS, no framework required)  │
-├──────────┬──────────┬──────────┬─────────────────────┤
-│ Panel 1  │ Panel 2  │ Panel 3  │ Panel 4             │
-│ Signal   │ State    │ Decision │ Decision Trace /    │
-│ Intake   │ Viewer   │ Stream   │ Receipt             │
-└────┬─────┴────┬─────┴────┬─────┴────┬────────────────┘
-     │          │          │          │
-     ▼          ▼          ▼          ▼
-┌────────────────────────────────────────────────────┐
-│              Control Layer REST API                 │
-│  GET /v1/ingestion  GET /v1/state  GET /v1/decisions│
-└────────────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+  subgraph panels ["Inspection Panels (static SPA)"]
+    P1["Panel 1 · Signal Intake"]
+    P2["Panel 2 · State Viewer"]
+    P3["Panel 3 · Decision Stream"]
+    P4["Panel 4 · Decision Trace / Receipt"]
+  end
+  API["Control Layer REST API<br/>GET /v1/ingestion · /v1/state · /v1/decisions"]
+  P1 & P2 & P3 & P4 --> API
 ```
 
 ### Tech Decisions

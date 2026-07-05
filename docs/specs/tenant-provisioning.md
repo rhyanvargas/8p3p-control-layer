@@ -15,33 +15,14 @@ This spec defines a minimal tenant provisioning system using **API Gateway-nativ
 
 ## Architecture
 
-```
-┌─────────────────┐
-│  Pilot Customer  │
-│  (has API key)   │
-└────────┬────────┘
-         │ x-api-key: pk_abc123...
-         ▼
-┌──────────────────────────────────────────────────┐
-│              API Gateway (REST API)               │
-│                                                   │
-│  1. Validate API key (built-in)                  │
-│  2. Look up usage plan → apply rate limits       │
-│  3. Inject org_id into request context           │
-│     (via request mapping template)               │
-│  4. Forward to Lambda                            │
-└──────────────────┬───────────────────────────────┘
-                   │  event.requestContext.identity.apiKey
-                   │  + mapped org_id
-                   ▼
-┌──────────────────────────────────────────────────┐
-│                Lambda Function                    │
-│                                                   │
-│  1. Extract org_id from API Gateway context      │
-│  2. Override any org_id in request body/params   │
-│     (caller cannot impersonate another org)       │
-│  3. Process normally                             │
-└──────────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+  CUST["Pilot Customer<br/>(has API key)"]
+  GW["API Gateway REST API<br/>1. Validate API key<br/>2. Usage plan rate limits<br/>3. Inject org_id into context<br/>4. Forward to Lambda"]
+  LAM["Lambda Function<br/>1. Extract org_id from context<br/>2. Override body/param org_id<br/>3. Process normally"]
+
+  CUST -->|"x-api-key: pk_…"| GW
+  GW -->|"requestContext + mapped org_id"| LAM
 ```
 
 ### Key Design Decisions

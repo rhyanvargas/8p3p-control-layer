@@ -12,6 +12,20 @@ This is directive **D4**, building on shipped D1 (educator-first table), D2 ([`o
 
 **Expected outcomes:** (1) time scope is obvious before KPIs; (2) action KPIs vs health KPIs are visually separated; (3) the chart defaults to cumulative **needs-review** workload stacked by decision type; (4) chart + table feel like one exploratory surface when sync is on.
 
+## Page layout
+
+> Canonical layout diagram — [`dashboard-design-requirements.md`](dashboard-design-requirements.md) §8 links here.
+
+```mermaid
+flowchart TB
+  HDR["PageHeader + Link chart and table toggle (default OFF)"]
+  PER["Period bar · 7d / 30d / 90d pills (default 7d) + date-range label"]
+  ACT["Needs your action · Needs attention · Pending decisions"]
+  HLTH["Program health · Rejected signals today · Improving learners"]
+  PNL["ActivityPanel · Classroom activity<br/>Group by · Metric · insight · stacked chart · Recent activity table · Export CSV"]
+  HDR --> PER --> ACT --> HLTH --> PNL
+```
+
 ---
 
 ## Requirements

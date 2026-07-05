@@ -356,40 +356,17 @@ Before applying a signal, check if it's already been applied. This ensures idemp
 
 ## Signal Application Flow
 
-```
-ApplySignalsRequest
-        │
-        ▼
-┌──────────────────┐
-│ Validate Request │ ← Check org_id, learner_reference, signal_ids
-└────────┬─────────┘
-         │
-         ▼
-┌──────────────────┐
-│ Fetch Signals    │ ← Query Signal Log for signal_ids
-│ from Signal Log  │ ← Verify org scope
-└────────┬─────────┘
-         │
-         ▼
-┌──────────────────┐
-│ Get Current      │ ← Load from STATE Store (or null if new)
-│ Learner State    │
-└────────┬─────────┘
-         │
-         ▼
-┌──────────────────┐
-│ Compute New      │ ← Apply signals in order
-│ State (Reducer)  │ ← Validate no forbidden keys
-└────────┬─────────┘
-         │
-         ▼
-┌──────────────────┐
-│ Save New State   │ ← Increment version
-│ Version          │ ← Update provenance (retry once on conflict)
-└────────┬─────────┘
-         │
-         ▼
-  ApplySignalsOutcome (ok: true → result | ok: false → errors)
+```mermaid
+flowchart TD
+  START[ApplySignalsRequest]
+  V1["Validate Request<br/>org_id, learner_reference, signal_ids"]
+  V2["Fetch Signals from Signal Log<br/>Verify org scope"]
+  V3["Get Current Learner State<br/>Load from STATE Store or null if new"]
+  V4["Compute New State (Reducer)<br/>Apply signals in order; no forbidden keys"]
+  V5["Save New State Version<br/>Increment version; update provenance<br/>Retry once on conflict"]
+  END["ApplySignalsOutcome<br/>ok: true → result | ok: false → errors"]
+
+  START --> V1 --> V2 --> V3 --> V4 --> V5 --> END
 ```
 
 ## Contract Tests

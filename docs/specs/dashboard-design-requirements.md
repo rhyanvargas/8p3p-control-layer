@@ -325,6 +325,19 @@ Drill-down convention (implements §2.1 three-tier model):
 Each page below states its **primary question** (§2, principle #2), **L0 layout** (what stays on screen), and **drill-down exit** (where depth lives). Do not add widgets beyond what is listed — defer to Sheet/route tabs.
 
 **Overview `/`** — *"Is anything wrong right now?"*
+
+> Layout diagram (canonical): [`overview-educator-activity-layout.md`](overview-educator-activity-layout.md) § Page layout.
+
+```mermaid
+flowchart TB
+  HDR["PageHeader + Link chart and table toggle (default OFF)"]
+  PER["Period bar · 7d / 30d / 90d (default 7d)"]
+  ACT["Needs your action · 2 KPIs"]
+  HLTH["Program health · 2 KPIs"]
+  PNL["ActivityPanel · chart + recent table + Export CSV"]
+  HDR --> PER --> ACT --> HLTH --> PNL
+```
+
 - **L0 layout order:** `PageHeader` (with **Link chart and table** cross-filter toggle, default OFF) → **period bar** (`7d` / `30d` / `90d` pills, default **`7d`**, read-only date-range label) → grouped `SectionCards` → unified **`ActivityPanel`** (stacked chart + recent table in one card). No standalone trend table between KPIs and chart.
 - **Grouped KPI cards** (4 KPIs max, 2-up → 1-up per section):
   - **`Needs your action`:** Needs attention (count, Δ vs yesterday), Pending decisions.

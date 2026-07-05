@@ -247,13 +247,19 @@ The Decision Panel mockup (CEO-provided) defines four panels:
 
 The Decision Panel is a **standalone Next.js application** deployed separately from the Fastify API.
 
-```
-┌─────────────────────────────┐     ┌──────────────────────────────┐
-│  Next.js (dashboard/)        │     │  Fastify API (repo root)      │
-│  Educator + inspection UI    │────▶│  /v1/*  /docs  /health        │
-│  /api/control/* proxy        │     │  SQLite or DynamoDB           │
-│  Runtime: CONTROL_LAYER_*    │     │  CORS: DASHBOARD_ALLOWED_*    │
-└─────────────────────────────┘     └──────────────────────────────┘
+```mermaid
+flowchart LR
+  subgraph dash ["Next.js (dashboard/)"]
+    UI["Educator + inspection UI"]
+    PROXY["/api/control/* proxy<br/>CONTROL_LAYER_* runtime"]
+  end
+  subgraph api ["Fastify API (repo root)"]
+    V1["/v1/* · /docs · /health"]
+    DB[("SQLite or DynamoDB")]
+  end
+  UI --> PROXY
+  PROXY -->|"server-side x-api-key"| V1
+  V1 --> DB
 ```
 
 **Build:** `cd dashboard && npm run build` → `.next/`. Root `npm run build:dashboard` wraps the same.
@@ -273,13 +279,17 @@ The Decision Panel was previously a static SPA served from the control-layer API
 
 ### Data Flow (current)
 
-```
-Decision Panel (Next.js, browser)
-     │
-     └── GET/POST /api/control/v1/...  (same-origin)
-              │
-              └── Next route handler → CONTROL_LAYER_API_BASE_URL/v1/...
-                    Headers: { "x-api-key": CONTROL_LAYER_API_KEY }  (server-only)
+```mermaid
+sequenceDiagram
+    participant Browser as Decision Panel browser
+    participant BFF as Next.js /api/control/*
+    participant API as CONTROL_LAYER_API
+
+    Browser->>BFF: GET/POST /api/control/v1/...
+    BFF->>API: CONTROL_LAYER_API_BASE_URL/v1/...
+    Note over BFF,API: Headers x-api-key from server-only env
+    API-->>BFF: response
+    BFF-->>Browser: response
 ```
 
 Educator pages consume `/v1/learners/:ref/summary`, `/v1/state`, `/v1/receipts`, `/v1/ingestion`, etc. through the proxy. The browser never sends `x-api-key`.

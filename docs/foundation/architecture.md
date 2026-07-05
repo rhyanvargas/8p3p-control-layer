@@ -38,20 +38,12 @@ architecture-beta
 
 The Connector Layer sits before Signal Ingestion and eliminates custom integration engineering. It is a three-layer stack — each layer builds on the one below it.
 
-```
-┌─────────────────────────────────────────────────────┐
-│  LAYER 3: Connector Activation UX                   │
-│  Activate → configure event types → get webhook URL │
-│  Spec: integration-templates.md                     │
-├─────────────────────────────────────────────────────┤
-│  LAYER 2: Webhook Adapter (raw payload ingestion)   │
-│  POST /v1/webhooks/:source_system                   │
-│  Spec: webhook-adapters.md                          │
-├─────────────────────────────────────────────────────┤
-│  LAYER 1: Transform Engine (payload normalization)  │
-│  aliases → transforms → required → types            │
-│  Spec: tenant-field-mappings.md                     │
-└─────────────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+  L3["Layer 3: Connector Activation UX<br/>Activate → configure event types → get webhook URL<br/>Spec: integration-templates.md"]
+  L2["Layer 2: Webhook Adapter<br/>POST /v1/webhooks/:source_system<br/>Spec: webhook-adapters.md"]
+  L1["Layer 1: Transform Engine<br/>aliases → transforms → required → types<br/>Spec: tenant-field-mappings.md"]
+  L3 --> L2 --> L1
 ```
 
 | Layer | Component | Responsibility | Spec |
@@ -81,49 +73,32 @@ The filesystem fallback policy at `src/decision/policies/default.json` ships as 
 
 ## Data Flow Summary
 
-```
-LMS Platform (Canvas, I-Ready, etc.)
-       │
-       ▼ (Raw webhook: POST /v1/webhooks/:source_system)
-┌──────────────────┐
-│ Webhook Adapter  │ ← Event type filter, envelope extraction
-└────────┬─────────┘
-         │
-         ▼
-┌──────────────────┐
-│ Transform Engine │ ← Aliases, computed transforms, type enforcement
-└────────┬─────────┘
-         │
-         ▼ (Constructed SignalEnvelope)
-┌──────────────────┐
-│ Signal Ingestion │ ← Validates SignalEnvelope, forbidden keys, idempotency
-└────────┬─────────┘
-         │
-         ▼
-┌──────────────────┐
-│   Signal Log     │ ← Append-only, immutable
-└────────┬─────────┘
-         │
-         ▼
-┌──────────────────┐     ┌─────────────┐
-│  STATE Engine    │◄───►│ STATE Store │
-└────────┬─────────┘     └─────────────┘
-         │
-         ▼
-┌──────────────────┐
-│ Decision Engine  │ ← Deterministic evaluation against policy
-└────────┬─────────┘
-         │
-         ▼
-┌──────────────────┐
-│ Output Interfaces│
-└────────┬─────────┘
-         │
-         ▼ (API/Event OUT: GET /v1/decisions)
-Downstream System
+> Canonical pipeline diagram: § System Architecture Diagram above. This view adds stage annotations and the direct-ingest bypass.
 
-Alternative path (advanced):
-  Direct POST /v1/signals → Signal Ingestion (bypasses Connector Layer)
+```mermaid
+flowchart TB
+  LMS["LMS Platform<br/>(Canvas, I-Ready, etc.)"]
+  WH["Webhook Adapter<br/>Event type filter, envelope extraction"]
+  TE["Transform Engine<br/>Aliases, computed transforms, type enforcement"]
+  SI["Signal Ingestion<br/>Validates SignalEnvelope, forbidden keys, idempotency"]
+  SL["Signal Log<br/>Append-only, immutable"]
+  SE["STATE Engine"]
+  SS[("STATE Store")]
+  DE["Decision Engine<br/>Deterministic evaluation against policy"]
+  OUT["Output Interfaces"]
+  DS["Downstream System"]
+
+  LMS -->|"POST /v1/webhooks/:source_system"| WH
+  WH --> TE
+  TE -->|"Constructed SignalEnvelope"| SI
+  SI --> SL
+  SL --> SE
+  SE <--> SS
+  SE --> DE
+  DE --> OUT
+  OUT -->|"GET /v1/decisions"| DS
+
+  ALT["Advanced: POST /v1/signals<br/>(bypasses Connector Layer)"] --> SI
 ```
 
 ## Living Student Record
@@ -183,4 +158,4 @@ Stronger customer security requirements (identity beyond API keys, regulated dat
 
 ---
 
-*Updated: 2026-04-06 — added Connector Layer (3-layer stack), Living Student Record concept, expanded storage touchpoints and external boundaries. Original: 2026-02-24.*
+*Updated: 2026-07-04 — Mermaid diagrams for Connector Layer stack and Data Flow Summary; architecture-beta unchanged. Prior: 2026-04-06 — added Connector Layer (3-layer stack), Living Student Record concept, expanded storage touchpoints and external boundaries. Original: 2026-02-24.*

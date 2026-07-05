@@ -10,23 +10,15 @@ Integration Templates eliminate this tax. 8P3P ships pre-built templates for kno
 
 **Architectural relationship:** This spec defines **Layer 3** of the Connector Layer stack. It does not change Layers 1 or 2 — it writes into the same `FieldMappingsTable` they already read from.
 
-```
-┌─────────────────────────────────────────────────────┐
-│  LAYER 3: Connector Activation UX       ← THIS SPEC │
-│  Activate → configure event types → get webhook URL │
-├─────────────────────────────────────────────────────┤
-│  LAYER 2: Webhook Adapter (raw payload ingestion)   │
-│  POST /v1/webhooks/:source_system                   │
-│  Spec: webhook-adapters.md                          │
-├─────────────────────────────────────────────────────┤
-│  LAYER 1: Transform Engine (payload normalization)  │
-│  aliases → transforms → required → types            │
-│  Spec: tenant-field-mappings.md                     │
-├─────────────────────────────────────────────────────┤
-│  FOUNDATION: Signal Ingestion Pipeline              │
-│  POST /v1/signals → state → decision                │
-│  Spec: signal-ingestion.md                          │
-└─────────────────────────────────────────────────────┘
+> Canonical stack: [`architecture.md`](../foundation/architecture.md) § Connector Layer. Layer 3 highlighted below.
+
+```mermaid
+flowchart TB
+  L3["Layer 3: Connector Activation UX ← THIS SPEC<br/>Activate → configure event types → get webhook URL"]
+  L2["Layer 2: Webhook Adapter<br/>POST /v1/webhooks/:source_system<br/>Spec: webhook-adapters.md"]
+  L1["Layer 1: Transform Engine<br/>aliases → transforms → required → types<br/>Spec: tenant-field-mappings.md"]
+  FND["Foundation: Signal Ingestion Pipeline<br/>POST /v1/signals → state → decision<br/>Spec: signal-ingestion.md"]
+  L3 --> L2 --> L1 --> FND
 ```
 
 ---
@@ -423,40 +415,15 @@ The connector detail endpoint (`GET /v1/admin/connectors/:source_system`) includ
 
 The API supports a multi-step wizard UX. Each step maps to an API call:
 
-```
-┌───────────────────────────────────────────────────┐
-│ Step 1: Connect Source                             │
-│ POST /v1/admin/connectors/activate                 │
-│ → Returns: webhook_url, setup_instructions,        │
-│   default event types, template mapping preview    │
-├───────────────────────────────────────────────────┤
-│ Step 2: Select Events                              │
-│ PUT /v1/admin/connectors/:source_system/config     │
-│ → Select which LMS event types become signals      │
-│   (defaults pre-selected from template)            │
-├───────────────────────────────────────────────────┤
-│ Step 3: Review Signal Mapping (read-only preview)  │
-│ GET /v1/admin/connectors/:source_system            │
-│ → Shows: source fields → canonical fields,         │
-│   transform expressions, required fields           │
-│   (editable in Phase 2 via AI schema mapping)      │
-├───────────────────────────────────────────────────┤
-│ Step 4: Confirm Policy Association                 │
-│ GET /v1/admin/connectors/:source_system            │
-│ → Shows: active policy for this org (read from     │
-│   PoliciesTable). Informational confirmation —     │
-│   "Signals from Canvas will be evaluated against   │
-│   the 'learner' policy."                           │
-│   (Phase 1: per-source policy routing)             │
-├───────────────────────────────────────────────────┤
-│ Step 5: Test Connection                            │
-│ POST /v1/admin/connectors/:source_system/test      │
-│ → Dry-run with sample payload. Step-by-step result.│
-├───────────────────────────────────────────────────┤
-│ Step 6: Source Added                               │
-│ Admin copies webhook_url to LMS. Signals flow.     │
-│ Manage: disconnect, update config, view status.    │
-└───────────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+  S1["Step 1: Connect Source<br/>POST /v1/admin/connectors/activate<br/>→ webhook_url, setup_instructions, event types, mapping preview"]
+  S2["Step 2: Select Events<br/>PUT /v1/admin/connectors/:source_system/config"]
+  S3["Step 3: Review Signal Mapping<br/>GET /v1/admin/connectors/:source_system"]
+  S4["Step 4: Confirm Policy Association<br/>GET /v1/admin/connectors/:source_system"]
+  S5["Step 5: Test Connection<br/>POST /v1/admin/connectors/:source_system/test"]
+  S6["Step 6: Source Added<br/>Copy webhook_url to LMS · manage connector"]
+  S1 --> S2 --> S3 --> S4 --> S5 --> S6
 ```
 
 **Step 4 — Policy association (pilot vs. Phase 1):**

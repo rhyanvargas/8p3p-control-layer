@@ -624,59 +624,20 @@ Both triggers use the same `evaluateState()` function and produce identical resu
 
 ## Evaluation Flow
 
-```
-EvaluateStateForDecisionRequest
-        │
-        ▼
-┌──────────────────┐
-│ Validate Request │ ← Check org_id, learner_reference, state_id, state_version
-└────────┬─────────┘
-         │
-         ▼
-┌──────────────────┐
-│ Fetch Current    │ ← Query STATE Store via getState()
-│ Learner State    │ ← Verify state exists
-└────────┬─────────┘
-         │
-         ▼
-┌──────────────────┐
-│ Verify State     │ ← state_id and state_version must match request
-│ Coordinates      │ ← Mismatch → trace_state_mismatch
-└────────┬─────────┘
-         │
-         ▼
-┌──────────────────┐
-│ Load Policy      │ ← Get policy for context: resolveUserTypeFromSourceSystem(org_id, source_system) then loadPolicyForContext(org_id, userType). Fallback: loadPolicy() singleton.
-│                  │ ← No policy → policy_not_found
-└────────┬─────────┘
-         │
-         ▼
-┌──────────────────┐
-│ Evaluate Policy  │ ← Walk rules in order, evaluate condition tree recursively
-│ Against State    │ ← First match → decision_type + matched_rule_id
-│                  │ ← No match → { ok: true, matched: false } (no Decision)
-└────────┬─────────┘
-         │
-         ▼
-┌──────────────────┐
-│ Build Decision   │ ← Construct decision_context (opaque metadata)
-│ Context          │ ← Validate: forbidden key check
-└────────┬─────────┘
-         │
-         ▼
-┌──────────────────┐
-│ Construct        │ ← Generate decision_id (UUID)
-│ Decision Object  │ ← Set decided_at timestamp
-│                  │ ← Attach trace (state_id, state_version, policy_version, matched_rule_id)
-└────────┬─────────┘
-         │
-         ▼
-┌──────────────────┐
-│ Save Decision    │ ← Insert immutable record to Decision Store
-└────────┬─────────┘
-         │
-         ▼
-  EvaluateDecisionOutcome (ok:true, matched:true → Decision | ok:true, matched:false → no row | ok: false → errors)
+```mermaid
+flowchart TD
+  START[EvaluateStateForDecisionRequest]
+  V1["Validate Request<br/>org_id, learner_reference, state_id, state_version"]
+  V2["Fetch Current Learner State<br/>Query STATE Store via getState()"]
+  V3["Verify State Coordinates<br/>Mismatch → trace_state_mismatch"]
+  V4["Load Policy<br/>resolveUserTypeFromSourceSystem → loadPolicyForContext<br/>No policy → policy_not_found"]
+  V5["Evaluate Policy Against State<br/>First match → decision_type + matched_rule_id<br/>No match → matched: false"]
+  V6["Build Decision Context<br/>Forbidden key check"]
+  V7["Construct Decision Object<br/>decision_id, decided_at, trace"]
+  V8["Save Decision<br/>Append-only Decision Store"]
+  END["EvaluateDecisionOutcome<br/>matched → Decision | no match → no row | errors"]
+
+  START --> V1 --> V2 --> V3 --> V4 --> V5 --> V6 --> V7 --> V8 --> END
 ```
 
 ## Policy Model

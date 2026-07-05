@@ -102,19 +102,20 @@ Implement **in sequence**. Do not ship Phase 2 before Phase 1 acceptance criteri
 
 ### `/attention` layout (Phase 1+)
 
-```
-┌─ PageHeader ─────────────────────────────────────────────┐
-│  Attention          [3 awaiting · 2 reviewed today]      │
-├──────────────────────────────────────────────────────────┤
-│  Action type filter          Showing 3 of 3 in queue       │
-│  ┌ PENDING QUEUE (primary, full width) ────────────────┐ │
-│  │ DataTable — learner · type · summary · actions      │ │
-│  └─────────────────────────────────────────────────────┘ │
-├──────────────────────────────────────────────────────────┤
-│  ▼ Recently reviewed (2)          muted section label    │
-│  · Malosi · Intervene · Approved · 3m ago    [View →]    │
-│  · Leilani · Pause · Rejected · 12m ago      [View →]    │
-└──────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+  subgraph header [PageHeader]
+    H["Attention · awaiting / reviewed today badges"]
+  end
+  subgraph primary [Primary — pending queue]
+    F["Action type filter · queue count"]
+    Q["PENDING QUEUE DataTable<br/>learner · type · summary · actions"]
+  end
+  subgraph secondary [Secondary — recently reviewed]
+    R["Recently reviewed band · muted label"]
+    L["Compact rows · View → links"]
+  end
+  header --> primary --> secondary
 ```
 
 - **Primary vs secondary:** Pending queue uses default foreground density; Recently reviewed uses `text-muted-foreground` section label, `border-t`, and `gap-4` — never competes with pending rows (frontend-design: spatial hierarchy).
