@@ -257,6 +257,31 @@ export const ErrorCodes = {
 
   /** A custom (non-template) mapping exists for this org + source_system (409) */
   CUSTOM_MAPPING_EXISTS: 'custom_mapping_exists',
+
+  // ==========================================================================
+  // Customer Product Feedback (customer-feedback-loop.md § Error Codes)
+  // ==========================================================================
+
+  /** kind=general without a valid feedback_type (400) */
+  FEEDBACK_TYPE_REQUIRED: 'feedback_type_required',
+
+  /** kind=general with empty/missing message (400) */
+  MESSAGE_REQUIRED: 'message_required',
+
+  /** message exceeds 4000 characters (400) */
+  MESSAGE_TOO_LONG: 'message_too_long',
+
+  /** category not in the closed set (400) */
+  INVALID_CATEGORY: 'invalid_category',
+
+  /** csat_score missing/not an integer 1–5 on the CSAT route (400) */
+  INVALID_CSAT_SCORE: 'invalid_csat_score',
+
+  /** csat_score present on POST /v1/feedback (400) */
+  CSAT_SCORE_FORBIDDEN: 'csat_score_forbidden',
+
+  /** Request body carries forbidden fields for the route (e.g. feedback_type on CSAT) (400) */
+  INVALID_REQUEST_BODY: 'invalid_request_body',
 } as const;
 
 export type ErrorCode = typeof ErrorCodes[keyof typeof ErrorCodes];

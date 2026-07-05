@@ -11,7 +11,11 @@ vi.mock('next/server', async (importOriginal) => {
 });
 
 import { GET, POST } from '@/app/api/control/[...path]/route';
-import { FB_SESSION_COOKIE_NAME, SESSION_COOKIE_NAME } from '@/lib/session-cookie-edge';
+import {
+  FB_SESSION_COOKIE_NAME,
+  PF_SESSION_COOKIE_NAME,
+  SESSION_COOKIE_NAME,
+} from '@/lib/session-cookie-edge';
 import { resetServerEnvForTest } from '@/lib/env';
 
 const SIGNED_SESSION = 'abc123.signature.payload';
@@ -184,6 +188,139 @@ describe('REVIEW-UX-010: fb_session injection on feedback/view POST', () => {
     });
 
     const res = await POST(req, { params: Promise.resolve({ path: [...feedbackPath] }) });
+
+    const calledHeaders = fetchMock.mock.calls[0]?.[1]?.headers as Headers;
+    expect(calledHeaders.get('Cookie')).toBeNull();
+    expect(res.status).toBe(401);
+  });
+});
+
+describe('PFEED proxy: pf_session injection on product feedback POST', () => {
+  const envBackup = { ...process.env };
+
+  beforeEach(() => {
+    resetServerEnvForTest();
+    process.env.CONTROL_LAYER_API_BASE_URL = 'http://127.0.0.1:9999';
+    process.env.CONTROL_LAYER_API_KEY = 'test-key';
+    process.env.CONTROL_LAYER_ORG_ID = 'test-org';
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    process.env = envBackup;
+    resetServerEnvForTest();
+    vi.restoreAllMocks();
+  });
+
+  it('injects pf_session on POST /v1/feedback when dp_session is present', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          feedback_id: 'pf-1',
+          kind: 'general',
+          feedback_type: 'idea',
+          category: 'other',
+          created_at: '2026-06-23T21:12:04Z',
+        }),
+        {
+          status: 201,
+          headers: { 'content-type': 'application/json' },
+        }
+      )
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const req = new Request('http://localhost/api/control/v1/feedback', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        cookie: `${SESSION_COOKIE_NAME}=${SIGNED_SESSION}`,
+      },
+      body: JSON.stringify({
+        feedback_type: 'idea',
+        message: 'Filter by skill on overview.',
+        page_context: '/decisions',
+      }),
+    });
+
+    await POST(req, { params: Promise.resolve({ path: ['v1', 'feedback'] }) });
+
+    const calledHeaders = fetchMock.mock.calls[0]?.[1]?.headers as Headers;
+    expect(calledHeaders.get('Cookie')).toBe(`${PF_SESSION_COOKIE_NAME}=${SIGNED_SESSION}`);
+  });
+
+  it('injects pf_session on POST /v1/feedback/csat when dp_session is present', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          feedback_id: 'pf-csat-1',
+          kind: 'csat',
+          csat_score: 4,
+          created_at: '2026-06-23T21:12:04Z',
+        }),
+        {
+          status: 201,
+          headers: { 'content-type': 'application/json' },
+        }
+      )
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const req = new Request('http://localhost/api/control/v1/feedback/csat', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        cookie: `${SESSION_COOKIE_NAME}=${SIGNED_SESSION}`,
+      },
+      body: JSON.stringify({ csat_score: 4, page_context: '/decisions' }),
+    });
+
+    await POST(req, { params: Promise.resolve({ path: ['v1', 'feedback', 'csat'] }) });
+
+    const calledHeaders = fetchMock.mock.calls[0]?.[1]?.headers as Headers;
+    expect(calledHeaders.get('Cookie')).toBe(`${PF_SESSION_COOKIE_NAME}=${SIGNED_SESSION}`);
+  });
+
+  it('does not inject Cookie on GET /v1/feedback', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ items: [] }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      })
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const req = new Request('http://localhost/api/control/v1/feedback', {
+      headers: {
+        cookie: `${SESSION_COOKIE_NAME}=${SIGNED_SESSION}`,
+      },
+    });
+
+    await GET(req, { params: Promise.resolve({ path: ['v1', 'feedback'] }) });
+
+    const calledHeaders = fetchMock.mock.calls[0]?.[1]?.headers as Headers;
+    expect(calledHeaders.get('Cookie')).toBeNull();
+  });
+
+  it('does not inject Cookie on POST /v1/feedback when session cookie is absent', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({ code: 'session_required', message: 'Dashboard session cookie required.' }),
+        {
+          status: 401,
+          headers: { 'content-type': 'application/json' },
+        }
+      )
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const req = new Request('http://localhost/api/control/v1/feedback', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ feedback_type: 'idea', message: 'hello' }),
+    });
+
+    const res = await POST(req, { params: Promise.resolve({ path: ['v1', 'feedback'] }) });
 
     const calledHeaders = fetchMock.mock.calls[0]?.[1]?.headers as Headers;
     expect(calledHeaders.get('Cookie')).toBeNull();

@@ -216,14 +216,14 @@ This spec **instantiates** `pilot-feedback-log.md` (previously referenced but mi
 ## Requirements
 
 ### Functional
-- [ ] `POST /v1/feedback` persists a `kind=general` row and returns it; `feedback_type` + non-empty `message` required.
-- [ ] `POST /v1/feedback/csat` persists a `kind=csat` row with `csat_score` 1–5; rejects `feedback_type`/`category`.
-- [ ] `GET /v1/admin/feedback` returns filtered rows + a `csat_summary` matching a direct query (SQLite path).
-- [ ] All product feedback is strictly org-scoped — no cross-org read/write.
-- [ ] Write endpoints require the `pf_session` cookie; API-key-only writes return 401 `session_required`.
-- [ ] Dashboard renders an always-on, accessible, dismissible "Send feedback" affordance on every authenticated page that never auto-interrupts a task.
-- [ ] The CSAT prompt (when its flag is ON) fires at most once per `CSAT_MIN_INTERVAL_DAYS` per browser and shows all 5 options without horizontal scroll on mobile.
-- [ ] `internal-docs/reports/pilot-feedback-log.md` exists with the documented schema and is the closed-loop sink.
+- [x] `POST /v1/feedback` persists a `kind=general` row and returns it; `feedback_type` + non-empty `message` required.
+- [x] `POST /v1/feedback/csat` persists a `kind=csat` row with `csat_score` 1–5; rejects `feedback_type`/`category`.
+- [x] `GET /v1/admin/feedback` returns filtered rows + a `csat_summary` matching a direct query (SQLite path).
+- [x] All product feedback is strictly org-scoped — no cross-org read/write.
+- [x] Write endpoints require the `pf_session` cookie; API-key-only writes return 401 `session_required`.
+- [x] Dashboard renders an always-on, accessible, dismissible "Send feedback" affordance on every authenticated page that never auto-interrupts a task.
+- [x] The CSAT prompt (when its flag is ON) fires at most once per `CSAT_MIN_INTERVAL_DAYS` per browser and shows all 5 options without horizontal scroll on mobile.
+- [x] `internal-docs/reports/pilot-feedback-log.md` exists with the documented schema and is the closed-loop sink (tracked schema template: [`docs/guides/pilot-feedback-log-schema.md`](../guides/pilot-feedback-log-schema.md)).
 
 ### Acceptance Criteria
 - Given a gated customer on `/decisions`, when they submit `{feedback_type:"idea", message:"…"}`, then a `product_feedback` row persists with `page_context="/decisions"` and `GET /v1/admin/feedback` (admin key) returns it.
@@ -285,9 +285,9 @@ Per `docs/specs/dashboard-passphrase-gate.md` § "Sibling cookie: `fb_session`" 
 
 | Dependency | Source | Status |
 |------------|--------|--------|
-| `FeedbackRepository` interface + SQLite/DynamoDB impls + `FeedbackTable` kind-prefix pattern (`feedback#…` / `view#…`; extend with `product#…`) | `src/feedback/*`, [`educator-feedback-api.md`](educator-feedback-api.md) | **Complete (extend)** |
+| `FeedbackRepository` interface + SQLite/DynamoDB impls + `FeedbackTable` kind-prefix pattern (`feedback#…` / `view#…`; extend with `product#…`) | `src/feedback/*`, [`educator-feedback-api.md`](educator-feedback-api.md) | **Complete** |
 | Decision-level feedback BFF proxy + sibling-cookie injection pattern | [`attention-review-ux.md`](attention-review-ux.md), `dashboard/app/api/control/` | **Complete (mirror for `pf_session`)** |
-| Session cookie model + sibling-cookie pattern (`pf_session`) | [`dashboard-passphrase-gate.md`](dashboard-passphrase-gate.md) § "Sibling cookie: `fb_session`" | **Spec'd here; not yet in passphrase-gate doc (additive)** |
+| Session cookie model + sibling-cookie pattern (`pf_session`) | [`dashboard-passphrase-gate.md`](dashboard-passphrase-gate.md) § "Sibling cookie: `fb_session`" / § "Sibling cookie: `pf_session`" | **Complete** |
 | API key + org scoping; `ADMIN_API_KEY` for admin read | `docs/specs/api-key-middleware.md`, `docs/specs/policy-management-api.md` | **Complete** |
 | App-shell layout + shadcn `Sheet`/`Dialog`/`RadioGroup` | `docs/specs/dashboard-design-requirements.md`, `dashboard/` | **Complete (compose)** |
 
@@ -321,6 +321,20 @@ Per `docs/specs/dashboard-passphrase-gate.md` § "Sibling cookie: `fb_session`" 
 | `invalid_category` | 400 | `category` not in the closed set |
 | `invalid_csat_score` | 400 | `csat_score` missing/not an integer 1–5 on the CSAT route |
 | `csat_score_forbidden` | 400 | `csat_score` present on `POST /v1/feedback` |
+
+---
+
+## Implementation Notes (2026-07-04)
+
+Shipped via [`.cursor/plans/pilot-charter-onboarding.plan.md`](../../.cursor/plans/pilot-charter-onboarding.plan.md) (TASK-006–016). Contract tests PFEED-001–PFEED-014 in `tests/integration/product-feedback.test.ts` and `dashboard/e2e/product-feedback.spec.ts`.
+
+- **Dashboard BFF proxy:** Product feedback POSTs use the existing catch-all `dashboard/app/api/control/[...path]/route.ts` with `isProductFeedbackProxyPath()` and server-side `pf_session` injection — not a dedicated `feedback/route.ts` (same pattern as educator feedback).
+- **Closed sets:** Exported as `readonly` arrays (`PRODUCT_FEEDBACK_TYPES`, `PRODUCT_FEEDBACK_CATEGORIES`) in `src/shared/types.ts`.
+- **Dashboard login cookie path:** Login mints `pf_session` with `Path=/` (same BFF hold as `fb_session`); the control proxy injects `Cookie: pf_session=…` on `POST /v1/feedback*`. API `@fastify/cookie` attribute helper uses `Path=/v1/feedback` when set server-side.
+- **CSAT client env vars:** Dashboard client reads `NEXT_PUBLIC_FEEDBACK_CSAT`, `NEXT_PUBLIC_CSAT_MIN_INTERVAL_DAYS`, and `NEXT_PUBLIC_FEEDBACK_TASK_DECISION_THRESHOLD` (defaults `7` and `5`). Next.js requires the `NEXT_PUBLIC_` prefix for client components — see Concrete Values Checklist below.
+- **Upload task eligibility:** Besides decision-review count (`FEEDBACK_TASK_DECISION_THRESHOLD`), upload completion sets `localStorage` key `feedback:csat:upload:v1` so CSAT can fire after wizard success without N reviews.
+- **Triage schema template:** Tracked at [`docs/guides/pilot-feedback-log-schema.md`](../guides/pilot-feedback-log-schema.md); gitignored sink at `internal-docs/reports/pilot-feedback-log.md`.
+- **Hosted dry-run:** `npm run pilot:dry-run` (`scripts/pilot-ingestion-dry-run.mjs`) exercises health → preflight → ingest → decisions → educator + product feedback on hosted pilot.
 
 ---
 
@@ -358,14 +372,15 @@ Per `docs/specs/dashboard-passphrase-gate.md` § "Sibling cookie: `fb_session`" 
 | Key | Value | Notes |
 |-----|-------|-------|
 | `feedback:csat:v1` | `{ lastShownAt: <RFC3339> }` | CSAT frequency cap; try/catch; absence ⇒ eligible. Versioned per vercel-react-best-practices §4.4. |
+| `feedback:csat:upload:v1` | `{ completedAt: <RFC3339> }` | Upload wizard completion marker; cleared when CSAT is shown or dismissed. |
 
 ### Env vars
 
 | Variable | Required | Default | Type | Description |
 |----------|----------|---------|------|-------------|
-| `CSAT_MIN_INTERVAL_DAYS` | No | `7` | int | Min days between CSAT prompts per browser. |
-| `FEEDBACK_TASK_DECISION_THRESHOLD` | No | `5` | int | Decisions reviewed in a session before the post-task CSAT is eligible. |
 | `NEXT_PUBLIC_FEEDBACK_CSAT` | No | `false` | bool | Client flag gating the CSAT prompt UI. OFF for the controlled evaluation. |
+| `NEXT_PUBLIC_CSAT_MIN_INTERVAL_DAYS` | No | `7` | int | Min days between CSAT prompts per browser (dashboard client). |
+| `NEXT_PUBLIC_FEEDBACK_TASK_DECISION_THRESHOLD` | No | `5` | int | Decisions reviewed in a session before the post-task CSAT is eligible (dashboard client). |
 | `COOKIE_SECRET` | Yes (gate active) | — | string | Reused; signs `pf_session`. |
 
 ### Routes registered
@@ -394,18 +409,21 @@ src/feedback/
 ├── repository.ts            # + insertProductFeedback / listProductFeedback
 ├── sqlite-repository.ts     # + product_feedback table + queries
 ├── dynamodb-repository.ts   # + product#<ts>#<uuid> SK on FeedbackTable
-├── product-handler-core.ts  # NEW — validation + csat_summary (framework-agnostic)
-├── product-handler.ts       # NEW — Fastify handlers for /v1/feedback*
+├── product-handler-core.ts  # validation + csat_summary (framework-agnostic)
+├── product-handler.ts       # Fastify handlers for /v1/feedback*
 └── routes.ts                # + register POST /v1/feedback, /v1/feedback/csat, GET /v1/admin/feedback
 
 dashboard/
-├── components/feedback/send-feedback-sheet.tsx   # NEW — always-on affordance
-├── components/feedback/csat-prompt.tsx           # NEW — flag-gated CSAT
-└── app/api/control/feedback/route.ts             # NEW — server proxy to /v1/feedback*
+├── components/feedback/send-feedback-sheet.tsx   # always-on affordance
+├── components/feedback/csat-prompt.tsx           # flag-gated CSAT
+├── lib/csat-eligibility.ts                       # CSAT eligibility helpers
+├── lib/csat-storage.ts                           # versioned localStorage keys
+└── app/api/control/[...path]/route.ts            # pf_session injection (catch-all BFF)
 
-internal-docs/reports/pilot-feedback-log.md       # NEW — instantiated closed-loop sink
+docs/guides/pilot-feedback-log-schema.md          # tracked triage schema template
+internal-docs/reports/pilot-feedback-log.md       # gitignored closed-loop sink
 ```
 
 ---
 
-*Spec created: 2026-06-23 | Updated: 2026-06-29 (+ `policy_config`, `learning_gaps`, `roles_access` categories for educator-wave triage) | Phase: v1.1 / pilot portal — customer feedback loop | Depends on: `educator-feedback-api.md`, `attention-review-ux.md`, `dashboard-passphrase-gate.md`, `api-key-middleware.md`, `dashboard-design-requirements.md` | Feeds: `internal-docs/reports/pilot-feedback-log.md` | Grounding: `.agents/skills/designing-surveys`, `.agents/skills/inspired-product`, `.agents/skills/frontend-design`. Recommended next: `/plan-impl docs/specs/customer-feedback-loop.md`.*
+*Spec created: 2026-06-23 | Updated: 2026-07-04 (shipped P0 — backend + dashboard; CSAT UI flag default OFF) | Phase: v1.1 / pilot portal — customer feedback loop | Depends on: `educator-feedback-api.md`, `attention-review-ux.md`, `dashboard-passphrase-gate.md`, `api-key-middleware.md`, `dashboard-design-requirements.md` | Feeds: `internal-docs/reports/pilot-feedback-log.md` | Grounding: `.agents/skills/designing-surveys`, `.agents/skills/inspired-product`, `.agents/skills/frontend-design`. Plan: [`.cursor/plans/pilot-charter-onboarding.plan.md`](../../.cursor/plans/pilot-charter-onboarding.plan.md).*

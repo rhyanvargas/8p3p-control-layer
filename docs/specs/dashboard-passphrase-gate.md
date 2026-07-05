@@ -440,4 +440,31 @@ To preserve API isolation, **`/login`** mints a **sibling cookie** `fb_session` 
 
 ---
 
+## Sibling cookie: `pf_session`
+
+> **Added 2026-07-04** for product-level customer feedback (`docs/specs/customer-feedback-loop.md`). The `dp_session` and `fb_session` specifications above are **unchanged**.
+
+To preserve API isolation, **`/login`** mints a **sibling cookie** `pf_session` alongside `dp_session` and `fb_session` on successful passphrase match. **`/logout`** clears all three.
+
+| Attribute | Value | Rationale |
+|-----------|-------|-----------|
+| Name | `pf_session` | Disjoint from `dp_session` / `fb_session`; name signals product-feedback session (see `customer-feedback-loop.md`). |
+| Value | **Identical** to `dp_session` for the same login (same HMAC signature + `base64url` payload — produced by `signSession(COOKIE_SECRET, maxAgeSeconds)` once, set on all sibling cookies). |
+| Secret | `COOKIE_SECRET` (same env var as `dp_session`) | Single rotation point; no new env vars. |
+| Path (dashboard login) | `/` | Same BFF hold pattern as `fb_session` on the Next.js dashboard; the control proxy injects `pf_session` server-side on `POST /v1/feedback*`. |
+| Path (API `@fastify/cookie`) | `/v1/feedback` | Browsers send `pf_session` on `/v1/feedback` and `/v1/feedback/csat` only — not `/v1/decisions/*`, `/v1/signals`, or other namespaces. |
+| Domain | Not set | Host-only. Same property as `dp_session`. |
+| Max-Age | Same as `dp_session` (default 8h, overridable via `DASHBOARD_SESSION_TTL_HOURS`) | All sibling cookies expire together. |
+| HttpOnly | `true` | Not JS-accessible. |
+| Secure | `true` in production (`NODE_ENV === 'production'`) | HTTPS-only in prod. |
+| SameSite | `Strict` | Blocks CSRF identical to `dp_session`. |
+
+**Consumer contract.** Product feedback write endpoints (`POST /v1/feedback`, `POST /v1/feedback/csat`) gate on `pf_session` — not `dp_session`. The dashboard BFF injects this cookie from the signed dashboard session; the browser never sends the API key.
+
+**Logout.** `GET /logout` clears `dp_session`, `fb_session`, and `pf_session` before redirecting to `/login`.
+
+**Tests.** Product feedback proxy injection: `dashboard/app/api/control/__tests__/route.test.ts`; contract tests: `customer-feedback-loop.md` (PFEED-003).
+
+---
+
 *Spec created: 2026-04-14 | Updated: 2026-06-29 (§ Dual access codes — educator/compliance passphrases, persona cookie, route allowlists; legacy single-code fallback) | Prior: 2026-06 (Next.js middleware; Fastify gate removed) | Sibling cookie: 2026-04-23 | Depends on: decision-panel-ui.md, dashboard-design-requirements.md §D5, nextjs-amplify-dashboard-migration.md*

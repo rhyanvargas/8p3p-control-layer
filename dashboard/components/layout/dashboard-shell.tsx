@@ -2,6 +2,8 @@
 
 import type { CSSProperties, ReactNode } from 'react';
 
+import { CsatPrompt } from '@/components/feedback/csat-prompt';
+import { SendFeedbackSheet } from '@/components/feedback/send-feedback-sheet';
 import { AppSidebar } from '@/components/layout/app-sidebar';
 import { SiteHeader } from '@/components/layout/site-header';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
@@ -48,6 +50,10 @@ export function DashboardShell({
           <div className="flex flex-1 flex-col gap-4 p-4 md:gap-6 md:p-6">
             {children}
           </div>
+          <footer className="border-border flex items-center justify-end border-t px-4 py-2 md:px-6">
+            <SendFeedbackSheet />
+          </footer>
+          <CsatPrompt />
         </div>
       </SidebarInset>
     </SidebarProvider>

@@ -35,6 +35,8 @@ Use this checklist immediately before granting a pilot customer access to the De
 - [ ] `GET /v1/learners/{ref}/summary?org_id=...` with `x-api-key` returns all five sections
 - [ ] Seeded demo learner shows expected educator_summary (e.g. advance → "Ready to move on")
 - [ ] No PII keys in summary `current_state.fields` (URS projection)
+- [ ] Ingestion dry-run passes: `npm run pilot:dry-run` (preflight → signal → decision → feedback → admin list) — see [AWS Pilot Runbook § 4.2](aws-pilot-runbook.md#42-dashboard-gate)
+- [ ] Dashboard **Send feedback** affordance returns 201 (e2e: `dashboard/e2e/product-feedback.spec.ts`)
 
 ---
 

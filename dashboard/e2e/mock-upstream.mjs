@@ -300,6 +300,120 @@ function readFbSession(req) {
   return value.length > 0 ? value : null;
 }
 
+function readPfSession(req) {
+  const cookieHeader = req.headers.cookie ?? '';
+  const match = cookieHeader.match(/(?:^|;\s*)pf_session=([^;]*)/);
+  if (!match) return null;
+  const value = decodeURIComponent(match[1].trim());
+  return value.length > 0 ? value : null;
+}
+
+/** @type {Array<Record<string, unknown>>} */
+const productFeedbackRows = [];
+
+function validateProductFeedbackBody(body) {
+  if (body === null || typeof body !== 'object' || Array.isArray(body)) {
+    return {
+      ok: false,
+      status: 400,
+      body: { error: 'invalid_request_body', message: 'Request body must be a JSON object.' },
+    };
+  }
+  if ('csat_score' in body) {
+    return {
+      ok: false,
+      status: 400,
+      body: { error: 'csat_score_forbidden', message: 'csat_score is not allowed on POST /v1/feedback.' },
+    };
+  }
+  const feedbackType = body.feedback_type;
+  const validTypes = ['idea', 'problem', 'praise', 'question'];
+  if (typeof feedbackType !== 'string' || !validTypes.includes(feedbackType)) {
+    return {
+      ok: false,
+      status: 400,
+      body: { error: 'feedback_type_required', message: 'feedback_type is required.' },
+    };
+  }
+  const message = typeof body.message === 'string' ? body.message.trim() : '';
+  if (!message) {
+    return {
+      ok: false,
+      status: 400,
+      body: { error: 'message_required', message: 'message is required.' },
+    };
+  }
+  if (message.length > 4000) {
+    return {
+      ok: false,
+      status: 400,
+      body: { error: 'message_too_long', message: 'message exceeds 4000 characters.' },
+    };
+  }
+  return {
+    ok: true,
+    value: {
+      feedbackType,
+      message,
+      category: typeof body.category === 'string' ? body.category : 'other',
+      pageContext: typeof body.page_context === 'string' ? body.page_context : null,
+      appVersion: typeof body.app_version === 'string' ? body.app_version : null,
+    },
+  };
+}
+
+function validateCsatFeedbackBody(body) {
+  if (body === null || typeof body !== 'object' || Array.isArray(body)) {
+    return {
+      ok: false,
+      status: 400,
+      body: { error: 'invalid_request_body', message: 'Request body must be a JSON object.' },
+    };
+  }
+  if ('feedback_type' in body || 'category' in body) {
+    return {
+      ok: false,
+      status: 400,
+      body: { error: 'invalid_request_body', message: 'feedback_type and category are not allowed on CSAT.' },
+    };
+  }
+  const score = body.csat_score;
+  if (!Number.isInteger(score) || score < 1 || score > 5) {
+    return {
+      ok: false,
+      status: 400,
+      body: { error: 'invalid_csat_score', message: 'csat_score must be an integer from 1 to 5.' },
+    };
+  }
+  return {
+    ok: true,
+    value: {
+      csatScore: score,
+      message: typeof body.message === 'string' && body.message.trim().length > 0 ? body.message.trim() : null,
+      pageContext: typeof body.page_context === 'string' ? body.page_context : null,
+      appVersion: typeof body.app_version === 'string' ? body.app_version : null,
+    },
+  };
+}
+
+function computeMockCsatSummary(rows) {
+  const distribution = { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 };
+  let sum = 0;
+  let count = 0;
+  for (const row of rows) {
+    if (row.kind !== 'csat' || row.csat_score == null) continue;
+    const score = row.csat_score;
+    distribution[String(score)] += 1;
+    sum += score;
+    count += 1;
+  }
+  return {
+    count,
+    mean: count === 0 ? 0 : Math.round((sum / count) * 10) / 10,
+    distribution,
+  };
+}
+
 function emptyStringToNull(value) {
   if (value === undefined || value === null) return null;
   if (typeof value !== 'string') return String(value);
@@ -442,6 +556,7 @@ function resetFeedbackState() {
   for (const key of Object.keys(viewsByDecisionId)) {
     delete viewsByDecisionId[key];
   }
+  productFeedbackRows.length = 0;
 }
 
 async function routeRequest(req, res) {
@@ -508,6 +623,95 @@ async function routeRequest(req, res) {
       forbidden_semantic_after_mapping: null,
       mapping_suggestions: [],
       verdict: hasPii ? 'pii_blocking' : 'clean',
+    });
+    return;
+  }
+
+  if (req.method === 'POST' && path === '/v1/feedback') {
+    const sessionId = readPfSession(req);
+    if (!sessionId) {
+      json(res, 401, {
+        error: 'session_required',
+        message: 'Dashboard session cookie required.',
+      });
+      return;
+    }
+
+    const body = await readJsonBody(req);
+    const validation = validateProductFeedbackBody(body);
+    if (!validation.ok) {
+      json(res, validation.status, validation.body);
+      return;
+    }
+
+    const createdAt = new Date().toISOString();
+    const row = {
+      feedback_id: crypto.randomUUID(),
+      org_id: ORG_ID,
+      kind: 'general',
+      feedback_type: validation.value.feedbackType,
+      category: validation.value.category,
+      message: validation.value.message,
+      page_context: validation.value.pageContext,
+      app_version: validation.value.appVersion,
+      session_id: sessionId.slice(0, 32),
+      created_at: createdAt,
+    };
+    productFeedbackRows.push(row);
+    json(res, 201, {
+      feedback_id: row.feedback_id,
+      kind: 'general',
+      feedback_type: row.feedback_type,
+      category: row.category,
+      created_at: row.created_at,
+    });
+    return;
+  }
+
+  if (req.method === 'POST' && path === '/v1/feedback/csat') {
+    const sessionId = readPfSession(req);
+    if (!sessionId) {
+      json(res, 401, {
+        error: 'session_required',
+        message: 'Dashboard session cookie required.',
+      });
+      return;
+    }
+
+    const body = await readJsonBody(req);
+    const validation = validateCsatFeedbackBody(body);
+    if (!validation.ok) {
+      json(res, validation.status, validation.body);
+      return;
+    }
+
+    const createdAt = new Date().toISOString();
+    const row = {
+      feedback_id: crypto.randomUUID(),
+      org_id: ORG_ID,
+      kind: 'csat',
+      csat_score: validation.value.csatScore,
+      message: validation.value.message,
+      page_context: validation.value.pageContext,
+      app_version: validation.value.appVersion,
+      session_id: sessionId.slice(0, 32),
+      created_at: createdAt,
+    };
+    productFeedbackRows.push(row);
+    json(res, 201, {
+      feedback_id: row.feedback_id,
+      kind: 'csat',
+      csat_score: row.csat_score,
+      created_at: row.created_at,
+    });
+    return;
+  }
+
+  if (req.method === 'GET' && path === '/v1/admin/feedback') {
+    json(res, 200, {
+      org_id: ORG_ID,
+      items: productFeedbackRows,
+      csat_summary: computeMockCsatSummary(productFeedbackRows),
     });
     return;
   }

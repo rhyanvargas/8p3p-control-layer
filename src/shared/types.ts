@@ -649,3 +649,117 @@ export interface PendingFeedbackResponse {
   oldest_decided_at: string | null;
   threshold_days: number;
 }
+
+// =============================================================================
+// Customer Product Feedback (docs/specs/customer-feedback-loop.md § Data Model)
+// =============================================================================
+
+/** Row kind: general (POST /v1/feedback) or csat (POST /v1/feedback/csat) */
+export type ProductFeedbackKind = 'general' | 'csat';
+
+export const PRODUCT_FEEDBACK_KINDS: readonly ProductFeedbackKind[] = ['general', 'csat'] as const;
+
+/** Closed set per customer-feedback-loop.md § Feedback Taxonomy */
+export type ProductFeedbackType = 'idea' | 'problem' | 'praise' | 'question';
+
+export const PRODUCT_FEEDBACK_TYPES: readonly ProductFeedbackType[] = [
+  'idea',
+  'problem',
+  'praise',
+  'question',
+] as const;
+
+/** Closed set per customer-feedback-loop.md § Feedback Taxonomy */
+export type ProductFeedbackCategory =
+  | 'decisions'
+  | 'data_ingestion'
+  | 'dashboard_ux'
+  | 'trust_privacy'
+  | 'policy_config'
+  | 'learning_gaps'
+  | 'roles_access'
+  | 'other';
+
+export const PRODUCT_FEEDBACK_CATEGORIES: readonly ProductFeedbackCategory[] = [
+  'decisions',
+  'data_ingestion',
+  'dashboard_ux',
+  'trust_privacy',
+  'policy_config',
+  'learning_gaps',
+  'roles_access',
+  'other',
+] as const;
+
+/** Validation limits per customer-feedback-loop.md § Data Model / Production Correctness */
+export const PRODUCT_FEEDBACK_MESSAGE_MAX_LENGTH = 4000;
+export const PRODUCT_FEEDBACK_PAGE_CONTEXT_MAX_LENGTH = 256;
+export const PRODUCT_FEEDBACK_APP_VERSION_MAX_LENGTH = 64;
+export const PRODUCT_FEEDBACK_LIST_DEFAULT_LIMIT = 100;
+export const PRODUCT_FEEDBACK_LIST_MAX_LIMIT = 500;
+
+/** Persisted product_feedback row */
+export interface ProductFeedbackRecord {
+  feedback_id: string;
+  org_id: string;
+  session_id: string;
+  kind: ProductFeedbackKind;
+  feedback_type: ProductFeedbackType | null;
+  category: ProductFeedbackCategory | null;
+  csat_score: number | null;
+  message: string | null;
+  page_context: string | null;
+  app_version: string | null;
+  created_at: string;
+}
+
+/** POST /v1/feedback request body */
+export interface SubmitProductFeedbackRequest {
+  feedback_type: ProductFeedbackType;
+  category?: ProductFeedbackCategory;
+  message: string;
+  page_context?: string;
+  app_version?: string;
+}
+
+/** POST /v1/feedback 201 response */
+export interface SubmitProductFeedbackResponse {
+  feedback_id: string;
+  kind: 'general';
+  feedback_type: ProductFeedbackType;
+  category: ProductFeedbackCategory;
+  created_at: string;
+}
+
+/** POST /v1/feedback/csat request body */
+export interface SubmitProductCsatRequest {
+  csat_score: number;
+  message?: string;
+  page_context?: string;
+  app_version?: string;
+}
+
+/** POST /v1/feedback/csat 201 response */
+export interface SubmitProductCsatResponse {
+  feedback_id: string;
+  kind: 'csat';
+  csat_score: number;
+  created_at: string;
+}
+
+/** CSAT score distribution keys (1–5) for GET /v1/admin/feedback csat_summary */
+export type CsatScoreBucket = '1' | '2' | '3' | '4' | '5';
+
+/** Aggregated CSAT stats over filtered csat rows */
+export interface CsatSummary {
+  count: number;
+  mean: number;
+  distribution: Record<CsatScoreBucket, number>;
+}
+
+/** GET /v1/admin/feedback 200 response */
+export interface GetAdminProductFeedbackResponse {
+  org_id: string;
+  items: ProductFeedbackRecord[];
+  csat_summary: CsatSummary;
+}

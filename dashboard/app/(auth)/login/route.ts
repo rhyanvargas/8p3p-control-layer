@@ -16,6 +16,7 @@ import {
   FB_SESSION_COOKIE_NAME,
   getSessionCookieName,
   isSecureCookieContext,
+  PF_SESSION_COOKIE_NAME,
 } from '@/lib/session-cookie-edge';
 import { signSession } from '@/lib/session-cookie';
 
@@ -111,6 +112,7 @@ export async function POST(request: NextRequest) {
 
   response.cookies.set({ name: cookieName, ...cookieOpts });
   response.cookies.set({ name: FB_SESSION_COOKIE_NAME, ...cookieOpts });
+  response.cookies.set({ name: PF_SESSION_COOKIE_NAME, ...cookieOpts });
 
   return response;
 }

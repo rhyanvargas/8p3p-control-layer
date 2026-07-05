@@ -27,7 +27,7 @@ import { loadPolicy } from './decision/policy-loader.js';
 import { registerDecisionRoutes } from './decision/routes.js';
 import { initFeedbackStore, closeFeedbackStore, setFeedbackRepository } from './feedback/sqlite-repository.js';
 import { DynamoDbFeedbackRepository } from './feedback/dynamodb-repository.js';
-import { registerFeedbackRoutes } from './feedback/routes.js';
+import { registerFeedbackRoutes, registerAdminProductFeedbackRoutes } from './feedback/routes.js';
 import { apiKeyPreHandler } from './auth/api-key-middleware.js';
 import { adminApiKeyPreHandler } from './auth/admin-api-key-middleware.js';
 import { loadTenantFieldMappingsFromFile } from './config/tenant-field-mappings.js';
@@ -309,6 +309,7 @@ server.register(async (admin) => {
   registerAdminFieldMappingsRoutes(admin);
   registerAdminIngestionPreflightRoutes(admin);
   registerConnectorRoutes(admin);
+  registerAdminProductFeedbackRoutes(admin);
 }, { prefix: '/v1/admin' });
 
 // Graceful shutdown: close stores (reverse of init order)

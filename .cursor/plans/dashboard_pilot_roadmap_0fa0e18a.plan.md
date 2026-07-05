@@ -1,6 +1,6 @@
 ---
 name: Dashboard Pilot Roadmap
-overview: "Master tracking plan for post-review dashboard work. Tracks 0–5 and Track 6b feedback path shipped on branch (2026-06-26). Remaining: live-pilot ops enablement under pilot-charter-onboarding TASK-005/TASK-018 and Track 6 SBIR evidence layer (LIU → outcomes → metrics → export)."
+overview: "Master tracking plan for post-review dashboard work. Tracks 0–5 and Track 7 customer feedback loop shipped on branch (2026-07-04). Ops-only: demo MP4 capture per pilot-demo-video-checklist.md. Track 6 SBIR evidence layer deferred for charter sales path."
 todos:
   - id: hk-doc-sync
     content: "Track 0: Run /post-impl-doc-sync on dashboard-design-requirements.md (upload wizard [x], checklist alignment)"
@@ -65,6 +65,9 @@ todos:
   - id: sbir-research-export
     content: "Track 6: Execute pilot-research-export.plan.md after program-metrics"
     status: pending
+  - id: track7-product-feedback
+    content: "Track 7: Customer feedback loop P0 — Send feedback Sheet, CSAT flag-gated, pf_session, admin GET"
+    status: completed
 isProject: false
 ---
 
@@ -74,9 +77,9 @@ isProject: false
 
 Tracks the execution sequence from the `/review` of uncommitted dashboard work. **Do not re-run** [`.cursor/plans/dashboard-uiux-improvements.plan.md`](.cursor/plans/dashboard-uiux-improvements.plan.md) — it is complete (D1/D3/freshness/upload). Remaining design-spec gaps are scoped slices below.
 
-## Current state (2026-06-26)
+## Current state (2026-07-04)
 
-Tracks **0–5** are **shipped on branch** for the dashboard/control-layer code path: backend AI explanations persist `trace.educator_explanation`, and Panels 2 & 3 consume it through `educatorBodyCopy()` with `educator_summary` / `rationale` fallbacks. Remaining live-pilot work is **ops enablement** in [`.cursor/plans/pilot-charter-onboarding.plan.md`](.cursor/plans/pilot-charter-onboarding.plan.md) (TASK-005 Bedrock/IAM, TASK-018 hosted dry run, TASK-020 demo capture) plus **Track 6** (SBIR evidence layer, staged).
+Tracks **0–5** and **Track 7** (customer feedback loop P0) are **shipped on branch** for the dashboard/control-layer code path: backend AI explanations persist `trace.educator_explanation`, Panels 2 & 3 consume it through `educatorBodyCopy()`, and the always-on **Send feedback** affordance plus `POST /v1/feedback` / `GET /v1/admin/feedback` are implemented per [`customer-feedback-loop.md`](docs/specs/customer-feedback-loop.md). Live-pilot ops enablement (AWS API, Amplify dashboard, Bedrock ON, hosted dry-run) is **complete** per `pilot-charter-onboarding.plan.md` TASK-003–TASK-018. Remaining charter-path work: **TASK-020** GTM demo video capture. **Track 6** (SBIR evidence layer) is **deferred** for the charter sales path — not required before first customer touch or board/principal review.
 
 ```mermaid
 flowchart LR
@@ -89,10 +92,11 @@ flowchart LR
     URLState[page-url-state.ts]
     FeedbackBridge[Educator feedback API dashboard bridge]
     AIUI[Track 5 AI explanation body copy]
+    ProductFeedback[Track 7 Product feedback loop P0]
   end
-  subgraph next [Next up]
-    LIVEOPS[Live-pilot ops enablement]
-    SBIR[Track 6 SBIR evidence layer]
+  subgraph next [Next up / deferred]
+    DemoCapture[GTM demo video capture]
+    SBIR[Track 6 SBIR evidence layer deferred]
   end
   shipped --> next
 ```
@@ -102,6 +106,7 @@ flowchart LR
 - Overview D2: single RSC fetch via [`overview-surfaces.tsx`](dashboard/app/(dashboard)/_components/overview-surfaces.tsx) + [`OverviewSyncProvider`](dashboard/app/(dashboard)/_components/overview-sync-provider.tsx) (design spec §2.1 names `OverviewExplorer`; implementation uses this composition per [`overview-cross-filter-sync.md`](docs/specs/overview-cross-filter-sync.md) § Architecture)
 - Educator feedback: proxy cookie bridge in [`route.ts`](dashboard/app/api/control/[...path]/route.ts); login/logout mint/clear `fb_session`
 - AI explanation body copy: [`educatorBodyCopy()`](dashboard/lib/panel-helpers.ts) prefers `educator_explanation`, then `educator_summary`, then `rationale`; used by Panels 2 & 3 (`WhyAreTheyStuck.tsx`, `WhatToDo.tsx`)
+- Product feedback: [`send-feedback-sheet.tsx`](dashboard/components/feedback/send-feedback-sheet.tsx) + `pf_session` proxy in [`route.ts`](dashboard/app/api/control/[...path]/route.ts); backend in `src/feedback/product-handler*.ts`
 
 ---
 
@@ -202,9 +207,9 @@ Implemented: `@8p3p/explanation` package + sync/async engine integration, option
 
 ---
 
-## Track 6 — SBIR / live-pilot evidence layer (staged — not controlled-eval critical path)
+## Track 6 — SBIR / live-pilot evidence layer (deferred — not charter sales path)
 
-**Scope:** Staged SBIR and live-pilot evidence work for Phase 0 Springs → Phase I SBIR. This is **not** the controlled-evaluation critical path — that remains Track 5 (AI educator explanations) per [`docs/foundation/roadmap.md`](docs/foundation/roadmap.md) § Current Objective.
+**Scope:** Staged SBIR and live-pilot evidence work for Phase 0 Springs → Phase I SBIR. **Deferred for the charter sales path** per [`pilot-charter-onboarding.plan.md`](.cursor/plans/pilot-charter-onboarding.plan.md) — not required before hosted demo, board review, or first customer login. Revisit after charter pilot clears or SBIR funding gate opens.
 
 **Prerequisite for educator-impact metrics:** Track 2 dashboard feedback writes **shipped** (2026-06-25). Backend [`educator-feedback-api`](docs/specs/educator-feedback-api.md) is in `src/feedback/`. MC-B* metrics still require Track 6 `program-metrics` implementation.
 
@@ -220,10 +225,19 @@ Ordered by dependency — LIU is promoted to pre-Month 0 and supplies volume den
 
 ---
 
-## Track 7 — Deferred (post-pilot)
+## Track 7 — Customer feedback loop (P0) — **shipped**
 
-- [`customer-feedback-loop.md`](docs/specs/customer-feedback-loop.md) — planned in `pilot-charter-onboarding.plan.md` TASK-006..016; implementation pending
+**Spec:** [`customer-feedback-loop.md`](docs/specs/customer-feedback-loop.md)  
+**Plan:** [`.cursor/plans/pilot-charter-onboarding.plan.md`](.cursor/plans/pilot-charter-onboarding.plan.md) TASK-006..016 (complete on branch)
+
+Implemented: `POST /v1/feedback`, `POST /v1/feedback/csat`, `GET /v1/admin/feedback`; `pf_session` sibling cookie; always-on Send feedback Sheet in dashboard shell; CSAT prompt flag-gated (`NEXT_PUBLIC_FEEDBACK_CSAT` default OFF); PFEED-001..014 tests. Triage schema: [`docs/guides/pilot-feedback-log-schema.md`](docs/guides/pilot-feedback-log-schema.md).
+
+---
+
+## Track 8 — Deferred (post-pilot)
+
 - [`tenant-config.md`](docs/specs/tenant-config.md)
+- **TEKS / STAAR standards mapping** — Phase 2+ hedge only; config layer, not engine ([`pilot-data-requirements.md`](docs/guides/pilot-data-requirements.md) § TEKS); build when contract closes
 - Design spec Phase C polish: command palette, multi-org switcher, responsive/a11y pass
 - Settings policies CRUD (currently read-only table aligns with design spec §6)
 
@@ -239,12 +253,13 @@ flowchart TD
   P3[Track 3 Attention Phase 3 ✓]
   D2[Track 4 Overview D2 ✓]
   AI[Track 5 AI explanations ✓]
-  LIVEOPS[Live-pilot ops enablement]
-  LIU[Track 6a LIU usage meter]
-  FB[Track 6b Feedback data path ✓]
-  OUT[Track 6c Decision outcomes]
-  MET[Track 6d Program metrics]
-  EXP[Track 6e Research export]
+  DEMO[GTM demo capture TASK-020]
+  LIU[Track 6a LIU usage meter deferred]
+  FB[Track 6b Educator feedback data path ✓]
+  PF[Track 7 Product feedback loop ✓]
+  OUT[Track 6c Decision outcomes deferred]
+  MET[Track 6d Program metrics deferred]
+  EXP[Track 6e Research export deferred]
 
   HK --> P1
   P1 --> P2
@@ -256,10 +271,11 @@ flowchart TD
   MET --> EXP
   HK --> D2
   P1 -. parallel .-> AI
-  AI --> LIVEOPS
+  AI --> PF
+  PF --> DEMO
 ```
 
-**Remaining work:** live-pilot ops enablement (`pilot-charter-onboarding.plan.md` TASK-005/TASK-018/TASK-020) and Track **6** (staged SBIR evidence: LIU → outcomes → program-metrics → research-export). Tracks 0–5 and the Track 6b feedback data path are complete on branch.
+**Remaining work:** GTM demo video capture (`pilot-charter-onboarding.plan.md` TASK-020). Track **6** SBIR evidence (LIU → outcomes → program-metrics → research-export) is **deferred** for charter sales. Tracks 0–5, Track 6b educator feedback, and Track 7 product feedback are complete on branch.
 
 **Answer to "re-implement design spec?":** No. D1/D2/D3 and Attention Review UX are shipped; do not re-run [`dashboard-uiux-improvements.plan.md`](.cursor/plans/dashboard-uiux-improvements.plan.md) or attention-review plans except for post-impl doc sync.
 
@@ -270,7 +286,8 @@ flowchart TD
 | Tracks 1–3 (shipped) | `cd dashboard && npm test -- --run` + `dashboard/e2e/decision-panel.spec.ts` |
 | Track 4 (shipped) | `dashboard/e2e/overview-cross-filter.spec.ts` + unit tests in `dashboard/lib/overview/__tests__/` |
 | Track 5 (shipped) | `npm test -- --run tests/contracts/ai-educator-explanations.test.ts tests/unit/panel-helpers.test.ts` |
-| Track 6 (pending) | Contract tests per staged SBIR specs |
+| Track 7 (shipped) | `npm test -- --run tests/integration/product-feedback.test.ts` + `cd dashboard && npm run test:e2e -- product-feedback.spec.ts` |
+| Track 6 (deferred) | Contract tests per staged SBIR specs — not charter-path blocking |
 | After any track | `/review` on changed files |
 
 ---
@@ -298,3 +315,15 @@ Reconciled stale Track 5 status after `@8p3p/explanation` and dashboard Panels 2
 | Roadmap "Current state" vs branch | Updated — Tracks 0–5 marked shipped; remaining work moved to live-pilot ops enablement + staged SBIR Track 6 |
 | AI explanation dashboard consumption | Updated — `educatorBodyCopy()` prefers `educator_explanation` and is used by `WhyAreTheyStuck.tsx` / `WhatToDo.tsx` |
 | Customer feedback loop status | Updated — no longer "plan pending"; now owned by `pilot-charter-onboarding.plan.md` TASK-006..016 |
+
+## Post-impl doc sync (2026-07-04)
+
+Reconciled after customer feedback loop P0 landed and pilot-charter TASK-003–TASK-018 ops enablement completed:
+
+| Check | Result |
+|-------|--------|
+| Roadmap "Current state" vs branch | Updated — Track 7 product feedback shipped; live-pilot ops complete; TASK-020 demo capture remains |
+| Track 6 SBIR | Reframed **deferred for charter sales path** — not blocking hosted demo or board review |
+| Track 7 customer-feedback-loop | Promoted from Track 7 Deferred → **shipped**; former deferred items moved to Track 8 |
+| TEKS / STAAR | Documented as Phase 2+ hedge in Track 8; no pre-build per `pilot-data-requirements.md` |
+| Foundation roadmap + specs index | Updated in TASK-019 — feedback loop P0 shipped; pilot-charter ledger rollup 21/23 → 23/23 after TASK-019/020 |

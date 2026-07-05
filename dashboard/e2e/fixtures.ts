@@ -315,6 +315,71 @@ export async function clearFeedbackSession(page: Page): Promise<void> {
   await page.context().clearCookies();
 }
 
+export const CSAT_FREQUENCY_STORAGE_KEY = 'feedback:csat:v1';
+export const CSAT_UPLOAD_TASK_STORAGE_KEY = 'feedback:csat:upload:v1';
+
+/** Clear CSAT localStorage keys for e2e baseline. */
+export async function clearCsatStorage(page: Page): Promise<void> {
+  await page.evaluate(
+    ([frequencyKey, uploadKey]) => {
+      localStorage.removeItem(frequencyKey);
+      localStorage.removeItem(uploadKey);
+    },
+    [CSAT_FREQUENCY_STORAGE_KEY, CSAT_UPLOAD_TASK_STORAGE_KEY] as const
+  );
+}
+
+/** Seed CSAT frequency cap as if the prompt was shown recently. */
+export async function seedCsatFrequencyCap(page: Page, lastShownAt?: string): Promise<void> {
+  const shownAt = lastShownAt ?? new Date().toISOString();
+  await page.evaluate(
+    ([frequencyKey, iso]) => {
+      localStorage.setItem(frequencyKey, JSON.stringify({ lastShownAt: iso }));
+    },
+    [CSAT_FREQUENCY_STORAGE_KEY, shownAt] as const
+  );
+}
+
+/** Seed enough session reviews to satisfy FEEDBACK_TASK_DECISION_THRESHOLD (default 5). */
+export async function seedCsatTaskThreshold(page: Page): Promise<void> {
+  await seedReviewStore(page, [
+    {
+      decisionId: E2E_DECISION_ID,
+      action: 'approve',
+      learnerReference: E2E_LEARNER_REF,
+      decisionType: 'intervene',
+    },
+    {
+      decisionId: E2E_DECISION_ID_2,
+      action: 'reject',
+      learnerReference: E2E_LEARNER_REF_2,
+      decisionType: 'pause',
+    },
+    {
+      decisionId: 'decision-003',
+      action: 'approve',
+      learnerReference: 'learner-3',
+      decisionType: 'intervene',
+    },
+    {
+      decisionId: 'decision-004',
+      action: 'approve',
+      learnerReference: 'learner-4',
+      decisionType: 'intervene',
+    },
+    {
+      decisionId: 'decision-005',
+      action: 'reject',
+      learnerReference: 'learner-5',
+      decisionType: 'pause',
+    },
+  ]);
+}
+
+export function isCsatE2eEnabled(): boolean {
+  return process.env.NEXT_PUBLIC_FEEDBACK_CSAT === 'true';
+}
+
 export function isGateEnabledE2e(): boolean {
   return (process.env.DASHBOARD_ACCESS_CODE?.trim() ?? '').length > 0;
 }

@@ -1,8 +1,11 @@
 'use client';
 
+import { useEffect } from 'react';
 import Link from 'next/link';
 import Papa from 'papaparse';
 import { CheckCircle2 } from 'lucide-react';
+
+import { markUploadTaskComplete } from '@/lib/csat-storage';
 
 import { IngestionOutcomeChip } from '@/components/shared/ingestion-outcome-chip';
 import { Button } from '@/components/ui/button';
@@ -14,6 +17,10 @@ type StepDoneProps = {
 };
 
 export function StepDone({ summary, onRestart }: StepDoneProps) {
+  useEffect(() => {
+    markUploadTaskComplete();
+  }, []);
+
   function downloadRejections() {
     if (summary.rejections.length === 0) return;
     const csv = Papa.unparse(

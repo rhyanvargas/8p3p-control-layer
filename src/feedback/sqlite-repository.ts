@@ -4,8 +4,16 @@
  */
 
 import Database from 'better-sqlite3';
-import { DECISION_TYPES, type DecisionType, type DecisionViewRecord, type FeedbackRecord } from '../shared/types.js';
-import type { FeedbackRepository, PendingCountResult } from './repository.js';
+import {
+  DECISION_TYPES,
+  PRODUCT_FEEDBACK_LIST_DEFAULT_LIMIT,
+  PRODUCT_FEEDBACK_LIST_MAX_LIMIT,
+  type DecisionType,
+  type DecisionViewRecord,
+  type FeedbackRecord,
+  type ProductFeedbackRecord,
+} from '../shared/types.js';
+import type { FeedbackRepository, PendingCountResult, ProductFeedbackListFilters } from './repository.js';
 
 let repository: FeedbackRepository | null = null;
 
@@ -48,7 +56,59 @@ export class SqliteFeedbackRepository implements FeedbackRepository {
       CREATE INDEX IF NOT EXISTS idx_view_org_viewed ON decision_view_log(org_id, viewed_at);
       CREATE INDEX IF NOT EXISTS idx_view_dedup ON decision_view_log(decision_id, session_id, viewed_at);
     `);
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS product_feedback (
+        feedback_id TEXT PRIMARY KEY NOT NULL,
+        org_id TEXT NOT NULL,
+        session_id TEXT NOT NULL,
+        kind TEXT NOT NULL,
+        feedback_type TEXT,
+        category TEXT,
+        csat_score INTEGER,
+        message TEXT,
+        page_context TEXT,
+        app_version TEXT,
+        created_at TEXT NOT NULL
+      )
+    `);
+    this.db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_product_feedback_org_created ON product_feedback(org_id, created_at);
+    `);
     this.db.pragma('journal_mode = WAL');
+  }
+
+  private normalizeProductFeedbackLimit(raw?: number): number {
+    if (raw === undefined) return PRODUCT_FEEDBACK_LIST_DEFAULT_LIMIT;
+    if (!Number.isFinite(raw) || raw < 1) return PRODUCT_FEEDBACK_LIST_DEFAULT_LIMIT;
+    return Math.min(Math.floor(raw), PRODUCT_FEEDBACK_LIST_MAX_LIMIT);
+  }
+
+  private mapProductFeedbackRow(r: {
+    feedback_id: string;
+    org_id: string;
+    session_id: string;
+    kind: string;
+    feedback_type: string | null;
+    category: string | null;
+    csat_score: number | null;
+    message: string | null;
+    page_context: string | null;
+    app_version: string | null;
+    created_at: string;
+  }): ProductFeedbackRecord {
+    return {
+      feedback_id: r.feedback_id,
+      org_id: r.org_id,
+      session_id: r.session_id,
+      kind: r.kind as ProductFeedbackRecord['kind'],
+      feedback_type: r.feedback_type as ProductFeedbackRecord['feedback_type'],
+      category: r.category as ProductFeedbackRecord['category'],
+      csat_score: r.csat_score,
+      message: r.message,
+      page_context: r.page_context,
+      app_version: r.app_version,
+      created_at: r.created_at,
+    };
   }
 
   async saveFeedback(record: FeedbackRecord): Promise<void> {
@@ -178,6 +238,76 @@ export class SqliteFeedbackRepository implements FeedbackRepository {
     return { total, byType, oldestDecidedAt };
   }
 
+  async insertProductFeedback(record: ProductFeedbackRecord): Promise<void> {
+    const stmt = this.db.prepare(`
+      INSERT INTO product_feedback (
+        feedback_id, org_id, session_id, kind, feedback_type, category,
+        csat_score, message, page_context, app_version, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    stmt.run(
+      record.feedback_id,
+      record.org_id,
+      record.session_id,
+      record.kind,
+      record.feedback_type,
+      record.category,
+      record.csat_score,
+      record.message,
+      record.page_context,
+      record.app_version,
+      record.created_at
+    );
+  }
+
+  async listProductFeedback(orgId: string, filters?: ProductFeedbackListFilters): Promise<ProductFeedbackRecord[]> {
+    const clauses = ['org_id = ?'];
+    const params: unknown[] = [orgId];
+
+    if (filters?.kind !== undefined) {
+      clauses.push('kind = ?');
+      params.push(filters.kind);
+    }
+    if (filters?.feedback_type !== undefined) {
+      clauses.push('feedback_type = ?');
+      params.push(filters.feedback_type);
+    }
+    if (filters?.category !== undefined) {
+      clauses.push('category = ?');
+      params.push(filters.category);
+    }
+    if (filters?.since !== undefined) {
+      clauses.push('created_at >= ?');
+      params.push(filters.since);
+    }
+
+    const limit = this.normalizeProductFeedbackLimit(filters?.limit);
+    const sql = `
+      SELECT feedback_id, org_id, session_id, kind, feedback_type, category,
+             csat_score, message, page_context, app_version, created_at
+      FROM product_feedback
+      WHERE ${clauses.join(' AND ')}
+      ORDER BY created_at DESC
+      LIMIT ?
+    `;
+    params.push(limit);
+
+    const rows = this.db.prepare(sql).all(...params) as Array<{
+      feedback_id: string;
+      org_id: string;
+      session_id: string;
+      kind: string;
+      feedback_type: string | null;
+      category: string | null;
+      csat_score: number | null;
+      message: string | null;
+      page_context: string | null;
+      app_version: string | null;
+      created_at: string;
+    }>;
+    return rows.map((r) => this.mapProductFeedbackRow(r));
+  }
+
   close(): void {
     this.db.close();
   }
@@ -185,6 +315,7 @@ export class SqliteFeedbackRepository implements FeedbackRepository {
   clear(): void {
     this.db.exec('DELETE FROM decision_feedback');
     this.db.exec('DELETE FROM decision_view_log');
+    this.db.exec('DELETE FROM product_feedback');
   }
 }
 

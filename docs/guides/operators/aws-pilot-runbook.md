@@ -54,7 +54,7 @@ Before inviting the customer, all items in these committed gates must pass:
 1. Login with shared access code → Overview shows learner gaps within three clicks ([`dashboard-design-requirements.md`](../../specs/dashboard-design-requirements.md)).
 2. Bulk upload via `/signals/upload` → decisions appear in Attention queue.
 3. Approve/Reject on decisions with reasons persisted ([`educator-feedback-api.md`](../../specs/educator-feedback-api.md)).
-4. Product feedback anytime ([`customer-feedback-loop.md`](../../specs/customer-feedback-loop.md) — when implemented).
+4. Product feedback anytime ([`customer-feedback-loop.md`](../../specs/customer-feedback-loop.md) — shipped; demo capture: [`pilot-demo-video-checklist.md`](../pilot-demo-video-checklist.md)).
 
 ---
 
@@ -301,7 +301,22 @@ curl -sS -X POST "${API_URL}/v1/signals" \
 - [ ] Overview, Attention, Learners render with live data  
 - [ ] `/signals/upload` — upload wizard completes (e2e: [`signal-upload.spec.ts`](../../../dashboard/e2e/signal-upload.spec.ts))  
 - [ ] Attention → Approve or Reject → toast + persistence  
+- [ ] Footer **Send feedback** → 201 toast (e2e: [`product-feedback.spec.ts`](../../../dashboard/e2e/product-feedback.spec.ts))  
+- [ ] `GET /v1/admin/feedback` lists product feedback row (API dry-run: `npm run pilot:dry-run`)  
 - [ ] `GET /v1/learners/{ref}/summary` via API returns five sections ([`pilot-launch-checklist.md`](pilot-launch-checklist.md))
+
+**Full ingestion dry-run (TASK-018):**
+
+```bash
+export API_URL="https://<api-id>.execute-api.us-east-1.amazonaws.com/pilot"
+export PILOT_KEY="<api-gateway-key>"
+export ADMIN_API_KEY="<admin-key>"
+export COOKIE_SECRET="<same-as-dashboard>"
+export ORG_ID="southwest-charter"
+npm run pilot:dry-run
+```
+
+If the environment is empty, seed first: § 4.3. Customer data requirements for IT: [`pilot-data-requirements.md`](../pilot-data-requirements.md).
 
 ### 4.3 Seed demo data (optional)
 

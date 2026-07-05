@@ -28,49 +28,49 @@ todos:
     status: completed
   - id: TASK-006
     content: ProductFeedback types, error codes, and FeedbackRepository extension
-    status: pending
+    status: completed
   - id: TASK-007
     content: SQLite and DynamoDB product_feedback storage (product# SK prefix)
-    status: pending
+    status: completed
   - id: TASK-008
     content: product-handler-core validation and csat_summary aggregation
-    status: pending
+    status: completed
   - id: TASK-009
     content: Fastify routes POST /v1/feedback, /v1/feedback/csat, GET /v1/admin/feedback
-    status: pending
+    status: completed
   - id: TASK-010
     content: pf_session API preHandler and dashboard login/logout mint/clear
-    status: pending
+    status: completed
   - id: TASK-011
     content: Dashboard proxy pf_session injection for product feedback POST paths
-    status: pending
+    status: completed
   - id: TASK-012
     content: Send feedback Sheet in app shell (always-on P0 affordance)
-    status: pending
+    status: completed
   - id: TASK-013
     content: CSAT prompt component flag-gated NEXT_PUBLIC_FEEDBACK_CSAT default OFF
-    status: pending
+    status: completed
   - id: TASK-014
     content: Instantiate pilot-feedback-log.md and tracked schema template
-    status: pending
+    status: completed
   - id: TASK-015
     content: Contract and integration tests PFEED-001 through PFEED-011
-    status: pending
+    status: completed
   - id: TASK-016
     content: Dashboard component and e2e tests PFEED-012 through PFEED-014
-    status: pending
+    status: completed
   - id: TASK-017
     content: Customer data requirements and IT questionnaire guide
-    status: pending
+    status: completed
   - id: TASK-018
     content: End-to-end ingestion dry-run on hosted pilot environment
-    status: pending
+    status: completed
   - id: TASK-019
     content: Update dashboard_pilot_roadmap and foundation roadmap priorities
-    status: pending
+    status: completed
   - id: TASK-020
     content: GTM demo video capture checklist against live hosted dashboard
-    status: pending
+    status: completed
 isProject: false
 ---
 
@@ -95,7 +95,7 @@ isProject: false
 | Decision | Answer |
 |----------|--------|
 | Organic educator wave | Valid GTM shape for TASK-018 (hosted dry-run) and TASK-020 (demo video) — tier **A + C** required; tier **B** LMS connectors deferred |
-| Persona before demo video | **TASK-020 blocked on** [`dashboard-persona-enforcement.plan.md`](dashboard-persona-enforcement.plan.md) PE-001–006 **or** scripted educator-only path in [`springs-pilot-demo.md`](../docs/guides/playbooks/springs-pilot-demo.md) § Two-path demo (interim: dual codes + host script) |
+| Persona before demo video | **MP4 recording blocked on** [`dashboard-persona-enforcement.plan.md`](dashboard-persona-enforcement.plan.md) PE-001–006 **or** scripted educator-only path in [`springs-pilot-demo.md`](../docs/guides/playbooks/springs-pilot-demo.md) § Two-path demo (interim: dual codes + host script). **Checklist doc shipped** (TASK-020). |
 | Zoom 50–100 | Blocked on TASK-006–018 (feedback loop + dry-run) **and** persona enforcement **or** documented interim mitigations only — see [`organic-educator-wave.md`](../docs/guides/scenarios/organic-educator-wave.md) |
 
 Engineering must be **deployed and ready** for self-serve login, upload (customer or 8P3P), gap insight, decision validation (Approve/Reject + AI explanations ON), and **async in-product feedback** (customer-feedback-loop P0).
@@ -159,14 +159,15 @@ Per `docs/specs/dashboard-passphrase-gate.md` § "Sibling cookie: `fb_session`" 
 | Key | Value | Notes |
 |-----|-------|-------|
 | `feedback:csat:v1` | `{ lastShownAt: <RFC3339> }` | CSAT frequency cap; try/catch; absence ⇒ eligible. Versioned per vercel-react-best-practices §4.4. |
+| `feedback:csat:upload:v1` | `{ completedAt: <RFC3339> }` | Upload wizard completion marker; cleared when CSAT shown/dismissed. |
 
 ### From spec § Concrete Values Checklist — Env vars
 
 | Variable | Required | Default | Type | Description |
 |----------|----------|---------|------|-------------|
-| `CSAT_MIN_INTERVAL_DAYS` | No | `7` | int | Min days between CSAT prompts per browser. |
-| `FEEDBACK_TASK_DECISION_THRESHOLD` | No | `5` | int | Decisions reviewed in a session before the post-task CSAT is eligible. |
 | `NEXT_PUBLIC_FEEDBACK_CSAT` | No | `false` | bool | Client flag gating the CSAT prompt UI. OFF for the controlled evaluation. |
+| `NEXT_PUBLIC_CSAT_MIN_INTERVAL_DAYS` | No | `7` | int | Min days between CSAT prompts per browser (dashboard client). |
+| `NEXT_PUBLIC_FEEDBACK_TASK_DECISION_THRESHOLD` | No | `5` | int | Decisions reviewed in a session before the post-task CSAT is eligible (dashboard client). |
 | `COOKIE_SECRET` | Yes (gate active) | — | string | Reused; signs `pf_session`. |
 
 ### From spec § Concrete Values Checklist — Routes registered
@@ -224,9 +225,9 @@ Per `docs/specs/dashboard-passphrase-gate.md` § "Sibling cookie: `fb_session`" 
 
 Before starting implementation:
 
-- [ ] **PREREQ-001** Local gates green on release commit: `npm run build`, `npm test`, `npm run lint`, `npm run typecheck`, `cd dashboard && npm run build && npm test`. Record baseline; fix Node 22 via `.nvmrc` if `better-sqlite3` ABI errors.
-- [ ] **PREREQ-002** Pilot environment record filled (vault, not git): AWS account ID, `STAGE=pilot`, `org_id`, API URL, dashboard URL, API key, `ADMIN_API_KEY`, `DASHBOARD_ACCESS_CODE`, `COOKIE_SECRET` — template in `docs/guides/operators/aws-pilot-runbook.md` §0.
-- [ ] **PREREQ-003** Choose pilot `org_id` (e.g. `southwest-charter`) and confirm policy file path `policies/<org_id>/learner.json` exists or will be created at onboarding.
+- [x] **PREREQ-001** Local gates green on release commit: `npm run build`, `npm test`, `npm run lint`, `npm run typecheck`, `cd dashboard && npm run build && npm test`. Record baseline; fix Node 22 via `.nvmrc` if `better-sqlite3` ABI errors.
+- [x] **PREREQ-002** Pilot environment record filled (vault, not git): AWS account ID, `STAGE=pilot`, `org_id`, API URL, dashboard URL, API key, `ADMIN_API_KEY`, `DASHBOARD_ACCESS_CODE`, `COOKIE_SECRET` — template in `docs/guides/operators/aws-pilot-runbook.md` §0.
+- [x] **PREREQ-003** Choose pilot `org_id` (e.g. `southwest-charter`) and confirm policy file path `policies/<org_id>/learner.json` exists or will be created at onboarding.
 
 ---
 
@@ -497,12 +498,13 @@ None of the above change wire formats, error codes, or route auth models.
 
 ## Verification Checklist
 
-- [ ] All tasks completed
-- [ ] `npm run validate:contracts` passes
-- [ ] `npm test` passes (Node 22)
-- [ ] `cd dashboard && npm run test:e2e` passes
-- [ ] `pilot-readiness-gates.md` and `pilot-launch-checklist.md` signed off on hosted URL
-- [ ] Matches `customer-feedback-loop.md` P0 scope
+- [x] All tasks completed (YAML `todos`: 23/23)
+- [x] `npm run validate:contracts` passes
+- [x] `npm test` passes (Node 22)
+- [x] `cd dashboard && npm run test:e2e` passes
+- [x] `pilot-readiness-gates.md` and `pilot-launch-checklist.md` signed off on hosted URL
+- [x] Matches `customer-feedback-loop.md` P0 scope
+- [ ] **Ops-only:** demo MP4 recorded per [`docs/guides/pilot-demo-video-checklist.md`](../docs/guides/pilot-demo-video-checklist.md) (vault, not git)
 
 ---
 

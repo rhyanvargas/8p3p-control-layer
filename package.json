@@ -37,6 +37,7 @@
     "cdk:diff": "cd infra && npx cdk diff",
     "amplify:sync-env": "node scripts/amplify-sync-env.mjs",
     "amplify:verify-dashboard": "node scripts/verify-amplify-dashboard.mjs",
+    "pilot:dry-run": "node scripts/pilot-ingestion-dry-run.mjs",
     "amplify:bootstrap": "node scripts/amplify-bootstrap.mjs"
   },
   "repository": {

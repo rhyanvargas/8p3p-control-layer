@@ -32,6 +32,8 @@ Thin how-to routers — prerequisites, numbered links, exit criteria. No duplica
 | [FAQ](customers/faq.md) | Pilot customers | Common questions: payload structure, state, policy customization, identity |
 | [Get all learner decisions from org](customers/get-all-learner-decisions-from-org.md) | Integration / analytics | Org-wide decision export (fan-out pattern) |
 | [Onboarding field mappings](customers/onboarding-field-mappings.md) | Integration engineers | **Deep dive** — tenant mapping workflow; overview in Integration Guide §5 |
+| [Pilot data requirements](pilot-data-requirements.md) | Customer IT / solutions | Data spec + IT questionnaire for onboarding (both upload branches) |
+| [Pilot demo video checklist](pilot-demo-video-checklist.md) | GTM / CS / leadership | Hosted demo recording script — 5 min educator + ~15 min admin/backend (TASK-020) |
 
 ---
 
@@ -71,6 +73,7 @@ Scenario paths cover most tasks — use this table only when the scenario table 
 | Understand state merge, empty decisions, or policy customization | [FAQ](customers/faq.md) |
 | Export decisions for every learner in my org | [Get all learner decisions from org](customers/get-all-learner-decisions-from-org.md) |
 | Run a local stakeholder demo (Springs) | [Springs Pilot Demo](playbooks/springs-pilot-demo.md) |
+| Record hosted pilot demo video (GTM) | [Pilot demo video checklist](pilot-demo-video-checklist.md) |
 | Host organic educator wave on Zoom | [Organic educator wave scenario](scenarios/organic-educator-wave.md) → [Zoom runbook](playbooks/organic-educator-wave-zoom.md) |
 | Work on the Decision Panel (Next.js) | [Local Dev & Testing § Making changes](../foundation/setup.md#making-changes) |
 | Find internal-only runbooks | [Internal Operations Index](operators/internal-operations-stub.md) |

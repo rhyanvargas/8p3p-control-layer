@@ -7,6 +7,7 @@ import {
   getSessionCookieName,
   HOST_SESSION_COOKIE_NAME,
   isSecureCookieContext,
+  PF_SESSION_COOKIE_NAME,
   SESSION_COOKIE_NAME,
 } from '@/lib/session-cookie-edge';
 
@@ -22,6 +23,7 @@ function clearSessionCookies(response: NextResponse, secure: boolean): void {
 
   response.cookies.set({ name: getSessionCookieName(secure), value: '', ...clearOpts });
   response.cookies.set({ name: FB_SESSION_COOKIE_NAME, value: '', ...clearOpts });
+  response.cookies.set({ name: PF_SESSION_COOKIE_NAME, value: '', ...clearOpts });
 
   // Clear alternate cookie names that may exist from prior sessions.
   if (secure) {

@@ -25,14 +25,13 @@ Roadmap and sequencing: [`docs/foundation/roadmap.md`](../foundation/roadmap.md)
 | [`policy-generation-service.md`](policy-generation-service.md) | External LLM policy generation HTTP service (decoupled from control-layer engine) | Spec'd (P1); impl pending educator-policy-builder plan |
 | [`overview-cross-filter-sync.md`](overview-cross-filter-sync.md) | Decision Panel D2 — opt-in 2-way linked filtering (default OFF); client-only | Impl complete on branch (2026-06-25) |
 | [`overview-educator-activity-layout.md`](overview-educator-activity-layout.md) | Decision Panel D4 — page-level period bar, grouped KPIs, stacked cumulative activity chart + Activity panel | Spec'd; `/plan-impl` pending |
-| [`customer-feedback-loop.md`](customer-feedback-loop.md) | Product-level feedback: always-on "Send feedback" + CSAT microsurvey + `GET /v1/admin/feedback` | Spec'd; implementation planned in `pilot-charter-onboarding.plan.md` TASK-006..016 |
-| [`liu-usage-meter.md`](liu-usage-meter.md) | `GET /v1/admin/usage` + `GET /v1/usage`; SBIR volume denominator (pre-Month 0 per `program-metrics.md` § Overview) | Spec'd; plan committed, impl pending |
+| [`liu-usage-meter.md`](liu-usage-meter.md) | `GET /v1/admin/usage` + `GET /v1/usage`; SBIR volume denominator (pre-Month 0 per `program-metrics.md` § Overview) | Spec'd; **deferred for charter sales path** — plan committed, impl pending |
 | [`educator-feedback-api.md`](educator-feedback-api.md) | `POST /v1/decisions/:id/feedback` + view log; feeds MC-B*/MC-C* | Backend shipped (`src/feedback/`); dashboard POST wired (Track 2, 2026-06-25) |
 | [`attention-review-ux.md`](attention-review-ux.md) | Approve/Reject closure on `/attention` (toast, undo, review store, Recently reviewed); Educator Feedback API wiring | Phases 1–3 impl complete on branch (2026-06-25) |
 | [`learner-pending-review-bar.md`](learner-pending-review-bar.md) | Data-driven **Action required** bar on `/learners/[ref]` for roster/direct entry (reuse pending queue rules) | Spec'd; impl pending |
-| [`decision-outcomes.md`](decision-outcomes.md) | Derived view joining decisions → state deltas; feeds MC-C* | Spec'd + plan staged |
-| [`program-metrics.md`](program-metrics.md) | MC-A*/B*/C* catalog + `GET /v1/admin/program-metrics` (SBIR evidence; depends on LIU + feedback + outcomes) | Spec'd; plan committed, impl pending |
-| [`pilot-research-export.md`](pilot-research-export.md) | FERPA-safe de-identified bundle for DOE/IES reviewers | Spec'd + plan staged |
+| [`decision-outcomes.md`](decision-outcomes.md) | Derived view joining decisions → state deltas; feeds MC-C* | Spec'd + plan staged; **deferred for charter sales path** |
+| [`program-metrics.md`](program-metrics.md) | MC-A*/B*/C* catalog + `GET /v1/admin/program-metrics` (SBIR evidence; depends on LIU + feedback + outcomes) | Spec'd; **deferred for charter sales path** |
+| [`pilot-research-export.md`](pilot-research-export.md) | FERPA-safe de-identified bundle for DOE/IES reviewers | Spec'd + plan staged; **deferred for charter sales path** |
 | [`tenant-config.md`](tenant-config.md) | Per-org overridable business rules + admin API; not pilot-blocking | Spec'd + plan staged |
 | [`ci-cd-pipeline.md`](ci-cd-pipeline.md) | GitHub Actions: merge-gate CI + Deploy→Pilot (Fly.io) + Deploy→Prod (AWS CDK) | Spec'd + plan staged |
 
@@ -71,6 +70,7 @@ Roadmap and sequencing: [`docs/foundation/roadmap.md`](../foundation/roadmap.md)
 **Dashboard & infrastructure:**
 - [`decision-panel-ui.md`](decision-panel-ui.md) — 4-panel proof surface (React 19+, shadcn/ui, Tailwind)
 - [`dashboard-passphrase-gate.md`](dashboard-passphrase-gate.md) — FERPA-safe session access control; dual-code interim pilot (§ Dual access codes)
+- [`customer-feedback-loop.md`](customer-feedback-loop.md) — always-on Send feedback + CSAT API + admin triage; shipped (2026-07-04, [`pilot-charter-onboarding.plan.md`](../../.cursor/plans/pilot-charter-onboarding.plan.md))
 - [`nextjs-amplify-dashboard-migration.md`](nextjs-amplify-dashboard-migration.md) — dashboard → Next.js; **Amplify pilot deploy complete** (pilot-charter TASK-004); Cognito Phase 5 still deferred
 - [`tenant-provisioning.md`](tenant-provisioning.md) — API keys, usage plans, org enforcement
 - [`aws-deployment.md`](aws-deployment.md) — API Gateway + Lambda + DynamoDB via AWS CDK

@@ -4,6 +4,8 @@ import { getServerEnv } from '@/lib/env';
 import {
   FB_SESSION_COOKIE_NAME,
   isFeedbackProxyPath,
+  isProductFeedbackProxyPath,
+  PF_SESSION_COOKIE_NAME,
   readDashboardSessionCookieValue,
 } from '@/lib/session-cookie-edge';
 
@@ -131,10 +133,14 @@ async function proxyRequest(request: Request, pathSegments: string[]): Promise<R
   if (accept) upstreamHeaders.set('accept', accept);
   if (contentType) upstreamHeaders.set('content-type', contentType);
 
-  if (request.method === 'POST' && isFeedbackProxyPath(pathSegments)) {
+  if (request.method === 'POST') {
     const sessionValue = readDashboardSessionCookieValue(request);
     if (sessionValue) {
-      upstreamHeaders.set('Cookie', `${FB_SESSION_COOKIE_NAME}=${sessionValue}`);
+      if (isFeedbackProxyPath(pathSegments)) {
+        upstreamHeaders.set('Cookie', `${FB_SESSION_COOKIE_NAME}=${sessionValue}`);
+      } else if (isProductFeedbackProxyPath(pathSegments)) {
+        upstreamHeaders.set('Cookie', `${PF_SESSION_COOKIE_NAME}=${sessionValue}`);
+      }
     }
   }
 

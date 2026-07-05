@@ -6,6 +6,9 @@ export const SESSION_COOKIE_NAME = 'dp_session';
 /** Sibling cookie for educator feedback under `/v1/decisions/*` — see docs/specs/dashboard-passphrase-gate.md */
 export const FEEDBACK_SESSION_COOKIE_NAME = 'fb_session';
 
+/** Sibling cookie for product feedback under `/v1/feedback/*` — see docs/specs/customer-feedback-loop.md */
+export const PRODUCT_FEEDBACK_SESSION_COOKIE_NAME = 'pf_session';
+
 const HMAC_ALGO = 'sha256';
 
 function base64UrlEncodeUtf8(payloadJson: string): string {
@@ -112,6 +115,26 @@ export function buildFeedbackCookieAttributes(opts: {
 } {
   return {
     path: '/v1/decisions',
+    httpOnly: true,
+    secure: opts.secure,
+    sameSite: 'strict',
+    maxAge: opts.maxAgeSeconds,
+  };
+}
+
+/** Cookie attributes for `pf_session` (Path=/v1/feedback). Same signing/TTL model as `fb_session`. */
+export function buildProductFeedbackCookieAttributes(opts: {
+  maxAgeSeconds: number;
+  secure: boolean;
+}): {
+  path: string;
+  httpOnly: boolean;
+  secure: boolean;
+  sameSite: 'strict';
+  maxAge: number;
+} {
+  return {
+    path: '/v1/feedback',
     httpOnly: true,
     secure: opts.secure,
     sameSite: 'strict',

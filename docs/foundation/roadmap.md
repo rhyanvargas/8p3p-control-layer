@@ -2,11 +2,11 @@
 
 The **stable entry point** for planning and execution. It stays short and points to the current single sources of truth. Full history, the 24-month phase arc, the 37-row capability inventory, and historical plan-status tables are preserved in [`archive/snapshots/roadmap-2026-06-23.md`](../../archive/snapshots/roadmap-2026-06-23.md) (historical inventory snapshot).
 
-## Current Objective (2026-06-26) — Hosted Charter Pilot Readiness
+## Current Objective (2026-07-04) — Hosted Charter Pilot Readiness
 
-The CEO ask is now implemented in code: decisions can carry a short, plain-language explanation of **where** a learner is showing learning decay and **why**, framed as the system's *confidence in the learner's learning* (not a grade), and **auditable** ("AI explains, never decides"). Backend generation, contract coverage, and Panels 2 & 3 body-copy consumption are complete on branch.
+The CEO ask is now implemented in code: decisions can carry a short, plain-language explanation of **where** a learner is showing learning decay and **why**, framed as the system's *confidence in the learner's learning* (not a grade), and **auditable** ("AI explains, never decides"). Backend generation, contract coverage, Panels 2 & 3 body-copy consumption, and the **product feedback loop P0** (always-on Send feedback + admin triage) are complete on branch.
 
-The active execution path has shifted to the charter pilot readiness plan: deploy the AWS API + Amplify dashboard, enable Bedrock in the pilot Lambda, verify ingestion through the hosted dashboard, and capture GTM demo evidence. Source of truth: [`.cursor/plans/pilot-charter-onboarding.plan.md`](../../.cursor/plans/pilot-charter-onboarding.plan.md).
+The active execution path has completed charter pilot engineering: AWS API + Amplify dashboard deployed, Bedrock enabled in the pilot Lambda, ingestion verified on hosted env, and customer feedback loop shipped (**23/23** plan tasks on branch). **Ops-only (not code):** record demo MP4 per [`pilot-demo-video-checklist.md`](../guides/pilot-demo-video-checklist.md) into the pilot vault. Source of truth: [`.cursor/plans/pilot-charter-onboarding.plan.md`](../../.cursor/plans/pilot-charter-onboarding.plan.md).
 
 > **Provenance caveat:** the meeting record is a scaffold with unconfirmed `TODO`s (attendees, prospect name, formal P0 approval). The *direction* is verifiable (2026-06-22 CEO voice note in [`docs/specs/ai-educator-explanations.md`](../specs/ai-educator-explanations.md) §Overview); the *meeting decisions* are not yet ratified.
 
@@ -31,7 +31,9 @@ Three distinct tiers hide under one word. "No deployment" for the controlled eva
 | Priority | Work | Ref |
 |----------|------|-----|
 | **P0 shipped** | AI educator-explanation layer (A1): backend + Panels 2/3 body-copy consumption | `docs/specs/ai-educator-explanations.md` · `.cursor/plans/ai-educator-explanations.plan.md` |
-| **P0 active** | Hosted charter pilot readiness: AWS API, Amplify dashboard, AI explanations ON, feedback loop P0, data onboarding, demo capture | `.cursor/plans/pilot-charter-onboarding.plan.md` |
+| **P0 shipped** | Customer feedback loop P0: Send feedback Sheet, `POST /v1/feedback`, admin GET, pf_session | `docs/specs/customer-feedback-loop.md` · `.cursor/plans/pilot-charter-onboarding.plan.md` TASK-006..016 |
+| **P0 shipped (ops)** | Hosted charter pilot: AWS API, Amplify dashboard, Bedrock ON, hosted ingestion dry-run | `.cursor/plans/pilot-charter-onboarding.plan.md` TASK-003..018 |
+| **P0 active (ops)** | GTM demo video capture — execute checklist, store MP4 in vault | [`pilot-demo-video-checklist.md`](../guides/pilot-demo-video-checklist.md) |
 | **P0 shipped (doc)** | Organic educator wave: §D5 persona IA, dual-passphrase spec, Zoom/two-path runbooks, policy-builder scaffold | `.cursor/plans/ceo_educator_wave_docs_5f6ef773.plan.md` |
 | **P0 active (code)** | Dashboard persona enforcement — nav/route/tab gating per §D5 | `.cursor/plans/dashboard-persona-enforcement.plan.md` |
 | **P0** | Decision Panel D1 inversion — educator summary at L0, rule id + rationale in L1 Sheet (A2) | `.cursor/plans/dashboard-uiux-improvements.plan.md` |
@@ -69,13 +71,12 @@ This table is the **only** place to read program-level status. To decide what to
 - **Plan-level** rollup + "Next action" lives **only** in this ledger.
 - Specs keep authoring status in [`docs/specs/README.md`](../specs/README.md); contracts/CI remain machine-verifiable truth (T5). Nothing else tracks feature status.
 
-> Counts reflect each plan's frontmatter on 2026-06-29. "Shipped on branch" = implemented + tests, pending commit/merge; live AWS enablement is a separate ops step inside `pilot-charter-onboarding.plan.md`.
+> Counts reflect each plan's frontmatter on 2026-07-04. "Shipped on branch" = implemented + tests, pending commit/merge; live AWS enablement verified per `pilot-charter-onboarding.plan.md` TASK-003–005.
 
 ### Active / next (execute in this order)
 
 | Order | Feature / Plan | Spec | Status | Next action |
 |-------|----------------|------|--------|-------------|
-| 1 | `pilot-charter-onboarding.plan.md` | `customer-feedback-loop.md` (+ runbook refs) | **P0 active** — 8/23 (PREREQ + TASK-001..005 done) | TASK-006 ProductFeedback types, error codes, and FeedbackRepository extension |
 | 1b | `dashboard-persona-enforcement.plan.md` | `dashboard-design-requirements.md` §D5 · `dashboard-passphrase-gate.md` | **P0 active** — 0/8 | PE-001 dual-code login + persona cookie |
 | 2 | `overview-educator-activity-layout.plan.md` (D4) | `overview-educator-activity-layout.md` | **Staged** — 0/11 | TASK-001 chart/CSV builders; **committed `RefreshDataButton` + `--content-max-width` substrate already in `overview-explorer.tsx`** — absorb when wiring TASK-006 |
 | 3 | `learner-pending-review-bar.plan.md` (LPR) | `learner-pending-review-bar.md` | **Staged** — 0/11 | TASK-001 `selectPendingDecisionForLearner`; build **after** the committed review-bar overlay + §8.2 learner tabs |
@@ -91,10 +92,13 @@ This table is the **only** place to read program-level status. To decide what to
 | `attention-review-ux.plan.md` (Phase 1) | `attention-review-ux.md` | **Shipped** 11/11 |
 | `attention-review-ux-phase-2.plan.md` | `attention-review-ux.md` §Phase 2 | **Shipped** 15/15 |
 | `educator-feedback-api.plan.md` | `educator-feedback-api.md` | **Shipped** 17/17 — backend `src/feedback/` + dashboard write path |
+| `pilot-charter-onboarding.plan.md` | `customer-feedback-loop.md` · runbook refs | **Shipped** 23/23 — feedback loop, hosted deploy, dry-run, roadmap sync, demo checklist; **ops:** record MP4 per [`pilot-demo-video-checklist.md`](../guides/pilot-demo-video-checklist.md) |
 | `documentation-boundary-migration.plan.md` | `documentation-boundary-migration.md` | **Shipped** 13/13 |
 | `task-6-doc-cleanup.plan.md` | — (doc-only) | **Shipped** 6/6 |
 
-### Staged — SBIR evidence layer (after pilot path clears; ordered by dependency)
+### Staged — SBIR evidence layer (deferred for charter sales path; ordered by dependency)
+
+Not required before hosted demo, board/principal review, or first customer login. Revisit after charter pilot clears or SBIR funding gate opens.
 
 | Order | Feature / Plan | Spec | Status |
 |-------|----------------|------|--------|
@@ -110,6 +114,7 @@ This table is the **only** place to read program-level status. To decide what to
 | `educator-policy-builder.plan.md` | `educator-policy-builder.md` · `policy-generation-service.md` | **Staged** 0/8 — EPB-001 after PGS deploy; MVP-1 compliance persona only |
 | `learner-trajectory-api-v1.2.plan.md` | `learner-trajectory-api.md` §v1.2 | **Staged** 0/7 (P1) |
 | `tenant-config.plan.md` | `tenant-config.md` | **Staged** 0/11 |
+| TEKS / STAAR standards mapping | — (config layer hedge) | **Phase 2+ deferred** — see [`pilot-data-requirements.md`](../guides/pilot-data-requirements.md) § TEKS; build when contract closes |
 | `ci-cd-pipeline.plan.md` | `ci-cd-pipeline.md` | **Staged** — Fly.io/Node matrix, not merged |
 | `learner-summary-api-hygiene.plan.md` | `learner-summary-api.md` | **Deferred post-pilot** 0/10 |
 
@@ -144,7 +149,7 @@ This roadmap is a planning anchor, not the place where agent behavior is enforce
 
 ## Pilot Feedback Intake
 
-The roadmap defines *what* we build; the feedback ritual defines *how* pilot-field signal shapes *what we prioritize next*. The closed loop is spec'd in [`docs/specs/customer-feedback-loop.md`](../specs/customer-feedback-loop.md), and the agent workflow is `/pilot-feedback-intake` (source of truth: `.cursor/skills/pilot-feedback-intake/SKILL.md`). Customer-specific append-only logs remain internal-only.
+The roadmap defines *what* we build; the feedback ritual defines *how* pilot-field signal shapes *what we prioritize next*. The closed loop is spec'd in [`docs/specs/customer-feedback-loop.md`](../specs/customer-feedback-loop.md) and **shipped on branch** (Send feedback Sheet, `GET /v1/admin/feedback`, triage schema in [`docs/guides/pilot-feedback-log-schema.md`](../guides/pilot-feedback-log-schema.md)). Agent workflow: `/pilot-feedback-intake` (source of truth: `.cursor/skills/pilot-feedback-intake/SKILL.md`). Customer-specific append-only logs remain internal-only.
 
 ## Versioning Policy
 

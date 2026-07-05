@@ -11,8 +11,14 @@ import {
   type QueryCommandOutput,
 } from '@aws-sdk/lib-dynamodb';
 import { ErrorCodes } from '../shared/error-codes.js';
-import type { DecisionViewRecord, FeedbackRecord } from '../shared/types.js';
-import type { FeedbackRepository, PendingCountResult } from './repository.js';
+import {
+  PRODUCT_FEEDBACK_LIST_DEFAULT_LIMIT,
+  PRODUCT_FEEDBACK_LIST_MAX_LIMIT,
+  type DecisionViewRecord,
+  type FeedbackRecord,
+  type ProductFeedbackRecord,
+} from '../shared/types.js';
+import type { FeedbackRepository, PendingCountResult, ProductFeedbackListFilters } from './repository.js';
 
 export class FeedbackPendingNotImplementedError extends Error {
   readonly code = ErrorCodes.NOT_IMPLEMENTED_ON_CLOUD;
@@ -155,6 +161,95 @@ export class DynamoDbFeedbackRepository implements FeedbackRepository {
     void _olderThanDays;
     void _nowIso;
     throw new FeedbackPendingNotImplementedError();
+  }
+
+  private normalizeProductFeedbackLimit(raw?: number): number {
+    if (raw === undefined) return PRODUCT_FEEDBACK_LIST_DEFAULT_LIMIT;
+    if (!Number.isFinite(raw) || raw < 1) return PRODUCT_FEEDBACK_LIST_DEFAULT_LIMIT;
+    return Math.min(Math.floor(raw), PRODUCT_FEEDBACK_LIST_MAX_LIMIT);
+  }
+
+  private mapProductFeedbackItem(it: Record<string, unknown>): ProductFeedbackRecord {
+    return {
+      feedback_id: String(it.feedback_id),
+      org_id: String(it.org_id),
+      session_id: String(it.session_id),
+      kind: it.kind as ProductFeedbackRecord['kind'],
+      feedback_type: (it.feedback_type as ProductFeedbackRecord['feedback_type']) ?? null,
+      category: (it.category as ProductFeedbackRecord['category']) ?? null,
+      csat_score: it.csat_score == null ? null : Number(it.csat_score),
+      message: (it.message as string | null) ?? null,
+      page_context: (it.page_context as string | null) ?? null,
+      app_version: (it.app_version as string | null) ?? null,
+      created_at: String(it.created_at),
+    };
+  }
+
+  private productFeedbackMatchesFilters(
+    item: Record<string, unknown>,
+    filters?: ProductFeedbackListFilters
+  ): boolean {
+    if (!filters) return true;
+    if (filters.kind !== undefined && item.kind !== filters.kind) return false;
+    if (filters.feedback_type !== undefined && item.feedback_type !== filters.feedback_type) return false;
+    if (filters.category !== undefined && item.category !== filters.category) return false;
+    if (filters.since !== undefined && String(item.created_at) < filters.since) return false;
+    return true;
+  }
+
+  async insertProductFeedback(record: ProductFeedbackRecord): Promise<void> {
+    const sk = `product#${record.created_at}#${record.feedback_id}`;
+    await this.doc.send(
+      new PutCommand({
+        TableName: this.tableName,
+        Item: {
+          org_id: record.org_id,
+          sk,
+          record_kind: 'product_feedback',
+          feedback_id: record.feedback_id,
+          session_id: record.session_id,
+          kind: record.kind,
+          feedback_type: record.feedback_type,
+          category: record.category,
+          csat_score: record.csat_score,
+          message: record.message,
+          page_context: record.page_context,
+          app_version: record.app_version,
+          created_at: record.created_at,
+        },
+      })
+    );
+  }
+
+  async listProductFeedback(orgId: string, filters?: ProductFeedbackListFilters): Promise<ProductFeedbackRecord[]> {
+    const items: Record<string, unknown>[] = [];
+    let startKey: QueryCommandOutput['LastEvaluatedKey'] | undefined;
+
+    do {
+      const out = await this.doc.send(
+        new QueryCommand({
+          TableName: this.tableName,
+          KeyConditionExpression: 'org_id = :o AND begins_with(sk, :p)',
+          ExpressionAttributeValues: {
+            ':o': orgId,
+            ':p': 'product#',
+          },
+          ScanIndexForward: false,
+          ExclusiveStartKey: startKey,
+        })
+      );
+      for (const it of out.Items ?? []) {
+        const row = it as Record<string, unknown>;
+        if (this.productFeedbackMatchesFilters(row, filters)) {
+          items.push(row);
+        }
+      }
+      startKey = out.LastEvaluatedKey;
+    } while (startKey);
+
+    items.sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
+    const limit = this.normalizeProductFeedbackLimit(filters?.limit);
+    return items.slice(0, limit).map((it) => this.mapProductFeedbackItem(it));
   }
 
   close(): void {

@@ -18,6 +18,9 @@ jobs:
       CONTROL_LAYER_API_BASE_URL: http://127.0.0.1:9999
       CONTROL_LAYER_API_KEY: ci-dashboard-placeholder
       NEXT_PUBLIC_APP_NAME: Decision Panel
+      NEXT_PUBLIC_FEEDBACK_CSAT: "true"
+      NEXT_PUBLIC_CSAT_MIN_INTERVAL_DAYS: "7"
+      NEXT_PUBLIC_FEEDBACK_TASK_DECISION_THRESHOLD: "5"
 
     steps:
       - uses: actions/checkout@v4

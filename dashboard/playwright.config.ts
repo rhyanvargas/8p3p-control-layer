@@ -1,5 +1,8 @@
 import { defineConfig } from '@playwright/test';
 
+/** Match webServer e2eEnv default so PFEED-013/014 skip guards see CSAT enabled. */
+process.env.NEXT_PUBLIC_FEEDBACK_CSAT ??= 'true';
+
 const MOCK_UPSTREAM_PORT = 9999;
 const NEXT_PORT = 3000;
 const host = '127.0.0.1';
@@ -12,6 +15,10 @@ const e2eEnv = {
   CONTROL_LAYER_API_KEY: process.env.CONTROL_LAYER_API_KEY ?? 'ci-e2e-placeholder',
   CONTROL_LAYER_ORG_ID: process.env.CONTROL_LAYER_ORG_ID ?? 'e2e-org',
   NEXT_PUBLIC_APP_NAME: process.env.NEXT_PUBLIC_APP_NAME ?? 'Decision Panel',
+  NEXT_PUBLIC_FEEDBACK_CSAT: process.env.NEXT_PUBLIC_FEEDBACK_CSAT ?? 'true',
+  NEXT_PUBLIC_CSAT_MIN_INTERVAL_DAYS: process.env.NEXT_PUBLIC_CSAT_MIN_INTERVAL_DAYS ?? '7',
+  NEXT_PUBLIC_FEEDBACK_TASK_DECISION_THRESHOLD:
+    process.env.NEXT_PUBLIC_FEEDBACK_TASK_DECISION_THRESHOLD ?? '5',
   /** `next start` sets NODE_ENV=production (Secure cookies); e2e uses plain HTTP. */
   DASHBOARD_COOKIE_SECURE: 'false',
 };

@@ -7,6 +7,9 @@ export const HOST_SESSION_COOKIE_NAME = '__Host-dp_session';
 /** Sibling cookie for educator feedback API writes (same signed value as dp_session). */
 export const FB_SESSION_COOKIE_NAME = 'fb_session';
 
+/** Sibling cookie for product feedback API writes (same signed value as dp_session). */
+export const PF_SESSION_COOKIE_NAME = 'pf_session';
+
 export function isSecureCookieContext(): boolean {
   if (process.env.DASHBOARD_COOKIE_SECURE === 'false') {
     return false;
@@ -31,6 +34,26 @@ export function buildSetCookieAttributes(opts: {
 } {
   return {
     path: '/',
+    httpOnly: true,
+    secure: opts.secure,
+    sameSite: 'strict',
+    maxAge: opts.maxAgeSeconds,
+  };
+}
+
+/** Cookie attributes for `pf_session` when scoped to the product feedback API path. */
+export function buildProductFeedbackCookieAttributes(opts: {
+  maxAgeSeconds: number;
+  secure: boolean;
+}): {
+  path: string;
+  httpOnly: boolean;
+  secure: boolean;
+  sameSite: 'strict';
+  maxAge: number;
+} {
+  return {
+    path: '/v1/feedback',
     httpOnly: true,
     secure: opts.secure,
     sameSite: 'strict',
@@ -87,6 +110,17 @@ export function readDashboardSessionCookieValue(
     },
     secure,
   );
+}
+
+/** Matches POST /v1/feedback and POST /v1/feedback/csat proxy paths. */
+export function isProductFeedbackProxyPath(pathSegments: string[]): boolean {
+  if (pathSegments[0] !== 'v1' || pathSegments[1] !== 'feedback') {
+    return false;
+  }
+  if (pathSegments.length === 2) {
+    return true;
+  }
+  return pathSegments.length === 3 && pathSegments[2] === 'csat';
 }
 
 /** Matches v1/decisions/:decisionId/feedback and v1/decisions/:decisionId/view proxy paths. */
