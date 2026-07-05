@@ -11,6 +11,7 @@ import { LearnerTrajectoryTab } from '@/app/(dashboard)/learners/[ref]/_componen
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useDashboardPersona } from '@/lib/persona-context';
 
 type LearnerDetailViewProps = {
   orgId: string;
@@ -27,6 +28,8 @@ export function LearnerDetailView({
   reviewDecisionId,
   fromAttention = false,
 }: LearnerDetailViewProps) {
+  const persona = useDashboardPersona();
+  const isEducator = persona === 'educator';
   const showReviewBar = reviewDecisionId != null && reviewDecisionId !== '';
 
   return (
@@ -48,8 +51,12 @@ export function LearnerDetailView({
       <Tabs defaultValue="overview">
         <TabsList variant="line">
           <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="state">State</TabsTrigger>
-          <TabsTrigger value="trajectory">Trajectory</TabsTrigger>
+          {!isEducator ? (
+            <>
+              <TabsTrigger value="state">State</TabsTrigger>
+              <TabsTrigger value="trajectory">Trajectory</TabsTrigger>
+            </>
+          ) : null}
           <TabsTrigger value="struggles">Struggles & progress</TabsTrigger>
         </TabsList>
 
@@ -57,17 +64,21 @@ export function LearnerDetailView({
           <LearnerOverviewTab orgId={orgId} learnerRef={learnerRef} />
         </TabsContent>
 
-        <TabsContent value="state" className="pt-4">
-          <LearnerStateTab
-            orgId={orgId}
-            learnerRef={learnerRef}
-            version={version}
-          />
-        </TabsContent>
+        {!isEducator ? (
+          <>
+            <TabsContent value="state" className="pt-4">
+              <LearnerStateTab
+                orgId={orgId}
+                learnerRef={learnerRef}
+                version={version}
+              />
+            </TabsContent>
 
-        <TabsContent value="trajectory" className="pt-4">
-          <LearnerTrajectoryTab orgId={orgId} learnerRef={learnerRef} />
-        </TabsContent>
+            <TabsContent value="trajectory" className="pt-4">
+              <LearnerTrajectoryTab orgId={orgId} learnerRef={learnerRef} />
+            </TabsContent>
+          </>
+        ) : null}
 
         <TabsContent value="struggles" className="pt-4">
           <LearnerStrugglesTab orgId={orgId} learnerRef={learnerRef} />

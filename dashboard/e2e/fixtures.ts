@@ -384,6 +384,35 @@ export function isGateEnabledE2e(): boolean {
   return (process.env.DASHBOARD_ACCESS_CODE?.trim() ?? '').length > 0;
 }
 
+/** Fixed passphrases for the persona Playwright project (see playwright.config.ts). */
+export const E2E_PERSONA_EDUCATOR_CODE =
+  process.env.DASHBOARD_ACCESS_CODE_EDUCATOR ?? 'e2e-educator-code';
+export const E2E_PERSONA_COMPLIANCE_CODE =
+  process.env.DASHBOARD_ACCESS_CODE_COMPLIANCE ?? 'e2e-compliance-code';
+
+export async function loginWithAccessCode(page: Page, code: string): Promise<void> {
+  await page.goto('/login');
+  await page.getByLabel('Access Code').fill(code);
+  await page.getByRole('button', { name: 'Continue' }).click();
+  await expect(page).toHaveURL('/', { timeout: 15_000 });
+}
+
+export async function assertEducatorNavVisible(page: Page): Promise<void> {
+  const sidebar = page.locator('[data-sidebar="sidebar"]');
+  await expect(sidebar.getByRole('link', { name: 'Overview', exact: true })).toBeVisible();
+  await expect(sidebar.getByRole('link', { name: 'Attention', exact: true })).toBeVisible();
+  await expect(sidebar.getByRole('link', { name: 'Learners', exact: true })).toBeVisible();
+  await expect(sidebar.getByRole('link', { name: 'Decisions', exact: true })).toBeHidden();
+  await expect(sidebar.getByRole('link', { name: 'Signals', exact: true })).toBeHidden();
+  await expect(sidebar.getByRole('link', { name: 'Reports', exact: true })).toBeHidden();
+}
+
+export async function assertComplianceMainNavVisible(page: Page): Promise<void> {
+  await assertCoreNavVisible(page);
+  const sidebar = page.locator('[data-sidebar="sidebar"]');
+  await expect(sidebar.getByRole('link', { name: 'Reports', exact: true })).toBeVisible();
+}
+
 /** Table reject opens the review sheet reason step (Phase 2). */
 export async function rejectFromTableWithReason(
   page: Page,

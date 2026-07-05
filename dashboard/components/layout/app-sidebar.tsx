@@ -18,11 +18,14 @@ import {
 } from '@/components/ui/sidebar';
 import { Layers } from 'lucide-react';
 
+import type { DashboardPersona } from '@/lib/persona';
+
 type AppSidebarProps = ComponentProps<typeof Sidebar> & {
   appName: string;
   orgId: string;
   apiDocsUrl: string;
   environmentLabel?: string;
+  persona: DashboardPersona;
 };
 
 export function AppSidebar({
@@ -30,6 +33,7 @@ export function AppSidebar({
   orgId,
   apiDocsUrl,
   environmentLabel,
+  persona,
   ...props
 }: AppSidebarProps) {
   return (
@@ -54,7 +58,7 @@ export function AppSidebar({
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <NavMain />
+        <NavMain persona={persona} />
         <NavSecondary apiDocsUrl={apiDocsUrl} />
       </SidebarContent>
       <SidebarFooter>

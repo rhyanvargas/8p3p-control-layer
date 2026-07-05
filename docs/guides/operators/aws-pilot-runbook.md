@@ -87,7 +87,9 @@ cd dashboard && npm run build && npm test && npm run test:e2e
 | Dashboard URL | `https://main.d111111.amplifyapp.com` | Amplify default domain or custom |
 | API key value | *(vault)* | API Gateway key — see § 2.3 |
 | Admin API key | *(vault)* | `ADMIN_API_KEY` at CDK deploy |
-| Dashboard passphrase | *(vault)* | `DASHBOARD_ACCESS_CODE` |
+| Dashboard passphrase (legacy) | *(vault)* | `DASHBOARD_ACCESS_CODE` — single code, full nav; use only when dual codes are not configured |
+| Dashboard educator passphrase | *(vault)* | `DASHBOARD_ACCESS_CODE_EDUCATOR` — D5 educator persona (Overview, Attention, Learners) |
+| Dashboard compliance passphrase | *(vault)* | `DASHBOARD_ACCESS_CODE_COMPLIANCE` — D5 compliance persona (full nav + audit routes) |
 | `COOKIE_SECRET` | *(vault)* | `openssl rand -hex 32` |
 
 ---
@@ -254,11 +256,26 @@ Set in Amplify Console → **Environment variables** (runtime / SSR — **not** 
 | `CONTROL_LAYER_API_BASE_URL` | Yes | CDK `ApiUrl` (no trailing path beyond stage) |
 | `CONTROL_LAYER_API_KEY` | Yes | API Gateway key from § 2.3 |
 | `CONTROL_LAYER_ORG_ID` | Yes | `southwest-charter` |
-| `DASHBOARD_ACCESS_CODE` | Yes (pilot) | Human-memorable passphrase |
+| `DASHBOARD_ACCESS_CODE_EDUCATOR` | Yes (dual-code pilot) | Human-memorable passphrase for teachers/coaches — D5 educator nav |
+| `DASHBOARD_ACCESS_CODE_COMPLIANCE` | Yes (dual-code pilot) | Distinct passphrase for admins/operators — D5 full nav |
+| `DASHBOARD_ACCESS_CODE` | Legacy fallback | Single passphrase → compliance-equivalent session when **both** dual vars are unset |
 | `COOKIE_SECRET` | Yes (when gate on) | `openssl rand -hex 32` |
 | `DASHBOARD_SESSION_TTL_HOURS` | No | `8` |
 | `CONTROL_LAYER_ADMIN_API_KEY` | No | Same as `ADMIN_API_KEY` if upload preflight used |
 | `NEXT_PUBLIC_APP_NAME` | No | `Decision Panel` |
+
+**Dual-code mode (recommended for educator-wave pilots):** Set **both** `DASHBOARD_ACCESS_CODE_EDUCATOR` and `DASHBOARD_ACCESS_CODE_COMPLIANCE` to non-empty values. Login then mints a signed `dp_session` with persona `educator` or `compliance` per [`dashboard-passphrase-gate.md`](../../specs/dashboard-passphrase-gate.md) § Dual access codes. When dual-code mode is active, `DASHBOARD_ACCESS_CODE` is **ignored** for login validation.
+
+**Distribution (normative):**
+
+| Code | Env var | Recipients | Never share with |
+|------|---------|------------|------------------|
+| Educator | `DASHBOARD_ACCESS_CODE_EDUCATOR` | Teachers, coaches, principals | Compliance observers on shared educator Zoom |
+| Compliance | `DASHBOARD_ACCESS_CODE_COMPLIANCE` | District IT, data privacy, pilot admins | Classroom educators in main session |
+
+Send codes via district IT over a secure channel (email/LMS) — not Zoom chat or recordings. Distribution checklist: [`organic-educator-wave-zoom.md`](../playbooks/organic-educator-wave-zoom.md) § Dual-code distribution.
+
+**Legacy single code:** If only `DASHBOARD_ACCESS_CODE` is set, every login receives full nav (compliance-equivalent). Hosts **must** follow the [two-path demo script](../playbooks/springs-pilot-demo.md#two-path-demo-normative-for-hosted-pilot) manually until dual codes are configured.
 
 Ref: [Amplify SSR environment variables](https://docs.aws.amazon.com/amplify/latest/userguide/ssr-environment-variables.html)
 
@@ -298,6 +315,8 @@ curl -sS -X POST "${API_URL}/v1/signals" \
 ### 4.2 Dashboard gate
 
 - [ ] Open `https://<amplify-host>/login` → enter passphrase → land on Overview  
+- [ ] **Dual-code pilots:** educator code → sidebar shows Overview, Attention, Learners only; compliance code → full nav (Decisions, Signals, Reports)  
+- [ ] Educator session: direct navigation to `/decisions` redirects to Overview  
 - [ ] Overview, Attention, Learners render with live data  
 - [ ] `/signals/upload` — upload wizard completes (e2e: [`signal-upload.spec.ts`](../../../dashboard/e2e/signal-upload.spec.ts))  
 - [ ] Attention → Approve or Reject → toast + persistence  

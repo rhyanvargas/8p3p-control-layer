@@ -1,5 +1,7 @@
 import { createHmac, timingSafeEqual } from 'crypto';
 
+import { normalizePersona, type DashboardPersona } from '@/lib/persona';
+
 export {
   buildSetCookieAttributes,
   getSessionCookieName,
@@ -8,6 +10,8 @@ export {
   readSessionCookieValue,
   SESSION_COOKIE_NAME,
 } from '@/lib/session-cookie-edge';
+
+export type { DashboardPersona };
 
 const HMAC_ALGO = 'sha256';
 
@@ -21,11 +25,19 @@ function base64UrlDecodeUtf8(payloadB64: string): string {
 
 /**
  * Returns the cookie value: hex(HMAC-SHA256(secret, payloadJson)) + "." + base64url(payloadJson).
- * Payload is `JSON.stringify({ exp })` where `exp` is unix seconds.
+ * Payload is `JSON.stringify({ exp, persona? })` where `exp` is unix seconds.
  */
-export function signSession(secret: string, ttlSeconds: number): string {
+export function signSession(
+  secret: string,
+  ttlSeconds: number,
+  persona?: DashboardPersona,
+): string {
   const exp = Math.floor(Date.now() / 1000) + ttlSeconds;
-  const payloadJson = JSON.stringify({ exp });
+  const payload: { exp: number; persona?: DashboardPersona } = { exp };
+  if (persona) {
+    payload.persona = persona;
+  }
+  const payloadJson = JSON.stringify(payload);
   const sigHex = createHmac(HMAC_ALGO, secret).update(payloadJson, 'utf8').digest('hex');
   const payloadB64 = base64UrlEncodeUtf8(payloadJson);
   return `${sigHex}.${payloadB64}`;
@@ -42,17 +54,23 @@ function splitSessionValue(value: string): { sigHex: string; payloadB64: string 
   };
 }
 
-function parsePayloadJson(payloadJson: string): { ok: true; exp: number } | { ok: false } {
+function parsePayloadJson(
+  payloadJson: string,
+): { ok: true; exp: number; persona?: DashboardPersona } | { ok: false } {
   try {
     const parsed = JSON.parse(payloadJson) as unknown;
     if (!parsed || typeof parsed !== 'object' || !('exp' in parsed)) {
       return { ok: false };
     }
-    const rawExp = (parsed as { exp: unknown }).exp;
-    if (typeof rawExp !== 'number' || !Number.isFinite(rawExp)) {
+    const record = parsed as { exp: unknown; persona?: unknown };
+    if (typeof record.exp !== 'number' || !Number.isFinite(record.exp)) {
       return { ok: false };
     }
-    return { ok: true, exp: rawExp };
+    const persona =
+      record.persona === undefined
+        ? undefined
+        : normalizePersona(typeof record.persona === 'string' ? record.persona : null);
+    return { ok: true, exp: record.exp, persona };
   } catch {
     return { ok: false };
   }
@@ -61,7 +79,7 @@ function parsePayloadJson(payloadJson: string): { ok: true; exp: number } | { ok
 export function verifySession(
   secret: string,
   value: string,
-): { valid: boolean; exp?: number } {
+): { valid: boolean; exp?: number; persona?: DashboardPersona } {
   const parts = splitSessionValue(value);
   if (!parts) {
     return { valid: false };
@@ -97,5 +115,5 @@ export function verifySession(
     return { valid: false };
   }
 
-  return { valid: true, exp: parsed.exp };
+  return { valid: true, exp: parsed.exp, persona: parsed.persona };
 }

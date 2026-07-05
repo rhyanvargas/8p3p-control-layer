@@ -9,6 +9,9 @@ import { SiteHeader } from '@/components/layout/site-header';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { TooltipProvider } from '@/components/ui/tooltip';
 
+import { DashboardPersonaProvider } from '@/lib/persona-context';
+import type { DashboardPersona } from '@/lib/persona';
+
 export type DashboardShellProps = {
   children: ReactNode;
   defaultSidebarOpen?: boolean;
@@ -16,6 +19,7 @@ export type DashboardShellProps = {
   appName: string;
   apiDocsUrl: string;
   environmentLabel?: string;
+  persona: DashboardPersona;
 };
 
 export function DashboardShell({
@@ -25,8 +29,10 @@ export function DashboardShell({
   appName,
   apiDocsUrl,
   environmentLabel,
+  persona,
 }: DashboardShellProps) {
   return (
+    <DashboardPersonaProvider persona={persona}>
     <TooltipProvider>
     <SidebarProvider
       defaultOpen={defaultSidebarOpen}
@@ -43,6 +49,7 @@ export function DashboardShell({
         orgId={orgId}
         apiDocsUrl={apiDocsUrl}
         environmentLabel={environmentLabel}
+        persona={persona}
       />
       <SidebarInset>
         <SiteHeader />
@@ -58,5 +65,6 @@ export function DashboardShell({
       </SidebarInset>
     </SidebarProvider>
     </TooltipProvider>
+    </DashboardPersonaProvider>
   );
 }

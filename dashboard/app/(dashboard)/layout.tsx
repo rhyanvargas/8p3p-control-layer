@@ -1,6 +1,7 @@
 import { DashboardShell } from '@/components/layout/dashboard-shell';
 import { getServerEnv } from '@/lib/env';
 import { getServerOrgId } from '@/lib/org-id';
+import { getDashboardPersona } from '@/lib/session.server';
 import { getSidebarDefaultOpen } from '@/lib/sidebar.server';
 
 export default async function DashboardLayout({
@@ -8,9 +9,10 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const [defaultSidebarOpen, orgId] = await Promise.all([
+  const [defaultSidebarOpen, orgId, persona] = await Promise.all([
     getSidebarDefaultOpen(),
     Promise.resolve(getServerOrgId()),
+    getDashboardPersona(),
   ]);
 
   const env = getServerEnv();
@@ -25,6 +27,7 @@ export default async function DashboardLayout({
       appName={env.NEXT_PUBLIC_APP_NAME}
       apiDocsUrl={apiDocsUrl}
       environmentLabel={environmentLabel}
+      persona={persona}
     >
       {children}
     </DashboardShell>

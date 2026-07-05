@@ -19,6 +19,7 @@ import { useLearnerSummary } from '@/hooks/use-learner-summary';
 import { getReviewRecord } from '@/lib/decision-review';
 import { formatLevel } from '@/lib/learners';
 import { formatDecisionTime, truncateRule } from '@/lib/overview-metrics';
+import { useDashboardPersona } from '@/lib/persona-context';
 import { skillDisplayLine } from '@/lib/panel-helpers';
 import { scoreToLevel } from '@/lib/score-levels';
 import type { RecentDecisionItem } from '@/lib/api/types';
@@ -29,6 +30,8 @@ type LearnerOverviewTabProps = {
 };
 
 export function LearnerOverviewTab({ orgId, learnerRef }: LearnerOverviewTabProps) {
+  const persona = useDashboardPersona();
+  const isEducator = persona === 'educator';
   const summaryQuery = useLearnerSummary(orgId, learnerRef, {
     recentDecisionsLimit: 10,
   });
@@ -67,15 +70,19 @@ export function LearnerOverviewTab({ orgId, learnerRef }: LearnerOverviewTabProp
           return action ? <ReviewActionChip action={action} /> : '—';
         },
       },
-      {
-        id: 'rule',
-        header: 'Rule',
-        cell: ({ row }) => (
-          <span className="text-muted-foreground font-mono text-xs">
-            {truncateRule(row.original.matched_rule_id)}
-          </span>
-        ),
-      },
+      ...(isEducator
+        ? []
+        : [
+            {
+              id: 'rule',
+              header: 'Rule',
+              cell: ({ row }: { row: { original: RecentDecisionItem } }) => (
+                <span className="text-muted-foreground font-mono text-xs">
+                  {truncateRule(row.original.matched_rule_id)}
+                </span>
+              ),
+            } as ColumnDef<RecentDecisionItem>,
+          ]),
       {
         accessorKey: 'educator_summary',
         header: 'Summary',
@@ -86,7 +93,7 @@ export function LearnerOverviewTab({ orgId, learnerRef }: LearnerOverviewTabProp
         ),
       },
     ],
-    [latestActionByDecisionId]
+    [isEducator, latestActionByDecisionId]
   );
 
   if (summaryQuery.isLoading) {
@@ -115,39 +122,46 @@ export function LearnerOverviewTab({ orgId, learnerRef }: LearnerOverviewTabProp
         : 'stable';
   const skillLine = skillDisplayLine(fields.skill);
 
-  return (
-    <div className="flex flex-col gap-6">
-      <SheetSection
-        title="Summary"
-        fields={[
-          {
-            label: 'Level',
-            value: (
-              <span className="flex flex-wrap items-center gap-2">
-                {mastery != null ? formatLevel(scoreToLevel(mastery)) : '—'}
-                <ProgressBadge variant={trend} />
-              </span>
-            ),
-          },
+  const summaryFields = [
+    {
+      label: 'Level',
+      value: (
+        <span className="flex flex-wrap items-center gap-2">
+          {mastery != null ? formatLevel(scoreToLevel(mastery)) : '—'}
+          <ProgressBadge variant={trend} />
+        </span>
+      ),
+    },
+    ...(isEducator
+      ? []
+      : [
           {
             label: 'State version',
             value: String(summary.current_state.state_version),
           },
-          ...(skillLine
-            ? [{ label: 'Focus skill', value: skillLine.replace('Skill: ', '') }]
-            : []),
-          {
-            label: 'Signals',
-            value: `${summary.signals_summary.total_count} total`,
-          },
+        ]),
+    ...(skillLine
+      ? [{ label: 'Focus skill', value: skillLine.replace('Skill: ', '') }]
+      : []),
+    {
+      label: 'Signals',
+      value: `${summary.signals_summary.total_count} total`,
+    },
+    ...(isEducator
+      ? []
+      : [
           {
             label: 'Active policy',
             value: summary.active_policy
               ? `${summary.active_policy.policy_id} (${summary.active_policy.policy_version})`
               : '—',
           },
-        ]}
-      />
+        ]),
+  ];
+
+  return (
+    <div className="flex flex-col gap-6">
+      <SheetSection title="Summary" fields={summaryFields} />
 
       <section className="flex flex-col gap-3">
         <div>

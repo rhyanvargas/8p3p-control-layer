@@ -7,6 +7,7 @@ import {
   pathnameOnly,
   shouldGatePath,
 } from '@/lib/auth-gate';
+import { isEducatorRouteAllowed, normalizePersona } from '@/lib/persona';
 import {
   isSecureCookieContext,
   readSessionCookieValue,
@@ -37,10 +38,18 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl, 302);
   }
 
-  const { valid } = await verifySessionAsync(secret, sessionValue);
+  const { valid, persona: rawPersona } = await verifySessionAsync(secret, sessionValue);
   if (!valid) {
     const loginUrl = new URL('/login', request.url);
     return NextResponse.redirect(loginUrl, 302);
+  }
+
+  const persona = normalizePersona(rawPersona);
+  if (persona === 'educator' && !isEducatorRouteAllowed(pathname)) {
+    const redirectUrl = request.nextUrl.clone();
+    redirectUrl.pathname = '/';
+    redirectUrl.search = '';
+    return NextResponse.redirect(redirectUrl, 302);
   }
 
   return NextResponse.next();

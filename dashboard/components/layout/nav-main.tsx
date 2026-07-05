@@ -10,16 +10,22 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from '@/components/ui/sidebar';
-import { isNavItemActive, NAV_MAIN_ITEMS } from '@/lib/navigation';
+import { isNavItemActive, getNavMainItemsForPersona } from '@/lib/navigation';
+import type { DashboardPersona } from '@/lib/persona';
 
-export function NavMain() {
+type NavMainProps = {
+  persona: DashboardPersona;
+};
+
+export function NavMain({ persona }: NavMainProps) {
   const pathname = usePathname();
+  const items = getNavMainItemsForPersona(persona);
 
   return (
     <SidebarGroup>
       <SidebarGroupContent>
         <SidebarMenu>
-          {NAV_MAIN_ITEMS.map((item) => {
+          {items.map((item) => {
             const Icon = item.icon;
             return (
               <SidebarMenuItem key={item.href}>

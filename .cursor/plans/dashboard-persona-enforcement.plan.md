@@ -3,29 +3,29 @@ name: Dashboard Persona Enforcement
 overview: "Implement §D5 persona surfaces on the hosted dashboard: dual-code login, persona cookie, nav/route/tab allowlists, educator Overview scrub, and compliance-only KPI filter. Interim pilot auth — Cognito replaces codes in Phase 2, not IA rules."
 todos:
   - id: PE-001
-    content: "Dual-code login + persona cookie — DASHBOARD_ACCESS_CODE_EDUCATOR/COMPLIANCE, extend dp_session payload, login route validation"
-    status: pending
+    content: Dual-code login + persona cookie — DASHBOARD_ACCESS_CODE_EDUCATOR/COMPLIANCE, extend dp_session payload, login route validation
+    status: completed
   - id: PE-002
-    content: "Nav allowlist by persona — filter dashboard/lib/navigation.ts and app-sidebar.tsx per D5 educator vs compliance surfaces"
-    status: pending
+    content: Nav allowlist by persona — filter dashboard/lib/navigation.ts and app-sidebar.tsx per D5 educator vs compliance surfaces
+    status: completed
   - id: PE-003
-    content: "Route guard redirect for compliance-only paths — middleware prefix allowlists; redirect educator sessions from /decisions, /signals, /reports, etc."
-    status: pending
+    content: Route guard redirect for compliance-only paths — middleware prefix allowlists; redirect educator sessions from /decisions, /signals, /reports, etc.
+    status: completed
   - id: PE-004
-    content: "Learner tab gating — learner-detail-view.tsx shows Overview + Struggles only for educator persona"
-    status: pending
+    content: Learner tab gating — learner-detail-view.tsx shows Overview + Struggles only for educator persona
+    status: completed
   - id: PE-005
-    content: "Scrub educator Overview leaks — hide matched_rule_id, policy id, state version from learner-overview-tab.tsx for educator persona"
-    status: pending
+    content: Scrub educator Overview leaks — hide matched_rule_id, policy id, state version from learner-overview-tab.tsx for educator persona
+    status: completed
   - id: PE-006
-    content: "Overview KPI persona filter — hide or relocate Rejected signals today and other compliance-only KPIs in educator mode"
-    status: pending
+    content: Overview KPI persona filter — hide or relocate Rejected signals today and other compliance-only KPIs in educator mode
+    status: completed
   - id: PE-007
-    content: "Unit + E2E persona smoke — dashboard/e2e/ dual-code login, nav visibility, route redirect, tab gating"
-    status: pending
+    content: Unit + E2E persona smoke — dashboard/e2e/ dual-code login, nav visibility, route redirect, tab gating
+    status: completed
   - id: PE-008
-    content: "Runbook note — aws-pilot-runbook § env vars for DASHBOARD_ACCESS_CODE_EDUCATOR and DASHBOARD_ACCESS_CODE_COMPLIANCE"
-    status: pending
+    content: Runbook note — aws-pilot-runbook § env vars for DASHBOARD_ACCESS_CODE_EDUCATOR and DASHBOARD_ACCESS_CODE_COMPLIANCE
+    status: completed
 isProject: false
 ---
 

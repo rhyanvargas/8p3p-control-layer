@@ -11,6 +11,8 @@ import {
   Users,
 } from 'lucide-react';
 
+import { isNavMainItemAllowedForPersona, type DashboardPersona } from '@/lib/persona';
+
 export type NavItem = {
   title: string;
   href: string;
@@ -32,6 +34,10 @@ export const NAV_SECONDARY_ITEMS: NavItem[] = [
   { title: 'Settings', href: '/settings', icon: Settings },
   { title: 'Help', href: '/settings', icon: LifeBuoy },
 ];
+
+export function getNavMainItemsForPersona(persona: DashboardPersona): NavItem[] {
+  return NAV_MAIN_ITEMS.filter((item) => isNavMainItemAllowedForPersona(item.href, persona));
+}
 
 const ROUTE_LABELS: Record<string, string> = {
   '/': 'Overview',

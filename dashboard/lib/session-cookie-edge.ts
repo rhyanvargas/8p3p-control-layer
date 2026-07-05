@@ -155,17 +155,25 @@ function base64UrlDecodeUtf8Edge(payloadB64: string): string {
   return new TextDecoder().decode(bytes);
 }
 
-function parsePayloadJson(payloadJson: string): { ok: true; exp: number } | { ok: false } {
+function parsePayloadJson(
+  payloadJson: string,
+): { ok: true; exp: number; persona?: string } | { ok: false } {
   try {
     const parsed = JSON.parse(payloadJson) as unknown;
     if (!parsed || typeof parsed !== 'object' || !('exp' in parsed)) {
       return { ok: false };
     }
-    const rawExp = (parsed as { exp: unknown }).exp;
-    if (typeof rawExp !== 'number' || !Number.isFinite(rawExp)) {
+    const record = parsed as { exp: unknown; persona?: unknown };
+    if (typeof record.exp !== 'number' || !Number.isFinite(record.exp)) {
       return { ok: false };
     }
-    return { ok: true, exp: rawExp };
+    const persona =
+      record.persona === undefined
+        ? undefined
+        : typeof record.persona === 'string'
+          ? record.persona
+          : undefined;
+    return { ok: true, exp: record.exp, persona };
   } catch {
     return { ok: false };
   }
@@ -200,7 +208,11 @@ async function hmacSha256Hex(secret: string, message: string): Promise<string> {
 export async function verifySessionAsync(
   secret: string,
   value: string,
-): Promise<{ valid: boolean; exp?: number }> {
+): Promise<{
+  valid: boolean;
+  exp?: number;
+  persona?: 'educator' | 'compliance';
+}> {
   const parts = splitSessionValue(value);
   if (!parts) {
     return { valid: false };
@@ -228,5 +240,14 @@ export async function verifySessionAsync(
     return { valid: false };
   }
 
-  return { valid: true, exp: parsed.exp };
+  return {
+    valid: true,
+    exp: parsed.exp,
+    persona:
+      parsed.persona === undefined
+        ? undefined
+        : parsed.persona === 'educator'
+          ? 'educator'
+          : 'compliance',
+  };
 }

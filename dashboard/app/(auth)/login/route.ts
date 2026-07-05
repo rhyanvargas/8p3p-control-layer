@@ -1,13 +1,12 @@
 import { NextResponse, type NextRequest } from 'next/server';
 
-import { passphrasesMatch } from '@/lib/auth-credentials';
 import {
   assertDashboardAuthConfig,
   getClientIp,
   getCookieSecret,
-  getExpectedPassphrase,
   getSessionTtlSeconds,
   isGateEnabled,
+  resolvePersonaFromPassphrase,
 } from '@/lib/auth-gate';
 import { clearFailures, recordFailure } from '@/lib/login-rate-limiter';
 import { RATE_LIMIT_HTML, renderLoginHtml } from '@/lib/login-page';
@@ -62,13 +61,14 @@ export async function POST(request: NextRequest) {
     return authConfigErrorResponse();
   }
 
-  const expected = getExpectedPassphrase();
   const ip = getClientIp(request);
   const formData = await request.formData();
   const rawPass = formData.get('passphrase');
   const provided = typeof rawPass === 'string' ? rawPass : '';
 
-  if (!passphrasesMatch(provided, expected)) {
+  const persona = resolvePersonaFromPassphrase(provided);
+
+  if (!persona) {
     const { blocked, retryAfterSeconds } = recordFailure(ip);
     if (blocked) {
       const headers: HeadersInit = { 'Content-Type': 'text/html; charset=utf-8' };
@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
 
   const cookieSecret = getCookieSecret();
   const maxAgeSeconds = getSessionTtlSeconds();
-  const signed = signSession(cookieSecret, maxAgeSeconds);
+  const signed = signSession(cookieSecret, maxAgeSeconds, persona);
   const secure = isSecureCookieContext();
   const cookieName = getSessionCookieName(secure);
   const attrs = buildSetCookieAttributes({ maxAgeSeconds, secure });

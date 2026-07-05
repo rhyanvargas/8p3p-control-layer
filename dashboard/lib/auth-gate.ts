@@ -1,9 +1,15 @@
 import type { NextRequest } from 'next/server';
 
+import { passphrasesMatch } from '@/lib/auth-credentials';
+import { isDualCodeMode, type DashboardPersona } from '@/lib/persona';
+
 /** Paths exempt from the passphrase gate (Next standalone app routes). */
 export const AUTH_EXEMPT_PATHS: ReadonlySet<string> = new Set<string>(['/login', '/logout']);
 
 export function isGateEnabled(): boolean {
+  if (isDualCodeMode()) {
+    return true;
+  }
   const code = process.env.DASHBOARD_ACCESS_CODE?.trim() ?? '';
   return code.length > 0;
 }
@@ -15,9 +21,35 @@ export function assertDashboardAuthConfig(): void {
   const secret = process.env.COOKIE_SECRET ?? '';
   if (!secret || secret.length < 32) {
     throw new Error(
-      'DASHBOARD_ACCESS_CODE is set but COOKIE_SECRET is missing or shorter than 32 characters. Generate with: openssl rand -hex 32',
+      'Dashboard access code is set but COOKIE_SECRET is missing or shorter than 32 characters. Generate with: openssl rand -hex 32',
     );
   }
+}
+
+/**
+ * Resolves login persona from passphrase. Dual-code mode tries educator then compliance codes;
+ * legacy single-code mode grants compliance. Returns null when no code matches.
+ */
+export function resolvePersonaFromPassphrase(provided: string): DashboardPersona | null {
+  const educatorCode = process.env.DASHBOARD_ACCESS_CODE_EDUCATOR?.trim() ?? '';
+  const complianceCode = process.env.DASHBOARD_ACCESS_CODE_COMPLIANCE?.trim() ?? '';
+  const legacyCode = process.env.DASHBOARD_ACCESS_CODE?.trim() ?? '';
+
+  if (isDualCodeMode()) {
+    if (passphrasesMatch(provided, educatorCode)) {
+      return 'educator';
+    }
+    if (passphrasesMatch(provided, complianceCode)) {
+      return 'compliance';
+    }
+    return null;
+  }
+
+  if (legacyCode.length > 0 && passphrasesMatch(provided, legacyCode)) {
+    return 'compliance';
+  }
+
+  return null;
 }
 
 export function getCookieSecret(): string {
@@ -28,10 +60,6 @@ export function getSessionTtlSeconds(): number {
   const ttlHours = Number(process.env.DASHBOARD_SESSION_TTL_HOURS ?? 8);
   const ttlHoursSafe = Number.isFinite(ttlHours) && ttlHours > 0 ? ttlHours : 8;
   return Math.floor(ttlHoursSafe * 3600);
-}
-
-export function getExpectedPassphrase(): string {
-  return process.env.DASHBOARD_ACCESS_CODE?.trim() ?? '';
 }
 
 export function getClientIp(request: NextRequest): string {
