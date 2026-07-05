@@ -49,9 +49,13 @@ function hasActiveDecisionFilters(
 
 type RecentDecisionsTableProps = {
   decisions: Decision[];
+  showSectionHeader?: boolean;
 };
 
-export function RecentDecisionsTable({ decisions }: RecentDecisionsTableProps) {
+export function RecentDecisionsTable({
+  decisions,
+  showSectionHeader = true,
+}: RecentDecisionsTableProps) {
   const sync = useOptionalOverviewFilter();
   const syncEnabled = sync?.syncEnabled ?? false;
   const [selected, setSelected] = useState<Decision | null>(null);
@@ -118,10 +122,14 @@ export function RecentDecisionsTable({ decisions }: RecentDecisionsTableProps) {
   return (
     <>
       <section aria-label="Recent decisions" className="flex flex-col gap-3">
-        <div>
-          <h2 className="text-sm font-medium">Recent decisions</h2>
+        {showSectionHeader ? (
+          <div>
+            <h2 className="text-sm font-medium">Recent decisions</h2>
+            <p className="text-muted-foreground text-sm">{subtitle}</p>
+          </div>
+        ) : (
           <p className="text-muted-foreground text-sm">{subtitle}</p>
-        </div>
+        )}
         <DataTable
           columns={columns}
           data={tableData}

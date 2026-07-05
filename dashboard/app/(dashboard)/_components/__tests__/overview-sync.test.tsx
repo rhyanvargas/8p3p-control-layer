@@ -357,6 +357,33 @@ describe('XFILTER-010: chip remove and Clear all reset filter', () => {
   });
 });
 
+describe('OVACT / XFILTER: default range and toggle label', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  afterEach(() => {
+    localStorage.clear();
+  });
+
+  it('uses Link chart and table as the sync toggle accessible name', () => {
+    renderOverviewSurfaces();
+    expect(screen.getByRole('switch', { name: /Link chart and table/i })).toBeInTheDocument();
+    expect(screen.queryByRole('switch', { name: /Sync filters/i })).not.toBeInTheDocument();
+  });
+
+  it('does not show a range chip at the default 7d filter when sync ON', async () => {
+    renderOverviewSurfaces({ syncOn: true, decisionType: 'reinforce' });
+
+    await waitFor(() => {
+      expect(screen.getByText('Filtered: Reinforce')).toBeInTheDocument();
+    });
+
+    expect(screen.queryByText('Range: 7d')).not.toBeInTheDocument();
+    expect(DEFAULT_OVERVIEW_FILTER.range).toBe(7);
+  });
+});
+
 describe('XFILTER-011: no hydration flash for persisted ON state', () => {
   beforeEach(() => {
     localStorage.clear();
@@ -371,7 +398,7 @@ describe('XFILTER-011: no hydration flash for persisted ON state', () => {
 
     renderOverviewSurfaces();
 
-    const switchControl = screen.getByRole('switch', { name: /Sync filters/i });
+    const switchControl = screen.getByRole('switch', { name: /Link chart and table/i });
 
     await waitFor(() => {
       expect(switchControl).toHaveAttribute('aria-checked', 'true');

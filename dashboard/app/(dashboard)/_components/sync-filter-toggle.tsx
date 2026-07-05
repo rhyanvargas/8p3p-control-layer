@@ -41,13 +41,13 @@ export function SyncFilterToggle() {
         htmlFor="overview-sync-filters"
         className="text-sm font-normal"
       >
-        Sync filters
+        Link chart and table
       </Label>
       <Tooltip>
         <TooltipTrigger
           type="button"
           className="text-muted-foreground hover:text-foreground inline-flex shrink-0 rounded-sm"
-          aria-label="About sync filters"
+          aria-label="About link chart and table"
         >
           <Info className="size-3.5" aria-hidden="true" />
         </TooltipTrigger>

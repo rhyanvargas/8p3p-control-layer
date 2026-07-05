@@ -55,67 +55,68 @@ export function SectionCards({ kpis }: SectionCardsProps) {
       : 'Intervene and pause decisions awaiting your review. Approve or reject each one.';
 
   return (
-    <section
-      aria-label="Program KPIs"
-      className={
-        isEducator
-          ? 'grid gap-4 sm:grid-cols-2'
-          : 'grid gap-4 sm:grid-cols-2 xl:grid-cols-4'
-      }
-    >
-      <StatCard
-        title="Needs attention"
-        value={needsAttention.count}
-        delta={needsAttention.delta}
-        href="/attention"
-        icon={AlertCircle}
-        iconClassName="text-[var(--urgency-high)]"
-        tooltip="Learners with urgent intervene or pause decisions, ranked by priority."
-      />
+    <div className="flex flex-col gap-6">
+      <section aria-label="Needs your action">
+        <h2 className="text-sm font-medium text-muted-foreground">Needs your action</h2>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <StatCard
+            title="Needs attention"
+            value={needsAttention.count}
+            delta={needsAttention.delta}
+            href="/attention"
+            icon={AlertCircle}
+            iconClassName="text-[var(--urgency-high)]"
+            tooltip="Learners with urgent intervene or pause decisions, ranked by priority."
+          />
+          <StatCard
+            title="Pending decisions"
+            value={pendingDecisions}
+            href={attentionFromPendingUrl()}
+            icon={Clock}
+            iconClassName="text-[var(--status-pause)]"
+            tooltip={pendingTooltip}
+            secondaryLine={
+              reviewedToday > 0 ? `${reviewedToday} reviewed today` : undefined
+            }
+          />
+        </div>
+      </section>
       {!isEducator ? (
-        <StatCard
-          title="Rejected signals today"
-          ariaLabel={`Rejected signals today: ${signalsToday.rejected}`}
-          value={
-            <span className="inline-flex items-center gap-2">
-              {signalsToday.rejected}
-              {signalsToday.accepted > 0 ? (
-                <span className="text-muted-foreground inline-flex items-center gap-1 text-sm font-normal">
-                  <CheckCircle2 aria-hidden="true" className="size-4 text-[var(--status-advance)]" />
-                  {signalsToday.accepted}
+        <section aria-label="Program health">
+          <h2 className="text-sm font-medium text-muted-foreground">Program health</h2>
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <StatCard
+              title="Rejected signals today"
+              ariaLabel={`Rejected signals today: ${signalsToday.rejected}`}
+              value={
+                <span className="inline-flex items-center gap-2">
+                  {signalsToday.rejected}
+                  {signalsToday.accepted > 0 ? (
+                    <span className="text-muted-foreground inline-flex items-center gap-1 text-sm font-normal">
+                      <CheckCircle2 aria-hidden="true" className="size-4 text-[var(--status-advance)]" />
+                      {signalsToday.accepted}
+                    </span>
+                  ) : null}
                 </span>
-              ) : null}
-            </span>
-          }
-          href="/signals"
-          icon={XCircle}
-          iconClassName="text-destructive"
-          tooltip={`${signalsToday.accepted} accepted and ${signalsToday.rejected} rejected since midnight.`}
-          secondaryLine={showProgramWideIndicator ? 'Program-wide' : undefined}
-        />
+              }
+              href="/signals"
+              icon={XCircle}
+              iconClassName="text-destructive"
+              tooltip={`${signalsToday.accepted} accepted and ${signalsToday.rejected} rejected since midnight.`}
+              secondaryLine={showProgramWideIndicator ? 'Program-wide' : undefined}
+            />
+            <StatCard
+              title="Improving learners"
+              value={improvingLearners}
+              href="/learners?trend=improving"
+              icon={TrendingUp}
+              iconClassName="text-[var(--progress-improved)]"
+              tooltip="Learners with at least one improving mastery signal."
+              secondaryLine={showProgramWideIndicator ? 'Program-wide' : undefined}
+            />
+          </div>
+        </section>
       ) : null}
-      <StatCard
-        title="Pending decisions"
-        value={pendingDecisions}
-        href={attentionFromPendingUrl()}
-        icon={Clock}
-        iconClassName="text-[var(--status-pause)]"
-        tooltip={pendingTooltip}
-        secondaryLine={
-          reviewedToday > 0 ? `${reviewedToday} reviewed today` : undefined
-        }
-      />
-      {!isEducator ? (
-        <StatCard
-          title="Improving learners"
-          value={improvingLearners}
-          href="/learners?trend=improving"
-          icon={TrendingUp}
-          iconClassName="text-[var(--progress-improved)]"
-          tooltip="Learners with at least one improving mastery signal."
-          secondaryLine={showProgramWideIndicator ? 'Program-wide' : undefined}
-        />
-      ) : null}
-    </section>
+    </div>
   );
 }

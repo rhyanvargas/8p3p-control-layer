@@ -1,40 +1,40 @@
 ---
 name: Overview Educator Activity Layout (D4)
-overview: "Reorganize Overview into period bar, grouped KPI sections, and a unified Classroom activity panel with stacked/cumulative chart, in-panel controls, and co-located recent table. Presentational only; reuses getOverviewData and D2 sync model."
+overview: Reorganize Overview into period bar, grouped KPI sections, and a unified Classroom activity panel with stacked/cumulative chart, in-panel controls, and co-located recent table. Presentational only; reuses getOverviewData and D2 sync model.
 todos:
   - id: TASK-001
     content: Add stacked/cumulative chart builders, period label, insight, and CSV export helpers
-    status: pending
+    status: completed
   - id: TASK-002
     content: Change DEFAULT_OVERVIEW_FILTER.range to 7 and update filter tests
-    status: pending
+    status: completed
   - id: TASK-003
     content: Create PeriodBar component with 7d/30d/90d pills and date-range label
-    status: pending
+    status: completed
   - id: TASK-004
     content: Split SectionCards into Needs your action and Program health sections
-    status: pending
+    status: completed
   - id: TASK-005
     content: Create ActivityPanel replacing TrendChart with stacked chart and table
-    status: pending
+    status: completed
   - id: TASK-006
     content: Wire OverviewExplorer layout and sync-OFF page-level period scoping
-    status: pending
+    status: completed
   - id: TASK-007
     content: Relabel sync toggle and move ActiveFilterChips into ActivityPanel header
-    status: pending
+    status: completed
   - id: TASK-008
     content: Unit tests OVACT-001 through OVACT-006
-    status: pending
+    status: completed
   - id: TASK-009
     content: Component tests OVACT-007 through OVACT-011
-    status: pending
+    status: completed
   - id: TASK-010
     content: E2E tests OVACT-012 and OVACT-013 plus XFILTER fixture updates
-    status: pending
+    status: completed
   - id: TASK-011
     content: Post-ship doc sync for dashboard-design-requirements and specs README
-    status: pending
+    status: completed
 isProject: false
 ---
 
@@ -172,9 +172,9 @@ isProject: false
 
 Before starting implementation:
 
-- [ ] D2 cross-filter sync shipped (`OverviewSyncProvider`, `applyOverviewFilter`, XFILTER tests green)
-- [ ] D3 clickable KPI cards shipped (`section-cards.tsx` navigation links)
-- [ ] D1 educator-first recent table shipped (`recent-decisions-table.tsx`)
+- [x] D2 cross-filter sync shipped (`OverviewSyncProvider`, `applyOverviewFilter`, XFILTER tests green)
+- [x] D3 clickable KPI cards shipped (`section-cards.tsx` navigation links)
+- [x] D1 educator-first recent table shipped (`recent-decisions-table.tsx`)
 
 ---
 
@@ -434,13 +434,13 @@ None beyond the rows above — plan is literal-compatible with spec for all wire
 
 ## Verification Checklist
 
-- [ ] All tasks completed
-- [ ] All tests pass (`npm test`)
-- [ ] E2e passes (`npm run test:e2e -- overview-activity-layout overview-cross-filter`)
-- [ ] Linter passes (`npm run lint`)
-- [ ] Type check passes (`npm run typecheck`)
-- [ ] Matches spec requirements
-- [ ] Existing XFILTER-* tests green after legend migration
+- [x] All tasks completed
+- [x] All tests pass (`npm test`)
+- [x] E2e passes (`npm run test:e2e -- overview-activity-layout overview-cross-filter`)
+- [x] Linter passes (`npm run lint`)
+- [x] Type check passes (`npm run typecheck`)
+- [x] Matches spec requirements
+- [x] Existing XFILTER-* tests green after legend migration
 
 ---
 

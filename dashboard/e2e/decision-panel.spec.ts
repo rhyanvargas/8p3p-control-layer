@@ -399,6 +399,88 @@ test.describe('Attention review UX Phase 2 (REVIEW-UX-015)', () => {
   });
 });
 
+test.describe('Learner pending review bar (LPR-009 through LPR-011)', () => {
+  test.beforeEach(async () => {
+    await resetMockFeedbackState();
+  });
+
+  test('LPR-009: roster sheet Open full view shows review bar with reviewDecision in URL', async ({
+    page,
+  }) => {
+    await ensureFeedbackSession(page);
+    await page.goto('/learners');
+    await expect(page.getByRole('heading', { name: 'Learners', exact: true })).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(page.getByRole('cell', { name: E2E_LEARNER_REF })).toBeVisible({
+      timeout: 30_000,
+    });
+    await clickDataTableRow(page, new RegExp(E2E_LEARNER_REF));
+    await expectDetailSheetVisible(page);
+
+    await clickSheetDrillDown(page, 'Open full view');
+    await expect(page).toHaveURL(
+      new RegExp(`/learners/${E2E_LEARNER_REF}\\?.*reviewDecision=${E2E_DECISION_ID}`)
+    );
+    expect(page.url()).not.toContain('from=attention');
+
+    const reviewBar = page.getByRole('region', { name: 'Attention review actions' });
+    await expect(reviewBar).toBeVisible();
+    await expect(reviewBar.getByRole('button', { name: 'Approve' })).toBeVisible();
+    await expect(reviewBar.getByRole('button', { name: 'Reject' })).toBeVisible();
+  });
+
+  test('LPR-010: roster approve stays on learner page and hides the review bar', async ({
+    page,
+  }) => {
+    await ensureFeedbackSession(page);
+    await page.goto('/learners');
+    await expect(page.getByRole('heading', { name: 'Learners', exact: true })).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(page.getByRole('cell', { name: E2E_LEARNER_REF })).toBeVisible({
+      timeout: 30_000,
+    });
+    await clickDataTableRow(page, new RegExp(E2E_LEARNER_REF));
+    await expectDetailSheetVisible(page);
+
+    await clickSheetDrillDown(page, 'Open full view');
+    await expect(page).toHaveURL(new RegExp(`/learners/${E2E_LEARNER_REF}`));
+
+    const reviewBar = page.getByRole('region', { name: 'Attention review actions' });
+    await expect(reviewBar).toBeVisible();
+    await reviewBar.getByRole('button', { name: 'Approve' }).click();
+
+    await expect(page.getByText(`Approved · ${E2E_LEARNER_REF}`)).toBeVisible({
+      timeout: 10_000,
+    });
+    await expect(page).toHaveURL(new RegExp(`/learners/${E2E_LEARNER_REF}$`));
+    await expect(reviewBar).toBeHidden({ timeout: 10_000 });
+  });
+
+  test('LPR-011: attention deep link approve redirects back to the queue', async ({ page }) => {
+    await ensureFeedbackSession(page);
+    await page.goto('/attention');
+    await waitForDataTableRow(page, new RegExp(E2E_LEARNER_REF));
+    await clickDataTableRow(page, new RegExp(E2E_LEARNER_REF));
+    await expectDetailSheetVisible(page);
+
+    await clickSheetLearnerProfile(page);
+    await expect(page).toHaveURL(
+      new RegExp(
+        `/learners/${E2E_LEARNER_REF}\\?.*reviewDecision=${E2E_DECISION_ID}.*from=attention`
+      )
+    );
+
+    const reviewBar = page.getByRole('region', { name: 'Attention review actions' });
+    await expect(reviewBar).toBeVisible();
+    await reviewBar.getByRole('button', { name: 'Approve' }).click();
+
+    await expect(page).toHaveURL('/attention');
+    await expect(reviewBar).toBeHidden();
+  });
+});
+
 test.describe('Overview decision drill-down (UX gate)', () => {
   test('recent decision row opens L1 sheet without raw JSON', async ({ page }) => {
     await page.goto('/');

@@ -18,29 +18,29 @@ This is directive **D4**, building on shipped D1 (educator-first table), D2 ([`o
 
 ### Functional
 
-- [ ] Add a **page-level period bar** directly under `PageHeader` (above KPI sections) with preset pills **`7d`**, **`30d`**, **`90d`** and a read-only date-range label (local calendar, e.g. `Jun 20 – Jun 26`).
-- [ ] **Default period** is **`7`** days (changes Overview default from chart-local `30` to page-level `7`; update `DEFAULT_OVERVIEW_FILTER.range` accordingly).
-- [ ] The period bar is the **sole** time-range control on Overview — remove the range `<Select>` from `TrendChart`.
-- [ ] When cross-filter sync is **ON**, period pill changes set `OverviewFilter.range` (same as today's chart range behavior). When sync is **OFF**, period still scopes the chart and recent-decisions table locally via shared page-level period state (no decision-type/learner propagation).
-- [ ] Split KPI cards into two labeled sections:
+- [x] Add a **page-level period bar** directly under `PageHeader` (above KPI sections) with preset pills **`7d`**, **`30d`**, **`90d`** and a read-only date-range label (local calendar, e.g. `Jun 20 – Jun 26`).
+- [x] **Default period** is **`7`** days (changes Overview default from chart-local `30` to page-level `7`; update `DEFAULT_OVERVIEW_FILTER.range` accordingly).
+- [x] The period bar is the **sole** time-range control on Overview — remove the range `<Select>` from `TrendChart`.
+- [x] When cross-filter sync is **ON**, period pill changes set `OverviewFilter.range` (same as today's chart range behavior). When sync is **OFF**, period still scopes the chart and recent-decisions table locally via shared page-level period state (no decision-type/learner propagation).
+- [x] Split KPI cards into two labeled sections:
   - **Needs your action:** `Needs attention`, `Pending decisions` (2-up → 1-up responsive grid).
   - **Program health:** `Rejected signals today`, `Improving learners` (2-up → 1-up).
-- [ ] Preserve D3 behavior: every KPI card remains a navigation link with hover/focus affordance; clicks never set filters ([`dashboard-design-requirements.md`](dashboard-design-requirements.md) §8, [`overview-cross-filter-sync.md`](overview-cross-filter-sync.md)).
-- [ ] Replace the standalone `TrendChart` + adjacent summary layout with one **`ActivityPanel`** card titled **Classroom activity** containing:
+- [x] Preserve D3 behavior: every KPI card remains a navigation link with hover/focus affordance; clicks never set filters ([`dashboard-design-requirements.md`](dashboard-design-requirements.md) §8, [`overview-cross-filter-sync.md`](overview-cross-filter-sync.md)).
+- [x] Replace the standalone `TrendChart` + adjacent summary layout with one **`ActivityPanel`** card titled **Classroom activity** containing:
   - Subtitle tied to selected period: *"Decisions and mastery across {startLabel} – {endLabel}."*
   - In-panel controls (top-right): **Group by** and **Metric** `<Select>`s (see Concrete Values).
   - One-line **insight** above the chart (educator language; replaces the right-rail prose summary).
   - Stacked area chart + legend + **Today** vertical reference line on the last day of the range.
   - **Recent activity** subsection: existing `RecentDecisionsTable` below the chart inside the same card (same filters when sync ON).
   - **Export CSV** button (bottom-right of panel) exporting the **currently displayed** chart series.
-- [ ] **Group by** options drive chart series composition (see Concrete Values). Default: **`decision_type`** (four stacked series).
-- [ ] **Metric** options drive Y-axis semantics (see Concrete Values). Default: **`cumulative_needs_review`** (cumulative count of `intervene` + `pause` only, stacked by decision type within that subset OR as a single cumulative line — see Concrete Values for normative behavior).
-- [ ] Remove the **Decisions / Mastery** `Tabs` from the chart; mastery is exposed only via **Metric → `avg_mastery`**.
-- [ ] Chart series colors MUST reuse existing semantic tokens: `--status-intervene`, `--status-pause`, `--status-reinforce`, `--status-advance` ([`dashboard/app/globals.css`](../../dashboard/app/globals.css)).
-- [ ] Relabel sync toggle copy from **Sync filters** to **Link chart and table**; tooltip body unchanged in intent. **Default remains OFF** ([`overview-cross-filter-sync.md`](overview-cross-filter-sync.md) — do not change default without separate product decision).
-- [ ] When sync is **ON**, render active-filter chips **inside** the Activity panel header (not between KPIs and chart). Chip behavior unchanged ([`active-filter-chips.tsx`](../../dashboard/app/(dashboard)/_components/active-filter-chips.tsx)).
-- [ ] When sync is **ON** and **Group by → `decision_type`**, clicking a legend item (or optional series row) sets `OverviewFilter.decisionType` to that type (or clears on second click). This replaces the old single-series `<Select>` as the sync filter source.
-- [ ] When **Metric → `avg_mastery`**, cross-filter sync ignores `decisionType` for chart building (same doctrine as today's mastery tab: chart-local metric; table/KPI sync unchanged).
+- [x] **Group by** options drive chart series composition (see Concrete Values). Default: **`decision_type`** (four stacked series).
+- [x] **Metric** options drive Y-axis semantics (see Concrete Values). Default: **`cumulative_needs_review`** (cumulative count of `intervene` + `pause` only, stacked by decision type within that subset OR as a single cumulative line — see Concrete Values for normative behavior).
+- [x] Remove the **Decisions / Mastery** `Tabs` from the chart; mastery is exposed only via **Metric → `avg_mastery`**.
+- [x] Chart series colors MUST reuse existing semantic tokens: `--status-intervene`, `--status-pause`, `--status-reinforce`, `--status-advance` ([`dashboard/app/globals.css`](../../dashboard/app/globals.css)).
+- [x] Relabel sync toggle copy from **Sync filters** to **Link chart and table**; tooltip body unchanged in intent. **Default remains OFF** ([`overview-cross-filter-sync.md`](overview-cross-filter-sync.md) — do not change default without separate product decision).
+- [x] When sync is **ON**, render active-filter chips **inside** the Activity panel header (not between KPIs and chart). Chip behavior unchanged ([`active-filter-chips.tsx`](../../dashboard/app/(dashboard)/_components/active-filter-chips.tsx)).
+- [x] When sync is **ON** and **Group by → `decision_type`**, clicking a legend item (or optional series row) sets `OverviewFilter.decisionType` to that type (or clears on second click). This replaces the old single-series `<Select>` as the sync filter source.
+- [x] When **Metric → `avg_mastery`**, cross-filter sync ignores `decisionType` for chart building (same doctrine as today's mastery tab: chart-local metric; table/KPI sync unchanged).
 
 ### Acceptance Criteria
 
@@ -88,7 +88,8 @@ This is directive **D4**, building on shipped D1 (educator-first table), D2 ([`o
 | Overview data fetch + `OverviewData` shape | [`fetch-overview-data.server.ts`](../../dashboard/lib/api/fetch-overview-data.server.ts) | Defined ✓ |
 | `OverviewFilter`, `applyOverviewFilter()`, `DEFAULT_OVERVIEW_FILTER` | [`overview-filter.ts`](../../dashboard/lib/overview/overview-filter.ts), [`overview-cross-filter-sync.md`](overview-cross-filter-sync.md) | Defined ✓ |
 | `OverviewSyncProvider`, sync toggle, active chips | [`overview-sync-provider.tsx`](../../dashboard/app/(dashboard)/_components/overview-sync-provider.tsx), D2 spec | Defined ✓ |
-| `buildDecisionTrendSeries()`, `buildMasteryTrendSeries()`, `TrendRangeDays` | [`overview-metrics.ts`](../../dashboard/lib/overview-metrics.ts) | Defined ✓ — **extend** with stacked + cumulative builders |
+| `buildDecisionTrendSeries()`, `buildMasteryTrendSeries()`, `TrendRangeDays` | [`overview-metrics.ts`](../../dashboard/lib/overview-metrics.ts) | Defined ✓ |
+| Stacked/cumulative builders, insight, CSV export | [`overview-activity.ts`](../../dashboard/lib/overview-activity.ts) | Defined ✓ — shipped D4 |
 | KPI card behavior (D3) + four KPI definitions | [`section-cards.tsx`](../../dashboard/components/dashboard/section-cards.tsx), [`dashboard-design-requirements.md`](dashboard-design-requirements.md) §8 | Defined ✓ |
 | Decision semantic colors | [`dashboard/app/globals.css`](../../dashboard/app/globals.css) | Defined ✓ |
 | Cross-filter feature flag | `NEXT_PUBLIC_OVERVIEW_CROSS_FILTER` ([`feature-flag.ts`](../../dashboard/lib/overview/feature-flag.ts)) | Defined ✓ |
@@ -294,10 +295,11 @@ No new routes.
 
 ## Notes
 
+- **Implementation note:** Period pills use styled `Button` variants inside `role="group"` (no shadcn `ToggleGroup` in repo) — equivalent to External libraries table allowance.
 - **Design source:** Cursor usage dashboard pattern (period presets → related totals → compositional chart with Group by / Metric / Today / Export), adapted to educator semantics ([`docs/reports/2026-06-22-dashboard-uiux-analysis.md`](../reports/2026-06-22-dashboard-uiux-analysis.md) D4 follow-on).
-- **Implementation touchpoints:** `overview-explorer.tsx`, `section-cards.tsx`, `trend-chart.tsx` (refactor → `activity-panel.tsx`), `overview-metrics.ts`, `overview-filter.ts` (`DEFAULT_OVERVIEW_FILTER.range`), `active-filter-chips.tsx` (move render site), `sync-filter-toggle.tsx` (label), e2e fixtures in `dashboard/e2e/fixtures.ts`.
-- **Post-ship doc sync:** Update [`dashboard-design-requirements.md`](dashboard-design-requirements.md) §8 Overview bullets for period bar, KPI grouping, Activity panel, stacked chart defaults; mark this spec shipped in [`docs/specs/README.md`](README.md).
+- **Implementation touchpoints:** `overview-explorer.tsx`, `period-bar.tsx`, `section-cards.tsx`, `activity-panel.tsx` (replaces deleted `trend-chart.tsx`), `overview-activity.ts`, `overview-filter.ts` (`DEFAULT_OVERVIEW_FILTER.range = 7`), `active-filter-chips.tsx` (panel header slot), `sync-filter-toggle.tsx` (label), e2e fixtures in `dashboard/e2e/fixtures.ts`.
+- **Post-ship doc sync:** [`dashboard-design-requirements.md`](dashboard-design-requirements.md) §8 + §14 D4 updated; spec marked shipped in [`docs/specs/README.md`](README.md) (2026-07-04).
 
 ---
 
-*Spec created: 2026-06-26 | Phase: dashboard UX directive D4 | Design authority: amends §8 chart description in `dashboard-design-requirements.md` | Coordinates with: `overview-cross-filter-sync.md` (D2 state model preserved)*
+*Spec created: 2026-06-26 | Phase: dashboard UX directive D4 | **Shipped:** 2026-07-04 | Design authority: amends §8 chart description in `dashboard-design-requirements.md` | Coordinates with: `overview-cross-filter-sync.md` (D2 state model preserved)*

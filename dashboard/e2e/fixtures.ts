@@ -167,7 +167,7 @@ export async function gotoOverviewReady(page: Page): Promise<void> {
 }
 
 export async function enableOverviewSync(page: Page): Promise<void> {
-  const toggle = page.getByRole('switch', { name: /Sync filters/i });
+  const toggle = page.getByRole('switch', { name: /Link chart and table/i });
   await expect(toggle).toBeVisible();
   if ((await toggle.getAttribute('aria-checked')) !== 'true') {
     await page.locator('#overview-sync-filters-label').click();
@@ -176,7 +176,7 @@ export async function enableOverviewSync(page: Page): Promise<void> {
 }
 
 export async function disableOverviewSync(page: Page): Promise<void> {
-  const toggle = page.getByRole('switch', { name: /Sync filters/i });
+  const toggle = page.getByRole('switch', { name: /Link chart and table/i });
   await expect(toggle).toBeVisible();
   if ((await toggle.getAttribute('aria-checked')) !== 'false') {
     await page.locator('#overview-sync-filters-label').click();
@@ -185,8 +185,10 @@ export async function disableOverviewSync(page: Page): Promise<void> {
 }
 
 export async function selectChartDecisionSeries(page: Page, label: string): Promise<void> {
-  await page.getByRole('combobox', { name: 'Decision series' }).click();
-  await page.getByRole('option', { name: label, exact: true }).click();
+  await page
+    .getByRole('group', { name: 'Chart series' })
+    .getByRole('button', { name: label, exact: true })
+    .click();
 }
 
 export async function readOverviewKpiCounts(page: Page): Promise<{

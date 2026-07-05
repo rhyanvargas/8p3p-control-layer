@@ -5,6 +5,7 @@ import {
   ATTENTION_REVIEW_FROM_PARAM,
   ATTENTION_REVIEW_FROM_VALUE,
   learnerAttentionReviewUrl,
+  learnerDetailReviewUrl,
 } from '@/lib/attention-review-url';
 
 describe('learnerAttentionReviewUrl', () => {
@@ -19,5 +20,23 @@ describe('learnerAttentionReviewUrl', () => {
     const url = learnerAttentionReviewUrl('learner/with space', 'd-1');
     expect(url).toContain('/learners/learner%2Fwith%20space?');
     expect(url).toContain(`${ATTENTION_REVIEW_DECISION_PARAM}=d-1`);
+  });
+});
+
+describe('learnerDetailReviewUrl', () => {
+  it('LPR-007: includes reviewDecision only without from=attention', () => {
+    const url = learnerDetailReviewUrl('stu-20891', 'decision-001');
+    expect(url).toBe(
+      `/learners/stu-20891?${ATTENTION_REVIEW_DECISION_PARAM}=decision-001`
+    );
+    expect(url).not.toContain(`${ATTENTION_REVIEW_FROM_PARAM}=`);
+  });
+
+  it('encodes learner references with special characters', () => {
+    const url = learnerDetailReviewUrl('learner/with space', 'd-1');
+    expect(url).toBe(
+      `/learners/learner%2Fwith%20space?${ATTENTION_REVIEW_DECISION_PARAM}=d-1`
+    );
+    expect(url).not.toContain(`${ATTENTION_REVIEW_FROM_PARAM}=`);
   });
 });

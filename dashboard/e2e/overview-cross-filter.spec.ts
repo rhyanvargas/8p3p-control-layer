@@ -68,7 +68,7 @@ test.describe('XFILTER-013: toggle flip does not refetch', () => {
     const offBaselineKpis = await readOverviewKpiCounts(page);
     const offBaselineLearners = await readRecentDecisionLearnerRefs(page);
 
-    const toggle = page.getByRole('switch', { name: /Sync filters/i });
+    const toggle = page.getByRole('switch', { name: /Link chart and table/i });
     await expect(toggle).toBeVisible();
     await expect(toggle).toHaveAttribute('aria-checked', 'false');
 

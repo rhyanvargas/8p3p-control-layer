@@ -1,40 +1,40 @@
 ---
 name: Learner Pending Review Bar
-overview: "Make /learners/[ref] show the Action required review bar from summary plus feedback state, not only when reviewDecision is in the URL. Reuse pending queue rules, add roster drill-down URLs, and route post-action by from=attention."
+overview: Make /learners/[ref] show the Action required review bar from summary plus feedback state, not only when reviewDecision is in the URL. Reuse pending queue rules, add roster drill-down URLs, and route post-action by from=attention.
 todos:
   - id: TASK-001
     content: Add selectPendingDecisionForLearner and resolveEffectivePendingDecisionId
-    status: pending
+    status: completed
   - id: TASK-002
     content: Add learnerDetailReviewUrl to attention-review-url.ts
-    status: pending
+    status: completed
   - id: TASK-003
     content: Create use-pending-review-for-learner hook
-    status: pending
+    status: completed
   - id: TASK-004
     content: Wire data-driven review bar in learner-detail-view
-    status: pending
+    status: completed
   - id: TASK-005
     content: Update AttentionReviewBar routing and subcopy variant
-    status: pending
+    status: completed
   - id: TASK-006
     content: Conditional drill-down URL in LearnerDetailSheet
-    status: pending
+    status: completed
   - id: TASK-007
     content: Unit tests for attention-decisions (LPR-001 through LPR-006)
-    status: pending
+    status: completed
   - id: TASK-008
     content: Extend attention-review-url tests (LPR-007)
-    status: pending
+    status: completed
   - id: TASK-009
     content: Component test LearnerDetailView bar visibility (LPR-008)
-    status: pending
+    status: completed
   - id: TASK-010
     content: E2E tests roster and attention paths (LPR-009 through LPR-011)
-    status: pending
+    status: completed
   - id: TASK-011
     content: Audit learner detail tabs for duplicate Approve or Reject CTAs (LPR-F08)
-    status: pending
+    status: completed
 isProject: false
 ---
 
@@ -131,8 +131,8 @@ No new npm dependencies.
 
 Before starting implementation:
 
-- [ ] PREREQ-001 Attention review UX Phases 1–2 shipped (`AttentionReviewBar`, `executeReviewAction`, `buildPendingAttentionQueue`, feedback hooks) — already on branch
-- [ ] PREREQ-002 Educator Feedback API and dashboard proxy session bridge operational — implemented per `educator-feedback-api.md`
+- [x] PREREQ-001 Attention review UX Phases 1–2 shipped (`AttentionReviewBar`, `executeReviewAction`, `buildPendingAttentionQueue`, feedback hooks) — already on branch
+- [x] PREREQ-002 Educator Feedback API and dashboard proxy session bridge operational — implemented per `educator-feedback-api.md`
 
 ## Tasks
 
@@ -333,12 +333,12 @@ Before starting implementation:
 
 ## Verification Checklist
 
-- [ ] All tasks completed
-- [ ] All tests pass (`npm test`)
-- [ ] Linter passes (`npm run lint`)
-- [ ] Type check passes (`npm run typecheck`)
-- [ ] Playwright e2e passes for LPR-009 through LPR-011
-- [ ] Matches spec requirements
+- [x] All tasks completed
+- [x] All tests pass (`npm test`)
+- [x] Linter passes (`npm run lint`)
+- [x] Type check passes (`npm run typecheck`)
+- [x] Playwright e2e passes for LPR-009 through LPR-011
+- [x] Matches spec requirements
 
 ## Implementation Order
 

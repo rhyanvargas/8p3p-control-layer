@@ -156,7 +156,7 @@ describe('XFILTER-001: filter identity when filter empty', () => {
     const filter = { ...DEFAULT_OVERVIEW_FILTER };
     const result = applyOverviewFilter(FIXTURE_DATA, filter, NOW);
 
-    const expectedRangeScoped = rangeScopedDecisions(FIXTURE_DECISIONS, 30);
+    const expectedRangeScoped = rangeScopedDecisions(FIXTURE_DECISIONS, 7);
     expect(result.filteredDecisions).toHaveLength(expectedRangeScoped.length);
     expect(result.filteredDecisions.map((d) => d.decision_id).sort()).toEqual(
       expectedRangeScoped.map((d) => d.decision_id).sort()
@@ -189,7 +189,7 @@ describe('XFILTER-001: filter identity when filter empty', () => {
 
 describe('XFILTER-002: decision-type filter narrows + partial KPI recompute', () => {
   it('keeps only reinforce decisions and recomputes decision-derived KPIs', () => {
-    const filter = { ...DEFAULT_OVERVIEW_FILTER, decisionType: 'reinforce' as const };
+    const filter = { ...DEFAULT_OVERVIEW_FILTER, decisionType: 'reinforce' as const, range: 30 as const };
     const result = applyOverviewFilter(FIXTURE_DATA, filter, NOW);
 
     expect(result.filteredDecisions.every((d) => d.decision_type === 'reinforce')).toBe(true);
@@ -219,7 +219,7 @@ describe('XFILTER-002: decision-type filter narrows + partial KPI recompute', ()
 
 describe('XFILTER-003: learner filter narrows chart/table + partial KPIs', () => {
   it('scopes decisions to the learner and recomputes decision-derived KPIs', () => {
-    const filter = { ...DEFAULT_OVERVIEW_FILTER, learner: 'stu-40123' };
+    const filter = { ...DEFAULT_OVERVIEW_FILTER, learner: 'stu-40123', range: 30 as const };
     const result = applyOverviewFilter(FIXTURE_DATA, filter, NOW);
 
     expect(result.filteredDecisions.every((d) => d.learner_reference.includes('stu-40123'))).toBe(
@@ -267,6 +267,7 @@ describe('XFILTER-005: combined filters compose with AND semantics', () => {
       ...DEFAULT_OVERVIEW_FILTER,
       decisionType: 'reinforce' as const,
       learner: 'stu-40123',
+      range: 30 as const,
     };
     const result = applyOverviewFilter(FIXTURE_DATA, filter, NOW);
 

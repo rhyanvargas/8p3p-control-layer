@@ -9,6 +9,7 @@ import {
   DEFAULT_OVERVIEW_FILTER,
   type OverviewFilter,
 } from '@/lib/overview/overview-filter';
+import { cn } from '@/lib/utils';
 
 import { useOverviewFilter } from './overview-sync-provider';
 
@@ -48,7 +49,11 @@ function FilterChip({ label, onRemove }: FilterChipProps) {
   );
 }
 
-export function ActiveFilterChips() {
+type ActiveFilterChipsProps = {
+  className?: string;
+};
+
+export function ActiveFilterChips({ className }: ActiveFilterChipsProps) {
   const { syncEnabled, filter, setFilter } = useOverviewFilter();
 
   if (!syncEnabled || !isFilterActive(filter)) {
@@ -76,7 +81,7 @@ export function ActiveFilterChips() {
 
   return (
     <div
-      className="flex flex-wrap items-center gap-2"
+      className={cn('flex flex-wrap items-center gap-2', className)}
       role="group"
       aria-label="Active overview filters"
     >

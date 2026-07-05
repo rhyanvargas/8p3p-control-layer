@@ -11,6 +11,7 @@ import { LearnerTrajectoryTab } from '@/app/(dashboard)/learners/[ref]/_componen
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { usePendingReviewForLearner } from '@/hooks/use-pending-review-for-learner';
 import { useDashboardPersona } from '@/lib/persona-context';
 
 type LearnerDetailViewProps = {
@@ -30,7 +31,10 @@ export function LearnerDetailView({
 }: LearnerDetailViewProps) {
   const persona = useDashboardPersona();
   const isEducator = persona === 'educator';
-  const showReviewBar = reviewDecisionId != null && reviewDecisionId !== '';
+  const { effectivePendingDecisionId } = usePendingReviewForLearner(orgId, learnerRef, {
+    urlReviewDecisionId: reviewDecisionId,
+  });
+  const showReviewBar = effectivePendingDecisionId != null;
 
   return (
     <div className={showReviewBar ? 'flex flex-col gap-6 pb-36 md:pb-40' : 'flex flex-col gap-6'}>
@@ -89,7 +93,8 @@ export function LearnerDetailView({
         <AttentionReviewBar
           orgId={orgId}
           learnerRef={learnerRef}
-          decisionId={reviewDecisionId}
+          decisionId={effectivePendingDecisionId}
+          fromAttention={fromAttention}
         />
       ) : null}
     </div>

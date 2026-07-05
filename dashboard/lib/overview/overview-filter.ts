@@ -17,7 +17,7 @@ export type OverviewFilter = {
 export const DEFAULT_OVERVIEW_FILTER: OverviewFilter = {
   decisionType: null,
   learner: null,
-  range: 30,
+  range: 7,
 };
 
 export type OverviewFilterData = {

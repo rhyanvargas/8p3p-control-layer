@@ -77,13 +77,14 @@ This table is the **only** place to read program-level status. To decide what to
 
 | Order | Feature / Plan | Spec | Status | Next action |
 |-------|----------------|------|--------|-------------|
-| 1 | `overview-educator-activity-layout.plan.md` (D4) | `overview-educator-activity-layout.md` | **Staged** — 0/11 | TASK-001 chart/CSV builders; **committed `RefreshDataButton` + `--content-max-width` substrate already in `overview-explorer.tsx`** — absorb when wiring TASK-006 |
-| 2 | `learner-pending-review-bar.plan.md` (LPR) | `learner-pending-review-bar.md` | **Staged** — 0/11 | TASK-001 `selectPendingDecisionForLearner`; build **after** the committed review-bar overlay + §8.2 learner tabs |
+| 1 | `educator-policy-builder.plan.md` (EPB) | `educator-policy-builder.md` · `policy-generation-service.md` | **Staged** — 0/8 | EPB-001 compliance-gated scaffold after D5 persona enforcement (shipped); see plan prerequisites |
 
 ### Shipped on branch (verify + commit; do not re-run)
 
 | Feature / Plan | Spec | Status |
 |----------------|------|--------|
+| `overview-educator-activity-layout.plan.md` (D4) | `overview-educator-activity-layout.md` | **Shipped** 11/11 — period bar (default 7d), grouped KPIs, `ActivityPanel` stacked cumulative chart + CSV export, legend-as-filter, OVACT-001–013 |
+| `learner-pending-review-bar.plan.md` (LPR) | `learner-pending-review-bar.md` | **Shipped** 11/11 — data-driven `AttentionReviewBar` on roster entry, `selectPendingDecisionForLearner` + URL override, conditional drill-down, LPR-001–011 |
 | `dashboard-persona-enforcement.plan.md` | `dashboard-design-requirements.md` §D5 · `dashboard-passphrase-gate.md` | **Shipped** 8/8 — dual-code login, persona cookie, nav/route/tab allowlists, educator Overview scrub, compliance-only KPI filter, E2E smoke, runbook env vars |
 | `ceo_educator_wave_docs_5f6ef773.plan.md` | `dashboard-design-requirements.md` §D5 · `dashboard-passphrase-gate.md` · organic wave runbooks | **Shipped** 22/22 — CEO report, §D5 + dual-passphrase specs, Zoom/two-path ops, policy-builder scaffold, persona impl plan created |
 | `ai-educator-explanations.plan.md` | `ai-educator-explanations.md` | **Shipped** 14/14 — backend + Panels 2/3 body copy; Bedrock enabled in pilot Lambda (TASK-005) |

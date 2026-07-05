@@ -102,7 +102,7 @@ Default visible columns per `DataTable` (additional columns via column picker or
 **Educator-first vs inspection-first column ordering (normative).** The Overview recent-decisions table serves the **educator** audience, so its default L0 columns lead with the plain-language `educator_summary` ("Needs more practice"), and the technical `matched_rule_id` is **not** an L0 column — it moves into the L1 Sheet alongside the rationale excerpt (the technical/audit tier). The `/decisions` audit table serves the **inspection/compliance** audience and may keep the truncated rule id at L0. This applies the §2.1 "educator vs inspection density" rule and "no technical … raw policy paths in default table views": choose the L0 leading column by audience, defer IDs to the drill-down.
 
 **Chart interaction**
-- One chart per Overview; range selector (7/30/90d) changes window, not layout.
+- One chart per Overview inside **`ActivityPanel`**; **page-level period bar** (7/30/90d, default 7d) is the sole time-range control — no duplicate range selector in the chart card.
 - Trend bucketing uses **local calendar dates** (`toLocalDateKey` in `dashboard/lib/overview-metrics.ts`) so chart buckets align with educator-facing timestamps across timezones.
 - Provide a **textual summary** adjacent to or below the chart (e.g. "12 decisions this week, ↑3 vs prior") for screen readers and glanceability — chart is supplementary, not the only signal.
 - No auto-playing or looping chart animations; respect `prefers-reduced-motion`.
@@ -111,7 +111,7 @@ Default visible columns per `DataTable` (additional columns via column picker or
 
 Data surfaces on a page (chart ↔ table ↔ decision-derived KPI values) may be wired into a **2-way linked filter** so adjusting a filter on one synced surface updates the others. Because this adds interaction cost to a glance-first surface, it is governed strictly:
 
-- **Opt-in, default OFF.** Expose a single page-level `Switch` ("Sync filters"). When OFF, surfaces render independently (the 5-second "is anything wrong?" glance is preserved). When ON, chart and table filters drive each other and decision-derived KPI counts. Persist the toggle (versioned localStorage key).
+- **Opt-in, default OFF.** Expose a single page-level `Switch` ("Link chart and table"). When OFF, surfaces render independently (the 5-second "is anything wrong?" glance is preserved). When ON, chart and table filters drive each other and decision-derived KPI counts. Persist the toggle (versioned localStorage key).
 - **One shared filter object.** Sync mode lifts a single `{ decisionType, learner, dateWindow }` filter into a client provider wrapping the synced surfaces; all derived views are computed from it (no per-interaction refetch). Hydrate the already-fetched overview dataset client-side rather than re-querying.
 - **Linked state is always visible.** Render the active cross-filter as removable `Badge` chips ("Filtered: Reinforce ✕") above the affected surfaces — never an invisible/implicit filter. Color is never the sole indicator (§2 #9).
 - **Performance.** Derive filtered views with `useMemo`; feed the filter through `useDeferredValue` and `startTransition` so brushing/typing stays responsive (vercel-react-best-practices §5.9/§5.13/§5.14). Pass only the fields the client filters on across the RSC boundary (§3.6).
@@ -121,8 +121,8 @@ Data surfaces on a page (chart ↔ table ↔ decision-derived KPI values) may be
 
 - **Structural prerequisite.** Overview today renders as three independent Suspense RSC sections (`OverviewKpiSection`, `OverviewTrendSection`, `OverviewRecentDecisionsSection`), each calling `getOverviewData` (deduped via `React.cache`). D2 requires consolidating to **one RSC fetch** passing a slim client payload into an `OverviewExplorer` (or equivalent) client wrapper. TanStack Query is **not** required — hydrate once, derive with `useMemo`; global Refresh already calls `router.refresh()` to re-fetch RSC data.
 - **KPI cards vs filter sync.** KPI cards remain **navigation drill targets** (§8, D3) at all times — sync does **not** repurpose card clicks as filters. When sync is ON, only **Needs attention** and **Pending decisions** recompute from the shared filter; **Rejected signals today** (ingestion) and **Improving learners** (state sample) stay org-wide and may show a subtle program-wide indicator when decision filters are active.
-- **Chart view mode.** The decisions ↔ mastery toggle on `TrendChart` is **chart-local** — cross-filter applies only in **decisions** mode. Mastery series ignores `decisionType` and learner sync.
-- **Sync sources (v1).** Chart `Select` controls (7/30/90d range, decision type) and the recent-decisions table learner text filter. Chart legend or area click brushing is **optional post-D2**, not required for v1.
+- **Chart view mode.** Mastery is selected via Activity panel **Metric → Avg mastery %** (not a Decisions/Mastery tab). Cross-filter applies only to decision-series metrics; mastery series ignores `decisionType` sync.
+- **Sync sources (v1).** Period bar (7/30/90d), chart legend (decision type when Group by = decision type and sync ON), and the recent-decisions table learner text filter. Legacy chart `Select` for decision type is **removed** (D4); legend click replaces it for cross-filter.
 - **Filtered recent table.** When sync is ON and filters are active, the table shows the last 20 decisions **matching the filter**, not the last 20 org-wide.
 - **URL params.** Active cross-filters are surfaced via removable `Badge` chips (satisfies linked-state visibility). URL registration in `page-url-state.ts` is **deferred** unless shareable Overview filter URLs are explicitly required.
 
@@ -325,12 +325,21 @@ Drill-down convention (implements §2.1 three-tier model):
 Each page below states its **primary question** (§2, principle #2), **L0 layout** (what stays on screen), and **drill-down exit** (where depth lives). Do not add widgets beyond what is listed — defer to Sheet/route tabs.
 
 **Overview `/`** — *"Is anything wrong right now?"*
-- **L0** (decision **L1 Sheet** opens from the recent table — see below): `SectionCards` (4 KPIs max, 4-up → 2-up → 1-up): **Needs attention** (count, Δ vs yesterday), **Pending decisions**, **Rejected signals today** (rejected count + accepted icon-chip), **Improving learners**. No duplicate Attention queue here.
+- **L0 layout order:** `PageHeader` (with **Link chart and table** cross-filter toggle, default OFF) → **period bar** (`7d` / `30d` / `90d` pills, default **`7d`**, read-only date-range label) → grouped `SectionCards` → unified **`ActivityPanel`** (stacked chart + recent table in one card). No standalone trend table between KPIs and chart.
+- **Grouped KPI cards** (4 KPIs max, 2-up → 1-up per section):
+  - **`Needs your action`:** Needs attention (count, Δ vs yesterday), Pending decisions.
+  - **`Program health`:** Rejected signals today (rejected count + accepted icon-chip), Improving learners. (Educator persona hides compliance-only ingestion KPI per §2.2.)
   - **Decluttered KPI cards (normative):** each card shows a leading icon + short label + **one value** + delta/contextual comparison + status color — **no prose description sentences** (defer nuance to a `Tooltip`). Honors the data-ink ratio and one-number-per-card (≤4–6 contextual KPI cards). Split compound values (e.g. rejected + accepted counts) into a single number + icon-chip breakdown, not a sentence.
-  - **Uniform clickability (normative):** **every** KPI card is interactive with a consistent hover/focus affordance and links to its drill target — Needs attention→`/attention`, Pending→`/attention?from=pending` (legacy `/decisions?status=pending` redirects), Rejected signals→`/signals`, Improving→`/learners?trend=improving`. No card is a dead end.
-- `TrendChart` (single area chart; 7/30/90d range; decisions-by-type ↔ mastery toggle — one series visible at a time) + adjacent text summary line for glanceability + a11y.
-- `RecentDecisionsTable` (reusable `DataTable`, last 20) — **educator-first L0 columns** `Time · Type · Learner · Summary` (`educator_summary`, plain-language, truncated); the technical `matched_rule_id` is **not** at L0 (per §2.1) → row opens decision **L1 Sheet** (technical tier) → "Open trace" → `/decisions/[id]`.
-- **Cross-filter "Sync filters" toggle** (default OFF) per §2.1 cross-filter doctrine. OFF = independent surfaces (calm glance); ON = chart ↔ table ↔ decision-derived KPI values stay in sync via shared `{ decisionType, learner, dateWindow }` filter, with removable active-filter chips and `useDeferredValue`/`startTransition` for responsiveness. KPI card clicks still navigate (D3); ingestion/state KPIs stay program-wide when filters are active.
+  - **Uniform clickability (normative):** **every** KPI card is interactive with a consistent hover/focus affordance and links to its drill target — Needs attention→`/attention`, Pending→`/attention?from=pending` (legacy `/decisions?status=pending` redirects), Rejected signals→`/signals`, Improving→`/learners?trend=improving`. No card is a dead end. KPI clicks **never** set cross-filters (D3).
+- **`ActivityPanel`** (`Classroom activity` card; replaces legacy `TrendChart` + standalone recent table):
+  - Subtitle: `Decisions and mastery across {start} – {end}.` Period bar is the **sole** time-range control (no in-panel range `Select`).
+  - In-panel **Group by** (`Decision type` default | `Review status`) and **Metric** (`Cumulative needs review` default | `Daily count` | `Avg mastery %`) drive chart composition; mastery is via Metric only (no Decisions/Mastery tabs).
+  - One-line **insight** above chart (`aria-live="polite"`) with educator copy (`vs start of period`, not "prior half").
+  - Stacked Recharts `AreaChart` (260px, `isAnimationActive={false}`), semantic series colors, optional **Today** reference line, legend-as-filter when sync ON + Group by = decision type.
+  - **Recent activity** subsection (`RecentDecisionsTable`, last 20, educator-first L0 columns) inside the same card below the chart.
+  - **Export CSV** (client `Blob` download; filename `overview-activity-{start}-{end}.csv`).
+  - Row opens decision **L1 Sheet** (technical tier) → "Open trace" → `/decisions/[id]`.
+- **Cross-filter "Link chart and table" toggle** (default OFF) per §2.1 cross-filter doctrine. OFF = period bar scopes chart + recent table client-side (KPIs stay program-wide); ON = period + chart legend (decision type) + table learner filter share `{ decisionType, learner, range }` via `OverviewSyncProvider`, with removable active-filter chips **inside the Activity panel header** when filters are active. No refetch on interaction.
 
 **Attention `/attention`** — *"Who do I act on, and what should I do?"*
 - **No KPI cards** (Overview owns aggregates). Two stacked regions only:
@@ -348,11 +357,12 @@ Clicking a learner row opens the right-side `DetailSheet` (read-only, ~480px des
 - **Current traceability state:** latest canonical state fields (current version label, key mastery/struggle indicators). Not the full version history.
 - **Recent signals:** last **3** ingested signals (time, source, outcome chip) — preview, not the full log.
 - **Recent decisions:** last **3** receipts with `DecisionBadge`.
-- **Primary CTA (footer, sole emphasized action):** "Open full view" → `/learners/[ref]`.
+- **Primary CTA (footer, sole emphasized action):** "Open full view" → `/learners/[ref]` when no pending urgent review; when pending exists, `learnerDetailReviewUrl(ref, decisionId)` appends `?reviewDecision=` (roster path omits `from=attention`). See [`learner-pending-review-bar.md`](learner-pending-review-bar.md).
 
 Everything heavier (state **version drill-down**, full **signal history**, full skill inventory, trajectory, struggles/progress) lives on **L2** route tabs below — never crammed into the peek.
 
 **Learner detail `/learners/[ref]` (L2)** — tabs (one concern per tab; no all-in-one scroll):
+- **Pending review bar (normative):** when the learner has an unreviewed urgent decision (`intervene` or `pause`), mount sticky `AttentionReviewBar` at the bottom — **including roster/direct entry** without `?reviewDecision=` (see [`learner-pending-review-bar.md`](learner-pending-review-bar.md)). `from=attention` preserves queue subcopy and post-action redirect to `/attention`; roster entry uses learner-focused subcopy and stays on `/learners/[ref]` after Approve/Reject. Tabs MUST NOT duplicate Approve/Reject CTAs when the bar is visible.
 - **Overview** — summary + **Skills breakdown** (§8.2) + recent decisions (decision-driven via `/v1/learners/:ref/summary`).
 - **Skills** — full per-skill inventory table (§8.2); defers roster L0 "skill breakdown" column per §2.1.
 - **State** — canonical fields + **version selector** for historical drill-down; raw JSON in collapsed **L3** `JsonViewer`.
@@ -531,7 +541,7 @@ dashboard/                                  # Next.js 15 App Router app (see mig
 │   └── api/preflight/route.ts               # scoped preflight proxy (admin key, server-only)
 ├── components/
 │   ├── layout/        # app-sidebar, site-header, nav-*, page-header
-│   ├── dashboard/     # section-cards, stat-card, trend-chart
+│   ├── dashboard/     # section-cards, stat-card, activity-panel
 │   ├── data-table/    # data-table + parts
 │   ├── shared/        # detail-sheet, sheet-section, drill-down-link, json-viewer, *-badge, learner-card, theme-toggle, org-switcher
 │   ├── states/        # empty-state, error-state, loading-state
@@ -556,7 +566,7 @@ dashboard/                                  # Next.js 15 App Router app (see mig
 - [x] Build standardized `EmptyState`/`ErrorState`/`LoadingState` (§10).
 
 **Phase B — Core surfaces**
-- [x] Overview (`SectionCards` + `TrendChart` + `RecentDecisionsTable`) — **L0 only**; row → decision L1 Sheet; no Attention queue duplication (§8).
+- [x] Overview (`SectionCards` + `ActivityPanel` with period bar + recent table in one card) — **L0 only**; row → decision L1 Sheet; no Attention queue duplication (§8).
 - [x] Reusable typed `DataTable` (sort/filter/paginate/row-action) with **default column sets** per §2.1; hidden columns via drill-down only.
 - [x] `DetailSheet` + `SheetSection` + `DrillDownLink` implementing L1 peek pattern (§2.1, §6).
 - [x] Learners roster + Learner detail (state **version drill-down**, trajectory, struggles/progress); Sheet capped at 3 recent signals/decisions (§8.1).
@@ -570,7 +580,9 @@ dashboard/                                  # Next.js 15 App Router app (see mig
 - [x] Overview trend chart local-date bucketing (`toLocalDateKey`) aligned with educator-facing timestamps.
 - [x] **D1** — Overview recent-decisions table educator-first columns (`Time·Type·Learner·Summary`); move `matched_rule_id` + rationale excerpt into the decision L1 Sheet (technical tier).
 - [x] **D3** — Declutter KPI cards (one value + delta + status, no prose) and make all 4 cards clickable to a drill target (`section-cards.tsx`, `stat-card.tsx`; Pending drills to `/attention?from=pending`).
-- [x] **D2** — Cross-filter "Sync filters" toggle (default OFF) per §2.1 cross-filter doctrine (consolidate RSC sections → `OverviewSurfaces` server fetch + `OverviewSyncProvider` client wrapper; see [`overview-cross-filter-sync.md`](overview-cross-filter-sync.md) § Architecture).
+- [x] **D2** — Cross-filter "Link chart and table" toggle (default OFF) per §2.1 cross-filter doctrine (consolidate RSC sections → `OverviewSurfaces` server fetch + `OverviewSyncProvider` client wrapper; see [`overview-cross-filter-sync.md`](overview-cross-filter-sync.md) § Architecture).
+- [x] **D4** — Overview educator activity layout: period bar (default 7d), grouped KPI sections, stacked cumulative activity chart + unified Activity panel, CSV export (see [`overview-educator-activity-layout.md`](overview-educator-activity-layout.md)).
+- [x] **LPR** — Learner pending review bar: data-driven `AttentionReviewBar` on roster/direct `/learners/[ref]` entry; conditional L1 drill-down URL with `reviewDecision` (see [`learner-pending-review-bar.md`](learner-pending-review-bar.md)).
 - [x] Signal upload wizard (`/signals/upload`) — dropzone, field mapping, client validation, optional preflight dry-run, bounded-concurrency commit to `POST /v1/signals` (see §8 implementation notes).
 - [x] **D5** — Persona surfaces: dual-code login, nav/route/tab allowlists, educator Overview scrub, compliance-only KPI filter (spec §2.2; impl [`.cursor/plans/dashboard-persona-enforcement.plan.md`](../../.cursor/plans/dashboard-persona-enforcement.plan.md) PE-001–PE-008, shipped 8/8).
 - [ ] Command palette (`⌘K`), org switcher multi-org behavior, Help external docs link, breadcrumbs polish.
@@ -598,4 +610,4 @@ dashboard/                                  # Next.js 15 App Router app (see mig
 
 ---
 
-*Created: 2026-06-12 | Updated: 2026-06-29 (§2.2 D5 Persona surfaces — normative role × route map; §5.1 persona column; §14 D5 checklist item) | Prior: 2026-06-25 (§14: D2 cross-filter [x]; `OverviewSurfaces` + `OverviewSyncProvider`); 2026-06-24 (signal upload wizard [x]); 2026-06-22 (D1/D2/D3). Design-only. Execution & hosting: nextjs-amplify-dashboard-migration.md. Tokens: decision-panel-ui.md.*
+*Created: 2026-06-12 | Updated: 2026-07-04 (§8 LPR pending review bar on roster entry; §14 LPR checklist; §8 D4 Activity panel + period bar; cross-filter label → Link chart and table) | Prior: 2026-06-29 (§2.2 D5 Persona surfaces — normative role × route map; §5.1 persona column; §14 D5 checklist item); 2026-06-25 (§14: D2 cross-filter [x]; `OverviewSurfaces` + `OverviewSyncProvider`); 2026-06-24 (signal upload wizard [x]); 2026-06-22 (D1/D2/D3). Design-only. Execution & hosting: nextjs-amplify-dashboard-migration.md. Tokens: decision-panel-ui.md.*

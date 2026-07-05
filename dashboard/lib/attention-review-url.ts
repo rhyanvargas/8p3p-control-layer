@@ -13,6 +13,13 @@ export function learnerAttentionReviewUrl(
   return `/learners/${encodeURIComponent(learnerRef)}?${params.toString()}`;
 }
 
+export function learnerDetailReviewUrl(learnerRef: string, decisionId: string): string {
+  const params = new URLSearchParams({
+    [ATTENTION_REVIEW_DECISION_PARAM]: decisionId,
+  });
+  return `/learners/${encodeURIComponent(learnerRef)}?${params.toString()}`;
+}
+
 export function attentionQueueUrl(): string {
   return '/attention';
 }

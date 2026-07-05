@@ -106,6 +106,45 @@ function isExcludedFromPendingQueue(
   return false;
 }
 
+/** Pending urgent decision for one learner — same rules as buildPendingAttentionQueue. */
+export function selectPendingDecisionForLearner(
+  summary: LearnerSummaryResponse,
+  serverReviewedIds?: Set<string>
+): string | null {
+  const queue = buildPendingAttentionQueue([summary], { serverReviewedIds });
+  const match = queue.find(
+    (item) => item.learner_reference === summary.learner_reference
+  );
+  return match?.decision.decision_id ?? null;
+}
+
+export interface ResolveEffectivePendingDecisionIdParams {
+  summary: LearnerSummaryResponse;
+  serverReviewedIds?: Set<string>;
+  urlReviewDecisionId?: string;
+}
+
+/** URL override when valid; otherwise auto-detect pending urgent decision for the learner. */
+export function resolveEffectivePendingDecisionId({
+  summary,
+  serverReviewedIds,
+  urlReviewDecisionId,
+}: ResolveEffectivePendingDecisionIdParams): string | null {
+  if (urlReviewDecisionId) {
+    const urlDecision = summary.recent_decisions.find(
+      (d) => d.decision_id === urlReviewDecisionId
+    );
+    if (
+      urlDecision &&
+      isUrgentDecisionType(urlDecision.decision_type) &&
+      !isExcludedFromPendingQueue(urlReviewDecisionId, serverReviewedIds)
+    ) {
+      return urlReviewDecisionId;
+    }
+  }
+  return selectPendingDecisionForLearner(summary, serverReviewedIds);
+}
+
 /** Unreviewed intervene/pause decisions, urgency-ranked for the attention queue. */
 export function buildPendingAttentionQueue(
   summaries: LearnerSummaryResponse[],

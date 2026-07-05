@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { ClipboardCheck } from 'lucide-react';
 
 import {
@@ -11,6 +11,7 @@ import {
 import { DecisionBadge } from '@/components/shared/decision-badge';
 import { Button } from '@/components/ui/button';
 import { useSidebar } from '@/components/ui/sidebar';
+import { invalidateDecisionFeedbackQuery } from '@/hooks/use-decision-feedback-status';
 import { useLearnerSummary } from '@/hooks/use-learner-summary';
 import { attentionQueueUrl } from '@/lib/attention-review-url';
 import type { RejectReasonCategory, SuggestedDecisionType } from '@/lib/decision-feedback';
@@ -22,14 +23,34 @@ type AttentionReviewBarProps = {
   orgId: string;
   learnerRef: string;
   decisionId: string;
+  fromAttention?: boolean;
 };
+
+const QUEUE_SUBCOPY =
+  'Approve or reject this decision before returning to the queue.';
+const LEARNER_SUBCOPY =
+  'Approve or reject this recommendation for this learner.';
+
+function learnerPageUrlWithoutReviewParam(
+  learnerRef: string,
+  searchParams: ReturnType<typeof useSearchParams>
+): string {
+  const base = `/learners/${encodeURIComponent(learnerRef)}`;
+  const version = searchParams.get('version');
+  if (version) {
+    return `${base}?${new URLSearchParams({ version }).toString()}`;
+  }
+  return base;
+}
 
 export function AttentionReviewBar({
   orgId,
   learnerRef,
   decisionId,
+  fromAttention = false,
 }: AttentionReviewBarProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { isMobile, state } = useSidebar();
   const summaryQuery = useLearnerSummary(orgId, learnerRef, {
     recentDecisionsLimit: 10,
@@ -91,11 +112,16 @@ export function AttentionReviewBar({
       origin: 'bar',
       rejectPayload: payload,
       onQueueChange: bumpQueueChange,
+      onFeedbackPersisted: invalidateDecisionFeedbackQuery,
     });
 
     if (success) {
       resetRejectReason();
-      router.push(attentionQueueUrl());
+      if (fromAttention) {
+        router.push(attentionQueueUrl());
+      } else {
+        router.replace(learnerPageUrlWithoutReviewParam(learnerRef, searchParams));
+      }
     }
   }
 
@@ -148,7 +174,7 @@ export function AttentionReviewBar({
                   Action required
                 </p>
                 <p className="text-muted-foreground mt-0.5 text-sm">
-                  Approve or reject this decision before returning to the queue.
+                  {fromAttention ? QUEUE_SUBCOPY : LEARNER_SUBCOPY}
                 </p>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
                   <DecisionBadge type={decisionType} />

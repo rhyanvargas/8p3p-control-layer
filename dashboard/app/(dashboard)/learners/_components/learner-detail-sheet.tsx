@@ -1,5 +1,7 @@
 'use client';
 
+import { useMemo } from 'react';
+
 import { DecisionBadge } from '@/components/shared/decision-badge';
 import { IngestionOutcomeChip } from '@/components/shared/ingestion-outcome-chip';
 import { DetailSheet } from '@/components/shared/detail-sheet';
@@ -11,6 +13,12 @@ import { LoadingState } from '@/components/states/loading-state';
 import { useLearnerIngestion } from '@/hooks/use-learner-ingestion';
 import { useLearnerSummary } from '@/hooks/use-learner-summary';
 import {
+  collectUrgentDecisionIds,
+  useFeedbackStatusForDecisionIds,
+} from '@/hooks/use-decision-feedback-status';
+import { selectPendingDecisionForLearner } from '@/lib/attention-decisions';
+import { learnerDetailReviewUrl } from '@/lib/attention-review-url';
+import {
   formatLevel,
   formatRelativeActivity,
   type LearnerRosterRow,
@@ -20,7 +28,8 @@ import { formatDecisionTime } from '@/lib/overview-metrics';
 import { skillDisplayLine } from '@/lib/panel-helpers';
 import { scoreToLevel } from '@/lib/score-levels';
 
-const SHEET_DECISIONS_LIMIT = 3;
+const SHEET_DECISIONS_DISPLAY_LIMIT = 3;
+const SHEET_DECISIONS_FETCH_LIMIT = 10;
 const SHEET_SIGNALS_LIMIT = 3;
 
 type LearnerDetailSheetProps = {
@@ -37,9 +46,25 @@ export function LearnerDetailSheet({
   const learnerRef = learner?.learner_reference ?? '';
 
   const summaryQuery = useLearnerSummary(orgId, learnerRef, {
-    recentDecisionsLimit: SHEET_DECISIONS_LIMIT,
+    recentDecisionsLimit: SHEET_DECISIONS_FETCH_LIMIT,
   });
   const ingestionQuery = useLearnerIngestion(orgId, learnerRef, SHEET_SIGNALS_LIMIT);
+
+  const urgentDecisionIds = useMemo(
+    () => (summaryQuery.data ? collectUrgentDecisionIds([summaryQuery.data]) : []),
+    [summaryQuery.data]
+  );
+
+  const { serverReviewedIds, feedbackQueries } =
+    useFeedbackStatusForDecisionIds(urgentDecisionIds);
+
+  const isFeedbackLoading =
+    urgentDecisionIds.length > 0 && feedbackQueries.some((query) => query.isLoading);
+
+  const pendingDecisionId = useMemo(() => {
+    if (!summaryQuery.data || isFeedbackLoading) return null;
+    return selectPendingDecisionForLearner(summaryQuery.data, serverReviewedIds);
+  }, [summaryQuery.data, serverReviewedIds, isFeedbackLoading]);
 
   const isLoading = summaryQuery.isLoading || ingestionQuery.isLoading;
   const isError = summaryQuery.isError || ingestionQuery.isError;
@@ -51,6 +76,8 @@ export function LearnerDetailSheet({
   };
 
   const summary = summaryQuery.data;
+  const displayedDecisions =
+    summary?.recent_decisions.slice(0, SHEET_DECISIONS_DISPLAY_LIMIT) ?? [];
   const fields = summary?.current_state.fields;
   const mastery =
     typeof fields?.masteryScore === 'number' ? fields.masteryScore : undefined;
@@ -83,7 +110,11 @@ export function LearnerDetailSheet({
       footer={
         learner ? (
           <DrillDownLink
-            href={`/learners/${encodeURIComponent(learner.learner_reference)}`}
+            href={
+              pendingDecisionId
+                ? learnerDetailReviewUrl(learner.learner_reference, pendingDecisionId)
+                : `/learners/${encodeURIComponent(learner.learner_reference)}`
+            }
           />
         ) : undefined
       }
@@ -142,10 +173,10 @@ export function LearnerDetailSheet({
             )}
           </SheetSection>
 
-          <SheetSection title={`Recent decisions (max ${SHEET_DECISIONS_LIMIT})`}>
-            {summary?.recent_decisions && summary.recent_decisions.length > 0 ? (
+          <SheetSection title={`Recent decisions (max ${SHEET_DECISIONS_DISPLAY_LIMIT})`}>
+            {displayedDecisions.length > 0 ? (
               <ul className="flex flex-col gap-2">
-                {summary.recent_decisions.map((decision) => (
+                {displayedDecisions.map((decision) => (
                   <li
                     key={decision.decision_id}
                     className="flex flex-col gap-1 text-sm"

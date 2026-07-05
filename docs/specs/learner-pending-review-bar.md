@@ -16,15 +16,15 @@ The domain rule already exists in `dashboard/lib/attention-decisions.ts` (`build
 
 ### Functional
 
-- [ ] **LPR-F01** On `/learners/[ref]`, resolve the learner's **effective pending decision** using the same rules as `buildPendingAttentionQueue()` scoped to that learner's summary (urgent type, not locally reviewed, not server-reviewed via `latest_action`).
-- [ ] **LPR-F02** When `effectivePendingDecisionId` is non-null, render `AttentionReviewBar` with that decision ID — identical Approve/Reject/reject-reason UX as the Attention-originated path (reuse `executeReviewAction`, origin `'bar'`).
-- [ ] **LPR-F03** **URL override:** when `?reviewDecision=<id>` is present and valid for this learner's recent decisions, use that ID as `effectivePendingDecisionId` even if queue ordering would pick a different ID. When the param references an unknown or already-reviewed decision, fall back to auto-detected pending (LPR-F01) or hide the bar if none.
-- [ ] **LPR-F04** **Post-action navigation:** after successful Approve/Reject from the bar, route to `/attention` when `from=attention`; otherwise **stay on** `/learners/[ref]` (refresh/invalidate summary + feedback queries; bar hides when no pending decision remains). Do not force Attention return for roster-originated reviews.
-- [ ] **LPR-F05** **Learner L1 drill-down:** when `LearnerDetailSheet` footer links to L2, if the learner has a pending urgent decision, use `learnerDetailReviewUrl(learnerRef, decisionId)` (see § URL helpers) so the deep link is shareable; omit `from=attention` unless the educator entered from Attention.
-- [ ] **LPR-F06** **Back link label:** retain current behavior — "Back to Attention" when `from=attention`, "Back to roster" otherwise (`learner-detail-view.tsx`).
-- [ ] **LPR-F07** **Multiple pending decisions:** when a learner has more than one unreviewed urgent decision in `recent_decisions`, pick the same ordering as `buildPendingAttentionQueue()` for that single learner (priority: intervene before pause; then newest `decided_at`). URL `reviewDecision` may target a specific row when educator deep-links.
-- [ ] **LPR-F08** **No duplicate CTAs:** when the review bar is visible, learner detail tabs MUST NOT add a second Approve/Reject primary action in tab content (bar remains the sole focal write action per dashboard-design-requirements §2.1).
-- [ ] **LPR-F09** Extract a shared pure helper `selectPendingDecisionForLearner(summary, serverReviewedIds)` in `dashboard/lib/attention-decisions.ts` (or re-export from queue builder) — **single source of truth**; no duplicated pending logic in components.
+- [x] **LPR-F01** On `/learners/[ref]`, resolve the learner's **effective pending decision** using the same rules as `buildPendingAttentionQueue()` scoped to that learner's summary (urgent type, not locally reviewed, not server-reviewed via `latest_action`).
+- [x] **LPR-F02** When `effectivePendingDecisionId` is non-null, render `AttentionReviewBar` with that decision ID — identical Approve/Reject/reject-reason UX as the Attention-originated path (reuse `executeReviewAction`, origin `'bar'`).
+- [x] **LPR-F03** **URL override:** when `?reviewDecision=<id>` is present and valid for this learner's recent decisions, use that ID as `effectivePendingDecisionId` even if queue ordering would pick a different ID. When the param references an unknown or already-reviewed decision, fall back to auto-detected pending (LPR-F01) or hide the bar if none.
+- [x] **LPR-F04** **Post-action navigation:** after successful Approve/Reject from the bar, route to `/attention` when `from=attention`; otherwise **stay on** `/learners/[ref]` (refresh/invalidate summary + feedback queries; bar hides when no pending decision remains). Do not force Attention return for roster-originated reviews.
+- [x] **LPR-F05** **Learner L1 drill-down:** when `LearnerDetailSheet` footer links to L2, if the learner has a pending urgent decision, use `learnerDetailReviewUrl(learnerRef, decisionId)` (see § URL helpers) so the deep link is shareable; omit `from=attention` unless the educator entered from Attention.
+- [x] **LPR-F06** **Back link label:** retain current behavior — "Back to Attention" when `from=attention`, "Back to roster" otherwise (`learner-detail-view.tsx`).
+- [x] **LPR-F07** **Multiple pending decisions:** when a learner has more than one unreviewed urgent decision in `recent_decisions`, pick the same ordering as `buildPendingAttentionQueue()` for that single learner (priority: intervene before pause; then newest `decided_at`). URL `reviewDecision` may target a specific row when educator deep-links.
+- [x] **LPR-F08** **No duplicate CTAs:** when the review bar is visible, learner detail tabs MUST NOT add a second Approve/Reject primary action in tab content (bar remains the sole focal write action per dashboard-design-requirements §2.1).
+- [x] **LPR-F09** Extract a shared pure helper `selectPendingDecisionForLearner(summary, serverReviewedIds)` in `dashboard/lib/attention-decisions.ts` (or re-export from queue builder) — **single source of truth**; no duplicated pending logic in components.
 
 ### Acceptance Criteria
 
@@ -63,9 +63,10 @@ The domain rule already exists in `dashboard/lib/attention-decisions.ts` (`build
 
 | Dependency | Source document | Status |
 |------------|-----------------|--------|
-| `buildPendingAttentionQueue()`, `decisionTypePriority()` | `dashboard/lib/attention-decisions.ts` | Defined ✓ — extend with `selectPendingDecisionForLearner()` |
-| `AttentionReviewBar`, `executeReviewAction()` | `dashboard/app/(dashboard)/attention/_components/attention-review-bar.tsx`, `dashboard/lib/review-actions.ts` | Defined ✓ — post-action routing param |
-| `learnerAttentionReviewUrl()` | `dashboard/lib/attention-review-url.ts` | Defined ✓ — add sibling helper for roster drill-down |
+| `buildPendingAttentionQueue()`, `decisionTypePriority()` | `dashboard/lib/attention-decisions.ts` | Defined ✓ — `selectPendingDecisionForLearner()`, `resolveEffectivePendingDecisionId()` |
+| `AttentionReviewBar`, `executeReviewAction()` | `dashboard/app/(dashboard)/attention/_components/attention-review-bar.tsx`, `dashboard/lib/review-actions.ts` | Defined ✓ — `fromAttention` subcopy + post-action routing |
+| `learnerAttentionReviewUrl()`, `learnerDetailReviewUrl()` | `dashboard/lib/attention-review-url.ts` | Defined ✓ |
+| `usePendingReviewForLearner()` | `dashboard/hooks/use-pending-review-for-learner.ts` | Defined ✓ — summary + feedback → effective ID |
 | `useLearnerSummary()`, `useFeedbackStatusForDecisionIds()` | `dashboard/hooks/use-learner-summary.ts`, `dashboard/hooks/use-decision-feedback-status.ts` | Defined ✓ |
 | Educator Feedback API | `docs/specs/educator-feedback-api.md` | Implemented ✓ |
 | Attention review UX (Phases 1–3) | `docs/specs/attention-review-ux.md` | Shipped ✓ — P1-F09 baseline |
@@ -221,18 +222,18 @@ No new cookies or env vars. Reuse Phase 2 table from `attention-review-ux.md`.
 ```
 dashboard/
 ├── lib/
-│   ├── attention-decisions.ts       # add selectPendingDecisionForLearner()
-│   ├── attention-review-url.ts      # add learnerDetailReviewUrl()
+│   ├── attention-decisions.ts       # selectPendingDecisionForLearner(), resolveEffectivePendingDecisionId()
+│   ├── attention-review-url.ts      # learnerDetailReviewUrl()
 │   └── __tests__/
-│       ├── attention-decisions.test.ts   # LPR-001–004
+│       ├── attention-decisions.test.ts   # LPR-001–006
 │       └── attention-review-url.test.ts  # LPR-007
 ├── hooks/
-│   └── use-pending-review-for-learner.ts   # optional: summary + feedback → effective ID
+│   └── use-pending-review-for-learner.ts   # summary + feedback → effective ID
 ├── app/(dashboard)/learners/
-│   ├── [ref]/_components/learner-detail-view.tsx   # data-driven showReviewBar
+│   ├── [ref]/_components/learner-detail-view.tsx   # hook-driven review bar mount
 │   └── _components/learner-detail-sheet.tsx        # conditional drill-down URL
 ├── app/(dashboard)/attention/_components/
-│   └── attention-review-bar.tsx     # post-action routing by fromAttention
+│   └── attention-review-bar.tsx     # fromAttention subcopy + post-action routing
 └── e2e/decision-panel.spec.ts       # LPR-009–011
 ```
 
@@ -240,11 +241,13 @@ dashboard/
 
 ## Notes
 
+- **Implementation note:** `AttentionReviewBar` exposes `fromAttention?: boolean` (not a `variant` enum) to select queue vs learner subcopy and post-action routing — equivalent to UX § Copy table.
 - **Supersedes partial behavior of** `attention-review-ux.md` P1-F09: that requirement stated the bar appears when navigating from Attention with query params; this spec **adds** roster-originated and direct-URL auto-detection without removing Attention deep links.
 - **Analysis consistency:** Tier C (dashboard hosting) only; no AWS control-layer (Tier A) or LMS integration (Tier B) deployment required.
 - **React best practice:** Derive `effectivePendingDecisionId` during render from fetched summary + feedback queries (`vercel-react-best-practices` §5.1 — do not store pending ID in separate state synced from props).
-- **Gap in design doc:** `dashboard-design-requirements.md` §8 describes learner L2 tabs but does not state that pending review actions must appear on roster entry; this spec closes that gap for the educator journey table (“Who needs help now?” → L1 → L2).
+- **Gap closed in design doc:** `dashboard-design-requirements.md` §8 L2 now states roster-originated pending review mounts `AttentionReviewBar` (shipped 2026-07-04).
+- **Post-ship doc sync:** Spec marked shipped in [`docs/specs/README.md`](README.md) (2026-07-04).
 
 ---
 
-*Spec created: 2026-06-26 | Phase: v1 dashboard educator UX | Depends on: `attention-review-ux.md`, `dashboard-design-requirements.md`, `learner-summary-api.md`, `educator-feedback-api.md` | Amends: P1-F09 behavior scope*
+*Spec created: 2026-06-26 | **Shipped:** 2026-07-04 | Phase: v1 dashboard educator UX | Depends on: `attention-review-ux.md`, `dashboard-design-requirements.md`, `learner-summary-api.md`, `educator-feedback-api.md` | Amends: P1-F09 behavior scope*
