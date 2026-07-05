@@ -1,7 +1,10 @@
 # CEO Educator Wave — Directives & Readiness (2026-06-29)
 
 **Date:** 2026-06-29  
-**Status:** Doc track **shipped** (ceo_educator_wave doc plan 22/22, 2026-06-29) — §D5 + dual-passphrase specs and GTM runbooks live; **persona IA enforcement gap remains** until `dashboard-persona-enforcement` PE-001–PE-006.  
+**Status:** Doc track **shipped** (ceo_educator_wave doc plan 22/22, 2026-06-29) — §D5 + dual-passphrase specs and GTM runbooks live; persona IA enforcement **shipped** (PE-001–PE-008, 2026-07-04).
+
+> **Status addendum (2026-07-04):** Customer feedback loop shipped (pilot-charter TASK-006–016). Hosted E2E dry-run complete (TASK-018). Persona enforcement shipped (PE-001–PE-008). Remaining ops-only work: GTM demo MP4 capture (TASK-020). Authoritative rollup: [`docs/foundation/roadmap.md`](../foundation/roadmap.md) § Program Status Ledger.
+
 **Provenance:**
 - **Verifiable:** demo feedback and CEO direction on 2026-06-29 (teachers vs admin/compliance audiences).
 - **Prior anchor:** [`2026-06-23-ceo-meeting-directives.md`](2026-06-23-ceo-meeting-directives.md) (AI explanation layer, controlled-eval vs live-pilot tier vocabulary).
@@ -21,9 +24,9 @@ Organic wave docs assume a **reachable hosted URL** (tier **A** API + tier **C**
 | Dashboard login + core flows | **C** | Passphrase login → Overview; Attention/Learners live; upload + Approve/Reject (§4.2) | **Pass (deployed)** | `pilot-charter-onboarding.plan.md` TASK-004 **completed** — Amplify dashboard + `DASHBOARD_ACCESS_CODE` + proxy env |
 | AI explanations on hosted path | **A** (Lambda) | Non-null `trace.educator_explanation` after enablement | **Pass (deployed)** | `pilot-charter-onboarding.plan.md` TASK-005 **completed** |
 | Formal smoke artifact | Ops | File report at `internal-docs/reports/pilot-smoke-YYYY-MM-DD.md` (runbook §4, gitignored) | **Not in repo** | Expected ops-only; local §0 gates green on release commit (`npm run build`, `npm test` — 972 tests pass, 2026-06-29) |
-| Full E2E dry-run sign-off | A + C | Upload → Attention → feedback → admin list (`pilot-charter` TASK-018) | **Pending** | Blocked on customer-feedback-loop P0 (TASK-006+) |
+| Full E2E dry-run sign-off | A + C | Upload → Attention → feedback → admin list (`pilot-charter` TASK-018) | **Pass (2026-07-04)** | pilot-charter TASK-006–018 complete; feedback loop + hosted dry-run shipped |
 
-**Verdict:** Tier **A + C** are **deployed and gate-ready** for organic-wave doc packaging. Formal §4 smoke file lives in vault; charter **launch sign-off** (TASK-018) remains open until the feedback loop ships.
+**Verdict:** Tier **A + C** are **deployed and gate-ready** for organic-wave doc packaging. Formal §4 smoke file lives in vault; charter engineering sign-off (TASK-018) **complete** — remaining ops-only item is demo MP4 capture (TASK-020).
 
 **Deploy-tier note:** Organic wave **requires** tier A + C; **defers** tier B (live LMS connectors). Upload/ingest path first — same vocabulary as [`docs/foundation/roadmap.md`](../foundation/roadmap.md) § "Deploy disambiguation."
 
@@ -48,6 +51,8 @@ From [`2026-06-23-ceo-meeting-directives.md`](2026-06-23-ceo-meeting-directives.
 3. Frame as **confidence-not-grade** — auditable ("AI explains, never decides").
 
 **Status (2026-06-29):** Built on branch; hosted enablement verified via pilot-charter TASK-005.
+
+> **Status addendum (2026-07-04):** Merged to `main`; Bedrock enabled in pilot Lambda (TASK-005). Local dev retains `AI_EXPLANATIONS_ENABLED` default off. See [`docs/foundation/roadmap.md`](../foundation/roadmap.md) § Program Status Ledger.
 
 ### Directive 4 — Persona surfaces (2026-06-29)
 

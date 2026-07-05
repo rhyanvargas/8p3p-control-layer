@@ -21,7 +21,8 @@ Each governed learning decision — signal ingested → state updated → policy
 - **Multi-Tenant Architecture** — Org-level isolation with zero cross-tenant leakage
 - **Policy Management** — Admin CRUD with validation, soft enable/disable, and versioning
 - **Educator Feedback** — Approve/Reject/Ignore on decisions with append-only audit trail
-- **AI Educator Explanations** — Optional plain-language "why" at decision time (`@8p3p/explanation`; default off)
+- **Product Feedback** — Always-on Send feedback + CSAT; admin triage via `GET /v1/admin/feedback`
+- **AI Educator Explanations** — Optional plain-language "why" at decision time (`@8p3p/explanation`; Bedrock ON in pilot Lambda, local default off)
 - **Contract-First Design** — JSON Schemas, OpenAPI, AsyncAPI, Ajv validators
 
 ---
@@ -30,13 +31,18 @@ Each governed learning decision — signal ingested → state updated → policy
 
 > Full details: [`docs/foundation/architecture.md`](docs/foundation/architecture.md)
 
+> Canonical copy: [`docs/foundation/architecture.md`](docs/foundation/architecture.md) § System Architecture Diagram.
+
 ```mermaid
 architecture-beta
-    group api_in(cloud)[API_IN]
+    group connector_layer(cloud)[ConnectorLayer]
     group control_layer(server)[ControlLayer]
     group api_out(cloud)[API_OUT]
 
-    service ext_systems(internet)[ExternalSystems] in api_in
+    service lms(internet)[LMS Platforms] in connector_layer
+    service templates(server)[ConnectorActivation] in connector_layer
+    service webhook_adapter(server)[WebhookAdapter] in connector_layer
+    service transform(server)[TransformEngine] in control_layer
     service ingestion(server)[Ingestion] in control_layer
     service signal_log(database)[SignalLog] in control_layer
     service state_engine(server)[STATEEngine] in control_layer
@@ -45,7 +51,10 @@ architecture-beta
     service output(server)[Output] in control_layer
     service downstream(internet)[Downstream] in api_out
 
-    ext_systems:R --> L:ingestion
+    lms:R --> L:templates
+    templates:R --> L:webhook_adapter
+    webhook_adapter:R --> L:transform
+    transform:R --> L:ingestion
     ingestion:R --> L:signal_log
     signal_log:R --> L:state_engine
     state_engine:B <--> T:state_store
@@ -56,6 +65,7 @@ architecture-beta
 
 | Stage | Component | Responsibility |
 |-------|-----------|----------------|
+| **0** | Connector Layer | (Optional) Webhooks, transform, connector activation |
 | **1** | Signal Ingestion | Receive, validate, and accept signals |
 | **2** | Signal Log | Store signals immutably with provenance |
 | **3** | STATE Engine | Apply signals; compute delta/direction fields |
@@ -130,7 +140,7 @@ src/                          # Control-layer API (Fastify)
 ├── connectors/               # Connector templates and routes
 ├── contracts/                # JSON schemas and Ajv validators
 ├── decision/                 # Decision engine + policies/
-├── feedback/                 # Educator feedback persistence
+├── feedback/                 # Educator + product feedback (Approve/Reject, Send feedback, CSAT)
 ├── ingestion/                # Signal ingestion, idempotency, webhooks
 ├── lambda/                   # AWS Lambda entrypoints
 ├── learners/                 # Learner summary, trajectory, URS projection
@@ -171,13 +181,13 @@ services/explanation/         # @8p3p/explanation — AI educator-explanation la
 | **API specs** | [`docs/api/README.md`](docs/api/README.md) — OpenAPI + AsyncAPI |
 | **Manual QA** | [`docs/testing/`](docs/testing/) — POC v1/v2 test cases |
 
-**Current P0:** [AI Educator Explanations](docs/specs/ai-educator-explanations.md) — `@8p3p/explanation` + engine integration shipped; dashboard Panels 2 & 3 prefer `trace.educator_explanation` (`AI_EXPLANATIONS_ENABLED` default off). Next: [Customer Feedback Loop](docs/specs/customer-feedback-loop.md) — product-level "Send feedback" + CSAT (spec'd; impl pending).
+**Recently shipped (P0):** [AI Educator Explanations](docs/specs/ai-educator-explanations.md) — `@8p3p/explanation` + Panels 2/3 body copy; Bedrock ON in pilot Lambda, local flag default off · [Customer Feedback Loop](docs/specs/customer-feedback-loop.md) — Send feedback + CSAT + admin triage · [Dashboard persona enforcement](docs/specs/dashboard-design-requirements.md) §2.2 D5 — dual-passphrase educator/compliance surfaces. Active sequencing: [`docs/foundation/roadmap.md`](docs/foundation/roadmap.md).
 
 ---
 
 ## Project Status
 
-**~970 Vitest tests** across 62 test files, plus **Playwright e2e** for the dashboard (CI `check` + `dashboard` jobs). Full pipeline proven: signal → validate → store → state → delta → policy → decision with trace.
+**997 Vitest tests** across 65 test files (66 including 1 skipped integration suite), plus **Playwright e2e** for the dashboard (CI `check` + `dashboard` jobs). Full pipeline proven: signal → validate → store → state → delta → policy → decision with trace.
 
 | Milestone | Status |
 |-----------|--------|
@@ -185,17 +195,20 @@ services/explanation/         # @8p3p/explanation — AI educator-explanation la
 | v1 pilot-ready — enriched trace, inspection, demo data, PII hardening | **Complete** |
 | v1.1 core — multi-tenant AWS, LMS integrations, trajectory/summary/URS | **Complete** |
 | Educator feedback API + Attention review UX (Approve/Reject persistence) | **Complete** |
-| v1.1 SBIR evidence — LIU metering, program metrics, research export | **Spec'd; impl pending** |
-| **P0** — AI educator-explanation layer + dashboard UX (D1 inversion) | **Backend + panel wiring complete** (`AI_EXPLANATIONS_ENABLED` default off) |
-| **P0** — Customer feedback loop (product-level "Send feedback" + CSAT) | **Spec'd; impl pending** |
+| Hosted charter pilot — AWS API, Amplify dashboard, Bedrock ON, hosted ingestion dry-run | **Complete** |
+| Customer feedback loop — Send feedback + CSAT + `GET /v1/admin/feedback` | **Complete** |
+| Dashboard persona enforcement (§D5) — dual-passphrase educator/compliance surfaces | **Complete** |
+| AI educator-explanation layer — backend + Panels 2/3 body copy | **Complete** (Bedrock ON in pilot Lambda; local default off) |
+| Decision Panel D1/D3 — educator-first Overview table + KPI declutter | **Complete** |
+| v1.1 SBIR evidence — LIU metering, program metrics, research export | **Spec'd; deferred for charter sales path** |
 
 Shipped capabilities (API, policy CRUD, DynamoDB adapters, CDK, Decision Panel, webhooks, field mappings, etc.) are indexed under **Shipped** in [`docs/specs/README.md`](docs/specs/README.md).
 
 **Near-term focus:**
 
-- [Customer feedback loop](docs/specs/customer-feedback-loop.md) — always-on "Send feedback" + `GET /v1/admin/feedback`; backs roadmap "gives feedback at any time"
-- Live Bedrock enablement for AI explanations (PREREQ in spec; feature flag off by default)
-- LIU metering + program metrics (SBIR evidence)
+- GTM demo video capture (ops) — [`pilot-demo-video-checklist.md`](docs/guides/pilot-demo-video-checklist.md)
+- [Educator policy builder](docs/specs/educator-policy-builder.md) — compliance-gated NL → policy draft (P1 scaffold; next code plan)
+- LIU metering + program metrics (SBIR evidence; staged after charter pilot)
 - P1 — per-skill trajectory scope; controlled-evaluation runbook
 
 **Backlog (deferred):** [`docs/backlog/user-stories-v1.2.md`](docs/backlog/user-stories-v1.2.md). Forward-looking specs (tiered data classification, etc.): [`docs/specs/README.md`](docs/specs/README.md) § Deferred.

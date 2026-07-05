@@ -18,15 +18,10 @@ Roadmap and sequencing: [`docs/foundation/roadmap.md`](../foundation/roadmap.md)
 
 | Spec | Role | Status |
 |------|------|--------|
-| [`ai-educator-explanations.md`](ai-educator-explanations.md) | **P0** — plain-language "why" for learning decay; confidence-not-grade; auditable (AI SDK `generateText` → null fallback, PII-safe) | Backend + Panels 2/3 body-copy consumption shipped (2026-06-26); **Bedrock enabled in pilot Lambda** (pilot-charter TASK-005) |
-| [`dashboard-design-requirements.md`](dashboard-design-requirements.md) | **Design source of truth** for the redesigned dashboard (shadcn `dashboard-01` baseline) | Active — D1/D2/D3 data-viz directives shipped; **§2.2 D5 Persona surfaces shipped** (PE-001–PE-008, 2026-07-04) |
-| [`dashboard-passphrase-gate.md`](dashboard-passphrase-gate.md) | FERPA-safe session access; **dual educator/compliance codes** (interim pilot) | Gate + dual-code persona cookie shipped ([`dashboard-persona-enforcement.plan.md`](../../.cursor/plans/dashboard-persona-enforcement.plan.md) 8/8) |
+| [`dashboard-design-requirements.md`](dashboard-design-requirements.md) | **Design source of truth** for the redesigned dashboard (shadcn `dashboard-01` baseline) | Active SSoT — D1–D5 data-viz + persona directives **shipped**; governs EPB and future UI work |
 | [`educator-policy-builder.md`](educator-policy-builder.md) | Compliance-gated NL → policy draft workflow (MVP-1); depends on D5 + dual passphrase | Spec'd (P1 scaffold); impl pending [`educator-policy-builder.plan.md`](../../.cursor/plans/educator-policy-builder.plan.md) |
 | [`policy-generation-service.md`](policy-generation-service.md) | External LLM policy generation HTTP service (decoupled from control-layer engine) | Spec'd (P1); impl pending educator-policy-builder plan |
-| [`overview-cross-filter-sync.md`](overview-cross-filter-sync.md) | Decision Panel D2 — opt-in 2-way linked filtering (default OFF); client-only | Impl complete on branch (2026-06-25) |
 | [`liu-usage-meter.md`](liu-usage-meter.md) | `GET /v1/admin/usage` + `GET /v1/usage`; SBIR volume denominator (pre-Month 0 per `program-metrics.md` § Overview) | Spec'd; **deferred for charter sales path** — plan committed, impl pending |
-| [`educator-feedback-api.md`](educator-feedback-api.md) | `POST /v1/decisions/:id/feedback` + view log; feeds MC-B*/MC-C* | Backend shipped (`src/feedback/`); dashboard POST wired (Track 2, 2026-06-25) |
-| [`attention-review-ux.md`](attention-review-ux.md) | Approve/Reject closure on `/attention` (toast, undo, review store, Recently reviewed); Educator Feedback API wiring | Phases 1–3 impl complete on branch (2026-06-25) |
 | [`decision-outcomes.md`](decision-outcomes.md) | Derived view joining decisions → state deltas; feeds MC-C* | Spec'd + plan staged; **deferred for charter sales path** |
 | [`program-metrics.md`](program-metrics.md) | MC-A*/B*/C* catalog + `GET /v1/admin/program-metrics` (SBIR evidence; depends on LIU + feedback + outcomes) | Spec'd; **deferred for charter sales path** |
 | [`pilot-research-export.md`](pilot-research-export.md) | FERPA-safe de-identified bundle for DOE/IES reviewers | Spec'd + plan staged; **deferred for charter sales path** |
@@ -49,6 +44,8 @@ Roadmap and sequencing: [`docs/foundation/roadmap.md`](../foundation/roadmap.md)
 
 **APIs & access:**
 - [`api-key-middleware.md`](api-key-middleware.md) — single key per deployment, org_id override, exempt routes
+- [`ai-educator-explanations.md`](ai-educator-explanations.md) — plain-language "why" at decision time; `@8p3p/explanation`; Bedrock ON in pilot Lambda (2026-06-26)
+- [`educator-feedback-api.md`](educator-feedback-api.md) — `POST /v1/decisions/:id/feedback` + view log; dashboard Approve/Reject wired (2026-06-25)
 - [`inspection-api.md`](inspection-api.md) — ingestion log, state query API, enriched decision receipts
 - [`inspection-panels.md`](inspection-panels.md) — 4 read-only inspection panels (migrated to Next.js dashboard)
 - [`receipts-api.md`](receipts-api.md) — `GET /v1/receipts` compliance/audit query
@@ -67,6 +64,8 @@ Roadmap and sequencing: [`docs/foundation/roadmap.md`](../foundation/roadmap.md)
 
 **Dashboard & infrastructure:**
 - [`decision-panel-ui.md`](decision-panel-ui.md) — 4-panel proof surface (React 19+, shadcn/ui, Tailwind)
+- [`overview-cross-filter-sync.md`](overview-cross-filter-sync.md) — Decision Panel D2 — opt-in 2-way linked filtering (default OFF); shipped 2026-06-25
+- [`attention-review-ux.md`](attention-review-ux.md) — Approve/Reject closure on `/attention` (Phases 1–3 shipped 2026-06-25)
 - [`overview-educator-activity-layout.md`](overview-educator-activity-layout.md) — Decision Panel D4 — period bar, grouped KPIs, stacked cumulative Activity panel + CSV export (shipped 2026-07-04)
 - [`learner-pending-review-bar.md`](learner-pending-review-bar.md) — Data-driven **Action required** bar on `/learners/[ref]` for roster/direct entry (shipped 2026-07-04)
 - [`dashboard-passphrase-gate.md`](dashboard-passphrase-gate.md) — FERPA-safe session access control; dual-code persona enforcement shipped (PE-001–PE-008, 2026-07-04)

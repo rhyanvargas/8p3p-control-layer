@@ -2,6 +2,9 @@
 
 **Date:** 2026-06-23
 **Status:** Scaffold — reconstructed from verifiable artifacts; sections marked `TODO` need the meeting owner to confirm.
+
+> **Status addendum (2026-07-04):** AI educator-explanation layer shipped (merged to `main`); Bedrock enabled in pilot Lambda (pilot-charter TASK-005). D1 educator-first Overview table shipped (`dashboard-uiux-improvements` 27/27). Authoritative rollup: [`docs/foundation/roadmap.md`](../foundation/roadmap.md) § Program Status Ledger.
+
 **Provenance:**
 - **Verifiable:** the 2026-06-22 CEO voice-note directive captured in `docs/specs/ai-educator-explanations.md` (§Overview).
 - **Attached (2026-06-23):** the controlled-evaluation proposal is now in the repo at `internal-docs/Proposal for Controlled Data Evaluation.pdf` — it is the scope-of-record for the evaluation (supersedes the earlier "Untitled-3" working buffer).
@@ -42,7 +45,7 @@ Two questions the board cares about, scored against the actual codebase:
 | Can it show risk appeared **earlier** (temporal)? | 🟡 Built (flat) / gap (per-skill) | `GET /v1/state/trajectory` registered (`src/state/routes.ts:20`), handler + contract test + dashboard tab exist; **v1.1 is flat-fields only** — per-skill nested-path trajectory is the v1.2 `US-SKILL-001` extension (`learner-trajectory-api.md:9`) |
 | Data-leakage posture (board's #1 concern) | ✅ Built | PII forbidden-key rejection (DEF-DEC-008-PII) + canonical PII-stripped receipt snapshot (DEF-DEC-007), both `completed` in `ceo_fact-check_actions` plan; `extractCanonicalSnapshot` (`engine.ts:65-81`) |
 
-**Post-implementation update (2026-06-26):** the original single capability gap — the plain-language "why" — is now built on branch. Remaining work is live-path enablement (Bedrock model access/IAM/env vars) and hosted-pilot verification, not core product capability.
+**Post-implementation update (2026-07-04):** The plain-language "why" layer is **shipped (merged to `main`)**. Bedrock is **enabled in the pilot Lambda** (pilot-charter TASK-005); local dev keeps `AI_EXPLANATIONS_ENABLED` default off. Remaining trajectory gap is per-skill v1.2 scope only (flat trajectory ships).
 
 > **Correction vs. earlier working analysis:** the trajectory API is **implemented** (flat fields); only *per-skill* trajectory remains. The "earlier identification" story is demonstrable today at the flat-field level — do not budget trajectory as net-new P1.
 
@@ -53,7 +56,7 @@ Two questions the board cares about, scored against the actual codebase:
 - [x] Dashboard access for the eval = **local, 8P3P-run during the review session** by default; **tier-C** lightweight hosting optional only on leadership request (runbook §2). Resolves the "hosted portal vs. local-only" tension.
 
 **Strategic decisions (TODO — confirm with meeting owner):**
-- [x] Build the AI educator-explanation layer as the milestone P0. (Implemented on branch; formal meeting-owner ratification still TODO if needed for audit wording.)
+- [x] Build the AI educator-explanation layer as the milestone P0. (Shipped, merged to `main`; formal meeting-owner ratification still TODO if needed for audit wording.)
 - [ ] Confirm "lead with data-leakage posture" as the district pitch. (TODO confirm)
 
 ## 5. Action Items → Specs/Plans

@@ -4,9 +4,9 @@ The **stable entry point** for planning and execution. It stays short and points
 
 ## Current Objective (2026-07-04) — Hosted Charter Pilot Readiness
 
-The CEO ask is now implemented in code: decisions can carry a short, plain-language explanation of **where** a learner is showing learning decay and **why**, framed as the system's *confidence in the learner's learning* (not a grade), and **auditable** ("AI explains, never decides"). Backend generation, contract coverage, Panels 2 & 3 body-copy consumption, and the **product feedback loop P0** (always-on Send feedback + admin triage) are complete on branch.
+The CEO ask is now implemented in code: decisions can carry a short, plain-language explanation of **where** a learner is showing learning decay and **why**, framed as the system's *confidence in the learner's learning* (not a grade), and **auditable** ("AI explains, never decides"). Backend generation, contract coverage, Panels 2 & 3 body-copy consumption, and the **product feedback loop P0** (always-on Send feedback + admin triage) are **shipped (merged to `main`)**.
 
-The active execution path has completed charter pilot engineering: AWS API + Amplify dashboard deployed, Bedrock enabled in the pilot Lambda, ingestion verified on hosted env, and customer feedback loop shipped (**23/23** plan tasks on branch). **Ops-only (not code):** record demo MP4 per [`pilot-demo-video-checklist.md`](../guides/pilot-demo-video-checklist.md) into the pilot vault. Source of truth: [`.cursor/plans/pilot-charter-onboarding.plan.md`](../../.cursor/plans/pilot-charter-onboarding.plan.md).
+The active execution path has completed charter pilot engineering: AWS API + Amplify dashboard deployed, Bedrock enabled in the pilot Lambda, ingestion verified on hosted env, and customer feedback loop shipped (**23/23** plan tasks merged). **Ops-only (not code):** record demo MP4 per [`pilot-demo-video-checklist.md`](../guides/pilot-demo-video-checklist.md) into the pilot vault. Source of truth: [`.cursor/plans/pilot-charter-onboarding.plan.md`](../../.cursor/plans/pilot-charter-onboarding.plan.md).
 
 > **Provenance caveat:** the meeting record is a scaffold with unconfirmed `TODO`s (attendees, prospect name, formal P0 approval). The *direction* is verifiable (2026-06-22 CEO voice note in [`docs/specs/ai-educator-explanations.md`](../specs/ai-educator-explanations.md) §Overview); the *meeting decisions* are not yet ratified.
 
@@ -36,7 +36,7 @@ Three distinct tiers hide under one word. "No deployment" for the controlled eva
 | **P0 active (ops)** | GTM demo video capture — execute checklist, store MP4 in vault | [`pilot-demo-video-checklist.md`](../guides/pilot-demo-video-checklist.md) |
 | **P0 shipped (doc)** | Organic educator wave: §D5 persona IA, dual-passphrase spec, Zoom/two-path runbooks, policy-builder scaffold | `.cursor/plans/ceo_educator_wave_docs_5f6ef773.plan.md` |
 | **P0 shipped (code)** | Dashboard persona enforcement — nav/route/tab gating per §D5 | `.cursor/plans/dashboard-persona-enforcement.plan.md` |
-| **P0** | Decision Panel D1 inversion — educator summary at L0, rule id + rationale in L1 Sheet (A2) | `.cursor/plans/dashboard-uiux-improvements.plan.md` |
+| **P0 shipped** | Decision Panel D1/D3 — educator-first Overview table + KPI declutter (A2) | `.cursor/plans/dashboard-uiux-improvements.plan.md` |
 | **P1** | Per-skill trajectory scope — v1.2 `US-SKILL-001` extension (A3); flat trajectory already ships; **§v1.2 scoped 2026-06-23, impl pending** | `docs/specs/learner-trajectory-api.md` §v1.2 |
 | **P1** | Controlled-evaluation runbook — SQLite + seed → pseudonymous export → decisions/receipts/explanations, plus the tier-C dashboard-access decision (A4) | Internal controlled-evaluation runbook (local only, not in public repo) |
 | **P2 deferred (integration automation)** | Webhook adapters and tenant field-mapping automation (A6) | existing specs |
@@ -71,7 +71,7 @@ This table is the **only** place to read program-level status. To decide what to
 - **Plan-level** rollup + "Next action" lives **only** in this ledger.
 - Specs keep authoring status in [`docs/specs/README.md`](../specs/README.md); contracts/CI remain machine-verifiable truth (T5). Nothing else tracks feature status.
 
-> Counts reflect each plan's frontmatter on 2026-07-04. "Shipped on branch" = implemented + tests, pending commit/merge; live AWS enablement verified per `pilot-charter-onboarding.plan.md` TASK-003–005.
+> Counts reflect each plan's frontmatter on 2026-07-04. Shipped rows are merged to `main`; live AWS enablement verified per `pilot-charter-onboarding.plan.md` TASK-003–005.
 
 ### Active / next (execute in this order)
 
@@ -79,7 +79,7 @@ This table is the **only** place to read program-level status. To decide what to
 |-------|----------------|------|--------|-------------|
 | 1 | `educator-policy-builder.plan.md` (EPB) | `educator-policy-builder.md` · `policy-generation-service.md` | **Staged** — 0/8 | EPB-001 compliance-gated scaffold after D5 persona enforcement (shipped); see plan prerequisites |
 
-### Shipped on branch (verify + commit; do not re-run)
+### Shipped (merged)
 
 | Feature / Plan | Spec | Status |
 |----------------|------|--------|
@@ -150,7 +150,7 @@ This roadmap is a planning anchor, not the place where agent behavior is enforce
 
 ## Pilot Feedback Intake
 
-The roadmap defines *what* we build; the feedback ritual defines *how* pilot-field signal shapes *what we prioritize next*. The closed loop is spec'd in [`docs/specs/customer-feedback-loop.md`](../specs/customer-feedback-loop.md) and **shipped on branch** (Send feedback Sheet, `GET /v1/admin/feedback`, triage schema in [`docs/guides/pilot-feedback-log-schema.md`](../guides/pilot-feedback-log-schema.md)). Agent workflow: `/pilot-feedback-intake` (source of truth: `.cursor/skills/pilot-feedback-intake/SKILL.md`). Customer-specific append-only logs remain internal-only.
+The roadmap defines *what* we build; the feedback ritual defines *how* pilot-field signal shapes *what we prioritize next*. The closed loop is spec'd in [`docs/specs/customer-feedback-loop.md`](../specs/customer-feedback-loop.md) and **shipped (merged to `main`)** (Send feedback Sheet, `GET /v1/admin/feedback`, triage schema in [`docs/guides/pilot-feedback-log-schema.md`](../guides/pilot-feedback-log-schema.md)). Agent workflow: `/pilot-feedback-intake` (source of truth: `.cursor/skills/pilot-feedback-intake/SKILL.md`). Customer-specific append-only logs remain internal-only.
 
 ## Versioning Policy
 
