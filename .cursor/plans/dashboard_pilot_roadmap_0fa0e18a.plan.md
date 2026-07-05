@@ -86,6 +86,7 @@ flowchart LR
   subgraph shipped [Shipped on branch]
     AttReview[Attention Review UX Phases 1–3]
     D2[Overview D2 cross-filter sync]
+    D4[Overview D4 educator activity layout]
     D1[D1 educator-first table]
     D3[D3 clickable KPIs]
     Upload[Signal upload wizard]

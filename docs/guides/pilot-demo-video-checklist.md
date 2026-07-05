@@ -17,7 +17,7 @@ Complete before recording:
 - [ ] **Smoke green** — [AWS Pilot Runbook § 4.2](operators/aws-pilot-runbook.md#42-dashboard-gate) dashboard gate passes (login, Attention, upload, Approve/Reject, Send feedback)
 - [ ] **Demo data present** — customer upload or seed via [§ 4.3](operators/aws-pilot-runbook.md#43-seed-demo-data-optional); empty Attention queue kills the narrative
 - [ ] **AI explanations ON** — pilot Lambda `AI_EXPLANATIONS_ENABLED=true`; Panels 2 & 3 show plain-language copy (TASK-005)
-- [ ] **Persona gate satisfied** — **either** [dashboard persona enforcement PE-001–PE-006](../../.cursor/plans/dashboard-persona-enforcement.plan.md) shipped **or** interim: dual educator/compliance passphrases + host enforces [two-path demo](playbooks/springs-pilot-demo.md#two-path-demo-normative-for-hosted-pilot) manually
+- [ ] **Persona gate satisfied** — [dashboard persona enforcement PE-001–PE-008](../../.cursor/plans/dashboard-persona-enforcement.plan.md) shipped; configure dual educator/compliance passphrases on Amplify per [AWS Pilot Runbook](operators/aws-pilot-runbook.md)
 - [ ] **Passphrases out of frame** — never type access codes on camera; pre-login in a clean browser profile
 - [ ] **Recording setup** — 1920×1080 minimum, system audio off (narrate live or dub), hide bookmarks/extensions, disable OS notifications
 
@@ -45,7 +45,7 @@ Store finished files + share links in vault under `pilot-demo-videos/` with date
 
 ## Video A — Product overview (~5 min)
 
-**Login:** Educator access code (or single passphrase if persona enforcement not yet shipped — stay on educator path only).
+**Login:** Educator access code (persona enforcement shipped — stay on educator path only).
 
 **Opening line (15 s):**
 
@@ -55,16 +55,17 @@ Store finished files + share links in vault under `pilot-demo-videos/` with date
 
 | # | Route | Action | Say (short) |
 |---|-------|--------|-------------|
-| 1 | `/login` → `/` | Enter passphrase; land on Overview | One landing page — counts from the same policy engine as production |
-| 2 | `/` | Point at KPI cards (learners needing attention, pending decisions) | Program-level visibility without another data warehouse |
+| 1 | `/login` → `/` | Enter educator access code; land on Overview | One landing page — counts from the same policy engine as production |
+| 2 | `/` | Point at **Needs your action** KPIs (Needs attention, Pending decisions); note **7d** period bar and **Classroom activity** insight line (cumulative needs review) | Program-level visibility — who needs review this week, not another data warehouse |
 | 3 | `/attention` | Open one high-urgency row (intervene); show problem area / skill gap text | Cross-system gaps — **where**, not just how low |
 | 4 | `/attention` | Approve or Reject from review sheet; show toast | Educator confirms high-stakes calls; reasons persist |
-| 5 | `/learners/[ref]` | **Struggles & progress** tab — plain-language gap narrative | Confidence in **learning**, not a black-box grade |
-| 6 | App shell | Open **Send feedback** → submit idea or problem → success toast | Product feedback anytime — we triage into roadmap |
+| 5 | `/learners` → row → **Open full view** | On learner L2, show sticky **Action required** bar (roster path — no `from=attention`); optional quick Approve (stays on learner page) | Pending review follows you from the roster — same bar as Attention, no extra trip |
+| 6 | `/learners/[ref]` | **Struggles & progress** tab — plain-language gap narrative | Confidence in **learning**, not a black-box grade |
+| 7 | App shell | Open **Send feedback** → submit idea or problem → success toast | Product feedback anytime — we triage into roadmap |
 
 **Never show on Video A (educator path):** `/decisions`, `/signals`, `/reports`, Learner **State** / **Trajectory** tabs.
 
-**Optional 30 s cut if over time:** Skip Send feedback beat; keep Attention + Struggles.
+**Optional 30 s cut if over time:** Skip Send feedback (beat 7); keep Overview D4 glance (beat 2), Attention triage (beats 3–4), and Struggles (beat 6). Omit roster **Action required** demo (beat 5) only if Attention approve (beat 4) already shown.
 
 ---
 
@@ -108,7 +109,7 @@ Full hosted dry-run: `npm run pilot:dry-run` — [AWS Pilot Runbook § 4.2](oper
 
 ## Pre-recording rehearsal (15 min)
 
-- [ ] Run Video A beats end-to-end on hosted URL — target ≤ 6 min with narration
+- [ ] Run Video A beats end-to-end on hosted URL — target ≤ 6 min with narration (Overview **Needs your action** + **Classroom activity** 7d insight; roster **Action required** bar on at least one pending learner)
 - [ ] Run Video B beats — confirm upload wizard has a clean sample file ready
 - [ ] Verify at least one learner shows AI explanation text in Struggles tab (not null/template-only)
 - [ ] Confirm Send feedback returns 201 (`dashboard/e2e/product-feedback.spec.ts` green locally)
@@ -127,7 +128,7 @@ Full hosted dry-run: `npm run pilot:dry-run` — [AWS Pilot Runbook § 4.2](oper
 
 ## Verification (TASK-020 exit criteria)
 
-- [ ] Video A covers: login, Overview KPIs, Attention triage, learner gaps, Approve/Reject, Send feedback
+- [ ] Video A covers: login, Overview D4 layout (grouped KPIs, 7d period bar, Classroom activity insight), Attention triage, roster **Action required** bar (LPR), learner Struggles gaps, Approve/Reject, Send feedback
 - [ ] Video B covers: upload wizard, preflight, policies mention, admin feedback GET
 - [ ] Recorded against hosted dashboard URL (not localhost)
 - [ ] MP4/links stored in vault and shareable with Southwest teachers/principal

@@ -279,7 +279,7 @@ If PREREQ-001..003 are not complete, TASK-003..006 produce `metric_unavailable` 
   - **MC-A05**: Return `{value: null, source_note: "Sourced from internal-docs/pilot-operations/pilot-runbook.md onboarding timestamps"}`. Out-of-band; injected into reports at authoring time.
   - **MC-A06**: Return `{value: null, source_note: "Run scripts/replay-decisions.mjs (see TASK-009); result persisted in internal-docs/reports/"}`.
   - **MC-A07**: `{value: null, source_note: "External uptime probe"}`.
-  - **MC-A08**: `{value: null, source_note: "Derived from server logs (Pino); see docs/guides/pilot-operations-runbook.md"}`.
+  - **MC-A08**: `{value: null, source_note: "Derived from server logs (Pino); see docs/guides/operators/aws-pilot-runbook.md"}`.
   - All values carry `computed_at = new Date().toISOString()` and `window` echoed from input.
 - **Depends on**: TASK-002
 - **Verification**: Unit tests in TASK-011 pass with deterministic seeded data.

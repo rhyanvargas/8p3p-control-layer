@@ -50,9 +50,9 @@ Open the dashboard at `http://localhost:3001/` (`CONTROL_LAYER_ORG_ID=springs` i
 
 ### Educator path (~5 min)
 
-1. **`/`** — Overview KPIs (learners needing attention).
+1. **`/`** — Overview: **Needs your action** KPIs, **7d** period bar, **Classroom activity** cumulative insight (D4).
 2. **`/attention`** — Queue; open Maya Kim or Alex Rivera; Approve or Reject one row from the review sheet.
-3. **`/learners/[ref]`** → **Struggles & progress** tab — plain-language gap (“where”, not rule ids).
+3. **`/learners`** → row → **Open full view** — sticky **Action required** bar on learner L2 when pending (LPR roster path); then **Struggles & progress** tab — plain-language gap (“where”, not rule ids).
 4. Optional: **Send feedback** from the app shell.
 
 **Never on educator path:** `/decisions`, `/signals`, `/reports`, or Learner **State** / **Trajectory** tabs.
@@ -69,11 +69,11 @@ Full narrative beats below remain valid for **compliance** demos and local Sprin
 
 ## Beat 1 — Overview (30 seconds) `/`
 
-**Click**: Overview → note KPI cards (learners needing attention, decisions today). Click **Learners needing attention** if linked.
+**Click**: Overview → note **Needs your action** KPIs (Needs attention, Pending decisions) and **Program health** row below. Point at the **7d** period bar and **Classroom activity** card — cumulative needs-review insight line above the chart.
 
-> "One landing page — not four LMS tabs. Counts come from the same policy engine your pilot will run in production."
+> "One landing page — not four LMS tabs. Counts come from the same policy engine your pilot will run in production; the chart shows who accumulated review work this week."
 
-Optional: hit **Refresh** and the freshness chip to show data is live from the control layer.
+Optional: toggle **Link chart and table** ON and click a legend series to filter the recent table (D2 sync). Hit **Refresh** and the freshness chip to show data is live from the control layer.
 
 ---
 
@@ -113,7 +113,9 @@ Absorb compliance 60% → 35%, 20 days overdue — **intervene**.
 
 ## Beat 3 — Why are they stuck? (60 seconds) `/learners`
 
-**Click**: Learners → **Maya Kim** → detail sheet.
+**Click**: Learners → **Maya Kim** → detail sheet → **Open full view**.
+
+If Maya has a pending urgent decision, the sticky **Action required** bar appears at the bottom (roster path — subcopy: *Approve or reject this recommendation for this learner.*). Optional: Approve from the bar; URL stays on `/learners/[ref]` (no redirect to Attention).
 
 In **Summary** / problem areas, confirm `mastery_breakdown.learning_gaps` surfaces **Reading** (gap ~0.20 vs English subject mean).
 
