@@ -81,6 +81,9 @@ jobs:
       - name: Validate OpenAPI spec
         run: npm run validate:api
 
+      - name: Validate Mermaid diagrams
+        run: npm run validate:diagrams
+
       - name: Lint
         run: npm run lint
 

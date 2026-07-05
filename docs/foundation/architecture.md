@@ -158,4 +158,4 @@ Stronger customer security requirements (identity beyond API keys, regulated dat
 
 ---
 
-*Updated: 2026-07-04 — Mermaid diagrams for Connector Layer stack and Data Flow Summary; architecture-beta unchanged. Prior: 2026-04-06 — added Connector Layer (3-layer stack), Living Student Record concept, expanded storage touchpoints and external boundaries. Original: 2026-02-24.*
+*Updated: 2026-07-04 — Pinned `mermaid@11.16.0` (devDependency); added `npm run validate:diagrams`; restored System Architecture Diagram to `architecture-beta` (requires Mermaid ≥ 11.1.0). Prior: 2026-04-06 — added Connector Layer (3-layer stack), Living Student Record concept, expanded storage touchpoints and external boundaries. Original: 2026-02-24.*

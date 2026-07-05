@@ -13,5 +13,6 @@ When adding or editing **architecture, data-flow, deployment, sequence, or page-
 3. **System pipeline diagram** must match `docs/foundation/architecture.md` § System Architecture Diagram wherever duplicated (including root `README.md`).
 4. **Connector Layer stack** canonical copy lives in `docs/foundation/architecture.md` § Connector Layer; specs highlight their layer with `← THIS SPEC` in the node label only.
 5. Keep ASCII for directory trees and detailed UI copy mockups (literal card text), not for flows or topology.
+6. Run `npm run validate:diagrams` after diagram edits (pinned `mermaid@11.16.0`; `architecture-beta` needs ≥ 11.1.0).
 
 After changing a canonical diagram, update all copies listed in the skill's SSoT table in the same change set.

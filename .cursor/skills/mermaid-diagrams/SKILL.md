@@ -34,6 +34,7 @@ When two files must show the same diagram, **paste the identical fenced block** 
 
 ## Authoring rules
 
+0. **Pinned renderer** — `mermaid@11.16.0` in root `package.json` devDependencies (`@mermaid-js/mermaid-cli` matches). `architecture-beta` requires Mermaid **≥ 11.1.0**. Run `npm run validate:diagrams` before merging diagram edits.
 1. **Declare type first** — first line inside the fence is the diagram type (`flowchart TB`, `sequenceDiagram`, etc.).
 2. **Node IDs** — camelCase or snake_case without spaces; use `["Display label<br/>second line"]` for wrapped text.
 3. **Annotations** — put spec links and HTTP paths in node labels, not loose comments (Mermaid comments `%%` are ok for non-rendered notes).
@@ -50,7 +51,7 @@ Mermaid diagram task:
 - [ ] 3. Author — pick type from table above; match existing node naming in related diagrams
 - [ ] 4. Sync copies — README, specs, plans per SSoT table
 - [ ] 5. Link — hub pages point to SSoT section, not duplicate long graphs
-- [ ] 6. Verify — render in GitHub preview or Mermaid Live Editor if syntax is non-trivial
+- [ ] 6. Verify — `npm run validate:diagrams`, or render in GitHub preview / Mermaid Live Editor if syntax is non-trivial
 ```
 
 ## Snippets (copy from SSoT, do not re-invent)
