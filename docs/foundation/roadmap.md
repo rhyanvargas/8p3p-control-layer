@@ -35,7 +35,7 @@ Three distinct tiers hide under one word. "No deployment" for the controlled eva
 | **P0 shipped (ops)** | Hosted charter pilot: AWS API, Amplify dashboard, Bedrock ON, hosted ingestion dry-run | `.cursor/plans/pilot-charter-onboarding.plan.md` TASK-003..018 |
 | **P0 active (ops)** | GTM demo video capture — execute checklist, store MP4 in vault | [`pilot-demo-video-checklist.md`](../guides/pilot-demo-video-checklist.md) |
 | **P0 shipped (doc)** | Organic educator wave: §D5 persona IA, dual-passphrase spec, Zoom/two-path runbooks, policy-builder scaffold | `.cursor/plans/ceo_educator_wave_docs_5f6ef773.plan.md` |
-| **P0 active (code)** | Dashboard persona enforcement — nav/route/tab gating per §D5 | `.cursor/plans/dashboard-persona-enforcement.plan.md` |
+| **P0 shipped (code)** | Dashboard persona enforcement — nav/route/tab gating per §D5 | `.cursor/plans/dashboard-persona-enforcement.plan.md` |
 | **P0** | Decision Panel D1 inversion — educator summary at L0, rule id + rationale in L1 Sheet (A2) | `.cursor/plans/dashboard-uiux-improvements.plan.md` |
 | **P1** | Per-skill trajectory scope — v1.2 `US-SKILL-001` extension (A3); flat trajectory already ships; **§v1.2 scoped 2026-06-23, impl pending** | `docs/specs/learner-trajectory-api.md` §v1.2 |
 | **P1** | Controlled-evaluation runbook — SQLite + seed → pseudonymous export → decisions/receipts/explanations, plus the tier-C dashboard-access decision (A4) | Internal controlled-evaluation runbook (local only, not in public repo) |
@@ -59,7 +59,7 @@ The prior connector-heavy framing (Pre-Month 0 checklist, Connector Layer, webho
 | Reports + export | No | Yes |
 | Approve/Reject, product feedback | Yes | Yes |
 
-Full role × feature × infra-tier table: [`2026-06-29-ceo-educator-wave-directives.md`](../reports/2026-06-29-ceo-educator-wave-directives.md) §4. Until PE-001–PE-006 ship, GTM may use **two passphrases + two-path demo script** (doc plan TASK-006/010) as interim mitigation.
+Full role × feature × infra-tier table: [`2026-06-29-ceo-educator-wave-directives.md`](../reports/2026-06-29-ceo-educator-wave-directives.md) §4. Persona enforcement **shipped** (PE-001–PE-008, 8/8); configure dual codes on Amplify per [`aws-pilot-runbook.md`](../guides/operators/aws-pilot-runbook.md).
 
 ## Program Status Ledger (single source of truth)
 
@@ -77,14 +77,14 @@ This table is the **only** place to read program-level status. To decide what to
 
 | Order | Feature / Plan | Spec | Status | Next action |
 |-------|----------------|------|--------|-------------|
-| 1b | `dashboard-persona-enforcement.plan.md` | `dashboard-design-requirements.md` §D5 · `dashboard-passphrase-gate.md` | **P0 active** — 0/8 | PE-001 dual-code login + persona cookie |
-| 2 | `overview-educator-activity-layout.plan.md` (D4) | `overview-educator-activity-layout.md` | **Staged** — 0/11 | TASK-001 chart/CSV builders; **committed `RefreshDataButton` + `--content-max-width` substrate already in `overview-explorer.tsx`** — absorb when wiring TASK-006 |
-| 3 | `learner-pending-review-bar.plan.md` (LPR) | `learner-pending-review-bar.md` | **Staged** — 0/11 | TASK-001 `selectPendingDecisionForLearner`; build **after** the committed review-bar overlay + §8.2 learner tabs |
+| 1 | `overview-educator-activity-layout.plan.md` (D4) | `overview-educator-activity-layout.md` | **Staged** — 0/11 | TASK-001 chart/CSV builders; **committed `RefreshDataButton` + `--content-max-width` substrate already in `overview-explorer.tsx`** — absorb when wiring TASK-006 |
+| 2 | `learner-pending-review-bar.plan.md` (LPR) | `learner-pending-review-bar.md` | **Staged** — 0/11 | TASK-001 `selectPendingDecisionForLearner`; build **after** the committed review-bar overlay + §8.2 learner tabs |
 
 ### Shipped on branch (verify + commit; do not re-run)
 
 | Feature / Plan | Spec | Status |
 |----------------|------|--------|
+| `dashboard-persona-enforcement.plan.md` | `dashboard-design-requirements.md` §D5 · `dashboard-passphrase-gate.md` | **Shipped** 8/8 — dual-code login, persona cookie, nav/route/tab allowlists, educator Overview scrub, compliance-only KPI filter, E2E smoke, runbook env vars |
 | `ceo_educator_wave_docs_5f6ef773.plan.md` | `dashboard-design-requirements.md` §D5 · `dashboard-passphrase-gate.md` · organic wave runbooks | **Shipped** 22/22 — CEO report, §D5 + dual-passphrase specs, Zoom/two-path ops, policy-builder scaffold, persona impl plan created |
 | `ai-educator-explanations.plan.md` | `ai-educator-explanations.md` | **Shipped** 14/14 — backend + Panels 2/3 body copy; Bedrock enabled in pilot Lambda (TASK-005) |
 | `dashboard-uiux-improvements.plan.md` | `dashboard-design-requirements.md` (D1/D3) | **Shipped** 27/27 |

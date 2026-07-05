@@ -37,7 +37,7 @@ isProject: false
 
 **Parent doc plan:** [`.cursor/plans/ceo_educator_wave_docs_5f6ef773.plan.md`](ceo_educator_wave_docs_5f6ef773.plan.md) (TASK-021 — doc-only scaffold; this plan owns all `dashboard/` implementation)
 
-**GTM context:** Blocks or mitigates [`pilot-charter-onboarding.plan.md`](pilot-charter-onboarding.plan.md) TASK-020 demo video — either PE-001–PE-006 ship **or** operators enforce two-path demo script + dual codes only ([`springs-pilot-demo.md`](../../docs/guides/playbooks/springs-pilot-demo.md)).
+**GTM context:** Unblocks [`pilot-charter-onboarding.plan.md`](pilot-charter-onboarding.plan.md) TASK-020 demo video persona gate — PE-001–PE-008 shipped; configure dual codes on Amplify per runbook.
 
 ---
 
@@ -169,11 +169,13 @@ PE-008 (runbook)
 
 ---
 
-## Interim mitigation (before PE-001 ships)
+## Interim mitigation (superseded — PE-001–PE-008 shipped)
 
-Operators running organic educator wave **before** this plan lands:
+Operators running organic educator wave **before** persona enforcement shipped used dual codes + two-path demo script. With PE-001–PE-008 shipped, educator sessions are route-gated automatically when dual codes are configured on Amplify.
 
-1. Set **both** dual-code env vars on Amplify (even if middleware ignores persona until PE-001)
+Historical interim steps (pre-ship):
+
+1. Set **both** dual-code env vars on Amplify
 2. Distribute **educator code** to teachers; **compliance code** to admins only
 3. Follow **two-path demo script** — never open compliance routes in educator Zoom sessions ([`springs-pilot-demo.md`](../../docs/guides/playbooks/springs-pilot-demo.md))
 
@@ -183,9 +185,9 @@ Operators running organic educator wave **before** this plan lands:
 
 | Plan | Group | Status |
 |------|-------|--------|
-| `dashboard-persona-enforcement.plan.md` | Active | 0/8 — PE-001 dual-code login |
+| `dashboard-persona-enforcement.plan.md` | Shipped | 8/8 — dual-code login, nav/route/tab gating, educator scrub, KPI filter, E2E smoke, runbook |
 
-Update [`docs/foundation/roadmap.md`](../../docs/foundation/roadmap.md) when tasks complete — rollup lives only in roadmap Program Status Ledger.
+Update [`docs/foundation/roadmap.md`](../../docs/foundation/roadmap.md) Program Status Ledger — rollup lives only there.
 
 ---
 

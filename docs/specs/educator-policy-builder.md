@@ -30,7 +30,7 @@ Policy builder UI and write paths depend on the **D5 persona model** ([`dashboar
 | Validate draft | **No** | **Yes** | Server-side only |
 | Commit policy (`PUT`) | **No** | **Yes** | Requires `x-admin-api-key` on API; dashboard proxy only for compliance sessions |
 
-**Interim pilot:** Until persona middleware ships ([`dashboard-persona-enforcement.plan.md`](../../.cursor/plans/dashboard-persona-enforcement.plan.md) PE-001–PE-003), distribute the **compliance code only** to operators who may run policy builder — never share it in educator Zoom sessions.
+**Interim pilot:** Persona middleware shipped (PE-001–PE-008). Route guard blocks educator sessions from `/policies/*`; distribute the **compliance code only** to operators who may run policy builder — never share it in educator Zoom sessions.
 
 ---
 
@@ -150,7 +150,7 @@ Educator persona: route **not in nav**; middleware redirect if URL guessed (PE-0
 | External LLM generation | [`policy-generation-service.md`](policy-generation-service.md) | Spec'd (this plan TASK-008) |
 | Compliance persona gating | [`dashboard-design-requirements.md`](dashboard-design-requirements.md) §2.2 D5 | **Normative** (2026-06-29) |
 | Dual-passphrase auth | [`dashboard-passphrase-gate.md`](dashboard-passphrase-gate.md) § Dual access codes | **Normative** (2026-06-29) |
-| Persona middleware impl | [`dashboard-persona-enforcement.plan.md`](../../.cursor/plans/dashboard-persona-enforcement.plan.md) | **Active** — PE-001 dual-code login |
+| Persona middleware impl | [`dashboard-persona-enforcement.plan.md`](../../.cursor/plans/dashboard-persona-enforcement.plan.md) | **Shipped** 8/8 — dual-code login + route/nav/tab gating |
 
 ---
 

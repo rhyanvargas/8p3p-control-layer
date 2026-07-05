@@ -139,9 +139,18 @@ Data surfaces on a page (chart ↔ table ↔ decision-derived KPI values) may be
 
 ### 2.2 Persona surfaces (D5 — normative)
 
-§2.1 defines **what depth each tier exposes** (L0/L1/L2/L3). **D5 defines who sees which routes and drill-downs** on the hosted dashboard (tier **C** only — no new backend tier). Auth interim: dual passphrases in [`dashboard-passphrase-gate.md`](dashboard-passphrase-gate.md) (educator vs compliance session persona). Implementation: [`.cursor/plans/dashboard-persona-enforcement.plan.md`](../../.cursor/plans/dashboard-persona-enforcement.plan.md) (PE-001–PE-008). Phase 2 Cognito replaces access codes, **not** these IA rules.
+§2.1 defines **what depth each tier exposes** (L0/L1/L2/L3). **D5 defines who sees which routes and drill-downs** on the hosted dashboard (tier **C** only — no new backend tier). Auth interim: dual passphrases in [`dashboard-passphrase-gate.md`](dashboard-passphrase-gate.md) (educator vs compliance session persona). Implementation: [`.cursor/plans/dashboard-persona-enforcement.plan.md`](../../.cursor/plans/dashboard-persona-enforcement.plan.md) (PE-001–PE-008, **shipped 8/8**). Phase 2 Cognito replaces access codes, **not** these IA rules.
 
-Until PE-001–PE-006 ship, GTM may use **two passphrases + two-path demo script** ([`springs-pilot-demo.md`](../guides/playbooks/springs-pilot-demo.md)) as interim mitigation — see [`organic-educator-wave-zoom.md`](../guides/playbooks/organic-educator-wave-zoom.md).
+**Persona enforcement implementation notes (2026-07-04, grounded in `dashboard/`):**
+
+- **Login + cookie:** `dashboard/lib/auth-gate.ts` `resolvePersonaFromPassphrase()`; dual-code mode when both `DASHBOARD_ACCESS_CODE_EDUCATOR` and `DASHBOARD_ACCESS_CODE_COMPLIANCE` are non-empty; legacy single `DASHBOARD_ACCESS_CODE` → `compliance` persona. Persona stored in signed `dp_session` payload (`dashboard/lib/session-cookie-edge.ts`).
+- **Route guard:** `dashboard/middleware.ts` redirects educator sessions from compliance-only paths to `/` (302). Allowlist in `dashboard/lib/persona.ts` `isEducatorRouteAllowed()` — includes `/settings` and all `/api/control/*` page routes.
+- **Nav filter:** `dashboard/lib/navigation.ts` `getNavMainItemsForPersona()` — educator sees Overview, Attention, Learners only (`ReadonlySet` href allowlist in `persona.ts`).
+- **Learner tabs:** `learner-detail-view.tsx` hides State and Trajectory tabs for educator persona.
+- **Overview scrub:** `learner-overview-tab.tsx` omits State version, Active policy, and Rule column for educator persona.
+- **KPI filter:** `section-cards.tsx` hides **Rejected signals today** for educator persona.
+- **Tests:** `dashboard/lib/__tests__/persona.test.ts`, `auth-gate-persona.test.ts`; E2E `dashboard/e2e/persona.spec.ts` (PE-PERSONA-001..005).
+- **Not yet implemented:** Persona-aware filtering of compliance-only `/api/control/*` proxy paths (spec § Dual access codes — API proxy note). Page middleware is the primary gate; educator sessions can still reach allowed-page API proxies.
 
 #### Educator surface (educator access code)
 
@@ -563,7 +572,7 @@ dashboard/                                  # Next.js 15 App Router app (see mig
 - [x] **D3** — Declutter KPI cards (one value + delta + status, no prose) and make all 4 cards clickable to a drill target (`section-cards.tsx`, `stat-card.tsx`; Pending drills to `/attention?from=pending`).
 - [x] **D2** — Cross-filter "Sync filters" toggle (default OFF) per §2.1 cross-filter doctrine (consolidate RSC sections → `OverviewSurfaces` server fetch + `OverviewSyncProvider` client wrapper; see [`overview-cross-filter-sync.md`](overview-cross-filter-sync.md) § Architecture).
 - [x] Signal upload wizard (`/signals/upload`) — dropzone, field mapping, client validation, optional preflight dry-run, bounded-concurrency commit to `POST /v1/signals` (see §8 implementation notes).
-- [ ] **D5** — Persona surfaces: dual-code login, nav/route/tab allowlists, educator Overview scrub, compliance-only KPI filter (spec §2.2; impl [`.cursor/plans/dashboard-persona-enforcement.plan.md`](../../.cursor/plans/dashboard-persona-enforcement.plan.md) PE-001–PE-008).
+- [x] **D5** — Persona surfaces: dual-code login, nav/route/tab allowlists, educator Overview scrub, compliance-only KPI filter (spec §2.2; impl [`.cursor/plans/dashboard-persona-enforcement.plan.md`](../../.cursor/plans/dashboard-persona-enforcement.plan.md) PE-001–PE-008, shipped 8/8).
 - [ ] Command palette (`⌘K`), org switcher multi-org behavior, Help external docs link, breadcrumbs polish.
 - [ ] Responsive passes (mobile sidebar `Sheet`, table degradation, L1 full-width Sheet), a11y audit (WCAG AA), reduced-motion.
 - [ ] **UX gate:** Playwright drill-down paths green in CI; formal educator walkthrough sign-off.

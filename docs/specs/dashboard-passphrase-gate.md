@@ -30,7 +30,7 @@ This spec defines a **passphrase-based session gate** for the Decision Panel: sh
 
 ## Dual access codes (interim pilot — normative)
 
-Organic educator wave (Zoom 50–100) requires **two shared secrets** so educators never land on compliance-only surfaces by default. Implementation: [`.cursor/plans/dashboard-persona-enforcement.plan.md`](../../.cursor/plans/dashboard-persona-enforcement.plan.md) PE-001–PE-003.
+Organic educator wave (Zoom 50–100) requires **two shared secrets** so educators never land on compliance-only surfaces by default. Implementation: [`.cursor/plans/dashboard-persona-enforcement.plan.md`](../../.cursor/plans/dashboard-persona-enforcement.plan.md) PE-001–PE-008 (**shipped**).
 
 ### Environment variables (dual-code mode)
 
@@ -38,7 +38,7 @@ Organic educator wave (Zoom 50–100) requires **two shared secrets** so educato
 |----------|----------|-------------|
 | `DASHBOARD_ACCESS_CODE_EDUCATOR` | When dual-code mode active | Passphrase for educator persona — classroom triage surfaces only (D5) |
 | `DASHBOARD_ACCESS_CODE_COMPLIANCE` | When dual-code mode active | Passphrase for compliance/admin persona — full nav and audit routes |
-| `DASHBOARD_ACCESS_CODE` | Legacy / single-code fallback | When **only** this var is set (dual vars unset), login grants **compliance-equivalent** session (full nav). Preserves pre-D5 deploys until PE-001 ships |
+| `DASHBOARD_ACCESS_CODE` | Legacy / single-code fallback | When **only** this var is set (dual vars unset), login grants **compliance-equivalent** session (full nav). Preserves pre-D5 deploys when dual codes are not configured |
 
 **Dual-code mode is active** when both `DASHBOARD_ACCESS_CODE_EDUCATOR` and `DASHBOARD_ACCESS_CODE_COMPLIANCE` are non-empty. When dual-code mode is active, `DASHBOARD_ACCESS_CODE` is ignored for login validation.
 
@@ -89,7 +89,7 @@ Educator persona **allowed page routes** (prefix match unless noted):
 
 Compliance persona: **no route allowlist** — full sidebar per [`dashboard-design-requirements.md`](dashboard-design-requirements.md) §5.1.
 
-**API proxy (`/api/control/*`):** Page middleware is the primary gate. Compliance-only API paths (e.g. admin preflight, program-metrics export) must not be callable from educator sessions when persona-aware proxy filtering ships (PE-003 scope — document here; impl in persona plan).
+**API proxy (`/api/control/*`):** Page middleware is the primary gate. Compliance-only API paths (e.g. admin preflight, program-metrics export) must not be callable from educator sessions when persona-aware proxy filtering ships — **not yet implemented**; educator sessions may reach `/api/control/*` while on allowed pages. See [`dashboard-design-requirements.md`](dashboard-design-requirements.md) §2.2 implementation notes.
 
 ### Distribution
 
@@ -285,9 +285,9 @@ After the window expires, the counter resets. Failed attempts are counted; succe
 - Given `DASHBOARD_ACCESS_CODE` unset, then dashboard loads without redirect
 - Given 6 failed login attempts within 15 min, then 429
 - Given `/logout`, then cookies cleared and redirect to `/login`
-- Given dual-code mode and educator passphrase POST, then session cookie payload includes `"persona":"educator"` and educator nav only (after PE-002)
+- Given dual-code mode and educator passphrase POST, then session cookie payload includes `"persona":"educator"` and educator nav only
 - Given dual-code mode and compliance passphrase POST, then session cookie payload includes `"persona":"compliance"` and full nav
-- Given educator persona and `GET /decisions`, then redirect away from compliance-only route (after PE-003)
+- Given educator persona and `GET /decisions`, then redirect away from compliance-only route (302 → `/`)
 
 ## Constraints
 
@@ -295,7 +295,7 @@ After the window expires, the counter resets. Failed attempts are counted; succe
 - **No per-user audit trail** — all sessions are anonymous. Phase 2 SSO enables per-user logging.
 - **No password storage** — passphrases live in env vars only. Compared at runtime, never stored in a database.
 - **Stateless sessions** — no server-side session store. The signed cookie is self-contained. Server restart does not invalidate sessions (only `COOKIE_SECRET` rotation does).
-- **Dual passphrases per deployment (interim pilot)** — educator + compliance codes replace the single-code model when both dual vars are set. Legacy single `DASHBOARD_ACCESS_CODE` remains for backward compatibility until persona middleware ships.
+- **Dual passphrases per deployment (interim pilot)** — educator + compliance codes replace the single-code model when both dual vars are set. Legacy single `DASHBOARD_ACCESS_CODE` remains for backward compatibility when dual codes are not configured.
 
 ---
 
