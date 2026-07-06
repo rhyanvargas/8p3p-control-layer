@@ -18,6 +18,7 @@ import { normalizeAndValidateTenantPayloadAsync } from '../config/tenant-field-m
 import { applySignalsAsync, type ApplySignalsAsyncPort } from '../state/apply-signals-async.js';
 import { evaluateStateAsync } from '../decision/engine-async.js';
 import { resolveUserTypeFromSourceSystem } from '../decision/policy-loader.js';
+import { resolveIngestionEventTime } from './event-time.js';
 import type { DynamoDbIdempotencyRepository } from './dynamodb-idempotency-repository.js';
 import type { DynamoDbSignalLogRepository } from '../signalLog/dynamodb-repository.js';
 import type { DynamoDbStateRepository } from '../state/dynamodb-repository.js';
@@ -173,7 +174,9 @@ export async function handleSignalIngestionAsync(
     };
   }
 
-  const acceptedAt = idempotencyResult.receivedAt ?? receivedAt;
+  const acceptedAt = idempotencyResult.isDuplicate
+    ? (idempotencyResult.receivedAt ?? receivedAt)
+    : resolveIngestionEventTime(signal.timestamp, receivedAt);
 
   await signalLog.appendSignal(signal, acceptedAt);
 
@@ -207,7 +210,7 @@ export async function handleSignalIngestionAsync(
         learner_reference: signal.learner_reference,
         state_id: applyOutcome.result.state_id,
         state_version: applyOutcome.result.new_state_version,
-        requested_at: new Date().toISOString(),
+        requested_at: acceptedAt,
         user_type: userType,
       };
       const decisionOutcome = await evaluateStateAsync(evalRequest, {

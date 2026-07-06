@@ -23,6 +23,7 @@ import { appendIngestionOutcome } from './ingestion-log-store.js';
 import { applySignals, type ApplySignalsOutcome } from '../state/engine.js';
 import { evaluateState } from '../decision/engine.js';
 import { resolveUserTypeFromSourceSystem } from '../decision/policy-loader.js';
+import { resolveIngestionEventTime } from './event-time.js';
 
 type Logger = { warn?: (obj: unknown, msg: string) => void; info?: (obj: unknown, msg: string) => void };
 
@@ -160,7 +161,9 @@ export async function handleSignalIngestionCore(
     };
   }
 
-  const acceptedAt = idempotencyResult.receivedAt ?? receivedAt;
+  const acceptedAt = idempotencyResult.isDuplicate
+    ? (idempotencyResult.receivedAt ?? receivedAt)
+    : resolveIngestionEventTime(signal.timestamp, receivedAt);
   appendSignal(signal, acceptedAt);
 
   let applyOutcome: ApplySignalsOutcome | null = null;
@@ -192,7 +195,7 @@ export async function handleSignalIngestionCore(
         learner_reference: signal.learner_reference,
         state_id: applyOutcome.result.state_id,
         state_version: applyOutcome.result.new_state_version,
-        requested_at: new Date().toISOString(),
+        requested_at: acceptedAt,
         user_type: userType,
         signal_context: {
           skill: typeof signal.payload?.skill === 'string' ? signal.payload.skill : undefined,

@@ -1,18 +1,18 @@
 #!/usr/bin/env node
 /**
- * Springs Charter Schools Demo Seed Script (v2)
+ * Springs Charter Schools Demo Seed Script (v4)
  *
  * Full onboarding-to-intelligence pipeline demo:
  *   Phase 1 — Register field mappings for 4 LMS source systems via admin API
- *   Phase 2 — Send synthesized LMS-shaped signals across 6 personas (learning gaps, trajectories, gifted flag)
+ *   Phase 2 — Send synthesized LMS-shaped signals across 6 personas, spread over ~90 days
  *   Phase 3 — Verify decisions and output narrative summary
  *
  * Source systems: Canvas LMS, Blackboard LMS, i-Ready Diagnostic, Absorb LMS
- * Personas: Maya Kim, Alex Rivera, Jordan Mitchell, Sam Torres, Ms. Davis
+ * Personas: Maya Kim, Alex Rivera, Jordan Mitchell, Sam Torres, Priya Patel, Ms. Davis
  *
  * Plan: .cursor/plans/springs-realistic-seed.plan.md
  * Usage: npm run seed:springs-demo
- *    or: node scripts/seed-springs-demo.mjs [--host URL] [--api-key KEY] [--admin-key KEY] [--org ORG]
+ *    or: node examples/springs/seed-springs-demo.mjs [--host URL] [--api-key KEY] [--admin-key KEY] [--org ORG] [--span-days 90]
  */
 
 import { config } from 'dotenv';
@@ -26,7 +26,9 @@ if (existsSync(join(process.cwd(), '.env.local'))) {
 
 const DEFAULT_HOST = 'http://localhost:3000';
 const DEFAULT_ORG = 'springs';
+const DEFAULT_SPAN_DAYS = 90;
 const DELAY_MS = 100;
+const MS_PER_DAY = 86_400_000;
 
 // ─── Field Mappings (TASK-002 design) ────────────────────────────────────────
 
@@ -151,359 +153,605 @@ const PERSONAS = {
   'staff-0201': { name: 'Ms. Davis', summary: 'Absorb Compliance' },
 };
 
-// ─── Signal definitions (TASK-003 design) ────────────────────────────────────
+// ─── Timeline helpers ────────────────────────────────────────────────────────
 
-const BASE_TS = '2026-03-15T09:00:00Z';
-function offsetTs(minutes) {
-  const d = new Date(BASE_TS);
-  d.setMinutes(d.getMinutes() + minutes);
+/** ISO timestamp for N calendar days before today (local midnight anchor + hour offset). */
+function atDaysAgo(daysAgoFromToday, hour = 10, minute = 0) {
+  const d = new Date();
+  d.setHours(hour, minute, 0, 0);
+  d.setTime(d.getTime() - daysAgoFromToday * MS_PER_DAY);
   return d.toISOString().replace('.000Z', 'Z');
 }
 
+function canvasSignal({
+  signalId,
+  learnerRef,
+  persona,
+  skill,
+  courseNumber,
+  scoreGiven,
+  daysAgo,
+  expectDecision,
+  verify = true,
+  submissionType = 'online_quiz',
+  timeSinceLastActivity = 50_000,
+}) {
+  const masteryScore = scoreGiven / 100;
+  const stabilityScore = Math.min(masteryScore * 0.9, 1);
+  return {
+    signalId,
+    sourceSystem: 'canvas-lms',
+    learnerRef,
+    timestamp: atDaysAgo(daysAgo, 10 + (daysAgo % 5)),
+    persona,
+    skill,
+    expectDecision,
+    verify,
+    payload: {
+      generated: { scoreGiven, maxScore: 100 },
+      group: { courseNumber: courseNumber ?? skill },
+      object: { extensions: { com_instructure_canvas: { submission_type: submissionType } } },
+      extensions: { timeSinceLastActivity },
+      skill,
+      skills: { [skill]: { masteryScore, stabilityScore } },
+    },
+  };
+}
+
+function blackboardSignal({
+  signalId,
+  learnerRef,
+  persona,
+  skill,
+  courseNumber,
+  scoreGiven,
+  maxScore,
+  daysAgo,
+  expectDecision,
+  verify = true,
+  timeSinceLastActivity = 60_000,
+}) {
+  const masteryScore = scoreGiven / maxScore;
+  const stabilityScore = masteryScore * 0.85;
+  return {
+    signalId,
+    sourceSystem: 'blackboard-lms',
+    learnerRef,
+    timestamp: atDaysAgo(daysAgo, 11 + (daysAgo % 4)),
+    persona,
+    skill,
+    expectDecision,
+    verify,
+    payload: {
+      generated: { scoreGiven },
+      object: { assignable: { maxScore } },
+      group: { courseNumber: courseNumber ?? skill },
+      extensions: { bb_action_name: 'GradeSubmission', timeSinceLastActivity },
+      skill,
+      skills: { [skill]: { masteryScore, stabilityScore } },
+    },
+  };
+}
+
+function ireadySignal({
+  signalId,
+  learnerRef,
+  persona,
+  skill,
+  daysAgo,
+  overallScaleScore,
+  maxScaleScore,
+  percentile,
+  diagnosticGain,
+  expectDecision,
+  verify = true,
+}) {
+  const masteryScore = overallScaleScore / maxScaleScore;
+  const stabilityScore = percentile / 100;
+  const riskSignal = Math.max(1 - (diagnosticGain + 50) / 100, 0);
+  return {
+    signalId,
+    sourceSystem: 'iready-diagnostic',
+    learnerRef,
+    timestamp: atDaysAgo(daysAgo, 9),
+    persona,
+    skill,
+    expectDecision,
+    verify,
+    payload: {
+      overallScaleScore,
+      maxScaleScore,
+      percentile,
+      diagnosticGain,
+      subject: skill,
+      normingWindow: 'MOY',
+      timeSinceReinforcement: 200_000,
+      skill,
+      skills: { [skill]: { masteryScore, stabilityScore, riskSignal } },
+    },
+  };
+}
+
+function absorbSignal({
+  signalId,
+  learnerRef,
+  persona,
+  skill,
+  daysAgo,
+  progress,
+  daysOverdue,
+  expectDecision,
+  verify = true,
+}) {
+  const complianceScore = progress;
+  const trainingScore = Math.min(progress + 0.1, 1);
+  const stabilityScore = progress;
+  const masteryScore = trainingScore;
+  return {
+    signalId,
+    sourceSystem: 'absorb-lms',
+    learnerRef,
+    timestamp: atDaysAgo(daysAgo, 14),
+    persona,
+    skill,
+    expectDecision,
+    verify,
+    payload: {
+      progress,
+      daysOverdue,
+      certificationValid: true,
+      name: skill,
+      enrollmentType: 'required',
+      skill,
+      complianceScore,
+      trainingScore,
+      stabilityScore,
+      masteryScore,
+      skills: {
+        [skill]: { complianceScore, trainingScore, daysOverdue, stabilityScore, masteryScore },
+      },
+    },
+  };
+}
+
 /** Three advance-only signals per skill — evidenceCount ≥ 3 for gifted-interest (URS G6). */
-function buildGiftedSignals(learnerRef, personaName, startMinute) {
+function buildGiftedSignals(learnerRef, personaName, dayOffsets) {
   const tracks = [
     { skill: 'MATH-301', courseNumber: 'MATH-301', scores: [96, 97, 98] },
     { skill: 'SCI-101', courseNumber: 'SCI-101', scores: [95, 96, 97] },
     { skill: 'ELA-101', courseNumber: 'ELA-101', scores: [97, 98, 99] },
   ];
   const signals = [];
-  let minute = startMinute;
+  let dayIdx = 0;
 
   for (const track of tracks) {
     track.scores.forEach((scoreGiven, idx) => {
-      const masteryScore = scoreGiven / 100;
-      const stabilityScore = Math.min(masteryScore * 0.9, 1);
-      signals.push({
-        signalId: `priya-${track.skill.toLowerCase()}-00${idx + 1}`,
-        sourceSystem: 'canvas-lms',
-        learnerRef,
-        timestamp: offsetTs(minute),
-        persona: personaName,
-        skill: track.skill,
-        expectDecision: 'advance',
-        payload: {
-          generated: { scoreGiven, maxScore: 100 },
-          group: { courseNumber: track.courseNumber },
-          object: { extensions: { com_instructure_canvas: { submission_type: 'online_quiz' } } },
-          extensions: { timeSinceLastActivity: 30000 + idx * 5000 },
+      signals.push(
+        canvasSignal({
+          signalId: `priya-${track.skill.toLowerCase()}-00${idx + 1}`,
+          learnerRef,
+          persona: personaName,
           skill: track.skill,
-          skills: {
-            [track.skill]: { masteryScore, stabilityScore },
-          },
-        },
-      });
-      minute += 1;
+          courseNumber: track.courseNumber,
+          scoreGiven,
+          daysAgo: dayOffsets[dayIdx] ?? 15,
+          expectDecision: 'advance',
+        })
+      );
+      dayIdx += 1;
     });
   }
 
   return signals;
 }
 
-const SIGNALS = [
-  // Signal 1: Maya Kim — Canvas Math (advance)
-  {
-    signalId: 'maya-canvas-math-001',
-    sourceSystem: 'canvas-lms',
-    learnerRef: 'stu-10042',
-    timestamp: offsetTs(0),
-    persona: 'Maya Kim',
-    skill: 'MATH-301',
-    expectDecision: 'advance',
-    payload: {
-      generated: { scoreGiven: 92, maxScore: 100 },
-      group: { courseNumber: 'MATH-301' },
-      object: { extensions: { com_instructure_canvas: { submission_type: 'online_quiz' } } },
-      extensions: { timeSinceLastActivity: 30000 },
+/**
+ * Build all demo signals spread across spanDays ending today.
+ * Signals are returned in chronological order (oldest first) for ingestion.
+ */
+function buildSignals(spanDays) {
+  const clamp = (d) => Math.min(Math.max(d, 1), spanDays - 1);
+
+  const signals = [
+    // ── Maya Kim — Math strong, Reading gap vs ELA ──
+    canvasSignal({
+      signalId: 'maya-canvas-math-001',
+      learnerRef: 'stu-10042',
+      persona: 'Maya Kim',
       skill: 'MATH-301',
-      skills: { 'MATH-301': { masteryScore: 0.92, stabilityScore: 0.828 } },
-    },
-  },
-
-  // Signal 2: Maya Kim — Canvas ELA (advance) — pairs with Reading for English learning gap
-  {
-    signalId: 'maya-canvas-ela-001',
-    sourceSystem: 'canvas-lms',
-    learnerRef: 'stu-10042',
-    timestamp: offsetTs(1),
-    persona: 'Maya Kim',
-    skill: 'ELA-201',
-    expectDecision: 'reinforce',
-    payload: {
-      generated: { scoreGiven: 88, maxScore: 100 },
-      group: { courseNumber: 'ELA-201' },
-      object: { extensions: { com_instructure_canvas: { submission_type: 'online_upload' } } },
-      extensions: { timeSinceLastActivity: 45000 },
+      scoreGiven: 92,
+      daysAgo: clamp(84),
+      expectDecision: 'advance',
+    }),
+    canvasSignal({
+      signalId: 'maya-canvas-math-hist-001',
+      learnerRef: 'stu-10042',
+      persona: 'Maya Kim',
+      skill: 'MATH-301',
+      scoreGiven: 94,
+      daysAgo: clamp(62),
+      expectDecision: 'advance',
+      verify: false,
+    }),
+    canvasSignal({
+      signalId: 'maya-canvas-ela-001',
+      learnerRef: 'stu-10042',
+      persona: 'Maya Kim',
       skill: 'ELA-201',
-      skills: { 'ELA-201': { masteryScore: 0.88, stabilityScore: 0.792 } },
-    },
-  },
-
-  // Signal 3: Maya Kim — i-Ready Reading (intervene) — learning gap vs ELA in English
-  {
-    signalId: 'maya-iready-read-001',
-    sourceSystem: 'iready-diagnostic',
-    learnerRef: 'stu-10042',
-    timestamp: offsetTs(2),
-    persona: 'Maya Kim',
-    skill: 'Reading',
-    expectDecision: 'intervene',
-    payload: {
+      scoreGiven: 88,
+      daysAgo: clamp(58),
+      expectDecision: 'reinforce',
+      submissionType: 'online_upload',
+      timeSinceLastActivity: 45_000,
+    }),
+    canvasSignal({
+      signalId: 'maya-canvas-math-hist-002',
+      learnerRef: 'stu-10042',
+      persona: 'Maya Kim',
+      skill: 'MATH-301',
+      scoreGiven: 91,
+      daysAgo: clamp(40),
+      expectDecision: 'advance',
+      verify: false,
+    }),
+    ireadySignal({
+      signalId: 'maya-iready-read-001',
+      learnerRef: 'stu-10042',
+      persona: 'Maya Kim',
+      skill: 'Reading',
+      daysAgo: clamp(35),
       overallScaleScore: 380,
       maxScaleScore: 800,
       percentile: 22,
       diagnosticGain: -15,
-      subject: 'Reading',
-      normingWindow: 'MOY',
-      timeSinceReinforcement: 200000,
+      expectDecision: 'intervene',
+    }),
+    canvasSignal({
+      signalId: 'maya-canvas-ela-hist-001',
+      learnerRef: 'stu-10042',
+      persona: 'Maya Kim',
+      skill: 'ELA-201',
+      scoreGiven: 86,
+      daysAgo: clamp(22),
+      expectDecision: 'reinforce',
+      verify: false,
+      submissionType: 'online_upload',
+    }),
+    ireadySignal({
+      signalId: 'maya-iready-read-002',
+      learnerRef: 'stu-10042',
+      persona: 'Maya Kim',
       skill: 'Reading',
-      skills: { Reading: { masteryScore: 0.475, stabilityScore: 0.22, riskSignal: 0.65 } },
-    },
-  },
+      daysAgo: clamp(12),
+      overallScaleScore: 360,
+      maxScaleScore: 800,
+      percentile: 18,
+      diagnosticGain: -18,
+      expectDecision: 'intervene',
+      verify: false,
+    }),
+    canvasSignal({
+      signalId: 'maya-canvas-math-recent',
+      learnerRef: 'stu-10042',
+      persona: 'Maya Kim',
+      skill: 'MATH-301',
+      scoreGiven: 93,
+      daysAgo: clamp(3),
+      expectDecision: 'advance',
+      verify: false,
+    }),
 
-  // Signal 4: Alex Rivera — Canvas ELA-101 (advance) — strong skill for within-subject gap
-  {
-    signalId: 'alex-canvas-ela-101-001',
-    sourceSystem: 'canvas-lms',
-    learnerRef: 'stu-20891',
-    timestamp: offsetTs(4),
-    persona: 'Alex Rivera',
-    skill: 'ELA-101',
-    expectDecision: 'reinforce',
-    payload: {
-      generated: { scoreGiven: 82, maxScore: 100 },
-      group: { courseNumber: 'ELA-101' },
-      object: { extensions: { com_instructure_canvas: { submission_type: 'online_quiz' } } },
-      extensions: { timeSinceLastActivity: 50000 },
+    // ── Alex Rivera — within-subject ELA gap + Science struggle ──
+    canvasSignal({
+      signalId: 'alex-canvas-ela-101-001',
+      learnerRef: 'stu-20891',
+      persona: 'Alex Rivera',
       skill: 'ELA-101',
-      skills: { 'ELA-101': { masteryScore: 0.82, stabilityScore: 0.738 } },
-    },
-  },
-
-  // Signal 5: Alex Rivera — Canvas ELA-201 (intervene) — learning gap vs ELA-101
-  {
-    signalId: 'alex-canvas-ela-001',
-    sourceSystem: 'canvas-lms',
-    learnerRef: 'stu-20891',
-    timestamp: offsetTs(4),
-    persona: 'Alex Rivera',
-    skill: 'ELA-201',
-    expectDecision: 'intervene',
-    payload: {
-      generated: { scoreGiven: 28, maxScore: 100 },
-      group: { courseNumber: 'ELA-201' },
-      object: { extensions: { com_instructure_canvas: { submission_type: 'online_upload' } } },
-      extensions: { timeSinceLastActivity: 190000 },
-      skill: 'ELA-201',
-      skills: { 'ELA-201': { masteryScore: 0.28, stabilityScore: 0.252 } },
-    },
-  },
-
-  // Signal 4: Alex Rivera — Blackboard Science (intervene)
-  {
-    signalId: 'alex-bb-sci-001',
-    sourceSystem: 'blackboard-lms',
-    learnerRef: 'stu-20891',
-    timestamp: offsetTs(6),
-    persona: 'Alex Rivera',
-    skill: 'SCI-101',
-    expectDecision: 'intervene',
-    payload: {
-      generated: { scoreGiven: 15 },
-      object: { assignable: { maxScore: 60 } },
-      group: { courseNumber: 'SCI-101' },
-      extensions: { bb_action_name: 'GradeSubmission', timeSinceLastActivity: 180000 },
+      scoreGiven: 82,
+      daysAgo: clamp(80),
+      expectDecision: 'reinforce',
+    }),
+    blackboardSignal({
+      signalId: 'alex-bb-sci-hist-001',
+      learnerRef: 'stu-20891',
+      persona: 'Alex Rivera',
       skill: 'SCI-101',
-      skills: { 'SCI-101': { masteryScore: 0.25, stabilityScore: 0.2125 } },
-    },
-  },
+      scoreGiven: 22,
+      maxScore: 60,
+      daysAgo: clamp(68),
+      expectDecision: 'intervene',
+      verify: false,
+    }),
+    canvasSignal({
+      signalId: 'alex-canvas-ela-001',
+      learnerRef: 'stu-20891',
+      persona: 'Alex Rivera',
+      skill: 'ELA-201',
+      scoreGiven: 28,
+      daysAgo: clamp(52),
+      expectDecision: 'intervene',
+      submissionType: 'online_upload',
+      timeSinceLastActivity: 190_000,
+    }),
+    canvasSignal({
+      signalId: 'alex-canvas-ela-101-hist-001',
+      learnerRef: 'stu-20891',
+      persona: 'Alex Rivera',
+      skill: 'ELA-101',
+      scoreGiven: 80,
+      daysAgo: clamp(38),
+      expectDecision: 'reinforce',
+      verify: false,
+    }),
+    blackboardSignal({
+      signalId: 'alex-bb-sci-001',
+      learnerRef: 'stu-20891',
+      persona: 'Alex Rivera',
+      skill: 'SCI-101',
+      scoreGiven: 15,
+      maxScore: 60,
+      daysAgo: clamp(28),
+      expectDecision: 'intervene',
+      timeSinceLastActivity: 180_000,
+    }),
+    canvasSignal({
+      signalId: 'alex-canvas-ela-hist-002',
+      learnerRef: 'stu-20891',
+      persona: 'Alex Rivera',
+      skill: 'ELA-201',
+      scoreGiven: 30,
+      daysAgo: clamp(16),
+      expectDecision: 'intervene',
+      verify: false,
+      submissionType: 'online_upload',
+    }),
+    canvasSignal({
+      signalId: 'alex-canvas-ela-101-recent',
+      learnerRef: 'stu-20891',
+      persona: 'Alex Rivera',
+      skill: 'ELA-101',
+      scoreGiven: 84,
+      daysAgo: clamp(4),
+      expectDecision: 'reinforce',
+      verify: false,
+    }),
 
-  // Signal 5: Jordan Mitchell — Canvas Math t1 (reinforce)
-  {
-    signalId: 'jordan-canvas-math-001',
-    sourceSystem: 'canvas-lms',
-    learnerRef: 'stu-30456',
-    timestamp: offsetTs(8),
-    persona: 'Jordan Mitchell',
-    skill: 'MATH-301',
-    expectDecision: 'reinforce',
-    payload: {
-      generated: { scoreGiven: 45, maxScore: 100 },
-      group: { courseNumber: 'MATH-301' },
-      object: { extensions: { com_instructure_canvas: { submission_type: 'online_quiz' } } },
-      extensions: { timeSinceLastActivity: 95000 },
+    // ── Jordan Mitchell — Math recovery trajectory + History ──
+    canvasSignal({
+      signalId: 'jordan-canvas-math-001',
+      learnerRef: 'stu-30456',
+      persona: 'Jordan Mitchell',
       skill: 'MATH-301',
-      skills: { 'MATH-301': { masteryScore: 0.45, stabilityScore: 0.405 } },
-    },
-  },
-
-  // Signal 6: Jordan Mitchell — Canvas Math t2 (reinforce, improving)
-  {
-    signalId: 'jordan-canvas-math-002',
-    sourceSystem: 'canvas-lms',
-    learnerRef: 'stu-30456',
-    timestamp: offsetTs(10),
-    persona: 'Jordan Mitchell',
-    skill: 'MATH-301',
-    expectDecision: 'reinforce',
-    payload: {
-      generated: { scoreGiven: 68, maxScore: 100 },
-      group: { courseNumber: 'MATH-301' },
-      object: { extensions: { com_instructure_canvas: { submission_type: 'online_quiz' } } },
-      extensions: { timeSinceLastActivity: 90000 },
+      scoreGiven: 45,
+      daysAgo: clamp(82),
+      expectDecision: 'reinforce',
+      timeSinceLastActivity: 95_000,
+    }),
+    canvasSignal({
+      signalId: 'jordan-canvas-math-002',
+      learnerRef: 'stu-30456',
+      persona: 'Jordan Mitchell',
       skill: 'MATH-301',
-      skills: { 'MATH-301': { masteryScore: 0.68, stabilityScore: 0.612 } },
-    },
-  },
-
-  // Signal 7: Jordan Mitchell — Blackboard History (reinforce, default)
-  // Sent BEFORE math-003 so Jordan's final signal is the MATH-301 advance,
-  // preserving masteryScore_direction: 'improving' for Panel 4 display.
-  {
-    signalId: 'jordan-bb-hist-001',
-    sourceSystem: 'blackboard-lms',
-    learnerRef: 'stu-30456',
-    timestamp: offsetTs(12),
-    persona: 'Jordan Mitchell',
-    skill: 'HIST-202',
-    expectDecision: 'reinforce',
-    payload: {
-      generated: { scoreGiven: 48 },
-      object: { assignable: { maxScore: 60 } },
-      group: { courseNumber: 'HIST-202' },
-      extensions: { bb_action_name: 'GradeSubmission', timeSinceLastActivity: 40000 },
+      scoreGiven: 68,
+      daysAgo: clamp(64),
+      expectDecision: 'reinforce',
+      timeSinceLastActivity: 90_000,
+    }),
+    blackboardSignal({
+      signalId: 'jordan-bb-hist-001',
+      learnerRef: 'stu-30456',
+      persona: 'Jordan Mitchell',
       skill: 'HIST-202',
-      skills: { 'HIST-202': { masteryScore: 0.80, stabilityScore: 0.68 } },
-    },
-  },
-
-  // Signal 8: Jordan Mitchell — Canvas Math t3 (advance, level transition)
-  {
-    signalId: 'jordan-canvas-math-003',
-    sourceSystem: 'canvas-lms',
-    learnerRef: 'stu-30456',
-    timestamp: offsetTs(14),
-    persona: 'Jordan Mitchell',
-    skill: 'MATH-301',
-    expectDecision: 'advance',
-    payload: {
-      generated: { scoreGiven: 90, maxScore: 100 },
-      group: { courseNumber: 'MATH-301' },
-      object: { extensions: { com_instructure_canvas: { submission_type: 'online_quiz' } } },
-      extensions: { timeSinceLastActivity: 30000 },
+      scoreGiven: 48,
+      maxScore: 60,
+      daysAgo: clamp(48),
+      expectDecision: 'reinforce',
+      timeSinceLastActivity: 40_000,
+    }),
+    canvasSignal({
+      signalId: 'jordan-canvas-math-003',
+      learnerRef: 'stu-30456',
+      persona: 'Jordan Mitchell',
       skill: 'MATH-301',
-      skills: { 'MATH-301': { masteryScore: 0.90, stabilityScore: 0.81 } },
-    },
-  },
+      scoreGiven: 90,
+      daysAgo: clamp(32),
+      expectDecision: 'advance',
+      timeSinceLastActivity: 30_000,
+    }),
+    canvasSignal({
+      signalId: 'jordan-canvas-math-hist-004',
+      learnerRef: 'stu-30456',
+      persona: 'Jordan Mitchell',
+      skill: 'MATH-301',
+      scoreGiven: 88,
+      daysAgo: clamp(18),
+      expectDecision: 'advance',
+      verify: false,
+    }),
+    canvasSignal({
+      signalId: 'jordan-canvas-math-recent',
+      learnerRef: 'stu-30456',
+      persona: 'Jordan Mitchell',
+      skill: 'MATH-301',
+      scoreGiven: 91,
+      daysAgo: clamp(6),
+      expectDecision: 'advance',
+      verify: false,
+    }),
 
-  // Signal 9: Sam Torres — Canvas ELA t1 (reinforce)
-  {
-    signalId: 'sam-canvas-ela-001',
-    sourceSystem: 'canvas-lms',
-    learnerRef: 'stu-40123',
-    timestamp: offsetTs(16),
-    persona: 'Sam Torres',
-    skill: 'ELA-201',
-    expectDecision: 'reinforce',
-    payload: {
-      generated: { scoreGiven: 55, maxScore: 100 },
-      group: { courseNumber: 'ELA-201' },
-      object: { extensions: { com_instructure_canvas: { submission_type: 'online_upload' } } },
-      extensions: { timeSinceLastActivity: 90000 },
+    // ── Sam Torres — declining ELA trajectory ──
+    canvasSignal({
+      signalId: 'sam-canvas-ela-001',
+      learnerRef: 'stu-40123',
+      persona: 'Sam Torres',
       skill: 'ELA-201',
-      skills: { 'ELA-201': { masteryScore: 0.55, stabilityScore: 0.495 } },
-    },
-  },
-
-  // Signal 10: Sam Torres — Canvas ELA t2 (reinforce, declining)
-  {
-    signalId: 'sam-canvas-ela-002',
-    sourceSystem: 'canvas-lms',
-    learnerRef: 'stu-40123',
-    timestamp: offsetTs(17),
-    persona: 'Sam Torres',
-    skill: 'ELA-201',
-    expectDecision: 'reinforce',
-    payload: {
-      generated: { scoreGiven: 48, maxScore: 100 },
-      group: { courseNumber: 'ELA-201' },
-      object: { extensions: { com_instructure_canvas: { submission_type: 'online_upload' } } },
-      extensions: { timeSinceLastActivity: 120000 },
+      scoreGiven: 55,
+      daysAgo: clamp(78),
+      expectDecision: 'reinforce',
+      submissionType: 'online_upload',
+      timeSinceLastActivity: 90_000,
+    }),
+    canvasSignal({
+      signalId: 'sam-canvas-ela-002',
+      learnerRef: 'stu-40123',
+      persona: 'Sam Torres',
       skill: 'ELA-201',
-      skills: { 'ELA-201': { masteryScore: 0.48, stabilityScore: 0.432 } },
-    },
-  },
-
-  // Signal 11: Sam Torres — Canvas ELA t3 (intervene, decay surfaced in trajectory)
-  {
-    signalId: 'sam-canvas-ela-003',
-    sourceSystem: 'canvas-lms',
-    learnerRef: 'stu-40123',
-    timestamp: offsetTs(18),
-    persona: 'Sam Torres',
-    skill: 'ELA-201',
-    expectDecision: 'intervene',
-    payload: {
-      generated: { scoreGiven: 32, maxScore: 100 },
-      group: { courseNumber: 'ELA-201' },
-      object: { extensions: { com_instructure_canvas: { submission_type: 'online_upload' } } },
-      extensions: { timeSinceLastActivity: 200000 },
+      scoreGiven: 48,
+      daysAgo: clamp(56),
+      expectDecision: 'reinforce',
+      submissionType: 'online_upload',
+      timeSinceLastActivity: 120_000,
+    }),
+    canvasSignal({
+      signalId: 'sam-canvas-ela-003',
+      learnerRef: 'stu-40123',
+      persona: 'Sam Torres',
       skill: 'ELA-201',
-      skills: { 'ELA-201': { masteryScore: 0.32, stabilityScore: 0.288 } },
-    },
-  },
+      scoreGiven: 32,
+      daysAgo: clamp(34),
+      expectDecision: 'intervene',
+      submissionType: 'online_upload',
+      timeSinceLastActivity: 200_000,
+    }),
+    canvasSignal({
+      signalId: 'sam-canvas-ela-hist-004',
+      learnerRef: 'stu-40123',
+      persona: 'Sam Torres',
+      skill: 'ELA-201',
+      scoreGiven: 38,
+      daysAgo: clamp(20),
+      expectDecision: 'reinforce',
+      verify: false,
+      submissionType: 'online_upload',
+    }),
+    canvasSignal({
+      signalId: 'sam-canvas-ela-recent',
+      learnerRef: 'stu-40123',
+      persona: 'Sam Torres',
+      skill: 'ELA-201',
+      scoreGiven: 28,
+      daysAgo: clamp(7),
+      expectDecision: 'intervene',
+      verify: false,
+      submissionType: 'online_upload',
+      timeSinceLastActivity: 210_000,
+    }),
 
-  // Signals 12–20: Priya Patel — cross-subject advance-only (gifted-interest flag)
-  ...buildGiftedSignals('stu-50199', 'Priya Patel', 22),
+    // ── Priya Patel — gifted-interest (advance-only, spread across quarter) ──
+    ...buildGiftedSignals('stu-50199', 'Priya Patel', [
+      clamp(86),
+      clamp(78),
+      clamp(70),
+      clamp(62),
+      clamp(54),
+      clamp(46),
+      clamp(38),
+      clamp(28),
+      clamp(14),
+    ]),
 
-  // Signal 21: Ms. Davis — Absorb Compliance t1 (reinforce)
-  {
-    signalId: 'davis-absorb-001',
-    sourceSystem: 'absorb-lms',
-    learnerRef: 'staff-0201',
-    timestamp: offsetTs(18),
-    persona: 'Ms. Davis',
-    skill: 'Annual Compliance 2026',
-    expectDecision: 'reinforce',
-    payload: {
-      progress: 0.60,
-      daysOverdue: 5,
-      certificationValid: true,
-      name: 'Annual Compliance 2026',
-      enrollmentType: 'required',
+    // ── Ms. Davis — compliance decay arc ──
+    absorbSignal({
+      signalId: 'davis-absorb-hist-001',
+      learnerRef: 'staff-0201',
+      persona: 'Ms. Davis',
       skill: 'Annual Compliance 2026',
-      complianceScore: 0.60,
-      trainingScore: 0.70,
-      stabilityScore: 0.60,
-      masteryScore: 0.70,
-      skills: { 'Annual Compliance 2026': { complianceScore: 0.60, trainingScore: 0.70, daysOverdue: 5, stabilityScore: 0.60, masteryScore: 0.70 } },
-    },
-  },
-
-  // Signal 22: Ms. Davis — Absorb Compliance t2 (intervene, declining)
-  {
-    signalId: 'davis-absorb-002',
-    sourceSystem: 'absorb-lms',
-    learnerRef: 'staff-0201',
-    timestamp: offsetTs(20),
-    persona: 'Ms. Davis',
-    skill: 'Annual Compliance 2026',
-    expectDecision: 'intervene',
-    payload: {
+      daysAgo: clamp(76),
+      progress: 0.75,
+      daysOverdue: 0,
+      expectDecision: 'reinforce',
+      verify: false,
+    }),
+    absorbSignal({
+      signalId: 'davis-absorb-001',
+      learnerRef: 'staff-0201',
+      persona: 'Ms. Davis',
+      skill: 'Annual Compliance 2026',
+      daysAgo: clamp(58),
+      progress: 0.6,
+      daysOverdue: 5,
+      expectDecision: 'reinforce',
+    }),
+    absorbSignal({
+      signalId: 'davis-absorb-hist-002',
+      learnerRef: 'staff-0201',
+      persona: 'Ms. Davis',
+      skill: 'Annual Compliance 2026',
+      daysAgo: clamp(42),
+      progress: 0.5,
+      daysOverdue: 10,
+      expectDecision: 'reinforce',
+      verify: false,
+    }),
+    absorbSignal({
+      signalId: 'davis-absorb-002',
+      learnerRef: 'staff-0201',
+      persona: 'Ms. Davis',
+      skill: 'Annual Compliance 2026',
+      daysAgo: clamp(24),
       progress: 0.35,
       daysOverdue: 20,
-      certificationValid: true,
-      name: 'Annual Compliance 2026',
-      enrollmentType: 'required',
+      expectDecision: 'intervene',
+    }),
+    absorbSignal({
+      signalId: 'davis-absorb-recent',
+      learnerRef: 'staff-0201',
+      persona: 'Ms. Davis',
       skill: 'Annual Compliance 2026',
-      complianceScore: 0.35,
-      trainingScore: 0.40,
-      stabilityScore: 0.35,
-      masteryScore: 0.40,
-      skills: { 'Annual Compliance 2026': { complianceScore: 0.35, trainingScore: 0.40, daysOverdue: 20, stabilityScore: 0.35, masteryScore: 0.40 } },
-    },
-  },
-];
+      daysAgo: clamp(5),
+      progress: 0.32,
+      daysOverdue: 25,
+      expectDecision: 'intervene',
+      verify: false,
+    }),
+  ];
+
+  // Ambient weekly activity — fills cumulative chart gaps across the span
+  const ambientRotations = [
+    { learnerRef: 'stu-10042', persona: 'Maya Kim', skill: 'MATH-301', scoreGiven: 89, expectDecision: 'advance' },
+    { learnerRef: 'stu-20891', persona: 'Alex Rivera', skill: 'ELA-101', scoreGiven: 78, expectDecision: 'reinforce' },
+    { learnerRef: 'stu-30456', persona: 'Jordan Mitchell', skill: 'MATH-301', scoreGiven: 72, expectDecision: 'reinforce' },
+    { learnerRef: 'stu-40123', persona: 'Sam Torres', skill: 'ELA-201', scoreGiven: 42, expectDecision: 'reinforce' },
+    { learnerRef: 'stu-50199', persona: 'Priya Patel', skill: 'MATH-301', scoreGiven: 97, expectDecision: 'advance' },
+    { learnerRef: 'staff-0201', persona: 'Ms. Davis', skill: 'Annual Compliance 2026', type: 'absorb', progress: 0.55, expectDecision: 'reinforce' },
+  ];
+
+  for (let day = spanDays - 2; day >= 2; day -= 7) {
+    const rot = ambientRotations[(Math.floor((spanDays - day) / 7)) % ambientRotations.length];
+    const ambientId = `ambient-d${String(day).padStart(3, '0')}-${rot.learnerRef}`;
+
+    if (rot.type === 'absorb') {
+      signals.push(
+        absorbSignal({
+          signalId: ambientId,
+          learnerRef: rot.learnerRef,
+          persona: rot.persona,
+          skill: rot.skill,
+          daysAgo: day,
+          progress: rot.progress,
+          daysOverdue: Math.max(0, Math.floor((spanDays - day) / 14)),
+          expectDecision: rot.expectDecision,
+          verify: false,
+        })
+      );
+    } else {
+      signals.push(
+        canvasSignal({
+          signalId: ambientId,
+          learnerRef: rot.learnerRef,
+          persona: rot.persona,
+          skill: rot.skill,
+          scoreGiven: rot.scoreGiven,
+          daysAgo: day,
+          expectDecision: rot.expectDecision,
+          verify: false,
+        })
+      );
+    }
+  }
+
+  return signals.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+}
 
 // ─── CLI args ────────────────────────────────────────────────────────────────
 
@@ -514,18 +762,27 @@ function parseArgs() {
     apiKey: process.env.API_KEY,
     adminKey: process.env.ADMIN_API_KEY,
     org: DEFAULT_ORG,
+    spanDays: DEFAULT_SPAN_DAYS,
   };
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--host' && args[i + 1]) opts.host = args[++i];
     else if (args[i] === '--api-key' && args[i + 1]) opts.apiKey = args[++i];
     else if (args[i] === '--admin-key' && args[i + 1]) opts.adminKey = args[++i];
     else if (args[i] === '--org' && args[i + 1]) opts.org = args[++i];
+    else if (args[i] === '--span-days' && args[i + 1]) opts.spanDays = Number.parseInt(args[++i], 10);
   }
   return opts;
 }
 
 function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
+}
+
+function dateRangeLabel(signals) {
+  if (signals.length === 0) return '—';
+  const first = signals[0].timestamp.slice(0, 10);
+  const last = signals[signals.length - 1].timestamp.slice(0, 10);
+  return `${first} → ${last}`;
 }
 
 // ─── Phase 1: Register field mappings ────────────────────────────────────────
@@ -591,15 +848,15 @@ async function getLatestDecisionForLearner(base, apiKey, org, learnerRef) {
   return decisions[0];
 }
 
-async function sendSignals(base, apiKey, org) {
-  console.log('Phase 2: Sending realistic LMS signals...');
+async function sendSignals(base, apiKey, org, signals) {
+  console.log('Phase 2: Sending realistic LMS signals (chronological)...');
 
   const signalsUrl = `${base}/v1/signals`;
   const headers = { 'x-api-key': apiKey, 'content-type': 'application/json' };
   const results = [];
 
-  for (let i = 0; i < SIGNALS.length; i++) {
-    const sig = SIGNALS[i];
+  for (let i = 0; i < signals.length; i++) {
+    const sig = signals[i];
 
     const envelope = {
       org_id: org,
@@ -644,7 +901,8 @@ async function sendSignals(base, apiKey, org) {
 
       const icon = outcome === 'rejected' ? '\u2717' : outcome === 'duplicate' ? '\u25CB' : '\u2713';
       const detail = outcome === 'rejected' && body.rejection_reason?.code ? ` (${body.rejection_reason.code})` : '';
-      console.log(`  ${icon} ${sig.signalId}: ${sig.sourceSystem} \u2192 ${outcome}${detail}`);
+      const dayTag = sig.timestamp.slice(0, 10);
+      console.log(`  ${icon} ${sig.signalId}: ${dayTag} ${sig.sourceSystem} \u2192 ${outcome}${detail}`);
     } catch (err) {
       if (err.cause?.code === 'ECONNREFUSED') {
         console.error('\nConnection refused \u2014 is the server running at', base, '?');
@@ -653,7 +911,7 @@ async function sendSignals(base, apiKey, org) {
       throw err;
     }
 
-    if (i < SIGNALS.length - 1) await sleep(DELAY_MS);
+    if (i < signals.length - 1) await sleep(DELAY_MS);
   }
 
   console.log();
@@ -680,6 +938,7 @@ async function verifyNarrative(base, apiKey, org, signalResults) {
 
   let matchCount = 0;
   let mismatchCount = 0;
+  let skippedCount = 0;
   const decisionCounts = { advance: 0, intervene: 0, reinforce: 0, pause: 0 };
   const sourceCounts = {};
 
@@ -693,6 +952,11 @@ async function verifyNarrative(base, apiKey, org, signalResults) {
 
     for (const sig of signals) {
       sourceCounts[sig.sourceSystem] = (sourceCounts[sig.sourceSystem] ?? 0) + 1;
+
+      if (sig.verify === false) {
+        skippedCount++;
+        continue;
+      }
 
       let displayDecision;
       if (sig.outcome === 'duplicate') {
@@ -716,7 +980,8 @@ async function verifyNarrative(base, apiKey, org, signalResults) {
       else if (sig.signalId === 'davis-absorb-002') annotation = ' [declining]';
 
       const decisionDisplay = sig.outcome === 'duplicate' ? 'duplicate' : displayDecision;
-      console.log(`  ${icon} ${sig.signalId}: ${sig.sourceSystem} \u2192 ${decisionDisplay} (${sig.skill})${annotation}`);
+      const dayTag = sig.timestamp.slice(0, 10);
+      console.log(`  ${icon} ${sig.signalId}: ${dayTag} ${sig.sourceSystem} \u2192 ${decisionDisplay} (${sig.skill})${annotation}`);
 
       if (!isMatch && sig.outcome !== 'duplicate') {
         console.log(`    \u26A0 Expected ${sig.expectDecision}, got ${displayDecision}`);
@@ -741,12 +1006,12 @@ async function verifyNarrative(base, apiKey, org, signalResults) {
     console.log();
   }
 
-  const total = matchCount + mismatchCount;
+  const verified = matchCount + mismatchCount;
   const sourceEntries = Object.entries(sourceCounts).map(([k, v]) => `${k} (${v})`).join(', ');
 
   console.log('--- Summary ---');
-  console.log(`  Signals: ${total} sent | ${matchCount} matched expected outcomes`);
-  console.log(`  Decisions: advance ${decisionCounts.advance}, intervene ${decisionCounts.intervene}, reinforce ${decisionCounts.reinforce}`);
+  console.log(`  Signals: ${signalResults.length} sent | ${verified} verified | ${matchCount} matched | ${skippedCount} ambient/historical skipped`);
+  console.log(`  Decisions (verified signals): advance ${decisionCounts.advance}, intervene ${decisionCounts.intervene}, reinforce ${decisionCounts.reinforce}`);
   console.log(`  Sources: ${sourceEntries}`);
   console.log(`  Field mappings: ${Object.keys(FIELD_MAPPINGS).length} registered (Phase 1)`);
   console.log();
@@ -777,27 +1042,31 @@ async function verifyNarrative(base, apiKey, org, signalResults) {
 // ─── Main ────────────────────────────────────────────────────────────────────
 
 async function main() {
-  const { host, apiKey, adminKey, org } = parseArgs();
+  const { host, apiKey, adminKey, org, spanDays } = parseArgs();
 
   if (!apiKey) {
     console.error('Error: API_KEY env var or --api-key required. Set API_KEY in .env.local or pass --api-key.');
     process.exit(1);
   }
 
+  if (!Number.isFinite(spanDays) || spanDays < 14) {
+    console.error('Error: --span-days must be a number >= 14');
+    process.exit(1);
+  }
+
+  const signals = buildSignals(spanDays);
   const base = host.replace(/\/$/, '');
 
-  console.log(`\nSprings Realistic Seed (v3) \u2014 ${base} (org: ${org})\n`);
+  console.log(`\nSprings Realistic Seed (v4) \u2014 ${base} (org: ${org})\n`);
   console.log('Personas: Maya Kim, Alex Rivera, Jordan Mitchell, Sam Torres, Priya Patel, Ms. Davis');
   console.log('Sources:  canvas-lms, blackboard-lms, iready-diagnostic, absorb-lms');
-  console.log(`Signals:  ${SIGNALS.length} (learning gaps, trajectories, gifted-interest)\n`);
+  console.log(`Timeline: ${spanDays} days (${dateRangeLabel(signals)})`);
+  console.log(`Signals:  ${signals.length} (learning gaps, trajectories, gifted-interest, ambient weekly)\n`);
 
-  // Phase 1
   await registerMappings(base, adminKey, org);
 
-  // Phase 2
-  const signalResults = await sendSignals(base, apiKey, org);
+  const signalResults = await sendSignals(base, apiKey, org, signals);
 
-  // Phase 3
   const allMatch = await verifyNarrative(base, apiKey, org, signalResults);
 
   process.exit(allMatch ? 0 : 1);

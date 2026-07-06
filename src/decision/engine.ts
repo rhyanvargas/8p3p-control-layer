@@ -211,7 +211,7 @@ export async function evaluateState(
     decision_id: crypto.randomUUID(),
     learner_reference: request.learner_reference,
     decision_type: evalResult.decision_type,
-    decided_at: new Date().toISOString(),
+    decided_at: request.requested_at,
     decision_context: decisionContext,
     trace: {
       state_id: currentState.state_id,

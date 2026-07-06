@@ -4,7 +4,7 @@
 **Duration**: ~5–6 minutes with narration (pick 3–4 beats for a tight 4-minute cut)  
 **Prerequisites**: Local API running, Springs seed v3 loaded, and Next.js dashboard running — see **[Local Dev & Testing](../../foundation/setup.md)** (`npm run dev`, `npm run seed:springs-demo`, then `cd dashboard && npm run dev -- -p 3001`).
 
-**Seed script**: [`examples/springs/seed-springs-demo.mjs`](../../../examples/springs/seed-springs-demo.mjs) (v3 — 24 signals, 6 personas, learning gaps + trajectories + gifted-interest).
+**Seed script**: [`examples/springs/seed-springs-demo.mjs`](../../../examples/springs/seed-springs-demo.mjs) (v4 — ~60+ signals over 90 days, 6 personas, learning gaps + trajectories + gifted-interest).
 
 ---
 
@@ -28,7 +28,7 @@ npm run dev
 npm run seed:springs-demo
 ```
 
-Point out Phase 1 (4 LMS field mappings registered) and Phase 2 (**24 synthesized signals** across Canvas, Blackboard, i-Ready, and Absorb).
+Point out Phase 1 (4 LMS field mappings registered) and Phase 2 (**~53 synthesized signals over 90 days** across Canvas, Blackboard, i-Ready, and Absorb).
 
 Open the dashboard at `http://localhost:3001/` (`CONTROL_LAYER_ORG_ID=springs` in `dashboard/.env.local`).
 
