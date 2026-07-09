@@ -122,7 +122,7 @@ Spec: [`docs/specs/dashboard-passphrase-gate.md`](../specs/dashboard-passphrase-
 
 ### Dashboard (`dashboard/.env.local`)
 
-Source of truth: [`dashboard/.env.example`](../../dashboard/.env.example).
+Source of truth (every var + comments): [`dashboard/.env.example`](../../dashboard/.env.example).
 
 | Variable | Required | Example (local) | Notes |
 |----------|----------|-----------------|-------|
@@ -130,8 +130,9 @@ Source of truth: [`dashboard/.env.example`](../../dashboard/.env.example).
 | `CONTROL_LAYER_API_KEY` | when API auth on | same as root `API_KEY` | **Server-only** — never use `NEXT_PUBLIC_` |
 | `CONTROL_LAYER_ORG_ID` | no | `springs` | Pins org after seed |
 | `NEXT_PUBLIC_APP_NAME` | no | `Decision Panel` | Safe client label |
-| `DASHBOARD_ACCESS_CODE` | no | — | Enables passphrase gate |
-| `COOKIE_SECRET` | when gate on | random 32+ bytes | HMAC session signing |
+| `DASHBOARD_ACCESS_CODE_EDUCATOR` / `_COMPLIANCE` | no | dual codes | Preferred gate; both set → persona nav |
+| `DASHBOARD_ACCESS_CODE` | no | — | Legacy single code (full nav) when dual unset |
+| `COOKIE_SECRET` | when gate on | `openssl rand -hex 32` | HMAC session signing (min 32 chars) |
 
 ### Storage
 
