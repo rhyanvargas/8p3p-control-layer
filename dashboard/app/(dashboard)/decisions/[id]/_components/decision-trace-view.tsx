@@ -16,6 +16,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { resolveEducatorExplanation } from '@/lib/ai/mock-explanations';
 import type { Decision } from '@/lib/api/types';
 import {
   downloadDecisionJson,
@@ -25,6 +26,7 @@ import {
   formatTraceValue,
 } from '@/lib/decision-trace';
 import { formatDecisionTime, truncateRule } from '@/lib/overview-metrics';
+import { badge } from '@/lib/semantic-colors';
 
 type DecisionTraceViewProps = {
   decision: Decision;
@@ -33,7 +35,7 @@ type DecisionTraceViewProps = {
 function PassBadge({ result }: { result: 'pass' | 'fail' | 'unknown' }) {
   if (result === 'pass') {
     return (
-      <Badge className="bg-[var(--status-advance)] text-white" aria-label="Pass">
+      <Badge className={badge.infoSolid} aria-label="Pass">
         Pass
       </Badge>
     );
@@ -53,6 +55,15 @@ export function DecisionTraceView({ decision }: DecisionTraceViewProps) {
   const evaluatedFields = extractEvaluatedFields(trace.matched_rule);
   const ruleCondition = extractRuleCondition(trace.matched_rule);
   const meta = decision.output_metadata;
+  const aiExplanation = resolveEducatorExplanation({
+    educator_explanation: trace.educator_explanation,
+    educator_summary: trace.educator_summary,
+    decision_type: decision.decision_type,
+    skill:
+      typeof decision.decision_context?.skill === 'string'
+        ? decision.decision_context.skill
+        : null,
+  });
 
   return (
     <div className="flex flex-col gap-6">
@@ -130,6 +141,12 @@ export function DecisionTraceView({ decision }: DecisionTraceViewProps) {
               {trace.educator_summary || '—'}
             </dd>
           </div>
+          {aiExplanation ? (
+            <div className="col-span-full flex flex-col gap-0.5">
+              <dt className="text-muted-foreground text-xs">AI explanation</dt>
+              <dd className="text-sm leading-relaxed">{aiExplanation}</dd>
+            </div>
+          ) : null}
         </dl>
       </section>
 

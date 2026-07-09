@@ -1,6 +1,7 @@
 import { AlertCircle, AlertTriangle, Minus, type LucideIcon } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
+import { badge } from '@/lib/semantic-colors';
 import { cn } from '@/lib/utils';
 
 function priorityToConfig(priority: number): {
@@ -11,20 +12,20 @@ function priorityToConfig(priority: number): {
   if (priority === 1) {
     return {
       label: 'High',
-      className: 'bg-[var(--urgency-high)]/10 text-[var(--urgency-high)]',
+      className: badge.danger,
       icon: AlertTriangle,
     };
   }
   if (priority <= 3) {
     return {
       label: 'Medium',
-      className: 'bg-[var(--urgency-medium)]/10 text-[var(--urgency-medium)]',
+      className: badge.warning,
       icon: AlertCircle,
     };
   }
   return {
     label: 'Low',
-    className: 'bg-muted text-muted-foreground',
+    className: badge.neutral,
     icon: Minus,
   };
 }

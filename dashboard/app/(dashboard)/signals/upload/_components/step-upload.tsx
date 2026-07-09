@@ -10,6 +10,7 @@ import { Progress } from '@/components/ui/progress';
 import { parseFile } from '@/lib/upload/parse';
 import type { ParsedTable } from '@/lib/upload/types';
 import { UploadParseError } from '@/lib/upload/types';
+import { surface } from '@/lib/semantic-colors';
 import { cn } from '@/lib/utils';
 
 type StepUploadProps = {
@@ -73,11 +74,14 @@ export function StepUpload({
     return (
       <div className="flex flex-col gap-4">
         <div
-          className="flex min-h-48 flex-col items-center justify-center gap-3 rounded-xl border border-[var(--status-advance)]/30 bg-[var(--status-advance)]/5 p-8"
+          className={cn(
+            'flex min-h-48 flex-col items-center justify-center gap-3 rounded-xl border p-8',
+            surface.infoMuted
+          )}
           role="status"
           aria-label="File parsed successfully"
         >
-          <div className="bg-[var(--status-advance)]/10 text-[var(--status-advance)] flex size-10 items-center justify-center rounded-full">
+          <div className={cn('flex size-10 items-center justify-center rounded-full', surface.infoMutedIcon)}>
             <FileCheck className="size-5" aria-hidden="true" />
           </div>
           <div className="text-center">

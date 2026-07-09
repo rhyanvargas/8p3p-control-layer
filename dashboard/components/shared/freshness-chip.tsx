@@ -26,9 +26,10 @@ type FreshnessChipProps = {
 };
 
 export function FreshnessChip({ fetchedAt, className }: FreshnessChipProps) {
-  const [relative, setRelative] = useState(() =>
-    formatRelativeTime(fetchedAt, Date.now())
-  );
+  // Start `null` so server and initial client render agree; the real
+  // Date.now()-based value is computed after mount to avoid a hydration
+  // mismatch (server and client render at different instants).
+  const [relative, setRelative] = useState<string | null>(null);
 
   useEffect(() => {
     const tick = () => setRelative(formatRelativeTime(fetchedAt, Date.now()));
@@ -45,7 +46,7 @@ export function FreshnessChip({ fetchedAt, className }: FreshnessChipProps) {
       )}
     >
       <Clock aria-hidden="true" className="size-3.5" />
-      Updated {relative}
+      Updated {relative ?? 'just now'}
     </span>
   );
 }

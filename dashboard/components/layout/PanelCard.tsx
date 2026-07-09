@@ -2,12 +2,13 @@ import type { LucideIcon } from 'lucide-react';
 import { Info } from 'lucide-react';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { icon } from '@/lib/semantic-colors';
 
 const variantIconClass: Record<'danger' | 'warning' | 'action' | 'success', string> = {
-  danger: 'text-[var(--urgency-high)]',
-  warning: 'text-[var(--urgency-medium)]',
-  action: 'text-[var(--progress-improved)]',
-  success: 'text-[var(--progress-improved)]',
+  danger: icon.danger,
+  warning: icon.warning,
+  action: icon.success,
+  success: icon.success,
 };
 
 interface PanelCardProps {

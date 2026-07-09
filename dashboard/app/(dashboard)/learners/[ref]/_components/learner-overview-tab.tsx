@@ -20,7 +20,7 @@ import { getReviewRecord } from '@/lib/decision-review';
 import { formatLevel } from '@/lib/learners';
 import { formatDecisionTime, truncateRule } from '@/lib/overview-metrics';
 import { useDashboardPersona } from '@/lib/persona-context';
-import { skillDisplayLine } from '@/lib/panel-helpers';
+import { educatorBodyCopy, skillDisplayLine } from '@/lib/panel-helpers';
 import { scoreToLevel } from '@/lib/score-levels';
 import type { RecentDecisionItem } from '@/lib/api/types';
 
@@ -88,7 +88,7 @@ export function LearnerOverviewTab({ orgId, learnerRef }: LearnerOverviewTabProp
         header: 'Summary',
         cell: ({ row }) => (
           <span className="line-clamp-2 text-sm">
-            {row.original.educator_summary || row.original.rationale}
+            {educatorBodyCopy(row.original)}
           </span>
         ),
       },

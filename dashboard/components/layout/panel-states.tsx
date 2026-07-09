@@ -1,5 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { surface } from '@/lib/semantic-colors';
+import { cn } from '@/lib/utils';
 
 export function PanelSkeleton({ rows = 4 }: { rows?: number }) {
   return (
@@ -20,7 +22,10 @@ export function PanelError({
 }) {
   return (
     <div
-      className="flex flex-col items-center justify-center gap-3 rounded-lg border-2 border-[var(--urgency-high)]/40 bg-muted/30 p-6 text-center"
+      className={cn(
+        'flex flex-col items-center justify-center gap-3 rounded-lg border-2 bg-muted/30 p-6 text-center',
+        surface.dangerBorder
+      )}
       role="alert"
       aria-live="polite"
     >

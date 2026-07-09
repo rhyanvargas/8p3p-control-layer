@@ -23,8 +23,8 @@ import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Label } from '@/components/ui/label';
@@ -37,6 +37,7 @@ import {
 } from '@/components/ui/select';
 import { useDecisions } from '@/hooks/use-decisions';
 import { useFeedbackStatusForDecisionIds } from '@/hooks/use-decision-feedback-status';
+import { resolveEducatorExplanation } from '@/lib/ai/mock-explanations';
 import type { Decision } from '@/lib/api/types';
 import {
   buildRationaleExcerpt,
@@ -72,6 +73,16 @@ const TIME_RANGE_OPTIONS: { value: DecisionTimeRangeDays; label: string }[] = [
   { value: 90, label: 'Last 90 days' },
   { value: 365, label: 'All (12 months)' },
 ];
+
+function timeRangeLabel(value: DecisionTimeRangeDays): string {
+  return TIME_RANGE_OPTIONS.find((option) => option.value === value)?.label ?? String(value);
+}
+
+function reviewFilterLabel(value: DecisionsReviewFilter): string {
+  return (
+    DECISIONS_REVIEW_FILTER_OPTIONS.find((option) => option.value === value)?.label ?? value
+  );
+}
 
 function isUrgentDecisionType(decisionType: string): boolean {
   return decisionType === 'intervene' || decisionType === 'pause';
@@ -261,7 +272,7 @@ export function DecisionsStream({ orgId }: DecisionsStreamProps) {
               }
             >
               <SelectTrigger id="time-range-filter" className="w-44">
-                <SelectValue />
+                <SelectValue>{timeRangeLabel(timeRange)}</SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {TIME_RANGE_OPTIONS.map((option) => (
@@ -288,7 +299,7 @@ export function DecisionsStream({ orgId }: DecisionsStreamProps) {
                 className="w-52"
                 aria-label="Review status filter"
               >
-                <SelectValue />
+                <SelectValue>{reviewFilterLabel(reviewFilter)}</SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {DECISIONS_REVIEW_FILTER_OPTIONS.map((option) => (
@@ -308,16 +319,17 @@ export function DecisionsStream({ orgId }: DecisionsStreamProps) {
               Columns
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuLabel>Visible columns</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuCheckboxItem
-                checked={showYourActionColumn}
-                onCheckedChange={(checked) =>
-                  setShowYourActionColumn(checked === true)
-                }
-              >
-                Your action
-              </DropdownMenuCheckboxItem>
+              <DropdownMenuGroup>
+                <DropdownMenuLabel>Visible columns</DropdownMenuLabel>
+                <DropdownMenuCheckboxItem
+                  checked={showYourActionColumn}
+                  onCheckedChange={(checked) =>
+                    setShowYourActionColumn(checked === true)
+                  }
+                >
+                  Your action
+                </DropdownMenuCheckboxItem>
+              </DropdownMenuGroup>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -368,6 +380,21 @@ export function DecisionsStream({ orgId }: DecisionsStreamProps) {
             <SheetSection
               title="Summary"
               fields={[
+                {
+                  label: 'AI explanation',
+                  value:
+                    resolveEducatorExplanation({
+                      educator_explanation: selected.trace.educator_explanation,
+                      educator_summary: selected.trace.educator_summary,
+                      decision_type: selected.decision_type,
+                      skill:
+                        typeof selected.decision_context?.skill === 'string'
+                          ? selected.decision_context.skill
+                          : null,
+                    }) ||
+                    selected.trace.educator_summary ||
+                    'No educator summary was provided.',
+                },
                 {
                   label: 'Educator summary',
                   value:

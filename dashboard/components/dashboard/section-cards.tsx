@@ -10,6 +10,7 @@ import type { DecisionType } from '@/lib/api/types';
 import type { OverviewKpis } from '@/lib/overview-metrics';
 import { attentionFromPendingUrl } from '@/lib/page-url-state';
 import { useDashboardPersona } from '@/lib/persona-context';
+import { icon } from '@/lib/semantic-colors';
 
 type SectionCardsProps = {
   kpis: OverviewKpis;
@@ -61,23 +62,25 @@ export function SectionCards({ kpis }: SectionCardsProps) {
           Needs your action
         </h2>
         <StatCard
-          title="Needs attention"
+          title="Needs action"
+          ariaLabel={`Needs attention: ${needsAttention.count}`}
           value={needsAttention.count}
           delta={needsAttention.delta}
           href="/attention"
           icon={AlertCircle}
-          iconClassName="text-[var(--urgency-high)]"
+          iconClassName={icon.danger}
           tooltip="Learners with urgent intervene or pause decisions, ranked by priority."
         />
         <StatCard
-          title="Pending decisions"
+          title="Pending"
+          ariaLabel={`Pending decisions: ${pendingDecisions}`}
           value={pendingDecisions}
           href={attentionFromPendingUrl()}
           icon={Clock}
-          iconClassName="text-[var(--status-pause)]"
+          iconClassName={icon.neutral}
           tooltip={pendingTooltip}
           secondaryLine={
-            reviewedToday > 0 ? `${reviewedToday} reviewed today` : undefined
+            reviewedToday > 0 ? `${reviewedToday} reviewed` : undefined
           }
         />
       </section>
@@ -87,14 +90,14 @@ export function SectionCards({ kpis }: SectionCardsProps) {
             Program health
           </h2>
           <StatCard
-            title="Rejected signals today"
+            title="Rejected today"
             ariaLabel={`Rejected signals today: ${signalsToday.rejected}`}
             value={
               <span className="inline-flex items-center gap-2">
                 {signalsToday.rejected}
                 {signalsToday.accepted > 0 ? (
                   <span className="text-muted-foreground inline-flex items-center gap-1 text-sm font-normal">
-                    <CheckCircle2 aria-hidden="true" className="size-4 text-[var(--status-advance)]" />
+                    <CheckCircle2 aria-hidden="true" className={`size-4 ${icon.success}`} />
                     {signalsToday.accepted}
                   </span>
                 ) : null}
@@ -107,11 +110,12 @@ export function SectionCards({ kpis }: SectionCardsProps) {
             secondaryLine={showProgramWideIndicator ? 'Program-wide' : undefined}
           />
           <StatCard
-            title="Improving learners"
+            title="Improving"
+            ariaLabel={`Improving learners: ${improvingLearners}`}
             value={improvingLearners}
             href="/learners?trend=improving"
             icon={TrendingUp}
-            iconClassName="text-[var(--progress-improved)]"
+            iconClassName={icon.success}
             tooltip="Learners with at least one improving mastery signal."
             secondaryLine={showProgramWideIndicator ? 'Program-wide' : undefined}
           />

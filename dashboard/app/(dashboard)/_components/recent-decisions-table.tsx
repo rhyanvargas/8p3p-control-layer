@@ -10,6 +10,7 @@ import { DecisionBadge } from '@/components/shared/decision-badge';
 import { DetailSheet } from '@/components/shared/detail-sheet';
 import { DrillDownLink } from '@/components/shared/drill-down-link';
 import { SheetSection } from '@/components/shared/sheet-section';
+import { resolveEducatorExplanation } from '@/lib/ai/mock-explanations';
 import type { Decision, DecisionType } from '@/lib/api/types';
 import { formatDecisionTime, truncateRule } from '@/lib/overview-metrics';
 
@@ -24,20 +25,27 @@ function humanizeDecisionType(type: DecisionType): string {
   return DECISION_TYPE_LABELS[type] ?? type;
 }
 
-function truncateSummary(text: string, max = 64): string {
+function truncateSummary(text: string, max = 96): string {
   if (text.length <= max) return text;
   return `${text.slice(0, max - 1)}…`;
 }
 
-function educatorNarrative(
-  trace: Decision['trace'],
-  decisionType: DecisionType
-): string {
-  const explanation = trace.educator_explanation?.trim();
+function skillFromContext(context: Record<string, unknown> | undefined): string | null {
+  const skill = context?.skill;
+  return typeof skill === 'string' && skill.trim() ? skill : null;
+}
+
+function educatorNarrative(decision: Decision): string {
+  const explanation = resolveEducatorExplanation({
+    educator_explanation: decision.trace.educator_explanation,
+    educator_summary: decision.trace.educator_summary,
+    decision_type: decision.decision_type,
+    skill: skillFromContext(decision.decision_context),
+  });
   if (explanation) return explanation;
-  const summary = trace.educator_summary?.trim();
+  const summary = decision.trace.educator_summary?.trim();
   if (summary) return summary;
-  return humanizeDecisionType(decisionType);
+  return humanizeDecisionType(decision.decision_type);
 }
 
 function hasActiveDecisionFilters(
@@ -96,9 +104,7 @@ export function RecentDecisionsTable({
         header: 'Summary',
         cell: ({ row }) => (
           <span className="text-muted-foreground text-sm">
-            {truncateSummary(
-              educatorNarrative(row.original.trace, row.original.decision_type)
-            )}
+            {truncateSummary(educatorNarrative(row.original))}
           </span>
         ),
       },
@@ -176,8 +182,14 @@ export function RecentDecisionsTable({
               title="Summary"
               fields={[
                 {
+                  label: 'AI explanation',
+                  value: educatorNarrative(selected),
+                },
+                {
                   label: 'Educator summary',
-                  value: educatorNarrative(selected.trace, selected.decision_type),
+                  value:
+                    selected.trace.educator_summary ||
+                    'No educator summary was provided.',
                 },
               ]}
             />

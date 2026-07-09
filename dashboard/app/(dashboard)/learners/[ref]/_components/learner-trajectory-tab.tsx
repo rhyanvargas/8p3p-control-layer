@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/table';
 import { useLearnerSummary } from '@/hooks/use-learner-summary';
 import type { TrajectoryFieldSummary } from '@/lib/api/types';
+import { icon } from '@/lib/semantic-colors';
 
 const FIELD_LABELS: Record<string, string> = {
   masteryScore: 'Mastery',
@@ -34,10 +35,10 @@ function DirectionIcon({
   direction: TrajectoryFieldSummary['overall_direction'];
 }) {
   if (direction === 'improving') {
-    return <TrendingUp className="text-[var(--progress-improved)] size-4" aria-hidden="true" />;
+    return <TrendingUp className={`${icon.success} size-4`} aria-hidden="true" />;
   }
   if (direction === 'declining') {
-    return <TrendingDown className="text-[var(--progress-declining)] size-4" aria-hidden="true" />;
+    return <TrendingDown className={`${icon.danger} size-4`} aria-hidden="true" />;
   }
   return <Minus className="text-muted-foreground size-4" aria-hidden="true" />;
 }

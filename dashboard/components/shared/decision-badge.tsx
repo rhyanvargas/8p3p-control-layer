@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
+import { badge } from '@/lib/semantic-colors';
 import { cn } from '@/lib/utils';
 
 const decisionConfig: Record<
@@ -15,22 +16,22 @@ const decisionConfig: Record<
 > = {
   intervene: {
     label: 'Intervene',
-    className: 'bg-[var(--status-intervene)] text-white',
+    className: badge.warning,
     icon: HandHelping,
   },
   reinforce: {
     label: 'Reinforce',
-    className: 'bg-[var(--status-reinforce)] text-white',
+    className: badge.success,
     icon: Sparkles,
   },
   advance: {
     label: 'Advance',
-    className: 'bg-[var(--status-advance)] text-white',
+    className: badge.info,
     icon: ArrowUpRight,
   },
   pause: {
     label: 'Pause',
-    className: 'bg-[var(--status-pause)] text-white',
+    className: badge.neutral,
     icon: CirclePause,
   },
 };
@@ -47,7 +48,7 @@ export function DecisionBadge({ type }: { type: string }) {
 
   return (
     <Badge
-      className={cn(config?.className ?? 'bg-muted text-muted-foreground')}
+      className={cn(config?.className ?? badge.neutral)}
       aria-label={`Decision type ${label}`}
     >
       <Icon data-icon="inline-start" aria-hidden="true" />

@@ -1,6 +1,25 @@
+import { CheckCircle2, XCircle, type LucideIcon } from 'lucide-react';
+
 import { Badge } from '@/components/ui/badge';
 import type { ReviewAction } from '@/lib/decision-review';
+import { badge } from '@/lib/semantic-colors';
 import { cn } from '@/lib/utils';
+
+const reviewActionConfig: Record<
+  ReviewAction,
+  { label: string; className: string; icon: LucideIcon }
+> = {
+  approve: {
+    label: 'Approved',
+    className: badge.success,
+    icon: CheckCircle2,
+  },
+  reject: {
+    label: 'Rejected',
+    className: badge.danger,
+    icon: XCircle,
+  },
+};
 
 type ReviewActionChipProps = {
   action: ReviewAction;
@@ -8,17 +27,16 @@ type ReviewActionChipProps = {
 };
 
 export function ReviewActionChip({ action, className }: ReviewActionChipProps) {
-  const label = action === 'approve' ? 'Approved' : 'Rejected';
+  const config = reviewActionConfig[action];
+  const Icon = config.icon;
+
   return (
     <Badge
-      variant={action === 'approve' ? 'secondary' : 'outline'}
-      className={cn(
-        action === 'reject' &&
-          'border-destructive/30 text-destructive bg-destructive/5',
-        className
-      )}
+      className={cn(config.className, className)}
+      aria-label={config.label}
     >
-      {label}
+      <Icon data-icon="inline-start" aria-hidden="true" />
+      {config.label}
     </Badge>
   );
 }

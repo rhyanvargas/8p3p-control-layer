@@ -16,6 +16,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
+import { icon } from '@/lib/semantic-colors';
 
 type StatCardProps = {
   title: string;
@@ -35,7 +36,7 @@ type StatCardProps = {
 function DeltaBadge({ delta }: { delta: number }) {
   if (delta === 0) {
     return (
-      <span className="text-muted-foreground text-xs font-medium">No change vs yesterday</span>
+      <span className="text-muted-foreground text-xs font-medium">Unchanged</span>
     );
   }
 
@@ -46,12 +47,12 @@ function DeltaBadge({ delta }: { delta: number }) {
     <span
       className={cn(
         'inline-flex items-center gap-1 text-xs font-medium',
-        positive ? 'text-[var(--urgency-high)]' : 'text-[var(--progress-improved)]'
+        positive ? icon.danger : icon.success
       )}
     >
       <Icon aria-hidden="true" />
       {positive ? '+' : ''}
-      {delta} vs yesterday
+      {delta}
     </span>
   );
 }

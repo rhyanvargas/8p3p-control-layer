@@ -18,6 +18,7 @@ import { LoadingState } from '@/components/states/loading-state';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
+import { surface } from '@/lib/semantic-colors';
 import {
   Select,
   SelectContent,
@@ -214,7 +215,7 @@ export function AttentionQueue({ orgId }: AttentionQueueProps) {
       {fromPending ? (
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant="outline" className="gap-1 pr-1">
-            From: Pending decisions
+            From: Pending
             <button
               type="button"
               className="hover:bg-muted rounded-full p-0.5"
@@ -228,7 +229,7 @@ export function AttentionQueue({ orgId }: AttentionQueueProps) {
       ) : null}
 
       {!isLoading && !isError && queue.length > 0 ? (
-        <Alert className="border-[var(--status-pause)]/30 bg-[var(--status-pause)]/5">
+        <Alert className={surface.pauseBorder}>
           <ListChecks aria-hidden="true" />
           <AlertTitle>How to complete a review</AlertTitle>
           <AlertDescription>

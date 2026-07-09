@@ -9,6 +9,8 @@ import { markUploadTaskComplete } from '@/lib/csat-storage';
 
 import { IngestionOutcomeChip } from '@/components/shared/ingestion-outcome-chip';
 import { Button } from '@/components/ui/button';
+import { surface } from '@/lib/semantic-colors';
+import { cn } from '@/lib/utils';
 import type { CommitSummary } from '@/lib/upload/types';
 
 type StepDoneProps = {
@@ -41,7 +43,7 @@ export function StepDone({ summary, onRestart }: StepDoneProps) {
 
   return (
     <div className="flex flex-col items-center gap-4 py-6 text-center">
-      <div className="bg-[var(--status-advance)]/10 text-[var(--status-advance)] flex size-12 items-center justify-center rounded-full">
+      <div className={cn('flex size-12 items-center justify-center rounded-full', surface.infoMutedIcon)}>
         <CheckCircle2 className="size-6" aria-hidden="true" />
       </div>
       <h2 className="text-lg font-semibold">Upload complete</h2>

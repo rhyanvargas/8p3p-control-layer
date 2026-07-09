@@ -122,7 +122,7 @@ describe('KPI-004: SectionCards drill targets and declutter', () => {
       </TooltipProvider>
     );
 
-    expect(screen.getByText('Rejected signals today')).toBeInTheDocument();
+    expect(screen.getByText('Rejected today')).toBeInTheDocument();
     expect(screen.queryByText(/Signals today:/)).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Rejected signals today: 1/ })).toBeInTheDocument();
   });

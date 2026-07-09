@@ -45,6 +45,7 @@ import {
   type TrendRangeDays,
 } from '@/lib/overview-metrics';
 import { cn } from '@/lib/utils';
+import { chart } from '@/lib/semantic-colors';
 
 type ActivityPanelProps = {
   decisions: Decision[];
@@ -71,9 +72,17 @@ const METRIC_OPTIONS: { value: ActivityMetric; label: string }[] = [
   { value: 'avg_mastery', label: 'Avg mastery %' },
 ];
 
+function activityGroupByLabel(value: ActivityGroupBy): string {
+  return GROUP_BY_OPTIONS.find((option) => option.value === value)?.label ?? value;
+}
+
+function activityMetricLabel(value: ActivityMetric): string {
+  return METRIC_OPTIONS.find((option) => option.value === value)?.label ?? value;
+}
+
 function getSeriesDefs(metric: ActivityMetric, groupBy: ActivityGroupBy): SeriesDef[] {
   if (metric === 'avg_mastery') {
-    return [{ key: 'value', label: 'Avg mastery %', color: 'var(--brand-accent-500)' }];
+    return [{ key: 'value', label: 'Avg mastery %', color: chart.success }];
   }
 
   if (metric === 'cumulative_needs_review' && groupBy === 'decision_type') {
@@ -81,20 +90,20 @@ function getSeriesDefs(metric: ActivityMetric, groupBy: ActivityGroupBy): Series
       {
         key: 'cumulative_intervene',
         label: 'Intervene',
-        color: 'var(--status-intervene)',
+        color: chart.warning,
         filterType: 'intervene',
       },
       {
         key: 'cumulative_pause',
         label: 'Pause',
-        color: 'var(--status-pause)',
+        color: chart.neutral,
         filterType: 'pause',
       },
     ];
   }
 
   if (metric === 'cumulative_needs_review' && groupBy === 'needs_review_vs_ok') {
-    return [{ key: 'needs_review', label: 'Needs review', color: 'var(--status-intervene)' }];
+    return [{ key: 'needs_review', label: 'Needs review', color: chart.danger }];
   }
 
   if (groupBy === 'decision_type') {
@@ -102,23 +111,23 @@ function getSeriesDefs(metric: ActivityMetric, groupBy: ActivityGroupBy): Series
       {
         key: 'intervene',
         label: 'Intervene',
-        color: 'var(--status-intervene)',
+        color: chart.warning,
         filterType: 'intervene',
       },
-      { key: 'pause', label: 'Pause', color: 'var(--status-pause)', filterType: 'pause' },
+      { key: 'pause', label: 'Pause', color: chart.neutral, filterType: 'pause' },
       {
         key: 'reinforce',
         label: 'Reinforce',
-        color: 'var(--status-reinforce)',
+        color: chart.success,
         filterType: 'reinforce',
       },
-      { key: 'advance', label: 'Advance', color: 'var(--status-advance)', filterType: 'advance' },
+      { key: 'advance', label: 'Advance', color: chart.info, filterType: 'advance' },
     ];
   }
 
   return [
-    { key: 'needs_review', label: 'Needs review', color: 'var(--status-intervene)' },
-    { key: 'on_track', label: 'On track', color: 'var(--status-reinforce)' },
+    { key: 'needs_review', label: 'Needs review', color: chart.danger },
+    { key: 'on_track', label: 'On track', color: chart.success },
   ];
 }
 
@@ -227,8 +236,12 @@ export function ActivityPanel({
               onValueChange={(value) => setGroupBy(value as ActivityGroupBy)}
               disabled={metric === 'avg_mastery'}
             >
-              <SelectTrigger size="sm" className="w-[160px]" aria-label="Group by">
-                <SelectValue />
+              <SelectTrigger
+                size="sm"
+                className="*:data-[slot=select-value]:line-clamp-none *:data-[slot=select-value]:flex-initial"
+                aria-label="Group by"
+              >
+                <SelectValue>{activityGroupByLabel(groupBy)}</SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {GROUP_BY_OPTIONS.map((option) => (
@@ -242,8 +255,12 @@ export function ActivityPanel({
               value={metric}
               onValueChange={(value) => setMetric(value as ActivityMetric)}
             >
-              <SelectTrigger size="sm" className="w-[200px]" aria-label="Metric">
-                <SelectValue />
+              <SelectTrigger
+                size="sm"
+                className="*:data-[slot=select-value]:line-clamp-none *:data-[slot=select-value]:flex-initial"
+                aria-label="Metric"
+              >
+                <SelectValue>{activityMetricLabel(metric)}</SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {METRIC_OPTIONS.map((option) => (
@@ -303,7 +320,7 @@ export function ActivityPanel({
             {showTodayLine ? (
               <ReferenceLine
                 x={todayLabel}
-                stroke="hsl(var(--muted-foreground))"
+                stroke="var(--color-muted-foreground)"
                 strokeDasharray="4 4"
                 label={{ value: 'Today', position: 'top' }}
               />

@@ -13,12 +13,13 @@ import { ReviewActionChip } from '@/components/shared/review-action-chip';
 import { DetailSheet } from '@/components/shared/detail-sheet';
 import { UrgencyBadge } from '@/components/shared/urgency-badge';
 import { Button } from '@/components/ui/button';
+import { icon } from '@/lib/semantic-colors';
 import type { PendingAttentionItem } from '@/lib/attention-decisions';
 import { learnerAttentionReviewUrl } from '@/lib/attention-review-url';
 import type { DecisionReviewRecord } from '@/lib/decision-review';
 import type { RejectFeedbackBody, RejectReasonCategory, SuggestedDecisionType } from '@/lib/decision-feedback';
 import { recordDecisionView } from '@/lib/decision-feedback';
-import { skillDisplayLine } from '@/lib/panel-helpers';
+import { educatorBodyCopy, skillDisplayLine } from '@/lib/panel-helpers';
 
 function decisionNarration(decisionType: string): string {
   if (decisionType === 'intervene') return 'Needs stronger support now';
@@ -91,7 +92,15 @@ export function AttentionReviewSheet({
       decisionNarration(item.decision.decision_type)
     : readOnlyRecord?.educatorSummary ||
       (readOnlyRecord ? decisionNarration(readOnlyRecord.decisionType) : '');
-  const rationale = item?.decision.rationale ?? '';
+  const whyCopy = item
+    ? educatorBodyCopy({
+        educator_explanation: item.decision.educator_explanation,
+        educator_summary: item.decision.educator_summary,
+        rationale: item.decision.rationale,
+        decision_type: item.decision.decision_type,
+        skill: item.dominantSkill,
+      })
+    : '';
 
   const rejectPayload = buildRejectFeedbackPayload({
     reasonCategory,
@@ -252,7 +261,7 @@ export function AttentionReviewSheet({
             <section className="flex flex-col gap-2">
               <h3 className="text-foreground flex items-center gap-1.5 text-sm font-medium">
                 <AlertTriangle
-                  className="text-[var(--urgency-medium)] size-3.5"
+                  className={`${icon.warning} size-3.5`}
                   aria-hidden="true"
                 />
                 Struggling with
@@ -274,9 +283,9 @@ export function AttentionReviewSheet({
           ) : null}
 
           <section className="flex flex-col gap-1.5">
-            <h3 className="text-foreground text-sm font-medium">Why this decision</h3>
+            <h3 className="text-foreground text-sm font-medium">AI explanation</h3>
             <p className="text-muted-foreground text-sm leading-relaxed">
-              {rationale || 'No rationale text was provided for this decision.'}
+              {whyCopy || 'No rationale text was provided for this decision.'}
             </p>
           </section>
 

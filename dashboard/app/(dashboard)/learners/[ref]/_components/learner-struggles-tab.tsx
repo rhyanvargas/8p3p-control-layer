@@ -8,6 +8,7 @@ import { ErrorState } from '@/components/states/error-state';
 import { LoadingState } from '@/components/states/loading-state';
 import { useLearnerState } from '@/hooks/use-learner-states';
 import { buildStabilityRationale } from '@/lib/rationale-builder';
+import { icon } from '@/lib/semantic-colors';
 import { levelRank, scoreToLevel } from '@/lib/score-levels';
 import { extractSkillRows } from '@/lib/state-skills';
 
@@ -94,7 +95,7 @@ export function LearnerStrugglesTab({ orgId, learnerRef }: LearnerStrugglesTabPr
     <div className="flex flex-col gap-8">
       <section className="flex flex-col gap-3">
         <div className="flex items-center gap-2">
-          <AlertTriangle className="text-[var(--urgency-medium)] size-4" aria-hidden="true" />
+          <AlertTriangle className={`${icon.warning} size-4`} aria-hidden="true" />
           <h2 className="text-sm font-medium">What do they need help with?</h2>
         </div>
         <p className="text-muted-foreground text-sm">
@@ -120,7 +121,7 @@ export function LearnerStrugglesTab({ orgId, learnerRef }: LearnerStrugglesTabPr
 
       <section className="flex flex-col gap-3">
         <div className="flex items-center gap-2">
-          <CheckCircle className="text-[var(--progress-improved)] size-4" aria-hidden="true" />
+          <CheckCircle className={`${icon.success} size-4`} aria-hidden="true" />
           <h2 className="text-sm font-medium">Did the support work?</h2>
         </div>
         <p className="text-muted-foreground text-sm">

@@ -3,6 +3,7 @@ import type { LucideIcon } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import type { IngestionOutcome } from '@/lib/api/types';
+import { badge } from '@/lib/semantic-colors';
 import { cn } from '@/lib/utils';
 
 const outcomeStyles: Record<
@@ -11,17 +12,17 @@ const outcomeStyles: Record<
 > = {
   accepted: {
     label: 'Accepted',
-    className: 'bg-[var(--status-advance)]/10 text-[var(--status-advance)]',
+    className: badge.success,
     icon: CheckCircle2,
   },
   rejected: {
     label: 'Rejected',
-    className: 'bg-destructive/10 text-destructive',
+    className: badge.destructive,
     icon: XCircle,
   },
   duplicate: {
     label: 'Duplicate',
-    className: 'bg-muted text-muted-foreground',
+    className: badge.neutral,
     icon: Copy,
   },
 };

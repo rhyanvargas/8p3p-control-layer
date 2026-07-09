@@ -1,22 +1,23 @@
 import { Minus, TrendingDown, TrendingUp, type LucideIcon } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
+import { badge } from '@/lib/semantic-colors';
 import { cn } from '@/lib/utils';
 
 const progressConfig = {
   improving: {
     label: 'Improved',
-    className: 'bg-[var(--progress-improved)]/10 text-[var(--progress-improved)]',
+    className: badge.success,
     icon: TrendingUp,
   },
   declining: {
     label: 'Declining',
-    className: 'bg-[var(--progress-declining)]/10 text-[var(--progress-declining)]',
+    className: badge.danger,
     icon: TrendingDown,
   },
   stable: {
     label: 'Stable',
-    className: 'bg-muted text-muted-foreground',
+    className: badge.neutral,
     icon: Minus,
   },
 } as const satisfies Record<

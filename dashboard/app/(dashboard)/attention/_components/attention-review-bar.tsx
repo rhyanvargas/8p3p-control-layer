@@ -17,6 +17,7 @@ import { attentionQueueUrl } from '@/lib/attention-review-url';
 import type { RejectReasonCategory, SuggestedDecisionType } from '@/lib/decision-feedback';
 import { queryClient } from '@/lib/query-client';
 import { executeReviewAction } from '@/lib/review-actions';
+import { icon, surface } from '@/lib/semantic-colors';
 import { cn } from '@/lib/utils';
 
 type AttentionReviewBarProps = {
@@ -154,8 +155,9 @@ export function AttentionReviewBar({
     >
       <div
         className={cn(
-          'border-border bg-card text-card-foreground pointer-events-auto mx-auto flex w-full max-w-(--content-max-width) flex-col gap-4 rounded-xl border px-5 py-4 shadow-lg ring-1 ring-[var(--urgency-medium)]/30',
-          'border-t-2 border-t-[var(--urgency-medium)] backdrop-blur supports-[backdrop-filter]:bg-card/95'
+          'border-border bg-card text-card-foreground pointer-events-auto mx-auto flex w-full max-w-(--content-max-width) flex-col gap-4 rounded-xl border px-5 py-4 shadow-lg ring-1 backdrop-blur supports-[backdrop-filter]:bg-card/95',
+          surface.warningRing,
+          surface.warningTopBorder
         )}
         role="region"
         aria-label="Attention review actions"
@@ -164,13 +166,16 @@ export function AttentionReviewBar({
           <div className="min-w-0 flex-1">
             <div className="flex items-start gap-3">
               <div
-                className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg bg-[var(--urgency-medium)]/15 text-[var(--urgency-medium)]"
+                className={cn(
+                  'mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg',
+                  surface.warningMutedIcon
+                )}
                 aria-hidden="true"
               >
                 <ClipboardCheck className="size-4" />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-[var(--urgency-medium)] text-xs font-semibold uppercase tracking-wide">
+                <p className={`${icon.warning} text-xs font-semibold uppercase tracking-wide`}>
                   Action required
                 </p>
                 <p className="text-muted-foreground mt-0.5 text-sm">
