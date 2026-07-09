@@ -88,7 +88,10 @@ export function WhyAreTheyStuck({ orgId }: { orgId: string }) {
         row.skillName
       );
       const quote = matchedDecision
-        ? educatorBodyCopy(matchedDecision)
+        ? educatorBodyCopy({
+            ...matchedDecision,
+            skill: matchedDecision.skill ?? row.skillName,
+          })
         : typeof score === 'number'
           ? buildStabilityRationale(score, row.skillName)
           : `Stability trend for ${row.skillName} needs attention.`;

@@ -15,6 +15,7 @@ import {
   type TrendRangeDays,
 } from '@/lib/overview-metrics';
 
+import { AiInsightPanels } from './ai-insight-panels';
 import { PeriodBar } from './period-bar';
 import { useOverviewFilter } from './overview-sync-provider';
 import { SyncFilterToggle } from './sync-filter-toggle';
@@ -37,7 +38,7 @@ function scopeDecisionsByRange(
  * Client wrapper for Overview KPI cards, activity panel, and recent-decisions table.
  * Consumes OverviewSyncProvider for cross-filter sync when enabled.
  */
-export function OverviewExplorer() {
+export function OverviewExplorer({ orgId }: { orgId: string }) {
   const { syncEnabled, filter, setFilter, data } = useOverviewFilter();
   const { kpis, decisions, recentDecisions, learnerStates, fetchedAt } = data;
 
@@ -71,6 +72,7 @@ export function OverviewExplorer() {
       </PageHeader>
       <PeriodBar rangeDays={effectiveRangeDays} onRangeChange={handlePeriodChange} />
       <SectionCards kpis={kpis} />
+      <AiInsightPanels orgId={orgId} />
       <ActivityPanel
         decisions={decisions}
         learnerStates={learnerStates}

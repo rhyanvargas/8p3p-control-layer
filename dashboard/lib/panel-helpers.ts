@@ -1,3 +1,4 @@
+import { resolveEducatorExplanation } from '@/lib/ai/mock-explanations';
 import type { RecentDecisionItem } from '@/lib/api/types';
 import { formatSkillLabel } from '@/lib/state-skills';
 
@@ -9,8 +10,10 @@ export function educatorBodyCopy(fields: {
   educator_explanation?: string | null;
   educator_summary?: string | null;
   rationale?: string | null;
+  decision_type?: string | null;
+  skill?: string | null;
 }): string {
-  const explanation = fields.educator_explanation?.trim();
+  const explanation = resolveEducatorExplanation(fields);
   if (explanation) return explanation;
   const summary = fields.educator_summary?.trim();
   if (summary) return summary;

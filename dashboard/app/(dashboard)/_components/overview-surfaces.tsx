@@ -36,7 +36,7 @@ export async function OverviewSurfaces({ orgId }: OverviewSurfacesProps) {
         fetchedAt,
       }}
     >
-      <OverviewExplorer />
+      <OverviewExplorer orgId={orgId} />
     </OverviewSyncProvider>
   );
 }
