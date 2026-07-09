@@ -211,9 +211,9 @@ export function ActivityPanel({
   const yAxisLabel = metric === 'avg_mastery' ? 'Avg mastery %' : undefined;
 
   return (
-    <Card>
-      <CardHeader className="flex flex-col gap-4 border-b pb-4">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+    <Card className="min-w-0 overflow-hidden">
+      <CardHeader className="flex min-w-0 flex-col gap-4 border-b pb-4">
+        <div className="flex min-w-0 flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="flex min-w-0 flex-col gap-2">
             <CardTitle>Classroom activity</CardTitle>
             <CardDescription>
@@ -221,7 +221,7 @@ export function ActivityPanel({
             </CardDescription>
             {syncEnabled ? <ActiveFilterChips className="pt-1" /> : null}
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
             <Select
               value={groupBy}
               onValueChange={(value) => setGroupBy(value as ActivityGroupBy)}

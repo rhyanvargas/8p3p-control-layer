@@ -88,15 +88,15 @@ export function StatCard({
           aria-label={accessibleName}
         />
       ) : null}
-      <CardHeader className={cn(href && 'pointer-events-none relative')}>
-        <div className="flex items-center gap-2">
+      <CardHeader className={cn('min-w-0', href && 'pointer-events-none relative')}>
+        <div className="flex min-w-0 items-center gap-2">
           {Icon ? (
             <Icon
               aria-hidden="true"
               className={cn('size-4 shrink-0', iconClassName)}
             />
           ) : null}
-          <CardDescription className="flex-1">{title}</CardDescription>
+          <CardDescription className="min-w-0 flex-1 truncate">{title}</CardDescription>
           {tooltip ? (
             <Tooltip>
               <TooltipTrigger

@@ -61,7 +61,7 @@ export function OverviewExplorer({ orgId }: { orgId: string }) {
   }, [syncEnabled, recentDecisions, decisions, pageRangeDays]);
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex min-w-0 flex-col gap-6">
       <PageHeader
         title="Overview"
         description="Is anything wrong right now? Scan KPIs, trends, and recent decisions."

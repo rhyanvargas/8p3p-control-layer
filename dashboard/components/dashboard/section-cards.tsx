@@ -55,7 +55,7 @@ export function SectionCards({ kpis }: SectionCardsProps) {
       : 'Intervene and pause decisions awaiting your review. Approve or reject each one.';
 
   return (
-    <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+    <div className="grid min-w-0 grid-cols-2 gap-4 sm:grid-cols-4">
       <section aria-label="Needs your action" className="contents">
         <h2 className="col-span-full text-sm font-medium text-muted-foreground sm:sr-only">
           Needs your action
