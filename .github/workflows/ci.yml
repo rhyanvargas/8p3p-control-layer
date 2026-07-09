@@ -21,6 +21,7 @@ jobs:
       NEXT_PUBLIC_FEEDBACK_CSAT: "true"
       NEXT_PUBLIC_CSAT_MIN_INTERVAL_DAYS: "7"
       NEXT_PUBLIC_FEEDBACK_TASK_DECISION_THRESHOLD: "5"
+      NEXT_PUBLIC_OVERVIEW_CROSS_FILTER: "false"
 
     steps:
       - uses: actions/checkout@v4

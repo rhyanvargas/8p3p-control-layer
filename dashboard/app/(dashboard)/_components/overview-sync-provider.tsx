@@ -19,6 +19,7 @@ import {
   type OverviewFilter,
   type OverviewFilterResult,
 } from '@/lib/overview/overview-filter';
+import { isOverviewCrossFilterEnabled } from '@/lib/overview/feature-flag';
 import { readSyncToggle, writeSyncToggle } from '@/lib/overview/sync-toggle-persistence';
 import type { OverviewKpis } from '@/lib/overview-metrics';
 
@@ -73,22 +74,29 @@ type OverviewSyncProviderProps = {
 
 export function OverviewSyncProvider({ data, children }: OverviewSyncProviderProps) {
   const mounted = useMounted();
+  const crossFilterUiEnabled = isOverviewCrossFilterEnabled();
   const [syncHydrated, setSyncHydrated] = useState(false);
-  const [syncEnabled, setSyncEnabledState] = useState(false);
+  const [syncEnabled, setSyncEnabledState] = useState(true);
   const [filter, setFilterState] = useState<OverviewFilter>(DEFAULT_OVERVIEW_FILTER);
 
   if (mounted && !syncHydrated) {
     setSyncHydrated(true);
-    setSyncEnabledState(readSyncToggle());
+    setSyncEnabledState(crossFilterUiEnabled ? readSyncToggle() : true);
   }
 
-  const setSyncEnabled = useCallback((enabled: boolean) => {
-    setSyncEnabledState(enabled);
-    writeSyncToggle(enabled);
-    if (!enabled) {
-      setFilterState(DEFAULT_OVERVIEW_FILTER);
-    }
-  }, []);
+  const effectiveSyncEnabled = crossFilterUiEnabled ? syncEnabled : true;
+
+  const setSyncEnabled = useCallback(
+    (enabled: boolean) => {
+      if (!crossFilterUiEnabled) return;
+      setSyncEnabledState(enabled);
+      writeSyncToggle(enabled);
+      if (!enabled) {
+        setFilterState(DEFAULT_OVERVIEW_FILTER);
+      }
+    },
+    [crossFilterUiEnabled]
+  );
 
   const setFilter = useCallback(
     (update: OverviewFilter | ((prev: OverviewFilter) => OverviewFilter)) => {
@@ -111,15 +119,15 @@ export function OverviewSyncProvider({ data, children }: OverviewSyncProviderPro
   );
 
   const derived = useMemo(() => {
-    if (!syncEnabled) {
+    if (!effectiveSyncEnabled) {
       return buildSyncOffDerived(data);
     }
     return applyOverviewFilter(filterData, deferredFilter);
-  }, [syncEnabled, data, filterData, deferredFilter]);
+  }, [effectiveSyncEnabled, data, filterData, deferredFilter]);
 
   const value = useMemo(
     (): OverviewFilterContextValue => ({
-      syncEnabled,
+      syncEnabled: effectiveSyncEnabled,
       setSyncEnabled,
       filter,
       setFilter,
@@ -127,7 +135,7 @@ export function OverviewSyncProvider({ data, children }: OverviewSyncProviderPro
       data,
       derived,
     }),
-    [syncEnabled, setSyncEnabled, filter, setFilter, deferredFilter, data, derived]
+    [effectiveSyncEnabled, setSyncEnabled, filter, setFilter, deferredFilter, data, derived]
   );
 
   return (

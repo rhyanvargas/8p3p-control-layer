@@ -14,7 +14,7 @@ describe('XFILTER-006: toggle persistence read/write', () => {
   });
 
   it('persists ON under the versioned key and reads it back', () => {
-    expect(readSyncToggle()).toBe(false);
+    expect(readSyncToggle()).toBe(true);
 
     writeSyncToggle(true);
     expect(localStorage.getItem(SYNC_TOGGLE_KEY)).toBe('on');
@@ -36,19 +36,19 @@ describe('XFILTER-006: toggle persistence read/write', () => {
   });
 });
 
-describe('XFILTER-007: localStorage failure degrades to OFF', () => {
+describe('XFILTER-007: localStorage failure degrades to default ON', () => {
   afterEach(() => {
     vi.restoreAllMocks();
     localStorage.clear();
   });
 
-  it('readSyncToggle returns false when getItem throws', () => {
+  it('readSyncToggle returns true when getItem throws', () => {
     vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
       throw new Error('storage disabled');
     });
 
     expect(() => readSyncToggle()).not.toThrow();
-    expect(readSyncToggle()).toBe(false);
+    expect(readSyncToggle()).toBe(true);
   });
 
   it('writeSyncToggle swallows setItem errors', () => {
@@ -57,6 +57,6 @@ describe('XFILTER-007: localStorage failure degrades to OFF', () => {
     });
 
     expect(() => writeSyncToggle(true)).not.toThrow();
-    expect(readSyncToggle()).toBe(false);
+    expect(readSyncToggle()).toBe(true);
   });
 });

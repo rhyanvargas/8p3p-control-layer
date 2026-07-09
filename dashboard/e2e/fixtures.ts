@@ -168,7 +168,9 @@ export async function gotoOverviewReady(page: Page): Promise<void> {
 
 export async function enableOverviewSync(page: Page): Promise<void> {
   const toggle = page.getByRole('switch', { name: /Link chart and table/i });
-  await expect(toggle).toBeVisible();
+  if (!(await toggle.isVisible())) {
+    return;
+  }
   if ((await toggle.getAttribute('aria-checked')) !== 'true') {
     await page.locator('#overview-sync-filters-label').click();
     await expect(toggle).toHaveAttribute('aria-checked', 'true');
@@ -177,7 +179,9 @@ export async function enableOverviewSync(page: Page): Promise<void> {
 
 export async function disableOverviewSync(page: Page): Promise<void> {
   const toggle = page.getByRole('switch', { name: /Link chart and table/i });
-  await expect(toggle).toBeVisible();
+  if (!(await toggle.isVisible())) {
+    return;
+  }
   if ((await toggle.getAttribute('aria-checked')) !== 'false') {
     await page.locator('#overview-sync-filters-label').click();
     await expect(toggle).toHaveAttribute('aria-checked', 'false');

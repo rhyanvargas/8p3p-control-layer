@@ -170,8 +170,19 @@ function SyncOnWithFilter({
   return null;
 }
 
+function SyncOff() {
+  const { setSyncEnabled } = useOverviewFilter();
+
+  useEffect(() => {
+    setSyncEnabled(false);
+  }, [setSyncEnabled]);
+
+  return null;
+}
+
 function renderOverviewSurfaces(options?: {
   syncOn?: boolean;
+  syncOff?: boolean;
   decisionType?: Decision['decision_type'];
   learner?: string;
 }) {
@@ -181,6 +192,7 @@ function renderOverviewSurfaces(options?: {
     <TooltipProvider>
       <OverviewSyncProvider data={data}>
         <FilterProbe />
+        {options?.syncOff ? <SyncOff /> : null}
         {options?.syncOn ? (
           <SyncOnWithFilter decisionType={options.decisionType} learner={options.learner} />
         ) : null}
@@ -201,9 +213,13 @@ describe('XFILTER-008: toggle OFF renders today’s behavior', () => {
     localStorage.clear();
   });
 
-  it('shows no chip row, full KPI counts, and navigation links', () => {
+  it('shows no chip row, full KPI counts, and navigation links', async () => {
     const data = buildMockOverviewData();
-    renderOverviewSurfaces();
+    renderOverviewSurfaces({ syncOff: true });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('filter-probe')).toHaveAttribute('data-sync-enabled', 'false');
+    });
 
     expect(screen.queryByRole('group', { name: 'Active overview filters' })).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Needs attention: \d+/ })).toHaveAttribute(
@@ -367,7 +383,7 @@ describe('OVACT / XFILTER: default range and toggle label', () => {
   });
 
   it('uses Link chart and table as the sync toggle accessible name', () => {
-    renderOverviewSurfaces();
+    renderOverviewSurfaces({ syncOff: true });
     expect(screen.getByRole('switch', { name: /Link chart and table/i })).toBeInTheDocument();
     expect(screen.queryByRole('switch', { name: /Sync filters/i })).not.toBeInTheDocument();
   });
@@ -408,6 +424,14 @@ describe('XFILTER-011: no hydration flash for persisted ON state', () => {
     expect(screen.getByTestId('filter-probe')).toHaveAttribute('data-decision-type', '');
     expect(screen.getByTestId('filter-probe')).toHaveAttribute('data-learner', '');
     expect(screen.queryByRole('group', { name: 'Active overview filters' })).not.toBeInTheDocument();
+  });
+
+  it('defaults sync ON when localStorage is empty', async () => {
+    renderOverviewSurfaces();
+
+    await waitFor(() => {
+      expect(screen.getByTestId('filter-probe')).toHaveAttribute('data-sync-enabled', 'true');
+    });
   });
 
   it('SSR HTML shows unchecked switch when localStorage is ON (mounted guard)', () => {

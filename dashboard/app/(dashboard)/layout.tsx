@@ -17,8 +17,13 @@ export default async function DashboardLayout({
 
   const env = getServerEnv();
   const apiDocsUrl = new URL('/docs', env.CONTROL_LAYER_API_BASE_URL).href;
+  const environmentLabelOverride = process.env.NEXT_PUBLIC_ENVIRONMENT_LABEL?.trim();
   const environmentLabel =
-    process.env.NODE_ENV === 'production' ? 'Production' : 'Local';
+    environmentLabelOverride && environmentLabelOverride.length > 0
+      ? environmentLabelOverride
+      : process.env.NODE_ENV === 'production'
+        ? 'Production'
+        : 'Local';
 
   return (
     <DashboardShell

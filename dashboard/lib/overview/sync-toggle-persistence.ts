@@ -2,9 +2,11 @@ const SYNC_TOGGLE_KEY = 'overview:sync-filters:v1';
 
 export function readSyncToggle(): boolean {
   try {
-    return localStorage.getItem(SYNC_TOGGLE_KEY) === 'on';
+    const stored = localStorage.getItem(SYNC_TOGGLE_KEY);
+    if (stored === 'off') return false;
+    return true;
   } catch {
-    return false;
+    return true;
   }
 }
 

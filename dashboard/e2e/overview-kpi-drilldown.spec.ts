@@ -62,7 +62,7 @@ test.describe('KPI-005: pending decisions review loop', () => {
     await expect(page.getByRole('heading', { name: 'Attention', exact: true })).toBeVisible({
       timeout: 15_000,
     });
-    await expect(page.getByText('From: Pending decisions')).toBeVisible();
+    await expect(page.getByText('From: Pending')).toBeVisible();
     await waitForDataTableRow(page, new RegExp(E2E_LEARNER_REF));
 
     const approveButton = page

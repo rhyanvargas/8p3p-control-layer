@@ -34,6 +34,7 @@ const e2eEnv = {
   NEXT_PUBLIC_CSAT_MIN_INTERVAL_DAYS: process.env.NEXT_PUBLIC_CSAT_MIN_INTERVAL_DAYS ?? '7',
   NEXT_PUBLIC_FEEDBACK_TASK_DECISION_THRESHOLD:
     process.env.NEXT_PUBLIC_FEEDBACK_TASK_DECISION_THRESHOLD ?? '5',
+  NEXT_PUBLIC_OVERVIEW_CROSS_FILTER: process.env.NEXT_PUBLIC_OVERVIEW_CROSS_FILTER ?? 'false',
   /** `next start` sets NODE_ENV=production (Secure cookies); e2e uses plain HTTP. */
   DASHBOARD_COOKIE_SECURE: 'false',
   /** Override .env.local so the default e2e server keeps the gate disabled. */

@@ -34,7 +34,6 @@ test.describe('XFILTER-012: linked brushing with no network on interaction', () 
 
     v1Requests.length = 0;
 
-    await enableOverviewSync(page);
     await selectChartDecisionSeries(page, 'Intervene');
 
     await expect(page.getByText('Filtered: Intervene')).toBeVisible();
@@ -55,6 +54,11 @@ test.describe('XFILTER-012: linked brushing with no network on interaction', () 
 });
 
 test.describe('XFILTER-013: toggle flip does not refetch', () => {
+  test.skip(
+    process.env.NEXT_PUBLIC_OVERVIEW_CROSS_FILTER === 'false',
+    'Cross-filter toggle hidden when NEXT_PUBLIC_OVERVIEW_CROSS_FILTER=false'
+  );
+
   test.beforeEach(async ({ page }) => {
     await clearOverviewSyncToggle(page);
   });

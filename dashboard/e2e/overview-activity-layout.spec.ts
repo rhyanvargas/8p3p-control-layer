@@ -2,12 +2,11 @@ import { expect, test } from '@playwright/test';
 
 import {
   clearOverviewSyncToggle,
-  disableOverviewSync,
   gotoOverviewReady,
   trackV1ApiRequests,
 } from './fixtures';
 
-test.describe('OVACT-012: period change without refetch when sync OFF', () => {
+test.describe('OVACT-012: period change without refetch', () => {
   test.beforeEach(async ({ page }) => {
     await clearOverviewSyncToggle(page);
   });
@@ -15,7 +14,6 @@ test.describe('OVACT-012: period change without refetch when sync OFF', () => {
   test('clicking 30d updates the period label with zero new /v1/ requests', async ({ page }) => {
     const v1Requests = trackV1ApiRequests(page);
     await gotoOverviewReady(page);
-    await disableOverviewSync(page);
 
     const periodLabel = page.locator('text=/\\w{3} \\d{1,2} – \\w{3} \\d{1,2}/').first();
     await expect(periodLabel).toBeVisible();
