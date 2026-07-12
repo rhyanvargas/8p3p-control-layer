@@ -65,6 +65,16 @@ These rules govern **all** data surfaces. They extend principle #1 and define wh
 - No duplicate metrics: if a KPI appears on Overview, the Attention page does not repeat the same stat cards — it goes straight to the queue.
 - No chart junk: gridlines, legends, and series kept minimal; at most **one primary metric per chart** with an explicit toggle for a second view (e.g. decisions-by-type ↔ mastery trend), never both overlaid by default.
 
+**KPI metric cards (StatCard — normative)**
+
+Overview KPI tiles are BI glance cards: one question, one hero number, optional labeled context. Implementation: `stat-card.tsx` / `section-cards.tsx`. Agent enforcement: `.cursor/skills/dashboard-uiux-analysis/references/kpi-metric-cards.md`.
+
+- **One primary metric** — the large value is a single number (title must name that metric). Optional delta (`ArrowUp`/`ArrowDown`) and labeled `secondaryLine` sit **inline beside** the hero on one value row — never two peer hero numbers, and never a stacked second row that unevenly grows card height.
+- **Labeled secondary only** — related counts use `secondaryLine` with a noun (`17 accepted`, `3 reviewed`, `Program-wide`). Never an icon + bare digit or unlabeled chip beside the hero.
+- **One face icon** — the leading title icon encodes the card's job. Do not pair opposing status icons on the value row (e.g. red X + green check).
+- **Tooltip for nuance** — dual-outcome or methodology copy belongs in the info tooltip, not on the card face.
+- **Equal-weight second metric** — promote to its own card (still ≤4 Overview KPIs) or a non-KPI surface; do not stretch one StatCard into a mini dashboard.
+
 **Three-tier drill-down model**
 
 Every entity (learner, decision, signal) follows the same depth ladder. Users never skip tiers accidentally — each tier adds *new* information, not a rearrangement of the parent.
@@ -341,7 +351,7 @@ flowchart TB
 - **L0 layout order:** `PageHeader` (with **Link chart and table** cross-filter toggle, default OFF) → **period bar** (`7d` / `30d` / `90d` pills, default **`7d`**, read-only date-range label) → grouped `SectionCards` → unified **`ActivityPanel`** (stacked chart + recent table in one card). No standalone trend table between KPIs and chart.
 - **Grouped KPI cards** (4 KPIs max, 2-up → 1-up per section):
   - **`Needs your action`:** Needs attention (count, Δ vs yesterday), Pending decisions.
-  - **`Program health`:** Rejected signals today (rejected count + accepted icon-chip), Improving learners. (Educator persona hides compliance-only ingestion KPI per §2.2.)
+  - **`Program health`:** Rejected signals today (hero = rejected count; labeled `secondaryLine` e.g. `N accepted`), Improving learners. (Educator persona hides compliance-only ingestion KPI per §2.2.) No unlabeled accepted icon-chip on the value row — per §2.1 KPI metric cards.
   - **Decluttered KPI cards (normative):** each card shows a leading icon + short label + **one value** + delta/contextual comparison + status color — **no prose description sentences** (defer nuance to a `Tooltip`). Honors the data-ink ratio and one-number-per-card (≤4–6 contextual KPI cards). Split compound values (e.g. rejected + accepted counts) into a single number + icon-chip breakdown, not a sentence.
   - **Uniform clickability (normative):** **every** KPI card is interactive with a consistent hover/focus affordance and links to its drill target — Needs attention→`/attention`, Pending→`/attention?from=pending` (legacy `/decisions?status=pending` redirects), Rejected signals→`/signals`, Improving→`/learners?trend=improving`. No card is a dead end. KPI clicks **never** set cross-filters (D3).
 - **`ActivityPanel`** (`Classroom activity` card; replaces legacy `TrendChart` + standalone recent table):
@@ -474,7 +484,7 @@ Everything heavier (state **version drill-down**, full **signal history**, full 
 | `SiteHeader` | `components/layout/site-header.tsx` | Breadcrumbs, org switcher, refresh, theme, ⌘K |
 | `NavMain` / `NavSecondary` / `NavUser` | `components/layout/nav-*.tsx` | Nav groups (active route highlighting) |
 | `PageHeader` | `components/layout/page-header.tsx` | Title + description + slot for primary action |
-| `SectionCards` / `StatCard` | `components/dashboard/section-cards.tsx` | KPI grid + single metric card w/ delta |
+| `SectionCards` / `StatCard` | `components/dashboard/section-cards.tsx`, `stat-card.tsx` | KPI grid + single-primary metric card (`secondaryLine` for labeled context; §2.1) |
 | `TrendChart` | `components/dashboard/trend-chart.tsx` | Interactive area chart (shadcn `chart`) |
 | `DataTable` | `components/data-table/data-table.tsx` | Generic TanStack Table (sort/filter/paginate/row-action); column defs per feature |
 | `DetailSheet` | `components/shared/detail-sheet.tsx` | L1 peek wrapper: header slot, scroll body, **single** footer CTA; focus trap; preserves list context |
@@ -623,4 +633,4 @@ dashboard/                                  # Next.js 15 App Router app (see mig
 
 ---
 
-*Created: 2026-06-12 | Updated: 2026-07-04 (§8 LPR pending review bar on roster entry; §14 LPR checklist; §8 D4 Activity panel + period bar; cross-filter label → Link chart and table) | Prior: 2026-06-29 (§2.2 D5 Persona surfaces — normative role × route map; §5.1 persona column; §14 D5 checklist item); 2026-06-25 (§14: D2 cross-filter [x]; `OverviewSurfaces` + `OverviewSyncProvider`); 2026-06-24 (signal upload wizard [x]); 2026-06-22 (D1/D2/D3). Design-only. Execution & hosting: nextjs-amplify-dashboard-migration.md. Tokens: decision-panel-ui.md.*
+*Created: 2026-06-12 | Updated: 2026-07-11 (§2.1 KPI value-row: delta + labeled secondaryLine inline beside hero; ArrowUp/ArrowDown deltas; §8 Program health rejected/accepted face; StatCard catalog). Prior: 2026-07-11 (§2.1 KPI metric cards — one primary + labeled secondaryLine); 2026-07-04 (§8 LPR pending review bar on roster entry; §14 LPR checklist; §8 D4 Activity panel + period bar; cross-filter label → Link chart and table); 2026-06-29 (§2.2 D5 Persona surfaces — normative role × route map; §5.1 persona column; §14 D5 checklist item); 2026-06-25 (§14: D2 cross-filter [x]; `OverviewSurfaces` + `OverviewSyncProvider`); 2026-06-24 (signal upload wizard [x]); 2026-06-22 (D1/D2/D3). Design-only. Execution & hosting: nextjs-amplify-dashboard-migration.md. Tokens: decision-panel-ui.md.*

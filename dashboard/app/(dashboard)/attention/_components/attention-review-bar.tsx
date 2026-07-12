@@ -16,6 +16,7 @@ import { useLearnerSummary } from '@/hooks/use-learner-summary';
 import { attentionQueueUrl } from '@/lib/attention-review-url';
 import type { RejectReasonCategory, SuggestedDecisionType } from '@/lib/decision-feedback';
 import { queryClient } from '@/lib/query-client';
+import { useDashboardPersona } from '@/lib/persona-context';
 import { executeReviewAction } from '@/lib/review-actions';
 import { icon, surface } from '@/lib/semantic-colors';
 import { cn } from '@/lib/utils';
@@ -52,6 +53,7 @@ export function AttentionReviewBar({
 }: AttentionReviewBarProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const persona = useDashboardPersona();
   const { isMobile, state } = useSidebar();
   const summaryQuery = useLearnerSummary(orgId, learnerRef, {
     recentDecisionsLimit: 10,
@@ -111,6 +113,7 @@ export function AttentionReviewBar({
       decisionType,
       educatorSummary: decision?.educator_summary,
       origin: 'bar',
+      persona,
       rejectPayload: payload,
       onQueueChange: bumpQueueChange,
       onFeedbackPersisted: invalidateDecisionFeedbackQuery,

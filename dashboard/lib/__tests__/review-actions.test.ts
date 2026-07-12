@@ -70,6 +70,7 @@ describe('REVIEW-UX-005: toast payload shape', () => {
       learnerReference: 'Malosi',
       decisionType: 'intervene',
       origin: 'table',
+      persona: 'compliance',
       onQueueChange,
     });
 
@@ -98,6 +99,7 @@ describe('REVIEW-UX-005: toast payload shape', () => {
       learnerReference: 'Leilani',
       decisionType: 'pause',
       origin: 'table',
+      persona: 'compliance',
       onQueueChange: vi.fn(),
       rejectPayload: {
         action: 'reject',
@@ -125,6 +127,7 @@ describe('REVIEW-UX-005: toast payload shape', () => {
       learnerReference: 'Malosi',
       decisionType: 'intervene',
       origin: 'sheet',
+      persona: 'compliance',
       onQueueChange,
       onSheetReopen,
     });
@@ -141,13 +144,14 @@ describe('REVIEW-UX-005: toast payload shape', () => {
     expect(toastSuccess).toHaveBeenCalledWith('Restored · Malosi');
   });
 
-  it('View decision action navigates to /decisions/{id}', async () => {
+  it('View decision action navigates to /decisions/{id} for compliance', async () => {
     await executeReviewAction({
       action: 'approve',
       decisionId: 'dec-001',
       learnerReference: 'Malosi',
       decisionType: 'intervene',
       origin: 'table',
+      persona: 'compliance',
       onQueueChange: vi.fn(),
     });
 
@@ -158,6 +162,30 @@ describe('REVIEW-UX-005: toast payload shape', () => {
     toastOptions.cancel?.onClick?.();
 
     expect(assignMock).toHaveBeenCalledWith('/decisions/dec-001');
+  });
+
+  it('View decision action navigates to /learners/{ref} for educator', async () => {
+    await executeReviewAction({
+      action: 'reject',
+      decisionId: 'dec-0201',
+      learnerReference: 'staff-0201',
+      decisionType: 'intervene',
+      origin: 'table',
+      persona: 'educator',
+      onQueueChange: vi.fn(),
+      rejectPayload: {
+        action: 'reject',
+        reason_category: 'not_at_risk',
+      },
+    });
+
+    const toastOptions = (vi.mocked(toastSuccess).mock.calls as unknown[][])[0]?.[1] as {
+      cancel?: { onClick?: () => void };
+    };
+
+    toastOptions.cancel?.onClick?.();
+
+    expect(assignMock).toHaveBeenCalledWith('/learners/staff-0201');
   });
 
   it('rolls back optimistic review and shows error toast on API failure', async () => {
@@ -172,6 +200,7 @@ describe('REVIEW-UX-005: toast payload shape', () => {
       learnerReference: 'Malosi',
       decisionType: 'intervene',
       origin: 'table',
+      persona: 'compliance',
       onQueueChange,
     });
 
@@ -203,6 +232,7 @@ describe('REVIEW-UX-005: toast payload shape', () => {
       learnerReference: 'Malosi',
       decisionType: 'intervene',
       origin: 'bar',
+      persona: 'educator',
       onQueueChange: vi.fn(),
     });
 
@@ -223,6 +253,7 @@ describe('REVIEW-UX-005: toast payload shape', () => {
       learnerReference: 'Malosi',
       decisionType: 'intervene',
       origin: 'table',
+      persona: 'compliance',
       onQueueChange: vi.fn(),
       onFeedbackPersisted,
     });

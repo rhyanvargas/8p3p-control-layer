@@ -6,12 +6,28 @@ import { isDualCodeMode, type DashboardPersona } from '@/lib/persona';
 /** Paths exempt from the passphrase gate (Next standalone app routes). */
 export const AUTH_EXEMPT_PATHS: ReadonlySet<string> = new Set<string>(['/login', '/logout']);
 
+const LEGACY_WITH_DUAL_WARN =
+  '[dashboard auth] Dual-code mode is active (DASHBOARD_ACCESS_CODE_EDUCATOR + DASHBOARD_ACCESS_CODE_COMPLIANCE). ' +
+  'DASHBOARD_ACCESS_CODE is treated as a compliance alias for local/backward-compat DX. Prefer one exclusive profile: ' +
+  'either both dual vars (persona nav) or only DASHBOARD_ACCESS_CODE (full nav). See docs/foundation/setup.md § Dashboard passphrase gate.';
+
+let warnedLegacyWithDual = false;
+
+/** Test-only: reset one-shot config warnings between cases. */
+export function resetAuthConfigWarningsForTests(): void {
+  warnedLegacyWithDual = false;
+}
+
 export function isGateEnabled(): boolean {
   if (isDualCodeMode()) {
     return true;
   }
   const code = process.env.DASHBOARD_ACCESS_CODE?.trim() ?? '';
   return code.length > 0;
+}
+
+function legacyCodeConfigured(): boolean {
+  return (process.env.DASHBOARD_ACCESS_CODE?.trim() ?? '').length > 0;
 }
 
 export function assertDashboardAuthConfig(): void {
@@ -24,11 +40,16 @@ export function assertDashboardAuthConfig(): void {
       'Dashboard access code is set but COOKIE_SECRET is missing or shorter than 32 characters. Generate with: openssl rand -hex 32',
     );
   }
+  if (isDualCodeMode() && legacyCodeConfigured() && !warnedLegacyWithDual) {
+    warnedLegacyWithDual = true;
+    console.warn(LEGACY_WITH_DUAL_WARN);
+  }
 }
 
 /**
- * Resolves login persona from passphrase. Dual-code mode tries educator then compliance codes;
- * legacy single-code mode grants compliance. Returns null when no code matches.
+ * Resolves login persona from passphrase. Dual-code mode tries educator then compliance,
+ * then legacy `DASHBOARD_ACCESS_CODE` as a compliance alias. Legacy-only mode grants compliance.
+ * Returns null when no code matches.
  */
 export function resolvePersonaFromPassphrase(provided: string): DashboardPersona | null {
   const educatorCode = process.env.DASHBOARD_ACCESS_CODE_EDUCATOR?.trim() ?? '';
@@ -40,6 +61,9 @@ export function resolvePersonaFromPassphrase(provided: string): DashboardPersona
       return 'educator';
     }
     if (passphrasesMatch(provided, complianceCode)) {
+      return 'compliance';
+    }
+    if (legacyCode.length > 0 && passphrasesMatch(provided, legacyCode)) {
       return 'compliance';
     }
     return null;

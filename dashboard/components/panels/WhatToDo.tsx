@@ -14,10 +14,12 @@ import { useOrgLearnerSummaries } from '@/hooks/use-learner-summary';
 import type { RejectReasonCategory, SuggestedDecisionType } from '@/lib/decision-feedback';
 import { isReviewedLocally } from '@/lib/decision-review';
 import { educatorBodyCopy, skillDisplayLine } from '@/lib/panel-helpers';
+import { useDashboardPersona } from '@/lib/persona-context';
 import { queryClient } from '@/lib/query-client';
 import { executeReviewAction } from '@/lib/review-actions';
 
 export function WhatToDo({ orgId }: { orgId: string }) {
+  const persona = useDashboardPersona();
   const { summaries, isLoading, isError, error, refetch } = useOrgLearnerSummaries(orgId);
   const [expanded, setExpanded] = useState(false);
   const [reviewTick, setReviewTick] = useState(0);
@@ -134,6 +136,7 @@ export function WhatToDo({ orgId }: { orgId: string }) {
       decisionType: decision.decision_type as 'intervene' | 'pause',
       educatorSummary: decision.educator_summary,
       origin: 'what-to-do',
+      persona,
       onQueueChange: bumpQueueChange,
     });
     resetRejectReason();
@@ -154,6 +157,7 @@ export function WhatToDo({ orgId }: { orgId: string }) {
       decisionType: decision.decision_type as 'intervene' | 'pause',
       educatorSummary: decision.educator_summary,
       origin: 'what-to-do',
+      persona,
       rejectPayload,
       onQueueChange: bumpQueueChange,
     });

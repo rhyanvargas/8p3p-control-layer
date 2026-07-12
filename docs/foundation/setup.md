@@ -111,14 +111,28 @@ When using Profile B with the dashboard, copy the same `API_KEY` into `dashboard
 
 #### Optional — Dashboard passphrase gate
 
-Set in **both** root `.env.local` (if needed for feedback cookies) and `dashboard/.env.local`:
+Set in `dashboard/.env.local` (and root `.env.local` only if the API also mints feedback cookies). Spec: [`docs/specs/dashboard-passphrase-gate.md`](../specs/dashboard-passphrase-gate.md). When unset, the dashboard loads without login (typical local default).
+
+**Pick one profile** (prefer exclusive):
 
 ```bash
-DASHBOARD_ACCESS_CODE=<shared passphrase>
+# Profile A — local simple (full nav)
+DASHBOARD_ACCESS_CODE=dev-local
+COOKIE_SECRET=$(openssl rand -hex 32)
+
+# Profile B — local persona (D5 educator vs compliance) — recommended when testing nav allowlists
+DASHBOARD_ACCESS_CODE_EDUCATOR=demo-educator
+DASHBOARD_ACCESS_CODE_COMPLIANCE=demo-compliance
 COOKIE_SECRET=$(openssl rand -hex 32)
 ```
 
-Spec: [`docs/specs/dashboard-passphrase-gate.md`](../specs/dashboard-passphrase-gate.md). When unset, the dashboard loads without login (typical local dev).
+| Login with | Persona | Nav |
+|------------|---------|-----|
+| `dev-local` (Profile A only) | compliance | Full |
+| `demo-educator` (Profile B) | educator | Overview, Attention, Learners |
+| `demo-compliance` (Profile B) | compliance | Full |
+
+If you set **both** dual vars **and** `DASHBOARD_ACCESS_CODE`, dual mode is active: persona codes work as above, and the legacy code still logs in as **compliance**. The dashboard logs a one-time warning — clear the unused var to silence it.
 
 ### Dashboard (`dashboard/.env.local`)
 
@@ -130,8 +144,8 @@ Source of truth (every var + comments): [`dashboard/.env.example`](../../dashboa
 | `CONTROL_LAYER_API_KEY` | when API auth on | same as root `API_KEY` | **Server-only** — never use `NEXT_PUBLIC_` |
 | `CONTROL_LAYER_ORG_ID` | no | `springs` | Pins org after seed |
 | `NEXT_PUBLIC_APP_NAME` | no | `Decision Panel` | Safe client label |
-| `DASHBOARD_ACCESS_CODE_EDUCATOR` / `_COMPLIANCE` | no | dual codes | Preferred gate; both set → persona nav |
-| `DASHBOARD_ACCESS_CODE` | no | — | Legacy single code (full nav) when dual unset |
+| `DASHBOARD_ACCESS_CODE_EDUCATOR` / `_COMPLIANCE` | no | `demo-educator` / `demo-compliance` | Profile B: both set → persona nav |
+| `DASHBOARD_ACCESS_CODE` | no | `dev-local` | Profile A: single code (full nav). If set with both dual vars, acts as compliance alias + one-time warn |
 | `COOKIE_SECRET` | when gate on | `openssl rand -hex 32` | HMAC session signing (min 32 chars) |
 
 ### Storage
@@ -221,16 +235,21 @@ When you change an API surface:
 
 ## Seed reference data (Springs)
 
-Script: [`examples/springs/seed-springs-demo.mjs`](../../examples/springs/seed-springs-demo.mjs)
+Script: [`examples/springs/seed-springs-demo.mjs`](../../examples/springs/seed-springs-demo.mjs) (builders: [`examples/springs/seed-builders.mjs`](../../examples/springs/seed-builders.mjs))
 
 | Phase | What it does |
 |-------|----------------|
 | 1 | Registers field mappings for 4 LMS sources (needs `ADMIN_API_KEY` or `--admin-key`) |
-| 2 | Ingests synthesized signals for 6 personas over ~90 days (learning gaps, trajectories, gifted-interest) |
-| 3 | Verifies decision narrative + prints `mastery_breakdown` for Jordan Mitchell |
+| 2 | Ingests synthesized signals — **baseline** (~90-day arcs for 7 personas incl. Casey sparse-evidence) or **append** (near-now micro-batch continuing trends) |
+| 3 | Verifies decision narrative; prints `mastery_breakdown` for Maya (whole-child); Jordan multi-subject breakdown in baseline |
 
 ```bash
+# Clean narrative (wipe SQLite first — see Reset below)
 npm run seed:springs-demo
+
+# Continue trends without wipe — event times ≈ now (last ~90 minutes)
+npm run seed:springs-demo -- --mode append
+# optional: --wave 20260711 --window-minutes 90 --as-of 2026-07-11T20:00:00Z
 
 # Explicit flags (override env):
 npm run seed:springs-demo -- \
@@ -242,7 +261,7 @@ npm run seed:springs-demo -- \
 
 Set `CONTROL_LAYER_ORG_ID=springs` in `dashboard/.env.local` so the panel shows seeded learners.
 
-**Demo talk track (stakeholders):** [`docs/guides/playbooks/springs-pilot-demo.md`](../guides/playbooks/springs-pilot-demo.md).
+**Demo talk track (stakeholders):** [`docs/guides/playbooks/springs-pilot-demo.md`](../guides/playbooks/springs-pilot-demo.md) (when to wipe + baseline vs append).
 
 ---
 
@@ -272,7 +291,7 @@ npm run dev
 npm run seed:springs-demo -- --org springs
 ```
 
-Re-seeding the **same** org without wiping skips already-applied signals (seed logs `duplicate`); state is **not** recomputed, so `mastery_breakdown` stays `null` on learners seeded before URS aggregation landed. Use a full reset when you need fresh state or `mastery_breakdown`.
+Re-seeding **baseline** on the **same** org without wiping skips already-applied signals (seed logs `duplicate`) and leaves stale endings. Use a full reset for a clean narrative, or `--mode append` to append a near-now micro-batch (current event times; wave-keyed `signal_id`s) without wiping educator review history.
 
 ---
 
@@ -331,7 +350,7 @@ E2E_BASE_URL=http://127.0.0.1:3001 npm run test:e2e
 | Script | Description |
 |--------|-------------|
 | `dev` | Start Fastify API (`tsx watch src/server.ts`) |
-| `seed:springs-demo` | Springs reference demo data |
+| `seed:springs-demo` | Springs reference demo data (baseline or `--mode append`) |
 | `generate:api-key` | Generate tenant API key |
 | `build:dashboard` | `cd dashboard && npm ci && npm run build` |
 | `check` | Full pre-commit gate (API + CDK synth) |

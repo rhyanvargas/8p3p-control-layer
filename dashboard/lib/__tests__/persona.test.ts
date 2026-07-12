@@ -2,6 +2,8 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { getNavMainItemsForPersona, NAV_MAIN_ITEMS } from '@/lib/navigation';
 import {
+  decisionViewLabelForPersona,
+  decisionViewUrlForPersona,
   isDualCodeMode,
   isEducatorRouteAllowed,
   isNavMainItemAllowedForPersona,
@@ -71,10 +73,33 @@ describe('isEducatorRouteAllowed', () => {
 
   it('blocks compliance-only routes', () => {
     expect(isEducatorRouteAllowed('/decisions')).toBe(false);
+    expect(isEducatorRouteAllowed('/decisions/dec-001')).toBe(false);
     expect(isEducatorRouteAllowed('/signals')).toBe(false);
     expect(isEducatorRouteAllowed('/signals/upload')).toBe(false);
     expect(isEducatorRouteAllowed('/reports')).toBe(false);
     expect(isEducatorRouteAllowed('/policies/builder')).toBe(false);
+  });
+});
+
+describe('decisionViewUrlForPersona', () => {
+  it('routes educators to learner L2 and compliance to decision trace', () => {
+    expect(
+      decisionViewUrlForPersona('educator', {
+        decisionId: 'dec-001',
+        learnerReference: 'staff-0201',
+      })
+    ).toBe('/learners/staff-0201');
+    expect(
+      decisionViewUrlForPersona('compliance', {
+        decisionId: 'dec-001',
+        learnerReference: 'staff-0201',
+      })
+    ).toBe('/decisions/dec-001');
+  });
+
+  it('pairs educator CTA label with learner drill-down', () => {
+    expect(decisionViewLabelForPersona('educator')).toBe('Open learner profile');
+    expect(decisionViewLabelForPersona('compliance')).toBe('Open trace');
   });
 });
 
