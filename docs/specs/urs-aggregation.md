@@ -476,8 +476,9 @@ None. Missing/invalid `subjects.json` → fail open with `default_subject: "Gene
 | AGG-016 | integration | Policy regression — flat rule-advance unchanged | Jordan seed, last signal MATH-301 | latest decision still `advance` (dominant-skill promotion untouched) |
 | AGG-017 | unit | Gifted flag — fails on insufficient evidence | all skills ≥ 0.95, advance-only, one skill `evidenceCount === 2` | `flagged: false` (G6) |
 | AGG-018 | unit | evidenceCount increments per masteryScore signal | 3 signals carrying `skills.MATH-301.masteryScore` | `skills.MATH-301.evidenceCount === 3` |
+| AGG-019 | integration | Whole-child multi-skill decisions | Math + ELA + Reading + Science signals | distinct decisions per skill; `skill_count: 4`, `subject_count: 3` |
 
-> **Test strategy:** AGG-001–013, 017–018 are unit tests on `computeLearnerAggregation()`, the gifted evaluator, and `incrementSkillEvidenceCounts()`. AGG-014–016 are integration/contract tests with Fastify inject + Springs seed data. AGG-016 is an explicit regression gate for policy back-compat.
+> **Test strategy:** AGG-001–013, 017–018 are unit tests on `computeLearnerAggregation()`, the gifted evaluator, and `incrementSkillEvidenceCounts()`. AGG-014–016 and AGG-019 are integration/contract tests with Fastify inject + Springs seed data. AGG-016 is an explicit regression gate for policy back-compat. AGG-019 gates the whole-child demo contract (Math + Reading + Science + English → distinct decisions).
 
 ---
 
