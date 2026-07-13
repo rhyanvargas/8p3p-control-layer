@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import type { LucideIcon } from 'lucide-react';
-import { Info, TrendingDown, TrendingUp } from 'lucide-react';
+import { ArrowDown, ArrowUp, Info } from 'lucide-react';
 
 import {
   Card,
@@ -22,7 +22,7 @@ type StatCardProps = {
   title: string;
   value: React.ReactNode;
   tooltip?: string;
-  /** Secondary line below value (e.g. reviewed-today copy on Pending KPI). */
+  /** Labeled context beside the hero value (e.g. `17 accepted`, `3 reviewed`). */
   secondaryLine?: React.ReactNode;
   delta?: number;
   href?: string;
@@ -41,16 +41,16 @@ function DeltaBadge({ delta }: { delta: number }) {
   }
 
   const positive = delta > 0;
-  const Icon = positive ? TrendingUp : TrendingDown;
+  const Icon = positive ? ArrowUp : ArrowDown;
 
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1 text-xs font-medium',
+        'inline-flex items-center gap-0.5 text-xs font-medium',
         positive ? icon.danger : icon.success
       )}
     >
-      <Icon aria-hidden="true" />
+      <Icon className="size-3.5" aria-hidden="true" />
       {positive ? '+' : ''}
       {delta}
     </span>
@@ -115,11 +115,17 @@ export function StatCard({
             </Tooltip>
           ) : null}
         </div>
-        <CardTitle className="text-2xl font-semibold tabular-nums">{value}</CardTitle>
-        {secondaryLine ? (
-          <p className="text-muted-foreground text-xs font-medium">{secondaryLine}</p>
-        ) : null}
-        {delta != null ? <DeltaBadge delta={delta} /> : null}
+        <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
+          <CardTitle className="text-2xl font-semibold tabular-nums">
+            {value}
+          </CardTitle>
+          {delta != null ? <DeltaBadge delta={delta} /> : null}
+          {secondaryLine ? (
+            <span className="text-muted-foreground text-xs font-medium">
+              {secondaryLine}
+            </span>
+          ) : null}
+        </div>
       </CardHeader>
     </Card>
   );
