@@ -130,7 +130,7 @@ async function main() {
         .first();
       if (await recentRow.isVisible().catch(() => false)) {
         await recentRow.click();
-        await page.getByText(/AI explanation|Educator summary/i).first().waitFor({ timeout: 10_000 });
+        await page.getByText(/AI explanation|Status/i).first().waitFor({ timeout: 10_000 });
         await page.waitForTimeout(300);
         await shot(page, '15e-ai-overview-decision-peek.png');
         await page.keyboard.press('Escape').catch(() => {});

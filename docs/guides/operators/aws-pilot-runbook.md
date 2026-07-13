@@ -264,7 +264,7 @@ Set in Amplify Console → **Environment variables** (runtime / SSR — **not** 
 | `CONTROL_LAYER_ADMIN_API_KEY` | No | Same as `ADMIN_API_KEY` if upload preflight used |
 | `NEXT_PUBLIC_APP_NAME` | No | `Decision Panel` |
 
-**Dual-code mode (recommended for educator-wave pilots):** Set **both** `DASHBOARD_ACCESS_CODE_EDUCATOR` and `DASHBOARD_ACCESS_CODE_COMPLIANCE` to non-empty values. Login then mints a signed `dp_session` with persona `educator` or `compliance` per [`dashboard-passphrase-gate.md`](../../specs/dashboard-passphrase-gate.md) § Dual access codes. When dual-code mode is active, `DASHBOARD_ACCESS_CODE` is **ignored** for login validation.
+**Dual-code mode (recommended for educator-wave pilots):** Set **both** `DASHBOARD_ACCESS_CODE_EDUCATOR` and `DASHBOARD_ACCESS_CODE_COMPLIANCE` to non-empty values. Login then mints a signed `dp_session` with persona `educator` or `compliance` per [`dashboard-passphrase-gate.md`](../../specs/dashboard-passphrase-gate.md) § Dual access codes. Prefer leaving `DASHBOARD_ACCESS_CODE` unset in dual-code deploys. If it is also set, it remains a **compliance alias** and the dashboard logs a one-time warning (local DX / migration).
 
 **Distribution (normative):**
 
@@ -340,14 +340,23 @@ If the environment is empty, seed first: § 4.3. Customer data requirements for 
 ### 4.3 Seed demo data (optional)
 
 ```bash
+# Baseline (~90-day arcs; wipe/empty env recommended for a clean narrative)
 node examples/springs/seed-springs-demo.mjs \
   --host "${API_URL}" \
   --api-key "${PILOT_KEY}" \
   --admin-key "${ADMIN_API_KEY}" \
   --org "${ORG_ID}"
+
+# Refresh — near-now micro-batch (event times within last ~90m; no wipe)
+node examples/springs/seed-springs-demo.mjs \
+  --host "${API_URL}" \
+  --api-key "${PILOT_KEY}" \
+  --admin-key "${ADMIN_API_KEY}" \
+  --org "${ORG_ID}" \
+  --mode append
 ```
 
-File smoke report: `internal-docs/reports/pilot-smoke-YYYY-MM-DD.md` (gitignored ops path).
+Persona catalog + when to wipe vs append: [`springs-pilot-demo.md`](../playbooks/springs-pilot-demo.md). File smoke report: `internal-docs/reports/pilot-smoke-YYYY-MM-DD.md` (gitignored ops path).
 
 ---
 

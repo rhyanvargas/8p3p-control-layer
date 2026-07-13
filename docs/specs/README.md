@@ -68,6 +68,7 @@ Roadmap and sequencing: [`docs/foundation/roadmap.md`](../foundation/roadmap.md)
 - [`attention-review-ux.md`](attention-review-ux.md) — Approve/Reject closure on `/attention` (Phases 1–3 shipped 2026-06-25)
 - [`overview-educator-activity-layout.md`](overview-educator-activity-layout.md) — Decision Panel D4 — period bar, grouped KPIs, stacked cumulative Activity panel + CSV export (shipped 2026-07-04)
 - [`learner-pending-review-bar.md`](learner-pending-review-bar.md) — Data-driven **Action required** bar on `/learners/[ref]` for roster/direct entry (shipped 2026-07-04)
+- [`decision-review-table-consistency.md`](decision-review-table-consistency.md) — Review-bar ↔ table identity/copy parity + shared `DataTable` grammar Phases A–C (shipped 2026-07-11)
 - [`dashboard-passphrase-gate.md`](dashboard-passphrase-gate.md) — FERPA-safe session access control; dual-code persona enforcement shipped (PE-001–PE-008, 2026-07-04)
 - [`customer-feedback-loop.md`](customer-feedback-loop.md) — always-on Send feedback + CSAT API + admin triage; shipped (2026-07-04, [`pilot-charter-onboarding.plan.md`](../../.cursor/plans/pilot-charter-onboarding.plan.md))
 - [`nextjs-amplify-dashboard-migration.md`](nextjs-amplify-dashboard-migration.md) — dashboard → Next.js; **Amplify pilot deploy complete** (pilot-charter TASK-004); Cognito Phase 5 still deferred

@@ -20,6 +20,8 @@ import type { DecisionReviewRecord } from '@/lib/decision-review';
 import type { RejectFeedbackBody, RejectReasonCategory, SuggestedDecisionType } from '@/lib/decision-feedback';
 import { recordDecisionView } from '@/lib/decision-feedback';
 import { educatorBodyCopy, skillDisplayLine } from '@/lib/panel-helpers';
+import { decisionViewUrlForPersona } from '@/lib/persona';
+import { useDashboardPersona } from '@/lib/persona-context';
 
 function decisionNarration(decisionType: string): string {
   if (decisionType === 'intervene') return 'Needs stronger support now';
@@ -46,6 +48,7 @@ export function AttentionReviewSheet({
   onApprove,
   onRejectSubmit,
 }: AttentionReviewSheetProps) {
+  const persona = useDashboardPersona();
   const isReadOnly = readOnlyRecord != null;
   const open = item != null || isReadOnly;
   const lastViewedDecisionIdRef = useRef<string | null>(null);
@@ -241,11 +244,14 @@ export function AttentionReviewSheet({
             nativeButton={false}
             render={
               <Link
-                href={`/decisions/${encodeURIComponent(readOnlyRecord.decisionId)}`}
+                href={decisionViewUrlForPersona(persona, {
+                  decisionId: readOnlyRecord.decisionId,
+                  learnerReference: readOnlyRecord.learnerReference,
+                })}
               />
             }
           >
-            View decision
+            {persona === 'educator' ? 'View learner profile' : 'View decision'}
             <ArrowRight data-icon="inline-end" aria-hidden="true" />
           </Button>
         ) : undefined

@@ -48,20 +48,22 @@ Use this structure verbatim for the report. Keep it icon-first and scannable —
 
 ### 5. 👁️ End-user clarity & freshness — {status}
 - **Current state:** {scannability, icon usage, freshness indicators, polling/refetch} `(evidence)`
+- **KPI metric-card compliance:** {PASS / FAIL} — primary-only hero? delta + labeled `secondaryLine` **inline** on the value row? `ArrowUp`/`ArrowDown` deltas? one title icon? no unlabeled dual numbers/icons? `(section-cards.tsx / stat-card.tsx)` — per kpi-metric-cards.md / §2.1
 - **Gap:** {…}
 - **Recommendation:** {…} — per {citation}
 
 ## Overview Page Redesign (icon-first, customer-value ranked)
 
-Answers "Is anything wrong right now?" (§8). ≤4 KPIs, one chart, one recent table (§2.1).
+Answers "Is anything wrong right now?" (§8). ≤4 KPIs, one chart, one recent table (§2.1). Each KPI must list a single primary + optional labeled secondary — never a compound face value.
 
-| Rank | Metric | Icon (Lucide) | Why it's high customer value | Semantic color + label |
-|------|--------|---------------|------------------------------|------------------------|
-| 1 | {Needs attention} | `AlertCircle` | {…} | --urgency-* + "Needs help" |
-| 2 | {…} | `…` | {…} | … |
-| 3 | {…} | `…` | {…} | … |
-| 4 | {…} | `…` | {…} | … |
+| Rank | Metric | Icon (Lucide) | Primary value | Labeled secondary (or —) | Why it's high customer value | Semantic color + label |
+|------|--------|---------------|---------------|--------------------------|------------------------------|------------------------|
+| 1 | {Needs attention} | `AlertCircle` | {count} | {delta / —} | {…} | --urgency-* + "Needs help" |
+| 2 | {…} | `…` | {…} | {e.g. N reviewed} | {…} | … |
+| 3 | {…} | `…` | {…} | {e.g. N accepted} | {…} | … |
+| 4 | {…} | `…` | {…} | {—} | {…} | … |
 
+- **KPI face rule:** Reject any redesign that puts two peer numbers, an unlabeled icon-chip, or a stacked delta/`secondaryLine` under the hero — per kpi-metric-cards.md / dashboard-design-requirements.md §2.1.
 - **Chart:** {single metric, range selector, adjacent text summary} — per dashboard-design-requirements.md §8 / vercel-react-best-practices (Suspense).
 - **Recent table:** {default columns only, row → L1 Sheet} — per §2.1.
 - **Icons over prose:** {specific verbose-text → icon swaps} — per frontend-design.
@@ -85,6 +87,7 @@ Answers "Is anything wrong right now?" (§8). ≤4 KPIs, one chart, one recent t
 - `.agents/skills/frontend-design/SKILL.md` — {what it backed}
 - `.agents/skills/vercel-react-best-practices/SKILL.md` — {…}
 - `.agents/skills/shadcn/SKILL.md` — {…}
+- `.cursor/skills/dashboard-uiux-analysis/references/kpi-metric-cards.md` — KPI/StatCard face doctrine
 - `docs/specs/dashboard-design-requirements.md` — §{…}
 - {find-skills result, if any}
 ```

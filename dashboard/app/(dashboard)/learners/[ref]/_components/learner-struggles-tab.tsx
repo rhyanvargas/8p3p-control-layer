@@ -1,21 +1,72 @@
 'use client';
 
-import { AlertTriangle, CheckCircle } from 'lucide-react';
+import { AlertTriangle, CheckCircle, Info } from 'lucide-react';
 
-import { LearnerCard } from '@/components/shared/LearnerCard';
 import { ProgressBadge } from '@/components/shared/ProgressBadge';
+import { Badge } from '@/components/ui/badge';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { ErrorState } from '@/components/states/error-state';
 import { LoadingState } from '@/components/states/loading-state';
 import { useLearnerState } from '@/hooks/use-learner-states';
 import { buildStabilityRationale } from '@/lib/rationale-builder';
-import { icon } from '@/lib/semantic-colors';
+import { badge, icon } from '@/lib/semantic-colors';
 import { levelRank, scoreToLevel } from '@/lib/score-levels';
 import { extractSkillRows } from '@/lib/state-skills';
+import { cn } from '@/lib/utils';
 
 type LearnerStrugglesTabProps = {
   orgId: string;
   learnerRef: string;
 };
+
+type Struggle = {
+  key: string;
+  skillName: string;
+  direction: 'declining' | 'below threshold';
+  stabilityPct: number | null;
+  quote: string;
+};
+
+type Progress = {
+  key: string;
+  skillName: string;
+  transition: string;
+};
+
+const SUPPORT_WORKED_TOOLTIP =
+  'Shows skills where mastery improved enough to move up a proficiency level (for example, novice → proficient). This is an outcome signal — it does not prove a specific intervention caused the change. Use it to spot where recent support may be paying off.';
+
+function SectionInfoTip({ label, children }: { label: string; children: string }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        type="button"
+        className="text-muted-foreground hover:text-foreground inline-flex shrink-0 rounded-sm"
+        aria-label={`More about ${label}`}
+      >
+        <Info className="size-3.5" aria-hidden="true" />
+      </TooltipTrigger>
+      <TooltipContent side="bottom" className="max-w-xs text-xs">
+        {children}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
+function SkillList({
+  children,
+  empty,
+}: {
+  children: React.ReactNode;
+  empty: boolean;
+}) {
+  if (empty) return null;
+  return (
+    <ul className="divide-border bg-card divide-y overflow-hidden rounded-lg border">
+      {children}
+    </ul>
+  );
+}
 
 export function LearnerStrugglesTab({ orgId, learnerRef }: LearnerStrugglesTabProps) {
   const stateQuery = useLearnerState(orgId, learnerRef);
@@ -36,20 +87,6 @@ export function LearnerStrugglesTab({ orgId, learnerRef }: LearnerStrugglesTabPr
   }
 
   const skillRows = extractSkillRows(body.state);
-
-  type Struggle = {
-    key: string;
-    skillName: string;
-    direction: string;
-    quote: string;
-  };
-
-  type Progress = {
-    key: string;
-    skillName: string;
-    transition: string;
-  };
-
   const struggles: Struggle[] = [];
   const progress: Progress[] = [];
 
@@ -68,6 +105,7 @@ export function LearnerStrugglesTab({ orgId, learnerRef }: LearnerStrugglesTabPr
         key: `struggle-${row.skillName}`,
         skillName: row.skillName,
         direction: declining ? 'declining' : 'below threshold',
+        stabilityPct: typeof score === 'number' ? Math.round(score * 100) : null,
         quote,
       });
     }
@@ -91,57 +129,111 @@ export function LearnerStrugglesTab({ orgId, learnerRef }: LearnerStrugglesTabPr
     }
   }
 
+  struggles.sort((a, b) => {
+    if (a.direction !== b.direction) {
+      return a.direction === 'declining' ? -1 : 1;
+    }
+    const aPct = a.stabilityPct ?? 100;
+    const bPct = b.stabilityPct ?? 100;
+    return aPct - bPct;
+  });
+
   return (
     <div className="flex flex-col gap-8">
-      <section className="flex flex-col gap-3">
+      <section className="flex flex-col gap-3" aria-labelledby="struggles-heading">
         <div className="flex items-center gap-2">
           <AlertTriangle className={`${icon.warning} size-4`} aria-hidden="true" />
-          <h2 className="text-sm font-medium">What do they need help with?</h2>
+          <h2 id="struggles-heading" className="text-sm font-medium">
+            What do they need help with?
+          </h2>
+          <SectionInfoTip label="What do they need help with?">
+            Skills where stability is declining or below 50%. These are the best places to
+            focus reinforcement or check-ins.
+          </SectionInfoTip>
+          {struggles.length > 0 ? (
+            <span className="text-muted-foreground ml-auto text-xs tabular-nums">
+              {struggles.length} skill{struggles.length === 1 ? '' : 's'}
+            </span>
+          ) : null}
         </div>
-        <p className="text-muted-foreground text-sm">
-          Per-skill stability from full state — skills where support may be needed.
-        </p>
+
         {struggles.length > 0 ? (
-          <div className="grid gap-3 md:grid-cols-2">
+          <SkillList empty={false}>
             {struggles.map((issue) => (
-              <LearnerCard key={issue.key} learnerRef={learnerRef}>
-                <p className="text-sm font-medium">
-                  {issue.skillName}: stability {issue.direction}
-                </p>
-                <blockquote className="border-muted-foreground/30 text-muted-foreground border-l-2 pl-3 text-sm italic">
-                  {issue.quote}
-                </blockquote>
-              </LearnerCard>
+              <li
+                key={issue.key}
+                className="hover:bg-muted/40 flex flex-col gap-1.5 px-4 py-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4"
+              >
+                <div className="min-w-0 flex-1 space-y-1">
+                  <p className="text-sm font-medium">{issue.skillName}</p>
+                  <p className="text-muted-foreground text-sm">{issue.quote}</p>
+                </div>
+                <div className="flex shrink-0 flex-wrap items-center gap-2">
+                  {issue.stabilityPct != null ? (
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        issue.stabilityPct < 50 ? badge.warning : badge.neutral,
+                        'tabular-nums'
+                      )}
+                    >
+                      {issue.stabilityPct}% stable
+                    </Badge>
+                  ) : null}
+                  {issue.direction === 'declining' ? (
+                    <ProgressBadge variant="declining" />
+                  ) : (
+                    <Badge variant="outline" className={badge.warning}>
+                      Below threshold
+                    </Badge>
+                  )}
+                </div>
+              </li>
             ))}
-          </div>
+          </SkillList>
         ) : (
           <p className="text-muted-foreground text-sm">No skill struggles detected.</p>
         )}
       </section>
 
-      <section className="flex flex-col gap-3">
+      <section className="flex flex-col gap-3" aria-labelledby="progress-heading">
         <div className="flex items-center gap-2">
           <CheckCircle className={`${icon.success} size-4`} aria-hidden="true" />
-          <h2 className="text-sm font-medium">Did the support work?</h2>
+          <h2 id="progress-heading" className="text-sm font-medium">
+            Did the support work?
+          </h2>
+          <SectionInfoTip label="Did the support work?">
+            {SUPPORT_WORKED_TOOLTIP}
+          </SectionInfoTip>
+          {progress.length > 0 ? (
+            <span className="text-muted-foreground ml-auto text-xs tabular-nums">
+              {progress.length} skill{progress.length === 1 ? '' : 's'}
+            </span>
+          ) : null}
         </div>
-        <p className="text-muted-foreground text-sm">
-          Skills where mastery is improving and proficiency level increased.
-        </p>
+
         {progress.length > 0 ? (
-          <div className="grid gap-3 md:grid-cols-2">
+          <SkillList empty={false}>
             {progress.map((row) => (
-              <LearnerCard
+              <li
                 key={row.key}
-                learnerRef={learnerRef}
-                headerRight={<ProgressBadge variant="improving" />}
+                className="hover:bg-muted/40 flex flex-col gap-1.5 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
               >
-                <p className="text-sm font-medium">{row.skillName}</p>
-                <p className="text-muted-foreground text-sm">{row.transition}</p>
-              </LearnerCard>
+                <p className="min-w-0 text-sm font-medium">{row.skillName}</p>
+                <div className="flex shrink-0 flex-wrap items-center gap-2">
+                  <span className="text-muted-foreground text-sm capitalize">
+                    {row.transition}
+                  </span>
+                  <ProgressBadge variant="improving" />
+                </div>
+              </li>
             ))}
-          </div>
+          </SkillList>
         ) : (
-          <p className="text-muted-foreground text-sm">No progress changes yet.</p>
+          <p className="text-muted-foreground text-sm">
+            No proficiency-level gains yet. Level-ups will appear here when mastery improves
+            enough to cross a band.
+          </p>
         )}
       </section>
     </div>

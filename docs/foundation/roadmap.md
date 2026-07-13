@@ -71,7 +71,7 @@ This table is the **only** place to read program-level status. To decide what to
 - **Plan-level** rollup + "Next action" lives **only** in this ledger.
 - Specs keep authoring status in [`docs/specs/README.md`](../specs/README.md); contracts/CI remain machine-verifiable truth (T5). Nothing else tracks feature status.
 
-> Counts reflect each plan's frontmatter on 2026-07-04. Shipped rows are merged to `main`; live AWS enablement verified per `pilot-charter-onboarding.plan.md` TASK-003–005.
+> Counts reflect each plan's frontmatter on 2026-07-11. Shipped rows are merged to `main`; live AWS enablement verified per `pilot-charter-onboarding.plan.md` TASK-003–005.
 
 ### Active / next (execute in this order)
 
@@ -83,6 +83,8 @@ This table is the **only** place to read program-level status. To decide what to
 
 | Feature / Plan | Spec | Status |
 |----------------|------|--------|
+| `decision-review-table-consistency.plan.md` (RTC) | [`decision-review-table-consistency.md`](../specs/decision-review-table-consistency.md) | **Shipped** 15/15 — Phase A review identity (`educatorBodyCopy`, Reviewing chip, queue position/Next), Phase B shared DataTable APIs + row actions, Phase C toolbar facets + Signals ingestion + optional Review link |
+| `seed_continuing_scenarios_25e21acf.plan.md` | — (demo seed; [`springs-pilot-demo.md`](../guides/playbooks/springs-pilot-demo.md)) | **Shipped** 4/4 — per-persona builders + `--mode baseline\|append` (near-now micro-batch), Casey sparse-evidence, playbook + unit coverage |
 | `overview-educator-activity-layout.plan.md` (D4) | `overview-educator-activity-layout.md` | **Shipped** 11/11 — period bar (default 7d), grouped KPIs, `ActivityPanel` stacked cumulative chart + CSV export, legend-as-filter, OVACT-001–013 |
 | `learner-pending-review-bar.plan.md` (LPR) | `learner-pending-review-bar.md` | **Shipped** 11/11 — data-driven `AttentionReviewBar` on roster entry, `selectPendingDecisionForLearner` + URL override, conditional drill-down, LPR-001–011 |
 | `dashboard-persona-enforcement.plan.md` | `dashboard-design-requirements.md` §D5 · `dashboard-passphrase-gate.md` | **Shipped** 8/8 — dual-code login, persona cookie, nav/route/tab allowlists, educator Overview scrub, compliance-only KPI filter, E2E smoke, runbook env vars |

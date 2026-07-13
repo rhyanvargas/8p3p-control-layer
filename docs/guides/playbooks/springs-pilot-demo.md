@@ -2,9 +2,9 @@
 
 **Audience**: Superintendent, school principal, IT director, pilot stakeholders  
 **Duration**: ~5–6 minutes with narration (pick 3–4 beats for a tight 4-minute cut)  
-**Prerequisites**: Local API running, Springs seed v3 loaded, and Next.js dashboard running — see **[Local Dev & Testing](../../foundation/setup.md)** (`npm run dev`, `npm run seed:springs-demo`, then `cd dashboard && npm run dev -- -p 3001`).
+**Prerequisites**: Local API running, Springs seed **v6** loaded (multi-skill whole-child + sparse-evidence personas), and Next.js dashboard running — see **[Local Dev & Testing](../../foundation/setup.md)** (`npm run dev`, `npm run seed:springs-demo`, then `cd dashboard && npm run dev -- -p 3001`).
 
-**Seed script**: [`examples/springs/seed-springs-demo.mjs`](../../../examples/springs/seed-springs-demo.mjs) (v4 — ~60+ signals over 90 days, 6 personas, learning gaps + trajectories + gifted-interest).
+**Seed script**: [`examples/springs/seed-springs-demo.mjs`](../../../examples/springs/seed-springs-demo.mjs) (v6 — baseline ~90-day arcs + `--mode append` near-now micro-batch; builders in [`seed-builders.mjs`](../../../examples/springs/seed-builders.mjs)).
 
 ---
 
@@ -20,7 +20,7 @@
 
 ## Setup (30 seconds)
 
-Fresh data (required after seed script changes):
+Fresh baseline (required after seed script changes or for a clean narrative):
 
 ```bash
 rm -f data/*.db data/*.db-wal data/*.db-shm
@@ -28,7 +28,16 @@ npm run dev
 npm run seed:springs-demo
 ```
 
-Point out Phase 1 (4 LMS field mappings registered) and Phase 2 (**~53 synthesized signals over 90 days** across Canvas, Blackboard, i-Ready, and Absorb).
+Keep the demo instance fresh **without wiping** (near-now micro-batch — appends new signals with current event times):
+
+```bash
+npm run seed:springs-demo -- --mode append
+# optional: --wave 20260711 --window-minutes 90 --as-of 2026-07-11T20:00:00Z
+```
+
+Event timestamps fall in the last `--window-minutes` (default 90) ending at now (or `--as-of`). Same `--wave` re-run is idempotent (duplicates); a new calendar day / wave adds another batch.
+
+Point out Phase 1 (4 LMS field mappings registered) and Phase 2 (baseline arcs or append continuation across Canvas, Blackboard, i-Ready, and Absorb).
 
 Open the dashboard at `http://localhost:3001/` (`CONTROL_LAYER_ORG_ID=springs` in `dashboard/.env.local`).
 
@@ -81,25 +90,31 @@ Optional: toggle **Link chart and table** ON and click a legend series to filter
 
 **What you see**: Intervene/pause queue sorted by urgency; **Problem area** column shows skill-level gap text.
 
-### Maya Kim (`stu-10042`) — **learning gap (CEO priority)**
+### Maya Kim (`stu-10042`) — **whole-child multi-skill (CEO priority)**
 
-Cross-system: Canvas Math is fine; i-Ready Reading flagged. Problem area should cite **Reading** below English subject average (ELA writing at 88% vs Reading diagnostic at ~48%).
+Four skills, three subjects, distinct decisions: Canvas **Math advance**, Canvas **ELA reinforce**, i-Ready **Reading intervene**, Blackboard **Science intervene**.
 
-> "She's strong in ELA on Canvas and strong in Math — but i-Ready caught reading decay no math teacher would see. The gap is **within English**: writing vs reading, not just a low grade."
+> "She's not a math kid or a reading kid — she's both. Math is fine, writing holds up, but reading and science need attention. One learner, multiple skills, multiple decisions."
 
-**Click**: Open row → review sheet → note problem areas and recent decisions.
+**Click**: Open row → review sheet → note problem areas span Reading and Science; recent decisions show advance + reinforce + intervene.
 
-### Alex Rivera (`stu-20891`) — **within-subject gap**
+### Alex Rivera (`stu-20891`) — **within-subject gap + multi-subject**
 
-Canvas ELA-101 at 82%; ELA-201 at 28%; Blackboard Science also struggling.
+Canvas Math advancing; ELA-101 at 82%; ELA-201 at 28%; Blackboard Science also struggling.
 
-> "Same student, same subject, two skills — one fine, one in crisis. That's the learning gap the CEO asked for: **where**, not just **how low**."
+> "Same student, same subject, two skills — one fine, one in crisis. That's the learning gap the CEO asked for: **where**, not just **how low**. And Science is a third subject in intervene."
 
-### Sam Torres (`stu-40123`) — **declining trajectory → intervene**
+### Sam Torres (`stu-40123`) — **multi-skill decline → intervene**
 
-ELA slid 55% → 48% → 32%; latest decision is **intervene**.
+Math needs reinforce; Science already intervene; ELA slid 55% → 48% → 32% to intervene.
 
-> "This wasn't a sudden F — the system tracked decay across three signals before escalating."
+> "This wasn't a sudden F in one class — decay across English while Math and Science also need support."
+
+### Casey Nguyen (`stu-60001`) — **sparse evidence**
+
+Only one or two Math reinforces — not enough for a rich multi-skill profile.
+
+> "Brand-new signal stream. The system doesn't invent a story — it shows early reinforce until evidence accumulates."
 
 ### Ms. Davis (`staff-0201`) — staff on same rails
 
@@ -117,11 +132,11 @@ Absorb compliance 60% → 35%, 20 days overdue — **intervene**.
 
 If Maya has a pending urgent decision, the sticky **Action required** bar appears at the bottom (roster path — subcopy: *Approve or reject this recommendation for this learner.*). Optional: Approve from the bar; URL stays on `/learners/[ref]` (no redirect to Attention).
 
-In **Summary** / problem areas, confirm `mastery_breakdown.learning_gaps` surfaces **Reading** (gap ~0.20 vs English subject mean).
+In **Summary** / problem areas, confirm `mastery_breakdown` shows **Math + English + Science**, with **Reading** and **SCI-101** as gap skills.
 
-> "In 60 seconds you see: Math subject strong, English subject mixed, **Reading is the gap skill** — not the overall GPA."
+> "In 60 seconds you see: Math strong, English mixed (writing vs reading), Science struggling — not a single overall GPA."
 
-**Click**: **Alex Rivera** — gap should show **ELA-201** vs stronger ELA-101 in English.
+**Click**: **Alex Rivera** — gap should show **ELA-201** vs stronger ELA-101 in English, plus Math and Science subjects.
 
 **Optional superintendent line**:
 
@@ -135,15 +150,15 @@ In **Summary** / problem areas, confirm `mastery_breakdown.learning_gaps` surfac
 
 **Click**: Jordan → **Trajectory** tab.
 
-Three Canvas Math signals: 45% → 68% → 90%. History on Blackboard stable at ~80%.
+Three Canvas Math signals: 45% → 68% → 90%. History and Science on Blackboard at reinforce levels.
 
-> "Intervention proof — not hope. Three time-stamped signals, same skill, measurable lift to advance."
+> "Intervention proof — not hope. Three time-stamped signals, same skill, measurable lift to advance — while History and Science stay visible in the same profile."
 
 ### Sam Torres (`stu-40123`) — **declining trajectory** (contrast)
 
 **Click**: Sam → **Trajectory** tab.
 
-> "Same chart type, opposite story — decline visible before intervene. Early identification, not end-of-term surprise."
+> "Same chart type, opposite story — ELA decline visible before intervene, with Math and Science also in the multi-skill state."
 
 ---
 
@@ -153,7 +168,7 @@ Three Canvas Math signals: 45% → 68% → 90%. History on Blackboard stable at 
 
 **Click**: Priya → Summary; note **Person of interest** (not a label — a consideration flag per policy).
 
-Three subjects, all mastery ≥ 95%, advance-only history across 9 signals.
+Four skills (Math, Science, ELA, Reading), all mastery ≥ 95%, advance-only history.
 
 > "The system also flags students consistently excelling across skills — for enrichment conversations, not automatic tracking."
 
@@ -175,32 +190,33 @@ Three subjects, all mastery ≥ 95%, advance-only history across 9 signals.
 
 ---
 
-## Persona quick reference (v3 seed)
+## Persona quick reference (v6 seed)
 
-| Persona | Reference | Demo beat | Signals | Key story |
-|---------|-----------|-----------|---------|-----------|
-| **Maya Kim** | `stu-10042` | Attention + Learners | 3 | Cross-system; **Reading learning gap** vs strong ELA/Math |
-| **Alex Rivera** | `stu-20891` | Attention + Learners | 3 | **ELA-201 gap** vs ELA-101; Science intervene |
-| **Jordan Mitchell** | `stu-30456` | Learners → Trajectory | 4 | Math **improving** 45→68→90%; advance |
-| **Sam Torres** | `stu-40123` | Attention + Trajectory | 3 | ELA **declining** 55→48→32; intervene |
-| **Priya Patel** | `stu-50199` | Learners (optional) | 9 | **Gifted-interest** flag; advance-only |
-| **Ms. Davis** | `staff-0201` | Attention review | 2 | Staff compliance decay; intervene |
+| Persona | Reference | Demo beat | Skills | Key story | Append continuation |
+|---------|-----------|-----------|--------|-----------|----------------------|
+| **Maya Kim** | `stu-10042` | Attention + Learners | Math, ELA, Reading, Science | **Whole-child** — advance / reinforce / intervene / intervene | Reading improves slowly; Science stays intervene |
+| **Alex Rivera** | `stu-20891` | Attention + Learners | Math, ELA-101, ELA-201, Science | **ELA-201 gap** + Math advance + Science intervene | ELA-201 slight lift; Science flat |
+| **Jordan Mitchell** | `stu-30456` | Learners → Trajectory | Math, History, Science | Math **improving** 45→68→90%; multi-subject | Math stays advance; Science edges up |
+| **Sam Torres** | `stu-40123` | Attention + Trajectory | Math, Science, ELA | Multi-skill; ELA **declining** 55→48→32 | ELA keeps decaying; Math slips |
+| **Priya Patel** | `stu-50199` | Learners (optional) | Math, Science, ELA, Reading | **Gifted-interest** across four skills | Keep advance / gifted evidence |
+| **Casey Nguyen** | `stu-60001` | Learners (sparse) | Math | **Sparse evidence** — early reinforce only | One more Math reinforce |
+| **Ms. Davis** | `staff-0201` | Attention review | Compliance | Staff compliance decay; intervene | Stay overdue / intervene |
 
-### Decision distribution (approximate after full seed)
+### Decision distribution (verified signals after full baseline; ambient/historical skipped)
 
 | Type | Count | Personas |
 |------|-------|----------|
-| **advance** | 11+ | Maya (math), Jordan (math t3), Priya (×9) |
-| **intervene** | 5+ | Maya (reading), Alex (ELA + science), Sam (ELA t3), Ms. Davis (compliance t2) |
-| **reinforce** | 8+ | Maya (ELA), Alex (ELA-101), Jordan (math t1–2, history), Sam (ELA t1–2), Ms. Davis (compliance t1) |
+| **advance** | 15 | Maya (math), Alex (math), Jordan (math t3), Priya (advance-only set) |
+| **intervene** | 7 | Maya (reading + science), Alex (ELA-201 + science), Sam (science + ELA), Ms. Davis |
+| **reinforce** | 12 | Maya (ELA), Alex (ELA-101), Jordan (math t1–2, history, science), Sam (math + ELA t1–2), Casey (Math), Ms. Davis |
 
-### Source system distribution
+### Source system distribution (verified baseline signals; ambient excluded)
 
 | Source | Signals | Notes |
 |--------|---------|-------|
-| `canvas-lms` | 19 | Grades → mastery/stability; multi-signal trajectories |
-| `blackboard-lms` | 2 | Alex science, Jordan history |
-| `iready-diagnostic` | 1 | Maya reading decay + riskSignal |
+| `canvas-lms` | 23 | Grades → mastery/stability; multi-signal trajectories |
+| `blackboard-lms` | 5 | Science / History arcs across personas |
+| `iready-diagnostic` | 4 | Maya reading + Priya gifted reading evidence |
 | `absorb-lms` | 2 | Ms. Davis compliance (direct scores; no forbidden `score` key) |
 
 ---
@@ -218,14 +234,22 @@ Three subjects, all mastery ≥ 95%, advance-only history across 9 signals.
 
 ## Reset between demos
 
+**Clean narrative** (wipe + baseline):
+
 ```bash
 rm -f data/*.db data/*.db-wal data/*.db-shm
 npm run dev
 npm run seed:springs-demo
 ```
 
-Re-seeding **without** wipe skips duplicates and leaves stale state — always wipe for a clean narrative.
+**Fresh trends without wipe** (hosted / live demo instance — simulates a recent LMS sync):
+
+```bash
+npm run seed:springs-demo -- --mode append
+```
+
+Re-seeding baseline **without** wipe skips duplicates and leaves stale endings — wipe for a clean narrative. Use **append** to add a near-now micro-batch (`*-append-YYYYMMDD-*` ids; event times within the last ~90 minutes).
 
 ---
 
-*Updated: 2026-06-29 (two-path demo — educator vs compliance; route persona column) | Seed v3: `.cursor/plans/springs-realistic-seed.plan.md` | Organic wave: `.cursor/plans/ceo_educator_wave_docs_5f6ef773.plan.md` TASK-006*
+*Updated: 2026-07-11 (seed v6 — baseline + near-now append micro-batch; Casey sparse-evidence) | Organic wave: `.cursor/plans/ceo_educator_wave_docs_5f6ef773.plan.md` TASK-006*

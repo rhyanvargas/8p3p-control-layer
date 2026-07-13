@@ -13,6 +13,11 @@ import { SheetSection } from '@/components/shared/sheet-section';
 import { resolveEducatorExplanation } from '@/lib/ai/mock-explanations';
 import type { Decision, DecisionType } from '@/lib/api/types';
 import { formatDecisionTime, truncateRule } from '@/lib/overview-metrics';
+import {
+  decisionViewLabelForPersona,
+  decisionViewUrlForPersona,
+} from '@/lib/persona';
+import { useDashboardPersona } from '@/lib/persona-context';
 
 const DECISION_TYPE_LABELS: Record<DecisionType, string> = {
   reinforce: 'Reinforce',
@@ -64,6 +69,7 @@ export function RecentDecisionsTable({
   decisions,
   showSectionHeader = true,
 }: RecentDecisionsTableProps) {
+  const persona = useDashboardPersona();
   const sync = useOptionalOverviewFilter();
   const syncEnabled = sync?.syncEnabled ?? false;
   const [selected, setSelected] = useState<Decision | null>(null);
@@ -147,6 +153,7 @@ export function RecentDecisionsTable({
           showPagination={tableData.length > 10}
           getRowId={(row) => row.decision_id}
           onRowClick={setSelected}
+          initialSorting={[{ id: 'decided_at', desc: true }]}
           emptyMessage="No decisions recorded yet."
         />
       </section>
@@ -170,8 +177,11 @@ export function RecentDecisionsTable({
         footer={
           selected ? (
             <DrillDownLink
-              href={`/decisions/${encodeURIComponent(selected.decision_id)}`}
-              label="Open trace"
+              href={decisionViewUrlForPersona(persona, {
+                decisionId: selected.decision_id,
+                learnerReference: selected.learner_reference,
+              })}
+              label={decisionViewLabelForPersona(persona)}
             />
           ) : undefined
         }
@@ -186,10 +196,10 @@ export function RecentDecisionsTable({
                   value: educatorNarrative(selected),
                 },
                 {
-                  label: 'Educator summary',
+                  label: 'Status',
                   value:
                     selected.trace.educator_summary ||
-                    'No educator summary was provided.',
+                    'No status was provided.',
                 },
               ]}
             />

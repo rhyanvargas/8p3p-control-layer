@@ -415,9 +415,10 @@ describe('Springs Charter Schools Pilot Integration', () => {
   // --------------------------------------------------------------------------
   // AGG-014: State apply writes aggregation after multi-skill signal ingest
   // AGG-016: Policy regression — Jordan last signal MATH-301 still yields advance
+  // AGG-019: Whole-child — four skills fire distinct decisions (demo contract)
   // --------------------------------------------------------------------------
 
-  describe('URS aggregation integration (AGG-014, AGG-016)', () => {
+  describe('URS aggregation integration (AGG-014, AGG-016, AGG-019)', () => {
     it('AGG-014: ingesting two skill signals persists state.aggregation.overall', async () => {
       const learnerRef = 'agg-014-learner';
 
@@ -544,6 +545,103 @@ describe('Springs Charter Schools Pilot Integration', () => {
       expect(stateObj.masteryScore).toBe(0.9);
       expect(stateObj.skill).toBe('MATH-301');
       expect(stateObj.aggregation).toBeDefined();
+    });
+
+    it('AGG-019: Maya-shaped whole-child — Math/Reading/Science/English fire distinct decisions', async () => {
+      const learnerRef = 'stu-maya-whole-child';
+
+      const skillSignals = [
+        {
+          skill: 'MATH-301',
+          expectDecision: 'advance',
+          payload: {
+            skill: 'MATH-301',
+            skills: { 'MATH-301': { masteryScore: 0.92, stabilityScore: 0.828 } },
+            masteryScore: 0.92,
+            stabilityScore: 0.828,
+            timeSinceReinforcement: 50000,
+          },
+        },
+        {
+          skill: 'ELA-201',
+          expectDecision: 'reinforce',
+          payload: {
+            skill: 'ELA-201',
+            skills: { 'ELA-201': { masteryScore: 0.88, stabilityScore: 0.792 } },
+            masteryScore: 0.88,
+            stabilityScore: 0.792,
+            timeSinceReinforcement: 45000,
+          },
+        },
+        {
+          skill: 'Reading',
+          expectDecision: 'intervene',
+          payload: {
+            skill: 'Reading',
+            skills: { Reading: { masteryScore: 0.475, stabilityScore: 0.22, riskSignal: 0.65 } },
+            masteryScore: 0.475,
+            stabilityScore: 0.22,
+            riskSignal: 0.65,
+            timeSinceReinforcement: 200000,
+          },
+        },
+        {
+          skill: 'SCI-101',
+          expectDecision: 'intervene',
+          payload: {
+            skill: 'SCI-101',
+            skills: { 'SCI-101': { masteryScore: 0.233, stabilityScore: 0.198 } },
+            masteryScore: 0.233,
+            stabilityScore: 0.198,
+            timeSinceReinforcement: 190000,
+          },
+        },
+      ] as const;
+
+      for (const { payload } of skillSignals) {
+        const postRes = await app.inject({
+          method: 'POST',
+          url: '/v1/signals',
+          payload: buildSignal(learnerRef, 'canvas-lms', payload),
+        });
+        expect(postRes.statusCode).toBe(200);
+      }
+
+      const getRes = await app.inject({
+        method: 'GET',
+        url: `/v1/decisions?org_id=${ORG_ID}&learner_reference=${learnerRef}&from_time=2020-01-01T00:00:00Z&to_time=2030-12-31T23:59:59Z`,
+      });
+      expect(getRes.statusCode).toBe(200);
+
+      const { decisions } = getRes.json() as {
+        decisions: Array<{
+          decision_type: string;
+          decision_context: { skill?: string };
+        }>;
+      };
+      expect(decisions).toHaveLength(4);
+
+      const bySkill = Object.fromEntries(
+        decisions.map((d) => [d.decision_context.skill, d.decision_type])
+      );
+      expect(bySkill['MATH-301']).toBe('advance');
+      expect(bySkill['ELA-201']).toBe('reinforce');
+      expect(bySkill['Reading']).toBe('intervene');
+      expect(bySkill['SCI-101']).toBe('intervene');
+
+      const stateRecord = getState(ORG_ID, learnerRef);
+      expect(stateRecord).not.toBeNull();
+      const stateObj = stateRecord!.state as Record<string, unknown>;
+      const skills = stateObj.skills as Record<string, unknown>;
+      expect(Object.keys(skills).sort()).toEqual(['ELA-201', 'MATH-301', 'Reading', 'SCI-101']);
+
+      const aggregation = stateObj.aggregation as {
+        overall: { skill_count: number; subject_count: number };
+        subjects: Record<string, unknown>;
+      };
+      expect(aggregation.overall.skill_count).toBe(4);
+      expect(aggregation.overall.subject_count).toBe(3);
+      expect(Object.keys(aggregation.subjects).sort()).toEqual(['English', 'Math', 'Science']);
     });
   });
 

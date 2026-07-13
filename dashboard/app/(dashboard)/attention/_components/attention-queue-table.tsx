@@ -3,11 +3,11 @@
 import { useMemo } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
 
+import { createRowActionsColumn } from '@/components/data-table/create-row-actions-column';
 import { DataTable } from '@/components/data-table/data-table';
 import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header';
 import { DecisionBadge } from '@/components/shared/decision-badge';
 import { UrgencyBadge } from '@/components/shared/urgency-badge';
-import { Button } from '@/components/ui/button';
 import type { PendingAttentionItem } from '@/lib/attention-decisions';
 import { formatProblemAreasSummary } from '@/lib/learner-problem-areas';
 
@@ -34,6 +34,7 @@ export function AttentionQueueTable({
         ),
         cell: ({ row }) => <UrgencyBadge priority={row.original.priority} />,
         size: 96,
+        enableHiding: false,
       },
       {
         accessorKey: 'learner_reference',
@@ -43,6 +44,7 @@ export function AttentionQueueTable({
         cell: ({ row }) => (
           <span className="font-medium">{row.original.learner_reference}</span>
         ),
+        enableHiding: false,
       },
       {
         id: 'decision',
@@ -52,6 +54,7 @@ export function AttentionQueueTable({
           <DecisionBadge type={row.original.decision.decision_type} />
         ),
         size: 112,
+        enableHiding: false,
       },
       {
         id: 'struggling',
@@ -65,47 +68,29 @@ export function AttentionQueueTable({
             {formatProblemAreasSummary(row.original.problemAreas)}
           </span>
         ),
+        enableHiding: false,
       },
-      {
-        id: 'actions',
-        header: () => <span className="sr-only">Review actions</span>,
-        cell: ({ row }) => {
-          const item = row.original;
-          const learnerRef = item.learner_reference;
-
-          return (
-            <div className="flex justify-end gap-1">
-              <Button
-                type="button"
-                size="sm"
-                variant="default"
-                className="h-8 px-2.5"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onApprove(item);
-                }}
-                aria-label={`Approve decision for ${learnerRef}`}
-              >
-                Approve
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="h-8 px-2.5"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onReject(item);
-                }}
-                aria-label={`Reject decision for ${learnerRef}`}
-              >
-                Reject
-              </Button>
-            </div>
-          );
-        },
-        size: 160,
-      },
+      createRowActionsColumn<PendingAttentionItem>(
+        [
+          {
+            id: 'approve',
+            label: 'Approve',
+            variant: 'default',
+            onClick: onApprove,
+            ariaLabel: (item) =>
+              `Approve decision for ${item.learner_reference}`,
+          },
+          {
+            id: 'reject',
+            label: 'Reject',
+            variant: 'outline',
+            onClick: onReject,
+            ariaLabel: (item) =>
+              `Reject decision for ${item.learner_reference}`,
+          },
+        ],
+        { size: 160 }
+      ),
     ],
     [onApprove, onReject]
   );
@@ -120,6 +105,7 @@ export function AttentionQueueTable({
       showPagination={rows.length > 25}
       getRowId={(row) => row.decision.decision_id}
       onRowClick={onRowClick}
+      initialSorting={[{ id: 'urgency', desc: false }]}
       emptyMessage="No learners match the current filters."
     />
   );

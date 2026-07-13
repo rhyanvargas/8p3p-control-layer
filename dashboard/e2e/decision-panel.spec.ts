@@ -11,8 +11,13 @@ import {
   clickSheetDrillDown,
   E2E_DECISION_ID,
   E2E_DECISION_ID_2,
+  E2E_DECISION_ID_MULTI_A,
+  E2E_DECISION_ID_MULTI_B,
   E2E_LEARNER_REF,
   E2E_LEARNER_REF_2,
+  E2E_LEARNER_REF_MULTI,
+  E2E_MULTI_EXPLANATION_A,
+  E2E_MULTI_EXPLANATION_B,
   ensureFeedbackSession,
   expectDetailSheetVisible,
   expectDataTableRowHidden,
@@ -245,6 +250,19 @@ test.describe('Attention review UX (REVIEW-UX-006 through 009)', () => {
     await waitForDataTableRow(page, new RegExp(E2E_LEARNER_REF));
   });
 
+  test('RTC-012: approve from Attention table shows toast and updates queue', async ({
+    page,
+  }) => {
+    await waitForDataTableRow(page, new RegExp(E2E_LEARNER_REF));
+
+    await clickTableReviewAction(page, E2E_LEARNER_REF, 'approve');
+
+    await expect(page.getByText(`Approved · ${E2E_LEARNER_REF}`)).toBeVisible({
+      timeout: 5_000,
+    });
+    await expectDataTableRowHidden(page, new RegExp(E2E_LEARNER_REF));
+  });
+
   test('REVIEW-UX-007: reject and approve show distinct action chips in Recently reviewed', async ({
     page,
   }) => {
@@ -399,6 +417,49 @@ test.describe('Attention review UX Phase 2 (REVIEW-UX-015)', () => {
   });
 });
 
+test.describe('Decision review identity (RTC-011)', () => {
+  test.beforeEach(async ({ page }) => {
+    await resetMockFeedbackState();
+    await ensureFeedbackSession(page);
+    await page.goto('/');
+    await clearReviewStore(page);
+  });
+
+  test('RTC-011: multi-pending shows queue position, matching Summary, and Next advances', async ({
+    page,
+  }) => {
+    await page.goto(
+      `/learners/${E2E_LEARNER_REF_MULTI}?reviewDecision=${E2E_DECISION_ID_MULTI_A}`
+    );
+    await expect(
+      page.getByRole('heading', { name: E2E_LEARNER_REF_MULTI, exact: true })
+    ).toBeVisible({ timeout: 15_000 });
+
+    const reviewBar = page.getByRole('region', { name: 'Attention review actions' });
+    await expect(reviewBar).toBeVisible({ timeout: 15_000 });
+    await expect(reviewBar.getByText('1 of 2 pending')).toBeVisible();
+    await expect(reviewBar.getByText(E2E_MULTI_EXPLANATION_A)).toBeVisible();
+
+    const activeRow = page.locator('[data-slot="table-row"][data-state="active"]');
+    await expect(activeRow).toBeVisible();
+    await expect(activeRow.getByText(E2E_MULTI_EXPLANATION_A)).toBeVisible();
+    await expect(activeRow.getByText('Reviewing', { exact: true })).toBeVisible();
+
+    await reviewBar.getByRole('button', { name: 'Next' }).click();
+    await expect(page).toHaveURL(
+      new RegExp(
+        `/learners/${E2E_LEARNER_REF_MULTI}\\?.*reviewDecision=${E2E_DECISION_ID_MULTI_B}`
+      )
+    );
+    await expect(reviewBar.getByText('2 of 2 pending')).toBeVisible({ timeout: 10_000 });
+    await expect(reviewBar.getByText(E2E_MULTI_EXPLANATION_B)).toBeVisible();
+
+    const nextActiveRow = page.locator('[data-slot="table-row"][data-state="active"]');
+    await expect(nextActiveRow.getByText(E2E_MULTI_EXPLANATION_B)).toBeVisible();
+    await expect(nextActiveRow.getByText('Reviewing', { exact: true })).toBeVisible();
+  });
+});
+
 test.describe('Learner pending review bar (LPR-009 through LPR-011)', () => {
   test.beforeEach(async () => {
     await resetMockFeedbackState();
@@ -484,13 +545,14 @@ test.describe('Learner pending review bar (LPR-009 through LPR-011)', () => {
 test.describe('Overview decision drill-down (UX gate)', () => {
   test('recent decision row opens L1 sheet without raw JSON', async ({ page }) => {
     await page.goto('/');
-    await expect(page.getByRole('heading', { name: 'Recent decisions' })).toBeVisible({
+    // Overview embeds the table under Activity with showSectionHeader=false;
+    // the section landmark remains the stable selector.
+    await expect(page.getByRole('region', { name: 'Recent decisions' })).toBeVisible({
       timeout: 15_000,
     });
 
-    const decisionRow = page.getByRole('button', { name: new RegExp(E2E_LEARNER_REF) }).first();
-    await expect(decisionRow).toBeVisible({ timeout: 15_000 });
-    await decisionRow.click();
+    await waitForDataTableRow(page, new RegExp(E2E_LEARNER_REF));
+    await clickDataTableRow(page, new RegExp(E2E_LEARNER_REF));
     await expectDetailSheetVisible(page);
     await assertNoExpandedRawJson(page);
     await page.keyboard.press('Escape');

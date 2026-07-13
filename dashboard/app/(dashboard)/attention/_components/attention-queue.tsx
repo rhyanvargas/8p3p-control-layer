@@ -44,6 +44,7 @@ import {
   ATTENTION_FROM_PARAM,
   ATTENTION_FROM_PENDING_VALUE,
 } from '@/lib/page-url-state';
+import { useDashboardPersona } from '@/lib/persona-context';
 import { executeReviewAction, type ReviewActionOrigin } from '@/lib/review-actions';
 
 type DecisionFilter = 'all' | 'intervene' | 'pause';
@@ -66,6 +67,7 @@ function getNextInFilteredQueue(
 export function AttentionQueue({ orgId }: AttentionQueueProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const persona = useDashboardPersona();
   const fromPending =
     searchParams.get(ATTENTION_FROM_PARAM) === ATTENTION_FROM_PENDING_VALUE;
 
@@ -127,6 +129,7 @@ export function AttentionQueue({ orgId }: AttentionQueueProps) {
       decisionType: item.decision.decision_type as 'intervene' | 'pause',
       educatorSummary: item.decision.educator_summary,
       origin,
+      persona,
       rejectPayload,
       onQueueChange: bumpQueueChange,
       onSheetReopen: reopenSheetForDecision,

@@ -16,6 +16,8 @@ import {
   listRecentReviews,
   type DecisionReviewRecord,
 } from '@/lib/decision-review';
+import { decisionViewUrlForPersona } from '@/lib/persona';
+import { useDashboardPersona } from '@/lib/persona-context';
 import { cn } from '@/lib/utils';
 
 function formatReviewRelativeTime(iso: string, nowMs: number): string {
@@ -39,6 +41,7 @@ type RecentlyReviewedProps = {
 };
 
 export function RecentlyReviewed({ reviewTick, onRowClick }: RecentlyReviewedProps) {
+  const persona = useDashboardPersona();
   const reviews = useMemo(() => {
     void reviewTick;
     return listRecentReviews(10);
@@ -107,7 +110,10 @@ export function RecentlyReviewed({ reviewTick, onRowClick }: RecentlyReviewedPro
                     nativeButton={false}
                     render={
                       <Link
-                        href={`/decisions/${encodeURIComponent(record.decisionId)}`}
+                        href={decisionViewUrlForPersona(persona, {
+                          decisionId: record.decisionId,
+                          learnerReference: record.learnerReference,
+                        })}
                       />
                     }
                   >

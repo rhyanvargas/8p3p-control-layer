@@ -40,7 +40,7 @@ Organic educator wave (Zoom 50–100) requires **two shared secrets** so educato
 | `DASHBOARD_ACCESS_CODE_COMPLIANCE` | When dual-code mode active | Passphrase for compliance/admin persona — full nav and audit routes |
 | `DASHBOARD_ACCESS_CODE` | Legacy / single-code fallback | When **only** this var is set (dual vars unset), login grants **compliance-equivalent** session (full nav). Preserves pre-D5 deploys when dual codes are not configured |
 
-**Dual-code mode is active** when both `DASHBOARD_ACCESS_CODE_EDUCATOR` and `DASHBOARD_ACCESS_CODE_COMPLIANCE` are non-empty. When dual-code mode is active, `DASHBOARD_ACCESS_CODE` is ignored for login validation.
+**Dual-code mode is active** when both `DASHBOARD_ACCESS_CODE_EDUCATOR` and `DASHBOARD_ACCESS_CODE_COMPLIANCE` are non-empty. When dual-code mode is active and `DASHBOARD_ACCESS_CODE` is also set, the legacy code is accepted as a **compliance alias** (local/backward-compat DX); the dashboard logs a one-time warning. Prefer exclusive profiles (dual vars **or** legacy, not both) — see [`docs/foundation/setup.md`](../foundation/setup.md) § Dashboard passphrase gate.
 
 **Alias pattern (optional):** Operators may document the same values under runbook aliases (e.g. `DASHBOARD_ACCESS_CODE_TEACHER` → educator) as long as the dashboard runtime maps them to the two canonical vars above before middleware reads them.
 
@@ -51,7 +51,7 @@ POST /login { passphrase: "..." }
   │
   ├── Match DASHBOARD_ACCESS_CODE_EDUCATOR? → persona = educator
   ├── Match DASHBOARD_ACCESS_CODE_COMPLIANCE? → persona = compliance
-  ├── Match DASHBOARD_ACCESS_CODE (legacy only)? → persona = compliance
+  ├── Match DASHBOARD_ACCESS_CODE (legacy / dual-mode compliance alias)? → persona = compliance
   │
   └── No match → error (constant-time compare per code tried)
 ```
@@ -167,7 +167,7 @@ The passphrase gate sits **in front of** the Next.js app. API calls from the bro
 |----------|----------|---------|-------------|
 | `DASHBOARD_ACCESS_CODE_EDUCATOR` | Dual-code mode | — | Educator passphrase; sets session persona `educator` |
 | `DASHBOARD_ACCESS_CODE_COMPLIANCE` | Dual-code mode | — | Compliance passphrase; sets session persona `compliance` |
-| `DASHBOARD_ACCESS_CODE` | No | — | Legacy single passphrase; full nav when dual vars unset. Ignored when dual-code mode active |
+| `DASHBOARD_ACCESS_CODE` | No | — | Legacy single passphrase; full nav when dual vars unset. When dual-code mode is also active, accepted as compliance alias + one-time warn |
 | `DASHBOARD_SESSION_TTL_HOURS` | No | `8` | Session cookie lifetime in hours. |
 | `COOKIE_SECRET` | Yes (when gate active) | — | HMAC signing secret. Min 32 chars. Same on dashboard (and API if minting `fb_session` for feedback). |
 | `CONTROL_LAYER_API_KEY` | When API auth on | — | Server-only; used by proxy — not part of the gate but required for live data. |
@@ -295,7 +295,7 @@ After the window expires, the counter resets. Failed attempts are counted; succe
 - **No per-user audit trail** — all sessions are anonymous. Phase 2 SSO enables per-user logging.
 - **No password storage** — passphrases live in env vars only. Compared at runtime, never stored in a database.
 - **Stateless sessions** — no server-side session store. The signed cookie is self-contained. Server restart does not invalidate sessions (only `COOKIE_SECRET` rotation does).
-- **Dual passphrases per deployment (interim pilot)** — educator + compliance codes replace the single-code model when both dual vars are set. Legacy single `DASHBOARD_ACCESS_CODE` remains for backward compatibility when dual codes are not configured.
+- **Dual passphrases per deployment (interim pilot)** — educator + compliance codes replace the single-code model when both dual vars are set. Legacy single `DASHBOARD_ACCESS_CODE` remains for single-code deploys; when set alongside dual codes it is a compliance alias (with a one-time config warning) for local DX.
 
 ---
 
@@ -467,4 +467,4 @@ To preserve API isolation, **`/login`** mints a **sibling cookie** `pf_session` 
 
 ---
 
-*Spec created: 2026-04-14 | Updated: 2026-06-29 (§ Dual access codes — educator/compliance passphrases, persona cookie, route allowlists; legacy single-code fallback) | Prior: 2026-06 (Next.js middleware; Fastify gate removed) | Sibling cookie: 2026-04-23 | Depends on: decision-panel-ui.md, dashboard-design-requirements.md §D5, nextjs-amplify-dashboard-migration.md*
+*Spec created: 2026-04-14 | Updated: 2026-07-11 (legacy code as compliance alias when dual-code mode active + one-time config warn; exclusive env profiles in setup) | Prior: 2026-06-29 (§ Dual access codes) | Prior: 2026-06 (Next.js middleware; Fastify gate removed) | Sibling cookie: 2026-04-23 | Depends on: decision-panel-ui.md, dashboard-design-requirements.md §D5, nextjs-amplify-dashboard-migration.md*

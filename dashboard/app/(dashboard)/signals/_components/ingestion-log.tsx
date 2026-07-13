@@ -1,10 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import type { ColumnDef } from '@tanstack/react-table';
 import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 
+import { DataTable } from '@/components/data-table/data-table';
+import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header';
 import { IngestionOutcomeChip } from '@/components/shared/ingestion-outcome-chip';
-import { EmptyState } from '@/components/states/empty-state';
 import { ErrorState } from '@/components/states/error-state';
 import { LoadingState } from '@/components/states/loading-state';
 import { Button } from '@/components/ui/button';
@@ -16,17 +18,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import { useIngestionLog } from '@/hooks/use-ingestion-log';
 import type { IngestionLogEntry, IngestionOutcome } from '@/lib/api/types';
-import { ingestionLogEntryKey, ingestionLogRowIds } from '@/lib/ingestion-log';
+import { ingestionLogRowIds } from '@/lib/ingestion-log';
 import { formatDecisionTime } from '@/lib/overview-metrics';
 import { cn } from '@/lib/utils';
 
@@ -36,12 +30,16 @@ type IngestionLogProps = {
 
 type OutcomeFilter = 'all' | IngestionOutcome;
 
+type IngestionLogRow = IngestionLogEntry & { rowId: string };
+
 const OUTCOME_FILTER_OPTIONS: { value: OutcomeFilter; label: string }[] = [
   { value: 'all', label: 'All outcomes' },
   { value: 'accepted', label: 'Accepted' },
   { value: 'duplicate', label: 'Duplicate' },
   { value: 'rejected', label: 'Rejected' },
 ];
+
+const INGESTION_INITIAL_SORTING = [{ id: 'received_at', desc: true }] as const;
 
 export function IngestionLog({ orgId }: IngestionLogProps) {
   const [outcomeFilter, setOutcomeFilter] = useState<OutcomeFilter>('all');
@@ -90,6 +88,96 @@ export function IngestionLog({ orgId }: IngestionLogProps) {
     setExpandedIds(new Set());
   }
 
+  const entries = data?.entries ?? [];
+  const rows = useMemo<IngestionLogRow[]>(() => {
+    const rowIds = ingestionLogRowIds(entries);
+    return entries.map((entry, index) => ({
+      ...entry,
+      rowId: rowIds[index]!,
+    }));
+  }, [entries]);
+
+  const columns = useMemo<ColumnDef<IngestionLogRow>[]>(
+    () => [
+      {
+        id: 'expand',
+        header: () => <span className="sr-only">Expand</span>,
+        enableSorting: false,
+        enableHiding: false,
+        size: 40,
+        cell: ({ row }) => {
+          const entry = row.original;
+          if (entry.outcome !== 'rejected') {
+            return null;
+          }
+          const isExpanded = expandedIds.has(entry.rowId);
+          return (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              className="size-7"
+              aria-label={
+                isExpanded ? 'Collapse rejection details' : 'Expand rejection details'
+              }
+              aria-expanded={isExpanded}
+              aria-controls={`${entry.rowId}-details`}
+              onClick={(event) => {
+                event.stopPropagation();
+                toggleExpanded(entry.rowId);
+              }}
+            >
+              <ChevronDown
+                aria-hidden="true"
+                className={cn(
+                  'size-4 transition-transform',
+                  isExpanded ? 'rotate-180' : 'rotate-0'
+                )}
+              />
+            </Button>
+          );
+        },
+      },
+      {
+        accessorKey: 'received_at',
+        header: ({ column }) => (
+          <DataTableColumnHeader column={column} title="Time" />
+        ),
+        cell: ({ row }) => formatDecisionTime(row.original.received_at),
+        enableHiding: false,
+      },
+      {
+        accessorKey: 'source_system',
+        header: ({ column }) => (
+          <DataTableColumnHeader column={column} title="Source" />
+        ),
+        cell: ({ row }) => (
+          <span className="font-medium">{row.original.source_system}</span>
+        ),
+        enableHiding: false,
+      },
+      {
+        accessorKey: 'schema_version',
+        header: 'Schema',
+        cell: ({ row }) => (
+          <span className="text-muted-foreground font-mono text-xs">
+            {row.original.schema_version}
+          </span>
+        ),
+        enableHiding: false,
+      },
+      {
+        accessorKey: 'outcome',
+        header: 'Outcome',
+        cell: ({ row }) => (
+          <IngestionOutcomeChip outcome={row.original.outcome} />
+        ),
+        enableHiding: false,
+      },
+    ],
+    [expandedIds]
+  );
+
   if (isLoading) {
     return <LoadingState variant="table" count={10} />;
   }
@@ -98,93 +186,102 @@ export function IngestionLog({ orgId }: IngestionLogProps) {
     return <ErrorState error={error} onRetry={() => void refetch()} />;
   }
 
-  const entries = data?.entries ?? [];
-  const rowIds = ingestionLogRowIds(entries);
   const pageNumber = cursorStack.length + 1;
   const hasPreviousPage = cursorStack.length > 0;
   const hasNextPage = Boolean(data?.next_cursor);
 
+  const facetToolbar = (
+    <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="org-context" className="text-xs">
+          Organization
+        </Label>
+        <p
+          id="org-context"
+          className="bg-muted text-muted-foreground rounded-md px-3 py-2 font-mono text-xs"
+        >
+          {orgId}
+        </p>
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="outcome-filter" className="text-xs">
+          Outcome
+        </Label>
+        <Select
+          value={outcomeFilter}
+          onValueChange={(value) =>
+            handleOutcomeFilterChange(value as OutcomeFilter)
+          }
+        >
+          <SelectTrigger id="outcome-filter" className="w-44">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {OUTCOME_FILTER_OPTIONS.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+    </div>
+  );
+
   return (
     <section aria-label="Ingestion log" className="flex flex-col gap-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="org-context" className="text-xs">
-            Organization
-          </Label>
-          <p
-            id="org-context"
-            className="bg-muted text-muted-foreground rounded-md px-3 py-2 font-mono text-xs"
-          >
-            {orgId}
-          </p>
-        </div>
+      <DataTable
+        columns={columns}
+        data={rows}
+        filterColumn="source_system"
+        filterPlaceholder="Filter by source…"
+        pageSize={10}
+        showPagination={rows.length > 10}
+        getRowId={(row) => row.rowId}
+        initialSorting={[...INGESTION_INITIAL_SORTING]}
+        toolbar={facetToolbar}
+        emptyMessage="No ingestion events match the current filter."
+        onRowClick={(row) => {
+          if (row.outcome === 'rejected') {
+            toggleExpanded(row.rowId);
+          }
+        }}
+        renderSubRow={(row) => {
+          if (row.outcome !== 'rejected' || !expandedIds.has(row.rowId)) {
+            return null;
+          }
+          return (
+            <div
+              id={`${row.rowId}-details`}
+              className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:gap-8"
+            >
+              <div className="flex min-w-0 flex-col gap-1">
+                <span className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
+                  Reason code
+                </span>
+                <span className="font-mono text-sm">
+                  {row.rejection_reason?.code ?? '—'}
+                </span>
+              </div>
+              <div className="flex min-w-0 flex-col gap-1">
+                <span className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
+                  Field path
+                </span>
+                <span className="font-mono text-sm">
+                  {row.rejection_reason?.field_path ?? '—'}
+                </span>
+              </div>
+            </div>
+          );
+        }}
+      />
 
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="outcome-filter" className="text-xs">
-            Outcome
-          </Label>
-          <Select
-            value={outcomeFilter}
-            onValueChange={(value) => handleOutcomeFilterChange(value as OutcomeFilter)}
-          >
-            <SelectTrigger id="outcome-filter" className="w-44">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {OUTCOME_FILTER_OPTIONS.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
-      <div className="border-border rounded-lg border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-10" aria-hidden="true" />
-              <TableHead>Time</TableHead>
-              <TableHead>Source</TableHead>
-              <TableHead>Schema</TableHead>
-              <TableHead>Outcome</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {entries.length > 0 ? (
-              entries.map((entry, index) => {
-                const rowId = rowIds[index]!;
-                const isRejected = entry.outcome === 'rejected';
-                const isExpanded = expandedIds.has(rowId);
-
-                return (
-                  <IngestionLogRow
-                    key={rowId}
-                    entry={entry}
-                    isRejected={isRejected}
-                    isExpanded={isExpanded}
-                    onToggle={() => toggleExpanded(rowId)}
-                  />
-                );
-              })
-            ) : (
-              <TableRow>
-                <TableCell colSpan={5}>
-                  <EmptyState message="No ingestion events match the current filter." />
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
-
-      {entries.length > 0 ? (
+      {rows.length > 0 && (hasPreviousPage || hasNextPage) ? (
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-muted-foreground text-sm">
-            Page {pageNumber} · {entries.length} entr
-            {entries.length === 1 ? 'y' : 'ies'}
+            Server page {pageNumber} · {rows.length} entr
+            {rows.length === 1 ? 'y' : 'ies'}
           </p>
           <div className="flex items-center gap-2">
             <Button
@@ -213,104 +310,5 @@ export function IngestionLog({ orgId }: IngestionLogProps) {
         </div>
       ) : null}
     </section>
-  );
-}
-
-type IngestionLogRowProps = {
-  entry: IngestionLogEntry;
-  isRejected: boolean;
-  isExpanded: boolean;
-  onToggle: () => void;
-};
-
-function IngestionLogRow({
-  entry,
-  isRejected,
-  isExpanded,
-  onToggle,
-}: IngestionLogRowProps) {
-  const rowId = ingestionLogEntryKey(entry);
-
-  return (
-    <>
-      <TableRow
-        className={cn(isRejected && 'cursor-pointer')}
-        tabIndex={isRejected ? 0 : undefined}
-        aria-expanded={isRejected ? isExpanded : undefined}
-        onClick={isRejected ? onToggle : undefined}
-        onKeyDown={
-          isRejected
-            ? (event) => {
-                if (event.key === 'Enter' || event.key === ' ') {
-                  event.preventDefault();
-                  onToggle();
-                }
-              }
-            : undefined
-        }
-        role={isRejected ? 'button' : undefined}
-      >
-        <TableCell className="w-10 p-2">
-          {isRejected ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              className="size-7"
-              aria-label={isExpanded ? 'Collapse rejection details' : 'Expand rejection details'}
-              aria-expanded={isExpanded}
-              aria-controls={`${rowId}-details`}
-              onClick={(event) => {
-                event.stopPropagation();
-                onToggle();
-              }}
-            >
-              <ChevronDown
-                aria-hidden="true"
-                className={cn(
-                  'size-4 transition-transform',
-                  isExpanded ? 'rotate-180' : 'rotate-0'
-                )}
-              />
-            </Button>
-          ) : null}
-        </TableCell>
-        <TableCell>{formatDecisionTime(entry.received_at)}</TableCell>
-        <TableCell className="font-medium">{entry.source_system}</TableCell>
-        <TableCell>
-          <span className="text-muted-foreground font-mono text-xs">
-            {entry.schema_version}
-          </span>
-        </TableCell>
-        <TableCell>
-          <IngestionOutcomeChip outcome={entry.outcome} />
-        </TableCell>
-      </TableRow>
-
-      {isRejected && isExpanded ? (
-        <TableRow id={`${rowId}-details`} className="bg-muted/40 hover:bg-muted/40">
-          <TableCell colSpan={5} className="p-0">
-            <div className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:gap-8">
-              <div className="flex min-w-0 flex-col gap-1">
-                <span className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
-                  Reason code
-                </span>
-                <span className="font-mono text-sm">
-                  {entry.rejection_reason?.code ?? '—'}
-                </span>
-              </div>
-              <div className="flex min-w-0 flex-col gap-1">
-                <span className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
-                  Field path
-                </span>
-                <span className="font-mono text-sm">
-                  {entry.rejection_reason?.field_path ?? '—'}
-                </span>
-              </div>
-            </div>
-          </TableCell>
-        </TableRow>
-      ) : null}
-    </>
   );
 }

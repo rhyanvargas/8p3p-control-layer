@@ -18,3 +18,5 @@ Produce a full tenant-dashboard UX/UI design analysis breakdown for the 8P3P con
 When the user invokes `/dashboard-uiux-analysis`, follow `.cursor/skills/dashboard-uiux-analysis/SKILL.md`.
 
 Recommendations MUST be backed by the project's frontend skills (`.agents/skills/frontend-design`, `vercel-react-best-practices`, `shadcn`) or `docs/specs/dashboard-design-requirements.md` — a report with un-cited design recommendations is incomplete.
+
+KPI / StatCard faces must pass the metric-card doctrine in `.cursor/skills/dashboard-uiux-analysis/references/kpi-metric-cards.md` (one primary + labeled `secondaryLine`; no unlabeled dual icons). Failures are P0 for lens 5 / overview redesign.

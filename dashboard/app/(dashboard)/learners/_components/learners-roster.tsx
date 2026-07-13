@@ -156,63 +156,65 @@ export function LearnersRoster({ orgId }: LearnersRosterProps) {
     return <ErrorState error={error} onRetry={refetch} />;
   }
 
+  const facetToolbar = (
+    <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="trend-filter" className="text-xs">
+          Trend filter
+        </Label>
+        <Select
+          value={trendFilter ?? 'all'}
+          onValueChange={(value) =>
+            replaceLearnersQuery({
+              trend: parseRosterTrendFilter(value),
+            })
+          }
+        >
+          <SelectTrigger id="trend-filter" className="w-44">
+            <SelectValue>{rosterTrendFilterLabel(trendFilter)}</SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All learners</SelectItem>
+            <SelectItem value="improving">Improving only</SelectItem>
+            <SelectItem value="declining">Declining only</SelectItem>
+            <SelectItem value="stable">Stable only</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {skillOptions.length > 0 ? (
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="skill-filter" className="text-xs">
+            Skill
+          </Label>
+          <Select
+            value={skillFilter ?? 'all'}
+            onValueChange={(value) =>
+              replaceLearnersQuery({
+                skill: value === 'all' ? null : value,
+              })
+            }
+          >
+            <SelectTrigger id="skill-filter" className="w-52">
+              <SelectValue placeholder="All skills" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All skills</SelectItem>
+              {skillOptions.map((skill) => (
+                <SelectItem key={skill} value={skill}>
+                  {skill}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      ) : null}
+    </div>
+  );
+
   return (
     <>
       <section aria-label="Learner roster" className="flex flex-col gap-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="trend-filter" className="text-xs">
-              Trend filter
-            </Label>
-            <Select
-              value={trendFilter ?? 'all'}
-              onValueChange={(value) =>
-                replaceLearnersQuery({
-                  trend: parseRosterTrendFilter(value),
-                })
-              }
-            >
-              <SelectTrigger id="trend-filter" className="w-44">
-                <SelectValue>{rosterTrendFilterLabel(trendFilter)}</SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All learners</SelectItem>
-                <SelectItem value="improving">Improving only</SelectItem>
-                <SelectItem value="declining">Declining only</SelectItem>
-                <SelectItem value="stable">Stable only</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {skillOptions.length > 0 ? (
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="skill-filter" className="text-xs">
-                Skill
-              </Label>
-              <Select
-                value={skillFilter ?? 'all'}
-                onValueChange={(value) =>
-                  replaceLearnersQuery({
-                    skill: value === 'all' ? null : value,
-                  })
-                }
-              >
-                <SelectTrigger id="skill-filter" className="w-52">
-                  <SelectValue placeholder="All skills" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All skills</SelectItem>
-                  {skillOptions.map((skill) => (
-                    <SelectItem key={skill} value={skill}>
-                      {skill}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          ) : null}
-        </div>
-
         <DataTable
           columns={columns}
           data={rows}
@@ -222,6 +224,8 @@ export function LearnersRoster({ orgId }: LearnersRosterProps) {
           showPagination={rows.length > 15}
           getRowId={(row) => row.learner_reference}
           onRowClick={setSelected}
+          initialSorting={[{ id: 'updated_at', desc: true }]}
+          toolbar={facetToolbar}
           emptyMessage="No learners match the current filters."
         />
       </section>

@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ClipboardCheck } from 'lucide-react';
+import { ChevronRight, ClipboardCheck } from 'lucide-react';
 
 import {
   RejectReasonStep,
@@ -11,11 +11,27 @@ import {
 import { DecisionBadge } from '@/components/shared/decision-badge';
 import { Button } from '@/components/ui/button';
 import { useSidebar } from '@/components/ui/sidebar';
-import { invalidateDecisionFeedbackQuery } from '@/hooks/use-decision-feedback-status';
+import {
+  collectUrgentDecisionIds,
+  invalidateDecisionFeedbackQuery,
+  useFeedbackStatusForDecisionIds,
+} from '@/hooks/use-decision-feedback-status';
 import { useLearnerSummary } from '@/hooks/use-learner-summary';
-import { attentionQueueUrl } from '@/lib/attention-review-url';
+import {
+  attentionQueueUrl,
+  learnerAttentionReviewUrl,
+  learnerDetailReviewUrl,
+} from '@/lib/attention-review-url';
 import type { RejectReasonCategory, SuggestedDecisionType } from '@/lib/decision-feedback';
+import { formatDecisionTime } from '@/lib/overview-metrics';
+import { educatorBodyCopy } from '@/lib/panel-helpers';
+import {
+  listPendingUrgentDecisionIds,
+  nextPendingDecisionId,
+  pendingQueuePosition,
+} from '@/lib/pending-review-presentation';
 import { queryClient } from '@/lib/query-client';
+import { useDashboardPersona } from '@/lib/persona-context';
 import { executeReviewAction } from '@/lib/review-actions';
 import { icon, surface } from '@/lib/semantic-colors';
 import { cn } from '@/lib/utils';
@@ -52,10 +68,18 @@ export function AttentionReviewBar({
 }: AttentionReviewBarProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const persona = useDashboardPersona();
   const { isMobile, state } = useSidebar();
   const summaryQuery = useLearnerSummary(orgId, learnerRef, {
     recentDecisionsLimit: 10,
   });
+
+  const urgentDecisionIds = useMemo(
+    () =>
+      summaryQuery.data ? collectUrgentDecisionIds([summaryQuery.data]) : [],
+    [summaryQuery.data]
+  );
+  const { serverReviewedIds } = useFeedbackStatusForDecisionIds(urgentDecisionIds);
 
   const [rejectDecisionId, setRejectDecisionId] = useState<string | null>(null);
   const [showRejectReason, setShowRejectReason] = useState(false);
@@ -77,11 +101,26 @@ export function AttentionReviewBar({
   );
 
   const decisionType = (decision?.decision_type ?? 'intervene') as 'intervene' | 'pause';
-  const summary =
-    decision?.educator_summary ||
-    (decisionType === 'pause'
-      ? 'High decay risk — consider pausing'
-      : 'Needs stronger support now');
+  const narrative = educatorBodyCopy({
+    educator_explanation: decision?.educator_explanation,
+    educator_summary: decision?.educator_summary,
+    rationale: decision?.rationale,
+    decision_type: decision?.decision_type,
+    skill: decision?.skill,
+  });
+  const decidedAtLabel = decision?.decided_at
+    ? formatDecisionTime(decision.decided_at)
+    : null;
+
+  const orderedPendingIds = summaryQuery.data
+    ? listPendingUrgentDecisionIds(summaryQuery.data, serverReviewedIds)
+    : [];
+  const queuePosition = pendingQueuePosition(orderedPendingIds, decisionId);
+  const showQueueChrome =
+    queuePosition != null && queuePosition.total > 1;
+  const nextDecisionId = showQueueChrome
+    ? nextPendingDecisionId(orderedPendingIds, decisionId)
+    : null;
 
   const rejectPayload = buildRejectFeedbackPayload({
     reasonCategory,
@@ -111,6 +150,7 @@ export function AttentionReviewBar({
       decisionType,
       educatorSummary: decision?.educator_summary,
       origin: 'bar',
+      persona,
       rejectPayload: payload,
       onQueueChange: bumpQueueChange,
       onFeedbackPersisted: invalidateDecisionFeedbackQuery,
@@ -137,6 +177,14 @@ export function AttentionReviewBar({
   function handleRejectSubmit() {
     if (!rejectPayload) return;
     void runReviewAction('reject', rejectPayload);
+  }
+
+  function handleNext() {
+    if (!nextDecisionId) return;
+    const url = fromAttention
+      ? learnerAttentionReviewUrl(learnerRef, nextDecisionId)
+      : learnerDetailReviewUrl(learnerRef, nextDecisionId);
+    router.push(url);
   }
 
   return (
@@ -183,24 +231,65 @@ export function AttentionReviewBar({
                 </p>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
                   <DecisionBadge type={decisionType} />
-                  <span className="text-foreground text-sm font-medium">{learnerRef}</span>
-                  <span className="text-muted-foreground hidden text-sm sm:inline">·</span>
-                  <span className="text-muted-foreground line-clamp-1 text-sm">{summary}</span>
+                  {fromAttention ? (
+                    <span className="text-foreground text-sm font-medium">
+                      {learnerRef}
+                    </span>
+                  ) : null}
+                  {decidedAtLabel ? (
+                    <span className="text-muted-foreground text-sm">
+                      {decidedAtLabel}
+                    </span>
+                  ) : null}
                 </div>
+                <p className="text-foreground mt-1 line-clamp-2 text-sm">
+                  {narrative}
+                </p>
               </div>
             </div>
           </div>
 
-          {!showRejectReason ? (
-            <div className="flex shrink-0 flex-wrap items-center gap-2 sm:justify-end">
-              <Button type="button" onClick={handleApprove}>
-                Approve
-              </Button>
-              <Button type="button" variant="outline" onClick={handleRejectClick}>
-                Reject
-              </Button>
-            </div>
-          ) : null}
+          <div className="flex shrink-0 flex-wrap items-center gap-2 sm:justify-end">
+            {showQueueChrome && queuePosition && nextDecisionId ? (
+              <div
+                className="border-border bg-muted/40 flex items-center gap-1 rounded-lg border py-0.5 pr-0.5 pl-2.5"
+                role="group"
+                aria-label="Pending review queue"
+              >
+                <span className="text-muted-foreground text-xs whitespace-nowrap tabular-nums">
+                  {queuePosition.index} of {queuePosition.total} pending
+                </span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleNext}
+                  className="text-foreground h-7 gap-0.5 px-2 font-medium"
+                >
+                  Next
+                  <ChevronRight className="size-3.5 opacity-70" aria-hidden="true" />
+                </Button>
+              </div>
+            ) : null}
+
+            {showQueueChrome && !showRejectReason ? (
+              <span
+                className="bg-border mx-0.5 hidden h-6 w-px sm:block"
+                aria-hidden="true"
+              />
+            ) : null}
+
+            {!showRejectReason ? (
+              <>
+                <Button type="button" onClick={handleApprove}>
+                  Approve
+                </Button>
+                <Button type="button" variant="outline" onClick={handleRejectClick}>
+                  Reject
+                </Button>
+              </>
+            ) : null}
+          </div>
         </div>
 
         {showRejectReason ? (

@@ -15,6 +15,10 @@ import {
   type RejectFeedbackBody,
   type SubmitFeedbackBody,
 } from '@/lib/decision-feedback';
+import {
+  decisionViewUrlForPersona,
+  type DashboardPersona,
+} from '@/lib/persona';
 
 const UNDO_DURATION_MS = 8000;
 
@@ -32,6 +36,8 @@ export interface ExecuteReviewActionParams {
   decisionType: 'intervene' | 'pause';
   educatorSummary?: string;
   origin: ReviewActionOrigin;
+  /** Session persona — toast "View decision" must use a D5-allowed route. */
+  persona: DashboardPersona;
   rejectPayload?: RejectFeedbackBody;
   onQueueChange: () => void;
   onSheetReopen?: (decisionId: string) => void;
@@ -65,6 +71,7 @@ export async function executeReviewAction(
     decisionType,
     educatorSummary,
     origin,
+    persona,
     rejectPayload,
     onQueueChange,
     onSheetReopen,
@@ -107,8 +114,13 @@ export async function executeReviewAction(
     }
   };
 
+  const viewDecisionHref = decisionViewUrlForPersona(persona, {
+    decisionId,
+    learnerReference,
+  });
+
   const handleViewDecision = () => {
-    window.location.assign(`/decisions/${encodeURIComponent(decisionId)}`);
+    window.location.assign(viewDecisionHref);
   };
 
   const toastId = toast.success(reviewSuccessTitle(action, learnerReference), {

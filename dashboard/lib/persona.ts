@@ -28,6 +28,25 @@ export function isEducatorRouteAllowed(pathname: string): boolean {
   return false;
 }
 
+/**
+ * D5 drill-down for a single decision: educators stay on the learner surface;
+ * compliance opens the audit trace. Avoids middleware bounce `/decisions/*` → `/`.
+ */
+export function decisionViewUrlForPersona(
+  persona: DashboardPersona,
+  opts: { decisionId: string; learnerReference: string }
+): string {
+  if (persona === 'educator') {
+    return `/learners/${encodeURIComponent(opts.learnerReference)}`;
+  }
+  return `/decisions/${encodeURIComponent(opts.decisionId)}`;
+}
+
+/** Footer CTA label paired with {@link decisionViewUrlForPersona}. */
+export function decisionViewLabelForPersona(persona: DashboardPersona): string {
+  return persona === 'educator' ? 'Open learner profile' : 'Open trace';
+}
+
 export function isNavMainItemAllowedForPersona(href: string, persona: DashboardPersona): boolean {
   if (persona === 'compliance') {
     return true;

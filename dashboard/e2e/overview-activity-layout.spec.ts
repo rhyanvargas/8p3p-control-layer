@@ -23,7 +23,10 @@ test.describe('OVACT-012: period change without refetch', () => {
 
     await page.getByRole('button', { name: '30d', exact: true }).click();
 
-    await expect(page.getByRole('button', { name: '30d' })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByRole('button', { name: '30d', exact: true })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
     await expect(periodLabel).not.toHaveText(labelBefore);
     expect(v1Requests).toHaveLength(0);
   });

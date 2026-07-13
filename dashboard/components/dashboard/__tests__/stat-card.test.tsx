@@ -64,12 +64,41 @@ describe('KPI-001 / KPI-004: StatCard icon and clickability', () => {
     expect(screen.queryByText('Hidden nuance')).not.toBeInTheDocument();
   });
 
-  it('shows no interactive affordance when href is absent', () => {
-    renderCard({
-      title: 'Static',
-      value: 0,
+  it('renders delta inline with the metric value using a simple arrow', () => {
+    const { container } = renderCard({
+      title: 'Needs action',
+      value: 4,
+      delta: 3,
     });
-    expect(screen.queryByRole('link')).not.toBeInTheDocument();
+
+    const value = screen.getByText('4');
+    const delta = screen.getByText('+3');
+    expect(value.parentElement).toContainElement(delta);
+    expect(container.querySelector('svg.lucide-arrow-up')).toBeTruthy();
+    expect(container.querySelector('svg.lucide-trending-up')).toBeNull();
+  });
+
+  it('uses a down arrow for negative deltas', () => {
+    const { container } = renderCard({
+      title: 'Needs action',
+      value: 1,
+      delta: -2,
+    });
+
+    expect(screen.getByText('-2')).toBeInTheDocument();
+    expect(container.querySelector('svg.lucide-arrow-down')).toBeTruthy();
+  });
+
+  it('renders labeled secondary context inline with the metric value', () => {
+    renderCard({
+      title: 'Rejected today',
+      value: 0,
+      secondaryLine: '17 accepted',
+    });
+
+    const value = screen.getByText('0');
+    const secondary = screen.getByText('17 accepted');
+    expect(value.parentElement).toContainElement(secondary);
   });
 });
 
@@ -85,10 +114,9 @@ describe('KPI-004: SectionCards drill targets and declutter', () => {
       'href',
       '/attention'
     );
-    expect(screen.getByRole('link', { name: /Rejected signals today: 1/ })).toHaveAttribute(
-      'href',
-      '/signals'
-    );
+    expect(
+      screen.getByRole('link', { name: /Rejected signals today: 1\. 2 accepted\./ })
+    ).toHaveAttribute('href', '/signals');
     expect(screen.getByRole('link', { name: /Pending decisions: 5/ })).toHaveAttribute(
       'href',
       '/attention?from=pending'
@@ -115,7 +143,7 @@ describe('KPI-004: SectionCards drill targets and declutter', () => {
     expect(screen.queryByText(/accepted and .* rejected since midnight/)).not.toBeInTheDocument();
   });
 
-  it('shows rejected signals as the primary value without compound prose', () => {
+  it('shows rejected as the primary value with labeled accepted context inline', () => {
     render(
       <TooltipProvider>
         <SectionCards kpis={sampleKpis} />
@@ -124,6 +152,11 @@ describe('KPI-004: SectionCards drill targets and declutter', () => {
 
     expect(screen.getByText('Rejected today')).toBeInTheDocument();
     expect(screen.queryByText(/Signals today:/)).not.toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /Rejected signals today: 1/ })).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: /Rejected signals today: 1\. 2 accepted\./ })
+    ).toBeInTheDocument();
+    const secondary = screen.getByText('2 accepted');
+    const valueRow = secondary.parentElement;
+    expect(valueRow).toHaveTextContent(/^12 accepted$/);
   });
 });

@@ -1,7 +1,7 @@
 'use client';
 
 import { useSyncExternalStore } from 'react';
-import { AlertCircle, CheckCircle2, Clock, TrendingUp, XCircle } from 'lucide-react';
+import { AlertCircle, Clock, TrendingUp, XCircle } from 'lucide-react';
 
 import { useOptionalOverviewFilter } from '@/app/(dashboard)/_components/overview-sync-provider';
 import { StatCard } from '@/components/dashboard/stat-card';
@@ -91,23 +91,20 @@ export function SectionCards({ kpis }: SectionCardsProps) {
           </h2>
           <StatCard
             title="Rejected today"
-            ariaLabel={`Rejected signals today: ${signalsToday.rejected}`}
-            value={
-              <span className="inline-flex items-center gap-2">
-                {signalsToday.rejected}
-                {signalsToday.accepted > 0 ? (
-                  <span className="text-muted-foreground inline-flex items-center gap-1 text-sm font-normal">
-                    <CheckCircle2 aria-hidden="true" className={`size-4 ${icon.success}`} />
-                    {signalsToday.accepted}
-                  </span>
-                ) : null}
-              </span>
-            }
+            ariaLabel={`Rejected signals today: ${signalsToday.rejected}. ${signalsToday.accepted} accepted.`}
+            value={signalsToday.rejected}
             href="/signals"
             icon={XCircle}
             iconClassName="text-destructive"
             tooltip={`${signalsToday.accepted} accepted and ${signalsToday.rejected} rejected since midnight.`}
-            secondaryLine={showProgramWideIndicator ? 'Program-wide' : undefined}
+            secondaryLine={
+              [
+                `${signalsToday.accepted} accepted`,
+                showProgramWideIndicator ? 'Program-wide' : null,
+              ]
+                .filter(Boolean)
+                .join(' · ')
+            }
           />
           <StatCard
             title="Improving"

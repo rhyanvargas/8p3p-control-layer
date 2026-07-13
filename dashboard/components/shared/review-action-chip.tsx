@@ -1,12 +1,15 @@
-import { CheckCircle2, XCircle, type LucideIcon } from 'lucide-react';
+import { CheckCircle2, CircleDot, XCircle, type LucideIcon } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import type { ReviewAction } from '@/lib/decision-review';
 import { badge } from '@/lib/semantic-colors';
 import { cn } from '@/lib/utils';
 
+/** Display statuses for Your action — includes in-progress Reviewing (not a persisted action). */
+export type ReviewActionChipStatus = ReviewAction | 'reviewing';
+
 const reviewActionConfig: Record<
-  ReviewAction,
+  ReviewActionChipStatus,
   { label: string; className: string; icon: LucideIcon }
 > = {
   approve: {
@@ -19,10 +22,15 @@ const reviewActionConfig: Record<
     className: badge.danger,
     icon: XCircle,
   },
+  reviewing: {
+    label: 'Reviewing',
+    className: badge.warning,
+    icon: CircleDot,
+  },
 };
 
 type ReviewActionChipProps = {
-  action: ReviewAction;
+  action: ReviewActionChipStatus;
   className?: string;
 };
 

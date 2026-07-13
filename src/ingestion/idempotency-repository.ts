@@ -9,6 +9,11 @@ import type { IdempotencyResult } from '../shared/types.js';
  * not a production contract.
  */
 export interface IdempotencyRepository {
-  checkAndStore(orgId: string, signalId: string): IdempotencyResult;
+  /**
+   * @param receivedAt - Value stored/returned for first acceptance. Defaults to wall-clock now.
+   *   Callers should pass the same `received_at` they return on accept (e.g. event time)
+   *   so duplicates echo the original response.
+   */
+  checkAndStore(orgId: string, signalId: string, receivedAt?: string): IdempotencyResult;
   close(): void;
 }
