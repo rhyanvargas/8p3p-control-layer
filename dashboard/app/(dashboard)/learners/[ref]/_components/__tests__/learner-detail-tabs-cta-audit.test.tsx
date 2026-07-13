@@ -31,6 +31,7 @@ const summaryFixture: LearnerSummaryResponse = {
       educator_summary: 'Needs support',
       rationale: 'Low stability',
       matched_rule_id: 'rule-1',
+      policy_version: '1',
     },
   ],
   field_trajectories: {
@@ -41,7 +42,12 @@ const summaryFixture: LearnerSummaryResponse = {
       version_count: 2,
     },
   },
-  active_policy: { policy_id: 'p1', policy_version: '1' },
+  active_policy: {
+    policy_id: 'p1',
+    policy_key: 'learner',
+    policy_version: '1',
+    rule_count: 1,
+  },
   signals_summary: {
     total_count: 3,
     first_signal_at: '2026-03-01T00:00:00Z',
@@ -69,6 +75,7 @@ const stateFixture: LearnerStateResponse = {
   },
   provenance: {
     last_signal_id: 'sig-1',
+    last_signal_timestamp: '2026-03-28T14:45:30Z',
   },
 };
 

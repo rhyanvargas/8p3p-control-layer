@@ -12,16 +12,16 @@ const sidebarState = vi.hoisted(() => ({
 }));
 
 const summaryState = vi.hoisted(() => {
-  const decision = {
+  const decision: RecentDecisionItem = {
     decision_id: 'decision-1',
-    decision_type: 'intervene' as const,
+    decision_type: 'intervene',
     decided_at: '2026-07-11T15:00:00.000Z',
     educator_summary: 'Needs support',
-    educator_explanation: null as string | null,
+    educator_explanation: null,
     rationale: 'Rule matched intervene threshold',
     matched_rule_id: null,
     policy_version: 'v1',
-  } satisfies RecentDecisionItem;
+  };
 
   return {
     decision,
@@ -212,7 +212,7 @@ describe('AttentionReviewBar identity (RTC-001, RTC-002, RTC-008)', () => {
       ...summaryState.decision,
       educator_summary: 'Custom summary from the decision payload',
       educator_explanation: null,
-      rationale: null,
+      rationale: '',
     };
 
     renderReviewBar();

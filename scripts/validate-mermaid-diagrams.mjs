@@ -53,18 +53,29 @@ function extractMermaidBlocks(content) {
   return blocks;
 }
 
+/** Puppeteer launch args for CI/Linux where Chromium's sandbox is unavailable. */
+const PUPPETEER_CONFIG = {
+  args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+};
+
 function validateDiagram(source) {
   const dir = mkdtempSync(join(tmpdir(), 'mermaid-validate-'));
 
   try {
     const input = join(dir, 'diagram.mmd');
     const output = join(dir, 'diagram.svg');
+    const puppeteerConfig = join(dir, 'puppeteer-config.json');
     writeFileSync(input, source, 'utf8');
+    writeFileSync(puppeteerConfig, JSON.stringify(PUPPETEER_CONFIG), 'utf8');
 
-    const result = spawnSync(MMDC, ['-i', input, '-o', output, '-q'], {
-      encoding: 'utf8',
-      env: process.env,
-    });
+    const result = spawnSync(
+      MMDC,
+      ['-i', input, '-o', output, '-p', puppeteerConfig, '-q'],
+      {
+        encoding: 'utf8',
+        env: process.env,
+      }
+    );
 
     if (result.status === 0) {
       return null;
