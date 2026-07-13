@@ -103,6 +103,7 @@ vi.mock('@/hooks/use-learner-states', () => ({
 vi.mock('@/hooks/use-decision-feedback-status', () => ({
   useFeedbackStatusForDecisionIds: () => ({
     latestActionByDecisionId: new Map<string, string>(),
+    serverReviewedIds: new Set<string>(),
   }),
 }));
 

@@ -10,6 +10,10 @@ const PORT = Number(process.env.MOCK_UPSTREAM_PORT ?? 9999);
 const ORG_ID = 'e2e-org';
 const LEARNER_REF = 'learner-1';
 const LEARNER_REF_2 = 'learner-2';
+/** Dedicated multi-pending learner for RTC-011 (not in state list / Attention queue). */
+const LEARNER_REF_MULTI = 'learner-multi';
+const DECISION_ID_MULTI_A = 'decision-multi-a';
+const DECISION_ID_MULTI_B = 'decision-multi-b';
 
 const now = new Date();
 const today = now.toISOString();
@@ -194,16 +198,93 @@ const learnerSummary2 = buildLearnerSummary(LEARNER_REF_2, [
   },
 ]);
 
+const multiDecidedAtA = today;
+const multiDecidedAtB = new Date(now.getTime() - 3_600_000).toISOString();
+
+const decisionFixtureMultiA = {
+  org_id: ORG_ID,
+  decision_id: DECISION_ID_MULTI_A,
+  learner_reference: LEARNER_REF_MULTI,
+  decision_type: 'intervene',
+  decided_at: multiDecidedAtA,
+  decision_context: {},
+  trace: {
+    state_id: 'state-learner-multi-v1',
+    state_version: 1,
+    policy_id: 'pilot-policy',
+    policy_version: '1.0.0',
+    matched_rule_id: 'rule-risk-threshold',
+    state_snapshot: { masteryScore: 0.4, stabilityScore: 0.3, riskSignal: 0.7 },
+    matched_rule: {},
+    rationale: 'riskSignal elevated for multi-pending fixture.',
+    educator_summary: 'Short summary A',
+    educator_explanation:
+      'First pending decision long explanation for identity match with Overview Summary.',
+  },
+  output_metadata: { priority: 1 },
+};
+
+const decisionFixtureMultiB = {
+  org_id: ORG_ID,
+  decision_id: DECISION_ID_MULTI_B,
+  learner_reference: LEARNER_REF_MULTI,
+  decision_type: 'pause',
+  decided_at: multiDecidedAtB,
+  decision_context: {},
+  trace: {
+    state_id: 'state-learner-multi-v1',
+    state_version: 1,
+    policy_id: 'pilot-policy',
+    policy_version: '1.0.0',
+    matched_rule_id: 'rule-pause-threshold',
+    state_snapshot: { masteryScore: 0.4, stabilityScore: 0.2, riskSignal: 0.5 },
+    matched_rule: {},
+    rationale: 'stabilityScore low for multi-pending fixture.',
+    educator_summary: 'Short summary B',
+    educator_explanation:
+      'Second pending decision long explanation after Next advances the review focus.',
+  },
+  output_metadata: { priority: 2 },
+};
+
+const learnerSummaryMulti = buildLearnerSummary(LEARNER_REF_MULTI, [
+  {
+    decision_id: DECISION_ID_MULTI_A,
+    decision_type: 'intervene',
+    decided_at: multiDecidedAtA,
+    matched_rule_id: 'rule-risk-threshold',
+    educator_summary: 'Short summary A',
+    educator_explanation:
+      'First pending decision long explanation for identity match with Overview Summary.',
+    rationale: 'riskSignal elevated for multi-pending fixture.',
+    policy_version: '1.0.0',
+  },
+  {
+    decision_id: DECISION_ID_MULTI_B,
+    decision_type: 'pause',
+    decided_at: multiDecidedAtB,
+    matched_rule_id: 'rule-pause-threshold',
+    educator_summary: 'Short summary B',
+    educator_explanation:
+      'Second pending decision long explanation after Next advances the review focus.',
+    rationale: 'stabilityScore low for multi-pending fixture.',
+    policy_version: '1.0.0',
+  },
+]);
+
 /** @type {Record<string, object>} */
 const learnerSummariesByRef = {
   [LEARNER_REF]: learnerSummary,
   [LEARNER_REF_2]: learnerSummary2,
+  [LEARNER_REF_MULTI]: learnerSummaryMulti,
 };
 
 /** @type {Record<string, object>} */
 const decisionsById = {
   [decisionFixture.decision_id]: decisionFixture,
   [decisionFixture2.decision_id]: decisionFixture2,
+  [DECISION_ID_MULTI_A]: decisionFixtureMultiA,
+  [DECISION_ID_MULTI_B]: decisionFixtureMultiB,
 };
 
 /** @type {Record<string, Array<object>>} */

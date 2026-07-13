@@ -136,7 +136,7 @@ None — client-only feature; no new API or proxy error codes.
 
 Unchanged from `attention-review-ux.md` P1-F09 — fixed bottom `AttentionReviewBar`, page bottom padding `pb-36 md:pb-40` when bar visible.
 
-### Copy (review bar — unchanged)
+### Copy (review bar — heading/subcopy)
 
 | Element | Text |
 |---------|------|
@@ -145,7 +145,9 @@ Unchanged from `attention-review-ux.md` P1-F09 — fixed bottom `AttentionReview
 | Subcopy (Attention-originated) | `Approve or reject this decision before returning to the queue.` |
 | Subcopy (roster-originated, **new**) | `Approve or reject this recommendation for this learner.` |
 
-When `from=attention`, use queue subcopy; otherwise use learner-focused subcopy (same bar component, prop `variant: 'queue' | 'learner'` or derive from `fromAttention`).
+When `from=attention`, use queue subcopy; otherwise use learner-focused subcopy (same bar component, prop `fromAttention`).
+
+**Identity fields (type, time, narrative, queue position, Next)** are owned by [`decision-review-table-consistency.md`](decision-review-table-consistency.md) (RTC-F01/F02/F05/F06) — not listed here. Heading/subcopy strings above remain normative for LPR.
 
 ### Post-action routing
 
@@ -247,6 +249,7 @@ dashboard/
 - **React best practice:** Derive `effectivePendingDecisionId` during render from fetched summary + feedback queries (`vercel-react-best-practices` §5.1 — do not store pending ID in separate state synced from props).
 - **Gap closed in design doc:** `dashboard-design-requirements.md` §8 L2 now states roster-originated pending review mounts `AttentionReviewBar` (shipped 2026-07-04).
 - **Post-ship doc sync:** Spec marked shipped in [`docs/specs/README.md`](README.md) (2026-07-04).
+- **Amended by RTC (2026-07-11):** Bar identity fields (type badge, `formatDecisionTime`, `educatorBodyCopy` narrative, `{n} of {total} pending`, Next) live in [`decision-review-table-consistency.md`](decision-review-table-consistency.md); this spec retains heading/subcopy only.
 
 ---
 

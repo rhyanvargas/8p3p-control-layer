@@ -8,6 +8,10 @@ import {
   buildRejectFeedbackPayload,
 } from '@/app/(dashboard)/attention/_components/reject-reason-step';
 import { PanelEmpty, PanelError, PanelSkeleton } from '@/components/layout/panel-states';
+import {
+  CardInlineAction,
+  cardInlineActionVariants,
+} from '@/components/shared/card-inline-action';
 import { DecisionBadge } from '@/components/shared/decision-badge';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -23,6 +27,7 @@ import {
 } from '@/lib/panel-helpers';
 import { queryClient } from '@/lib/query-client';
 import { buildStabilityRationale } from '@/lib/rationale-builder';
+import { useDashboardPersona } from '@/lib/persona-context';
 import { executeReviewAction } from '@/lib/review-actions';
 import { formatSkillLabel, extractSkillRows } from '@/lib/state-skills';
 import { icon, surface } from '@/lib/semantic-colors';
@@ -44,6 +49,7 @@ type WatchIssue = {
  * (skill status only — no duplicate explanation copy).
  */
 export function EducatorInsights({ orgId }: { orgId: string }) {
+  const persona = useDashboardPersona();
   const summariesQuery = useOrgLearnerSummaries(orgId);
   const { summaries, isLoading: summariesLoading, isError: summariesError, error, refetch } =
     summariesQuery;
@@ -266,6 +272,7 @@ export function EducatorInsights({ orgId }: { orgId: string }) {
                 decisionType: decision.decision_type as 'intervene' | 'pause',
                 educatorSummary: decision.educator_summary,
                 origin: 'what-to-do',
+                persona,
                 onQueueChange: bumpQueueChange,
               });
               resetRejectReason();
@@ -288,6 +295,7 @@ export function EducatorInsights({ orgId }: { orgId: string }) {
                 decisionType: decision.decision_type as 'intervene' | 'pause',
                 educatorSummary: decision.educator_summary,
                 origin: 'what-to-do',
+                persona,
                 rejectPayload,
                 onQueueChange: bumpQueueChange,
               });
@@ -312,7 +320,10 @@ export function EducatorInsights({ orgId }: { orgId: string }) {
               </h3>
               <Link
                 href="/attention"
-                className="inline-flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+                className={cn(
+                  cardInlineActionVariants({ variant: 'arrow' }),
+                  'text-muted-foreground hover:text-foreground'
+                )}
               >
                 Open attention
                 <ArrowRight className="size-3" aria-hidden />
@@ -321,53 +332,76 @@ export function EducatorInsights({ orgId }: { orgId: string }) {
             <ul className="divide-y divide-border/60" role="list">
               {shownWatch.map((issue) => {
                 const isOpen = selectedWatchKey === issue.key;
+                const toggleWatch = () =>
+                  setSelectedWatchKey((prev) => (prev === issue.key ? null : issue.key));
+                const panelId = `watch-why-${issue.key}`;
                 return (
                   <li key={issue.key}>
-                    <button
-                      type="button"
+                    <div
                       className={cn(
-                        'flex w-full items-start gap-3 px-4 py-2.5 text-left transition-colors',
-                        'hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:outline-none',
+                        'flex w-full items-start gap-2 px-4 py-2.5 transition-colors',
+                        'hover:bg-muted/40',
                         isOpen && 'bg-muted/50'
                       )}
-                      aria-expanded={isOpen}
-                      onClick={() =>
-                        setSelectedWatchKey((prev) => (prev === issue.key ? null : issue.key))
-                      }
                     >
-                      <span
-                        className={cn(
-                          'mt-1.5 size-1.5 shrink-0 rounded-full',
-                          issue.direction === 'declining' ? 'bg-amber-600' : 'bg-red-600'
-                        )}
-                        aria-hidden
-                      />
-                      <span className="min-w-0 flex-1">
-                        <span className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                          <span className="text-sm font-medium text-foreground">
-                            {issue.learnerRef}
+                      <button
+                        type="button"
+                        className="flex min-w-0 flex-1 items-start gap-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 rounded-sm"
+                        aria-expanded={isOpen}
+                        aria-controls={panelId}
+                        onClick={toggleWatch}
+                      >
+                        <span
+                          className={cn(
+                            'mt-1.5 size-1.5 shrink-0 rounded-full',
+                            issue.direction === 'declining' ? 'bg-amber-600' : 'bg-red-600'
+                          )}
+                          aria-hidden
+                        />
+                        <span className="min-w-0 flex-1">
+                          <span className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                            <span className="text-sm font-medium text-foreground">
+                              {issue.learnerRef}
+                            </span>
+                            <span className="text-sm text-muted-foreground">
+                              {formatSkillLabel(issue.skillName)}
+                            </span>
                           </span>
-                          <span className="text-sm text-muted-foreground">
-                            {formatSkillLabel(issue.skillName)}
+                          <span className="text-xs text-muted-foreground">
+                            Stability {issue.direction}
+                            {typeof issue.stabilityScore === 'number'
+                              ? ` · ${Math.round(issue.stabilityScore * 100)}%`
+                              : ''}
                           </span>
                         </span>
-                        <span className="text-xs text-muted-foreground">
-                          Stability {issue.direction}
-                          {typeof issue.stabilityScore === 'number'
-                            ? ` · ${Math.round(issue.stabilityScore * 100)}%`
-                            : ''}
-                        </span>
-                      </span>
-                      <span className="shrink-0 pt-0.5 text-xs text-muted-foreground">
+                      </button>
+                      <CardInlineAction
+                        variant="disclosure"
+                        expanded={isOpen}
+                        className="mt-0.5"
+                        aria-controls={panelId}
+                        aria-label={
+                          isOpen
+                            ? `Hide why ${issue.learnerRef} needs attention`
+                            : `Why ${issue.learnerRef} needs attention`
+                        }
+                        onClick={toggleWatch}
+                      >
                         {isOpen ? 'Hide' : 'Why'}
-                      </span>
-                    </button>
+                      </CardInlineAction>
+                    </div>
                     {isOpen && selectedWatchQuote ? (
-                      <div className="border-t border-border/40 bg-muted/20 px-4 py-3 pl-8">
+                      <div
+                        id={panelId}
+                        className="border-t border-border/40 bg-muted/20 px-4 py-3 pl-8"
+                      >
                         <p className="text-sm text-foreground">{selectedWatchQuote}</p>
                         <Link
                           href={`/learners/${encodeURIComponent(issue.learnerRef)}`}
-                          className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-foreground underline-offset-2 hover:underline"
+                          className={cn(
+                            cardInlineActionVariants({ variant: 'arrow' }),
+                            'mt-2'
+                          )}
                         >
                           View learner
                           <ArrowRight className="size-3" aria-hidden />
@@ -461,15 +495,13 @@ function FeaturedAction({
           {bodyCopy}
         </p>
         {bodyCopy.length > 160 ? (
-          <Button
-            type="button"
+          <CardInlineAction
             variant="link"
-            className="h-auto px-0 text-xs"
             onClick={onToggleExpanded}
             aria-expanded={expanded}
           >
             {expanded ? 'Show less' : 'Read more'}
-          </Button>
+          </CardInlineAction>
         ) : null}
       </div>
 

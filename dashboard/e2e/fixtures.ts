@@ -131,6 +131,14 @@ export const E2E_LEARNER_REF = 'learner-1';
 export const E2E_DECISION_ID = 'decision-001';
 export const E2E_LEARNER_REF_2 = 'learner-2';
 export const E2E_DECISION_ID_2 = 'decision-002';
+/** Multi-pending identity fixture (RTC-011) — not in Attention state list. */
+export const E2E_LEARNER_REF_MULTI = 'learner-multi';
+export const E2E_DECISION_ID_MULTI_A = 'decision-multi-a';
+export const E2E_DECISION_ID_MULTI_B = 'decision-multi-b';
+export const E2E_MULTI_EXPLANATION_A =
+  'First pending decision long explanation for identity match with Overview Summary.';
+export const E2E_MULTI_EXPLANATION_B =
+  'Second pending decision long explanation after Next advances the review focus.';
 
 const OVERVIEW_SYNC_TOGGLE_KEY = 'overview:sync-filters:v1';
 

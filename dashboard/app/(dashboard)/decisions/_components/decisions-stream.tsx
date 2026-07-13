@@ -2,8 +2,7 @@
 
 import { useCallback, useMemo, useState, useSyncExternalStore } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Columns3 } from 'lucide-react';
-import type { ColumnDef } from '@tanstack/react-table';
+import type { ColumnDef, OnChangeFn, VisibilityState } from '@tanstack/react-table';
 import { useQuery } from '@tanstack/react-query';
 
 import { DataTable } from '@/components/data-table/data-table';
@@ -18,15 +17,6 @@ import {
 import { SheetSection } from '@/components/shared/sheet-section';
 import { ErrorState } from '@/components/states/error-state';
 import { LoadingState } from '@/components/states/loading-state';
-import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuLabel,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { Label } from '@/components/ui/label';
 import {
   Select,
@@ -62,6 +52,9 @@ import { getDecisionFeedback } from '@/lib/decision-feedback';
 import { DECISIONS_REVIEWED_PARAM } from '@/lib/page-url-state';
 import { formatDecisionTime, truncateRule } from '@/lib/overview-metrics';
 import { queryKeys } from '@/lib/query-client';
+
+const DECISIONS_INITIAL_SORTING = [{ id: 'decided_at', desc: true }] as const;
+const DECISIONS_INITIAL_VISIBILITY: VisibilityState = { yourAction: false };
 
 type DecisionsStreamProps = {
   orgId: string;
@@ -104,7 +97,19 @@ export function DecisionsStream({ orgId }: DecisionsStreamProps) {
   const searchParams = useSearchParams();
   const [selected, setSelected] = useState<Decision | null>(null);
   const [timeRange, setTimeRange] = useState<DecisionTimeRangeDays>(30);
-  const [showYourActionColumn, setShowYourActionColumn] = useState(false);
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(
+    DECISIONS_INITIAL_VISIBILITY
+  );
+  const showYourActionColumn = columnVisibility.yourAction !== false;
+
+  const handleColumnVisibilityChange: OnChangeFn<VisibilityState> = useCallback(
+    (updater) => {
+      setColumnVisibility((prev) =>
+        typeof updater === 'function' ? updater(prev) : updater
+      );
+    },
+    []
+  );
 
   const reviewFilter = parseDecisionsReviewFilter(
     searchParams.get(DECISIONS_REVIEWED_PARAM)
@@ -170,19 +175,21 @@ export function DecisionsStream({ orgId }: DecisionsStreamProps) {
     staleTime: 30_000,
   });
 
-  const columns = useMemo<ColumnDef<Decision>[]>(() => {
-    const base: ColumnDef<Decision>[] = [
+  const columns = useMemo<ColumnDef<Decision>[]>(
+    () => [
       {
         accessorKey: 'decided_at',
         header: ({ column }) => (
           <DataTableColumnHeader column={column} title="Time" />
         ),
         cell: ({ row }) => formatDecisionTime(row.original.decided_at),
+        enableHiding: false,
       },
       {
         accessorKey: 'decision_type',
         header: 'Type',
         cell: ({ row }) => <DecisionBadge type={row.original.decision_type} />,
+        enableHiding: false,
       },
       {
         id: 'rule',
@@ -192,6 +199,7 @@ export function DecisionsStream({ orgId }: DecisionsStreamProps) {
             {truncateRule(row.original.trace.matched_rule_id)}
           </span>
         ),
+        enableHiding: false,
       },
       {
         accessorKey: 'learner_reference',
@@ -201,18 +209,13 @@ export function DecisionsStream({ orgId }: DecisionsStreamProps) {
         cell: ({ row }) => (
           <span className="font-medium">{row.original.learner_reference}</span>
         ),
+        enableHiding: false,
       },
-    ];
-
-    if (!showYourActionColumn) {
-      return base;
-    }
-
-    return [
-      ...base,
       {
         id: 'yourAction',
         header: 'Your action',
+        meta: { label: 'Your action' },
+        enableHiding: true,
         cell: ({ row }) => {
           const action = resolveYourAction(
             row.original.decision_id,
@@ -221,9 +224,9 @@ export function DecisionsStream({ orgId }: DecisionsStreamProps) {
           return action ? <ReviewActionChip action={action} /> : '—';
         },
       },
-    ];
-  }, [showYourActionColumn, latestActionByDecisionId]);
-
+    ],
+    [latestActionByDecisionId]
+  );
   const selectedYourAction = selected
     ? resolveYourAction(
         selected.decision_id,
@@ -245,95 +248,75 @@ export function DecisionsStream({ orgId }: DecisionsStreamProps) {
     return <ErrorState error={error} onRetry={() => void refetch()} />;
   }
 
+  const facetToolbar = (
+    <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="org-context" className="text-xs">
+          Organization
+        </Label>
+        <p
+          id="org-context"
+          className="bg-muted text-muted-foreground rounded-md px-3 py-2 font-mono text-xs"
+        >
+          {orgId}
+        </p>
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="time-range-filter" className="text-xs">
+          Time range
+        </Label>
+        <Select
+          value={String(timeRange)}
+          onValueChange={(value) =>
+            setTimeRange(Number(value) as DecisionTimeRangeDays)
+          }
+        >
+          <SelectTrigger id="time-range-filter" className="w-44">
+            <SelectValue>{timeRangeLabel(timeRange)}</SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {TIME_RANGE_OPTIONS.map((option) => (
+              <SelectItem key={option.value} value={String(option.value)}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="review-status-filter" className="text-xs">
+          Review status
+        </Label>
+        <Select
+          value={reviewFilter}
+          onValueChange={(value) =>
+            replaceReviewFilter(value as DecisionsReviewFilter)
+          }
+        >
+          <SelectTrigger
+            id="review-status-filter"
+            className="w-52"
+            aria-label="Review status filter"
+          >
+            <SelectValue>{reviewFilterLabel(reviewFilter)}</SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {DECISIONS_REVIEW_FILTER_OPTIONS.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+    </div>
+  );
+
   return (
     <>
       <section aria-label="Decision stream" className="flex flex-col gap-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="org-context" className="text-xs">
-              Organization
-            </Label>
-            <p
-              id="org-context"
-              className="bg-muted text-muted-foreground rounded-md px-3 py-2 font-mono text-xs"
-            >
-              {orgId}
-            </p>
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="time-range-filter" className="text-xs">
-              Time range
-            </Label>
-            <Select
-              value={String(timeRange)}
-              onValueChange={(value) =>
-                setTimeRange(Number(value) as DecisionTimeRangeDays)
-              }
-            >
-              <SelectTrigger id="time-range-filter" className="w-44">
-                <SelectValue>{timeRangeLabel(timeRange)}</SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {TIME_RANGE_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={String(option.value)}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="review-status-filter" className="text-xs">
-              Review status
-            </Label>
-            <Select
-              value={reviewFilter}
-              onValueChange={(value) =>
-                replaceReviewFilter(value as DecisionsReviewFilter)
-              }
-            >
-              <SelectTrigger
-                id="review-status-filter"
-                className="w-52"
-                aria-label="Review status filter"
-              >
-                <SelectValue>{reviewFilterLabel(reviewFilter)}</SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {DECISIONS_REVIEW_FILTER_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={<Button variant="outline" size="sm" className="gap-1.5" />}
-            >
-              <Columns3 className="size-4" aria-hidden="true" />
-              Columns
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuGroup>
-                <DropdownMenuLabel>Visible columns</DropdownMenuLabel>
-                <DropdownMenuCheckboxItem
-                  checked={showYourActionColumn}
-                  onCheckedChange={(checked) =>
-                    setShowYourActionColumn(checked === true)
-                  }
-                >
-                  Your action
-                </DropdownMenuCheckboxItem>
-              </DropdownMenuGroup>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-
         <DataTable
           columns={columns}
           data={rows}
@@ -343,6 +326,11 @@ export function DecisionsStream({ orgId }: DecisionsStreamProps) {
           showPagination={rows.length > 15}
           getRowId={(row) => row.decision_id}
           onRowClick={setSelected}
+          initialSorting={[...DECISIONS_INITIAL_SORTING]}
+          toolbar={facetToolbar}
+          columnVisibility={columnVisibility}
+          onColumnVisibilityChange={handleColumnVisibilityChange}
+          showColumnVisibility
           emptyMessage="No decisions match the current filters."
         />
       </section>
@@ -393,13 +381,13 @@ export function DecisionsStream({ orgId }: DecisionsStreamProps) {
                           : null,
                     }) ||
                     selected.trace.educator_summary ||
-                    'No educator summary was provided.',
+                    'No status was provided.',
                 },
                 {
-                  label: 'Educator summary',
+                  label: 'Status',
                   value:
                     selected.trace.educator_summary ||
-                    'No educator summary was provided.',
+                    'No status was provided.',
                 },
                 {
                   label: 'Rule',

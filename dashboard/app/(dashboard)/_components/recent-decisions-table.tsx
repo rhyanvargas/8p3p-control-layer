@@ -153,6 +153,7 @@ export function RecentDecisionsTable({
           showPagination={tableData.length > 10}
           getRowId={(row) => row.decision_id}
           onRowClick={setSelected}
+          initialSorting={[{ id: 'decided_at', desc: true }]}
           emptyMessage="No decisions recorded yet."
         />
       </section>

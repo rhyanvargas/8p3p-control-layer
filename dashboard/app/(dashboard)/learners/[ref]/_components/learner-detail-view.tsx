@@ -65,7 +65,12 @@ export function LearnerDetailView({
         </TabsList>
 
         <TabsContent value="overview" className="pt-4">
-          <LearnerOverviewTab orgId={orgId} learnerRef={learnerRef} />
+          <LearnerOverviewTab
+            orgId={orgId}
+            learnerRef={learnerRef}
+            activePendingDecisionId={effectivePendingDecisionId ?? undefined}
+            fromAttention={fromAttention}
+          />
         </TabsContent>
 
         {!isEducator ? (

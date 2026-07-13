@@ -83,6 +83,7 @@ This table is the **only** place to read program-level status. To decide what to
 
 | Feature / Plan | Spec | Status |
 |----------------|------|--------|
+| `decision-review-table-consistency.plan.md` (RTC) | [`decision-review-table-consistency.md`](../specs/decision-review-table-consistency.md) | **Shipped** 15/15 — Phase A review identity (`educatorBodyCopy`, Reviewing chip, queue position/Next), Phase B shared DataTable APIs + row actions, Phase C toolbar facets + Signals ingestion + optional Review link |
 | `seed_continuing_scenarios_25e21acf.plan.md` | — (demo seed; [`springs-pilot-demo.md`](../guides/playbooks/springs-pilot-demo.md)) | **Shipped** 4/4 — per-persona builders + `--mode baseline\|append` (near-now micro-batch), Casey sparse-evidence, playbook + unit coverage |
 | `overview-educator-activity-layout.plan.md` (D4) | `overview-educator-activity-layout.md` | **Shipped** 11/11 — period bar (default 7d), grouped KPIs, `ActivityPanel` stacked cumulative chart + CSV export, legend-as-filter, OVACT-001–013 |
 | `learner-pending-review-bar.plan.md` (LPR) | `learner-pending-review-bar.md` | **Shipped** 11/11 — data-driven `AttentionReviewBar` on roster entry, `selectPendingDecisionForLearner` + URL override, conditional drill-down, LPR-001–011 |
