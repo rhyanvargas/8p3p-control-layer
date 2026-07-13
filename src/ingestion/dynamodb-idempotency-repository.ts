@@ -28,18 +28,22 @@ export class DynamoDbIdempotencyRepository {
     this.client = client ?? new DynamoDBClient({});
   }
 
-  async checkAndStore(orgId: string, signalId: string): Promise<IdempotencyResult> {
-    const now = new Date().toISOString();
+  async checkAndStore(
+    orgId: string,
+    signalId: string,
+    receivedAt?: string
+  ): Promise<IdempotencyResult> {
+    const storedAt = receivedAt ?? new Date().toISOString();
 
     try {
       await this.client.send(
         new PutItemCommand({
           TableName: this.tableName,
-          Item: marshall({ org_id: orgId, signal_id: signalId, received_at: now }),
+          Item: marshall({ org_id: orgId, signal_id: signalId, received_at: storedAt }),
           ConditionExpression: 'attribute_not_exists(org_id)',
         })
       );
-      return { isDuplicate: false, receivedAt: now };
+      return { isDuplicate: false, receivedAt: storedAt };
     } catch (err) {
       if (!(err instanceof ConditionalCheckFailedException)) throw err;
     }

@@ -159,9 +159,15 @@ export async function handleSignalIngestionAsync(
 
   signal = { ...signal, payload: tenantPayload.payload };
 
-  const idempotencyResult = await idempotency.checkAndStore(signal.org_id, signal.signal_id);
+  // Resolve event time before idempotency so duplicates echo the original received_at.
+  const acceptedAt = resolveIngestionEventTime(signal.timestamp, receivedAt);
+  const idempotencyResult = await idempotency.checkAndStore(
+    signal.org_id,
+    signal.signal_id,
+    acceptedAt
+  );
   if (idempotencyResult.isDuplicate) {
-    const dupReceivedAt = idempotencyResult.receivedAt ?? receivedAt;
+    const dupReceivedAt = idempotencyResult.receivedAt ?? acceptedAt;
     await logIngestionOutcome(ingestionLog, buildOutcomeEntry(signal, 'duplicate', dupReceivedAt), log);
     return {
       statusCode: 200,
@@ -173,10 +179,6 @@ export async function handleSignalIngestionAsync(
       },
     };
   }
-
-  const acceptedAt = idempotencyResult.isDuplicate
-    ? (idempotencyResult.receivedAt ?? receivedAt)
-    : resolveIngestionEventTime(signal.timestamp, receivedAt);
 
   await signalLog.appendSignal(signal, acceptedAt);
 

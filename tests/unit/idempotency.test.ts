@@ -59,6 +59,17 @@ describe('Idempotency Store', () => {
       expect(second.receivedAt).toBe(first.receivedAt);
     });
 
+    it('should store and echo an explicit receivedAt across duplicates', () => {
+      const eventTime = '2026-01-30T10:00:00Z';
+      const first = checkAndStore('org-1', 'signal-event-time', eventTime);
+      const second = checkAndStore('org-1', 'signal-event-time', '2026-07-13T00:00:00Z');
+
+      expect(first.isDuplicate).toBe(false);
+      expect(first.receivedAt).toBe(eventTime);
+      expect(second.isDuplicate).toBe(true);
+      expect(second.receivedAt).toBe(eventTime);
+    });
+
     it('should remain duplicate on third submission', () => {
       checkAndStore('org-1', 'signal-triple');
       checkAndStore('org-1', 'signal-triple');

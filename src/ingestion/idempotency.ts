@@ -25,17 +25,17 @@ export class SqliteIdempotencyRepository implements IdempotencyRepository {
     this.db.pragma('journal_mode = WAL');
   }
 
-  checkAndStore(orgId: string, signalId: string): IdempotencyResult {
-    const now = new Date().toISOString();
+  checkAndStore(orgId: string, signalId: string, receivedAt?: string): IdempotencyResult {
+    const storedAt = receivedAt ?? new Date().toISOString();
 
     const insertStmt = this.db.prepare(`
       INSERT OR IGNORE INTO signal_ids (org_id, signal_id, received_at)
       VALUES (?, ?, ?)
     `);
-    const result = insertStmt.run(orgId, signalId, now);
+    const result = insertStmt.run(orgId, signalId, storedAt);
 
     if (result.changes === 1) {
-      return { isDuplicate: false, receivedAt: now };
+      return { isDuplicate: false, receivedAt: storedAt };
     }
 
     const selectStmt = this.db.prepare(`
@@ -104,11 +104,15 @@ export function closeIdempotencyStore(): void {
  * Check if a signal has been processed and store if new.
  * Uses INSERT OR IGNORE for atomic check-and-store.
  */
-export function checkAndStore(orgId: string, signalId: string): IdempotencyResult {
+export function checkAndStore(
+  orgId: string,
+  signalId: string,
+  receivedAt?: string
+): IdempotencyResult {
   if (!repository) {
     throw new Error('Idempotency store not initialized. Call initIdempotencyStore first.');
   }
-  return repository.checkAndStore(orgId, signalId);
+  return repository.checkAndStore(orgId, signalId, receivedAt);
 }
 
 /**
