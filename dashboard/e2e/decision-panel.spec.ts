@@ -545,13 +545,14 @@ test.describe('Learner pending review bar (LPR-009 through LPR-011)', () => {
 test.describe('Overview decision drill-down (UX gate)', () => {
   test('recent decision row opens L1 sheet without raw JSON', async ({ page }) => {
     await page.goto('/');
-    await expect(page.getByRole('heading', { name: 'Recent decisions' })).toBeVisible({
+    // Overview embeds the table under Activity with showSectionHeader=false;
+    // the section landmark remains the stable selector.
+    await expect(page.getByRole('region', { name: 'Recent decisions' })).toBeVisible({
       timeout: 15_000,
     });
 
-    const decisionRow = page.getByRole('button', { name: new RegExp(E2E_LEARNER_REF) }).first();
-    await expect(decisionRow).toBeVisible({ timeout: 15_000 });
-    await decisionRow.click();
+    await waitForDataTableRow(page, new RegExp(E2E_LEARNER_REF));
+    await clickDataTableRow(page, new RegExp(E2E_LEARNER_REF));
     await expectDetailSheetVisible(page);
     await assertNoExpandedRawJson(page);
     await page.keyboard.press('Escape');
