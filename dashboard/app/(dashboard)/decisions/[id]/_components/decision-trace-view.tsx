@@ -136,7 +136,7 @@ export function DecisionTraceView({ decision }: DecisionTraceViewProps) {
             </dd>
           </div>
           <div className="flex flex-col gap-0.5">
-            <dt className="text-muted-foreground text-xs">Educator summary</dt>
+            <dt className="text-muted-foreground text-xs">Status</dt>
             <dd className="text-sm">
               {trace.educator_summary || '—'}
             </dd>

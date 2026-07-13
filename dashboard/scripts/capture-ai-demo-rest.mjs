@@ -73,7 +73,7 @@ async function main() {
       .first();
     await recentRow.waitFor({ timeout: 15_000 });
     await recentRow.click();
-    await page.getByText(/AI explanation|Educator summary/i).first().waitFor({ timeout: 10_000 });
+    await page.getByText(/AI explanation|Status/i).first().waitFor({ timeout: 10_000 });
     await shot(page, '15e-ai-overview-decision-peek.png');
     await page.keyboard.press('Escape');
     await page.waitForTimeout(300);
