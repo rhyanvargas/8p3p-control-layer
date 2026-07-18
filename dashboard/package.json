@@ -11,7 +11,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "record:pilot-demo": "PLAYWRIGHT_BROWSERS_PATH=0 node scripts/record-pilot-demo-video.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.0",

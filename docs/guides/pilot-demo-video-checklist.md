@@ -138,6 +138,7 @@ Full hosted dry-run: `npm run pilot:dry-run` — [AWS Pilot Runbook § 4.2](oper
 ## Related
 
 - [Springs Pilot Demo](playbooks/springs-pilot-demo.md) — full narrative script (local or hosted)
+- Local rehearsal screencast (not TASK-020): `cd dashboard && npm run record:pilot-demo` → [`scripts/record-pilot-demo-video.mjs`](../../dashboard/scripts/record-pilot-demo-video.mjs) (requires API + Springs seed + dual persona codes; writes MP4 under `/opt/cursor/artifacts/pilot-demo-videos` by default)
 - [Organic Educator Wave — Zoom runbook](playbooks/organic-educator-wave-zoom.md) — live session host checklist
 - [Pilot Launch Checklist](operators/pilot-launch-checklist.md) — engineering gates before widening access
 - [Customer feedback loop](../specs/customer-feedback-loop.md) — Send feedback spec

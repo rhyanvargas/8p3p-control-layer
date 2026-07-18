@@ -4,10 +4,12 @@ import { dirname, join, resolve } from 'path';
 import { fileURLToPath } from 'url';
 
 // Load .env then .env.local (local overrides). Ensures API_KEY etc. are set when running dev.
+// override: true is required — dotenv does not replace keys already set (including empty
+// COOKIE_SECRET= from .env.example), which otherwise breaks product-feedback session verify.
 dotenv.config();
 const localPath = join(process.cwd(), '.env.local');
 if (existsSync(localPath)) {
-  dotenv.config({ path: localPath });
+  dotenv.config({ path: localPath, override: true });
 }
 
 import Fastify from 'fastify';
